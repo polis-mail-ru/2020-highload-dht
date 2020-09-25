@@ -11,7 +11,6 @@ import ru.mail.polis.service.art241111.handlers.StatusHandler;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
-import java.net.SocketTimeoutException;
 
 /**
  * Implementation of the Service interface.
@@ -54,7 +53,7 @@ public class MyService implements Service {
         }
     }
 
-    private void setHandlers(){
+    private void setHandlers() {
         new StatusHandler(this.server);
         new EntityHandlers(dao, this.server);
         new BadRequestHandler(this.server);

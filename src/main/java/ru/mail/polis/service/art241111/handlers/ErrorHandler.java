@@ -11,7 +11,6 @@ import java.util.NoSuchElementException;
 import static ru.mail.polis.service.art241111.codes.CommandsCode.ERR_STATUS;
 import static ru.mail.polis.service.art241111.codes.CommandsCode.METHOD_NOT_ALLOWED;
 
-
 public class ErrorHandler implements HttpHandler {
     @NotNull
     private final HttpHandler delegate;
