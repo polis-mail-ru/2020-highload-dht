@@ -79,6 +79,7 @@ public class SSTable implements Table {
         fileChannel.read(keySize, offset);
         return keySize;
     }
+
     private Cell getCell(final int num) {
         try {
             int offset = getOffset(num);

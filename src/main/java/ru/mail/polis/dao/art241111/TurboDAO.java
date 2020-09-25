@@ -17,7 +17,7 @@ import java.util.*;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Implementing a fast database
+ * Implementing a fast database.
  */
 public class TurboDAO implements DAO {
     private static final String SUFFIX = "sst.dat";
@@ -28,6 +28,9 @@ public class TurboDAO implements DAO {
     private MemTable memTable;
     private int generation;
 
+    /**
+     * Create the database.
+     */
     public TurboDAO(@NotNull final File dir, final long flushThreshold) {
         this.memTable = new MemTable();
         this.flushThreshold = flushThreshold;

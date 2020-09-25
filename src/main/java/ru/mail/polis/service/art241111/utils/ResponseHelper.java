@@ -14,7 +14,9 @@ public class ResponseHelper {
      * @param http - Access to sending commands from the server.
      * @throws  IOException  if an I/O error occurs.
      */
-    public void setResponse(final ByteBuffer byteBufferValue, final String id, final HttpExchange http) throws IOException {
+    public void setResponse(final ByteBuffer byteBufferValue,
+                            final String id,
+                            final HttpExchange http) throws IOException {
         final int status = id.equals("") ? CommandsCode.ERR_STATUS.getCode() : CommandsCode.GOOD_STATUS.getCode();
 
         final byte[] value = new byte[byteBufferValue.remaining()];

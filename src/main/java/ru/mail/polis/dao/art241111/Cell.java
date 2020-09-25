@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public class Cell implements Comparable <Cell> {
+public class Cell implements Comparable<Cell> {
     private final ByteBuffer key;
     private final Value value;
 
