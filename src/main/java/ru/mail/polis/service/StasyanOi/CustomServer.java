@@ -20,7 +20,7 @@ public class CustomServer extends HttpServer {
     @Path("/test")
     public Response test(){
         System.out.println("test");
-        return Response.ok("lol");
+        return Response.ok("test");
     }
 
     @Override

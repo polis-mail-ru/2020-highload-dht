@@ -47,6 +47,6 @@ storageInstance.close();
 
     @Override
     public void close() throws IOException {
-
+        storageInstance.close();
     }
 }
