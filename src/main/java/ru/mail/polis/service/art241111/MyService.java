@@ -39,17 +39,21 @@ public class MyService implements Service {
         try {
             this.server = HttpServer.create(new InetSocketAddress(port),0);
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new IllegalArgumentException("Problem with creating server");
         }
         this.server.start();
 
-        new StatusHandler(this.server);
-        new EntityHandlers(dao, this.server);
-        new BadRequestHandler(this.server);
+        setHandlers();
     }
 
     @Override
     public void stop() {
-        this.server.stop(0);
+        this.server.stop(10);
+    }
+
+    private void setHandlers(){
+        new StatusHandler(this.server);
+        new EntityHandlers(dao, this.server);
+        new BadRequestHandler(this.server);
     }
 }

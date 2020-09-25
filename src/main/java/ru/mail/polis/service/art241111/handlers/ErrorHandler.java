@@ -6,10 +6,10 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.service.art241111.utils.ResponseHelper;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.NoSuchElementException;
 
-import static ru.mail.polis.service.art241111.codes.CommandsCode.ERR_STATUS;
-import static ru.mail.polis.service.art241111.codes.CommandsCode.METHOD_NOT_ALLOWED;
+import static ru.mail.polis.service.art241111.codes.CommandsCode.*;
 
 public class ErrorHandler implements HttpHandler {
     @NotNull
@@ -28,6 +28,8 @@ public class ErrorHandler implements HttpHandler {
         } catch (NoSuchElementException e) {
             responseHelper.setResponse(ERR_STATUS.getCode(), exchange);
             exchange.close();
+        } catch (SocketTimeoutException e){
+            responseHelper.setResponse(OFFLINE_STATUS.getCode(), exchange);
         } catch (IllegalArgumentException | IOException e) {
             responseHelper.setResponse(METHOD_NOT_ALLOWED.getCode(), exchange);
             exchange.close();

@@ -17,10 +17,12 @@ public class StatusHandler {
     private void setHandler(final HttpServer server) {
         server.createContext(
                 DirectCode.STATUS.getCode(),
-                http -> {
-                    final String response = "ONLINE";
-                    responseHelper.setResponse(GOOD_STATUS.getCode(), response.getBytes(UTF_8), http);
-                    http.close();
-                });
+                new ErrorHandler(
+                    http -> {
+                        final String response = "ONLINE";
+                        responseHelper.setResponse(GOOD_STATUS.getCode(), response.getBytes(UTF_8), http);
+                        http.close();
+                    })
+        );
     }
 }
