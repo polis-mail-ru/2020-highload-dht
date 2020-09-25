@@ -11,6 +11,7 @@ import ru.mail.polis.service.art241111.handlers.StatusHandler;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 
 /**
  * Implementation of the Service interface.
@@ -48,8 +49,8 @@ public class MyService implements Service {
 
     @Override
     public void stop() {
-        if (server != null){
-            this.server.stop(10);
+        if (server != null) {
+            this.server.stop(0);
         }
     }
 
