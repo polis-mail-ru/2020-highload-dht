@@ -13,7 +13,7 @@ public class EntityHandlers {
     private final ByteBuffer key;
     private final DAO dao;
 
-    public EntityHandlers(ByteBuffer key, DAO dao) {
+    public EntityHandlers(final ByteBuffer key, final DAO dao) {
         this.key = key;
         this.dao = dao;
     }
