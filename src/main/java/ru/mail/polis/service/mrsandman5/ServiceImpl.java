@@ -26,16 +26,6 @@ public class ServiceImpl extends HttpServer implements Service {
         this.dao = dao;
     }
 
-    @Override
-    public void start() {
-
-    }
-
-    @Override
-    public void stop() {
-
-    }
-
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response get(@Param(value = "id", required = true) final String id){
@@ -58,7 +48,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
-        if (buffer.hasRemaining()){
+        if (!buffer.hasRemaining()){
             return Response.EMPTY;
         }
 
