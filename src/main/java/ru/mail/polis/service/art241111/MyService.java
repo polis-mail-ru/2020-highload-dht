@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.art241111.codes.CommandsCode;
+import ru.mail.polis.service.art241111.handlers.BadRequestHandler;
 import ru.mail.polis.service.art241111.handlers.EntityHandlers;
 import ru.mail.polis.service.art241111.handlers.StatusHandler;
 
@@ -21,6 +22,7 @@ public class MyService implements Service {
 
         new StatusHandler(this.server);
         new EntityHandlers(dao, this.server);
+        new BadRequestHandler(this.server);
     }
 
     @Override
