@@ -11,13 +11,13 @@ public class ExtractId {
         if (query == null) {
             throw new IllegalArgumentException("Id is empty");
         } else {
-            final String PREFIX = "id=";
+            final String prefix = "id=";
 
-            if (!query.startsWith(PREFIX)) {
+            if (!query.startsWith(prefix)) {
                 throw new IllegalArgumentException("Id not set");
             }
 
-            final String id = query.substring(PREFIX.length());
+            final String id = query.substring(prefix.length());
 
             if (id.isEmpty()) {
                 throw new IllegalArgumentException("Id is empty");
