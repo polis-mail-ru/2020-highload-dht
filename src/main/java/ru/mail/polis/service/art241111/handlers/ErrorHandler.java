@@ -31,6 +31,8 @@ public class ErrorHandler implements HttpHandler {
         } catch (IllegalArgumentException e){
             responseHelper.setResponse(EMPTY_ID.getCode(), exchange);
             exchange.close();
+        } catch (Exception e){
+            responseHelper.setResponse(EMPTY_ID.getCode(), exchange);
         }
     }
 }

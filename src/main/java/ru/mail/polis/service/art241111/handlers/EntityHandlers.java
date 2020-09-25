@@ -9,7 +9,6 @@ import ru.mail.polis.service.art241111.utils.ResponseHelper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.logging.Logger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.art241111.codes.CommandsCode.*;
@@ -57,10 +56,11 @@ public class EntityHandlers {
 
     public void setGetHandler() throws IOException {
         final ByteBuffer getValue = dao.get(ByteBuffer.wrap(id.getBytes(UTF_8)));
-        responseHelper.setResponse(getValue.array(), id, http);
+        responseHelper.setResponse(getValue, id, http);
     }
 
     public void setPutHandler() throws IOException {
+        final String val = http.getRequestHeaders().getFirst("Content-length");
         final int contentLength =
                 http.getRequestHeaders().getFirst("Content-length").length();
 
@@ -69,7 +69,7 @@ public class EntityHandlers {
             throw new IOException("Can not read at once");
         }
 
-        dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)), ByteBuffer.wrap(putValue));
+        dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)), ByteBuffer.wrap(val.getBytes(UTF_8)));
         responseHelper.setResponse(DATA_IS_UPSET.getCode(), http);
     }
 
@@ -79,6 +79,6 @@ public class EntityHandlers {
     }
 
     public void setDefaultHandler() throws IOException {
-        responseHelper.setResponse(METHOD_NOT_ALLOWED.getCode(), http);
+        responseHelper.setResponse(EMPTY_ID.getCode(), http);
     }
 }
