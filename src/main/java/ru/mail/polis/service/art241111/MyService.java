@@ -18,22 +18,18 @@ import java.net.InetSocketAddress;
  * @author Artem Gerasimov
  */
 public class MyService implements Service {
-    @NotNull
     private HttpServer server;
     @NotNull
     private final DAO dao;
-    @NotNull
     private final int port;
 
     /**
      * Create server and set handlers.
      * @param port - Port for creating the server.
      * @param dao - Database for saving data.
-     * @throws IOException - An error may occur when
-     *     creating the server.
      */
     public MyService(final int port,
-                     @NotNull final DAO dao) throws IOException {
+                     @NotNull final DAO dao) {
         this.port = port;
         this.dao = dao;
     }
