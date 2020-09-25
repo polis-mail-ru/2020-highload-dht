@@ -7,23 +7,19 @@ import java.io.IOException;
 
 public class ServiceImpl implements Service {
 
-    private final DAO dao;
+    private final CustomServer customServer;
 
-    public ServiceImpl(DAO dao) {
-        this.dao = dao;
+    public ServiceImpl(CustomServer customServer) {
+        this.customServer = customServer;
     }
 
     @Override
     public void start() {
-        while (true);
+        customServer.start();
     }
 
     @Override
     public void stop() {
-        try {
-            dao.get(null);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        customServer.stop();
     }
 }

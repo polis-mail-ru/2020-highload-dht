@@ -16,8 +16,15 @@
 
 package ru.mail.polis.service;
 
+import one.nio.config.ConfigParser;
+import one.nio.http.HttpServerConfig;
+import one.nio.net.ConnectionString;
+import one.nio.server.AcceptorConfig;
+import one.nio.server.ServerConfig;
+import org.checkerframework.checker.units.qual.A;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.StasyanOi.CustomServer;
 import ru.mail.polis.service.StasyanOi.ServiceImpl;
 
 import java.io.IOException;
@@ -53,6 +60,12 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImpl(dao);
+        AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = 8080;
+
+        HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+
+        return new ServiceImpl(new CustomServer(dao, httpServerConfig));
     }
 }
