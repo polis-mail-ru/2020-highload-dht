@@ -17,7 +17,7 @@ public class ResponseHelper {
     public void setResponse(final ByteBuffer byteBufferValue,
                             final String id,
                             final HttpExchange http) throws IOException {
-        final int status = id.equals("") ? CommandsCode.ERR_STATUS.getCode() : CommandsCode.GOOD_STATUS.getCode();
+        final int status = "".equals(id) ? CommandsCode.ERR_STATUS.getCode() : CommandsCode.GOOD_STATUS.getCode();
 
         final byte[] value = new byte[byteBufferValue.remaining()];
         byteBufferValue.get(value);

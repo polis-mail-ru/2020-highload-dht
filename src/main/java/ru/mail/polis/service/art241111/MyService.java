@@ -22,11 +22,11 @@ public class MyService implements Service {
     private final HttpServer server;
 
     /**
-     * Create server and set handlers
-     * @param port - Port for creating the server
-     * @param dao - Database for saving data
+     * Create server and set handlers.
+     * @param port - Port for creating the server.
+     * @param dao - Database for saving data.
      * @throws IOException - An error may occur when
-     * creating the server
+     *     creating the server.
      */
     public MyService(final int port,
                      @NotNull final DAO dao) throws IOException {
