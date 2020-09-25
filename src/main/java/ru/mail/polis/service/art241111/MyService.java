@@ -4,7 +4,6 @@ import com.sun.net.httpserver.HttpServer;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
-import ru.mail.polis.service.art241111.codes.CommandsCode;
 import ru.mail.polis.service.art241111.handlers.BadRequestHandler;
 import ru.mail.polis.service.art241111.handlers.EntityHandlers;
 import ru.mail.polis.service.art241111.handlers.StatusHandler;
@@ -12,11 +11,17 @@ import ru.mail.polis.service.art241111.handlers.StatusHandler;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
+/**
+ * Implementation of the Service interface.
+ * Implemented checking for an incorrect path, sending status,
+ * saving, deleting, and retrieving data from the database.
+ * @author Artem Gerasimov
+ */
 public class MyService implements Service {
     @NotNull
     private final HttpServer server;
 
-    public MyService(int port,
+    public MyService(final int port,
                      @NotNull final DAO dao) throws IOException {
         this.server = HttpServer.create(new InetSocketAddress(port),0);
 

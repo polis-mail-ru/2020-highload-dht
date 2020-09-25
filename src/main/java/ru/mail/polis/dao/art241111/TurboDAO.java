@@ -16,6 +16,9 @@ import java.util.*;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Implementing a fast database
+ */
 public class TurboDAO implements DAO {
     private static final String SUFFIX = "sst.dat";
     private static final String TEMP = "sst.tmp";

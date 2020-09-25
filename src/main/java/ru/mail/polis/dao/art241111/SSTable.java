@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-
 public class SSTable implements Table {
     private final int count;
     private final int size;
@@ -75,7 +74,7 @@ public class SSTable implements Table {
         }
     }
 
-    private ByteBuffer readOffset(int key, int offset) throws IOException {
+    private ByteBuffer readOffset(final int key,final int offset) throws IOException {
         final ByteBuffer keySize = ByteBuffer.allocate(key);
         fileChannel.read(keySize, offset);
         return keySize;
@@ -87,7 +86,7 @@ public class SSTable implements Table {
 
             offset += Integer.BYTES;
             final int keySize = keySizeBB.rewind().getInt();
-            final ByteBuffer key = readOffset(keySizeBB.rewind().getInt(),offset);;
+            final ByteBuffer key = readOffset(keySizeBB.rewind().getInt(),offset);
 
             offset += keySize;
             final ByteBuffer versionBB = readOffset(Long.BYTES, offset);

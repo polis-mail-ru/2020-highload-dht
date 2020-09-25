@@ -10,11 +10,11 @@ import static ru.mail.polis.service.art241111.codes.CommandsCode.GOOD_STATUS;
 public class StatusHandler {
     private final ResponseHelper responseHelper = new ResponseHelper();
 
-    public StatusHandler(HttpServer server) {
+    public StatusHandler(final HttpServer server) {
         setHandler(server);
     }
 
-    private void setHandler(HttpServer server){
+    private void setHandler(final HttpServer server) {
         server.createContext(
                 DirectCode.STATUS.getCode(),
                 http -> {
