@@ -9,6 +9,7 @@ import ru.mail.polis.service.art241111.handlers.EntityHandlers;
 import ru.mail.polis.service.art241111.handlers.StatusHandler;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 
 /**
@@ -38,17 +39,18 @@ public class MyService implements Service {
     public void start() {
         try {
             this.server = HttpServer.create(new InetSocketAddress(port),0);
+            this.server.start();
+            setHandlers();
         } catch (IOException e) {
-            throw new IllegalArgumentException("Problem with creating server");
+            throw new UncheckedIOException(e);
         }
-        this.server.start();
-
-        setHandlers();
     }
 
     @Override
     public void stop() {
-        this.server.stop(10);
+        if (server != null){
+            this.server.stop(10);
+        }
     }
 
     private void setHandlers(){
