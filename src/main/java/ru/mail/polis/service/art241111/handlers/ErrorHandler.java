@@ -8,8 +8,7 @@ import ru.mail.polis.service.art241111.utils.ResponseHelper;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
-import static ru.mail.polis.service.art241111.codes.CommandsCode.EMPTY_ID;
-import static ru.mail.polis.service.art241111.codes.CommandsCode.ERR_STATUS;
+import static ru.mail.polis.service.art241111.codes.CommandsCode.*;
 
 public class ErrorHandler implements HttpHandler {
     @NotNull
@@ -31,8 +30,9 @@ public class ErrorHandler implements HttpHandler {
         } catch (IllegalArgumentException e){
             responseHelper.setResponse(EMPTY_ID.getCode(), exchange);
             exchange.close();
-        } catch (Exception e){
-            responseHelper.setResponse(EMPTY_ID.getCode(), exchange);
+        } catch (IOException e){
+            responseHelper.setResponse(DATA_IS_UPSET.getCode(), exchange);
+            exchange.close();
         }
     }
 }
