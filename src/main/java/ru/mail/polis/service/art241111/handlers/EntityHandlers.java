@@ -61,8 +61,9 @@ public class EntityHandlers {
 
     public void setPutHandler() throws IOException {
         final String val = http.getRequestHeaders().getFirst("Content-length");
-        final int contentLength =
-                http.getRequestHeaders().getFirst("Content-length").length();
+        final int contentLength = Integer.parseInt(
+                http.getRequestHeaders().getFirst("Content-length")
+        );
 
         final byte[] putValue = new byte[contentLength];
         if(http.getRequestBody().read(putValue) != putValue.length){
