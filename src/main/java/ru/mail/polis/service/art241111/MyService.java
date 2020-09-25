@@ -19,9 +19,11 @@ import java.net.InetSocketAddress;
  */
 public class MyService implements Service {
     @NotNull
-    private final HttpServer server;
+    private HttpServer server;
     @NotNull
     private final DAO dao;
+    @NotNull
+    private final int port;
 
     /**
      * Create server and set handlers.
@@ -32,12 +34,17 @@ public class MyService implements Service {
      */
     public MyService(final int port,
                      @NotNull final DAO dao) throws IOException {
-        this.server = HttpServer.create(new InetSocketAddress(port),0);
+        this.port = port;
         this.dao = dao;
     }
 
     @Override
     public void start() {
+        try {
+            this.server = HttpServer.create(new InetSocketAddress(port),0);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         this.server.start();
 
         new StatusHandler(this.server);
