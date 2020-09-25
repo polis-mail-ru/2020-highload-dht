@@ -16,11 +16,9 @@ public class ResponseHelper {
     public void setResponse(int status, byte[] value, HttpExchange http) throws IOException {
         http.sendResponseHeaders(status, value.length);
         http.getResponseBody().write(value);
-        http.close();
     }
 
     public void setResponse(int status, HttpExchange http) throws IOException {
         http.sendResponseHeaders(status,0);
-        http.close();
     }
 }
