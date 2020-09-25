@@ -2,37 +2,28 @@ package ru.mail.polis.service.art241111;
 
 import com.google.common.base.Charsets;
 
-import one.nio.http.HttpServer;
-import one.nio.http.HttpSession;
-import one.nio.http.Request;
-import one.nio.http.Response;
 import one.nio.http.Param;
 import one.nio.http.Path;
+import one.nio.http.Response;
+import one.nio.http.Request;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpSession;
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.art241111.handlers.EntityHandlers;
+import ru.mail.polis.service.art241111.handlers.StatusHandlers;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.NoSuchElementException;
 
 /**
  * Simple {@link Service} implementation.
  */
 public class MyHttpServer extends HttpServer implements Service {
     private final DAO dao;
-
-    @Override
-    public synchronized void start() {
-        super.start();
-    }
-
-    @Override
-    public synchronized void stop() {
-        super.stop();
-    }
 
     public MyHttpServer(final int port,
                         @NotNull final DAO dao) throws IOException {
@@ -48,7 +39,7 @@ public class MyHttpServer extends HttpServer implements Service {
     }
 
     /**
-     * We begin to observe the data that comes along the way {@link "/v0/entity"}.
+     * We begin to observe the data that comes along the way "/v0/entity".
      */
     @Path("/v0/entity")
     public Response entity(
@@ -63,46 +54,26 @@ public class MyHttpServer extends HttpServer implements Service {
         }
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+        final EntityHandlers handlers = new EntityHandlers(key, dao);
+
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                try {
-                    ByteBuffer value = dao.get(key);
-                    final ByteBuffer duplicate = value.duplicate();
-                    final byte[] body = new byte[duplicate.remaining()];
-                    duplicate.get(body);
-
-                    return new Response(Response.OK, body);
-                } catch (NoSuchElementException e) {
-                    return new Response(Response.NOT_FOUND, "Key not founded".getBytes(Charsets.UTF_8));
-                } catch (IOException e) {
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                }
+                return handlers.setGetHandler();
             case Request.METHOD_PUT:
-                try {
-                    dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-                    return new Response(Response.CREATED, Response.EMPTY);
-                } catch (IOException e) {
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                }
+                return handlers.setPutHandler(request);
             case Request.METHOD_DELETE:
-                try {
-                    dao.remove(key);
-                    return new Response(Response.ACCEPTED, Response.EMPTY);
-                } catch (IOException e) {
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                }
+                return handlers.setDeleteHandler();
             default:
                 return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
         }
     }
 
     /**
-     * We begin to observe the data that comes along the way {@link "/v0/status"}.
+     * We begin to observe the data that comes along the way "/v0/status".
      */
     @Path("/v0/status")
-    public Response status(
-            final Request request) {
-        return new Response(Response.OK, Response.EMPTY);
+    public Response status() {
+        return new StatusHandlers().setStatusHandler();
     }
 
     private static HttpServerConfig getConfig(final int port) {
