@@ -18,9 +18,13 @@ public class EntityHandlers {
         this.dao = dao;
     }
 
-    public Response setGetHandler(){
+    /**
+     * Get Setting the response to receiving the GET command.
+     * @return The reaction of the server.
+     */
+    public Response setGetHandler() {
         try {
-            ByteBuffer value = dao.get(key);
+            final ByteBuffer value = dao.get(key);
             final ByteBuffer duplicate = value.duplicate();
             final byte[] body = new byte[duplicate.remaining()];
             duplicate.get(body);
@@ -33,7 +37,11 @@ public class EntityHandlers {
         }
     }
 
-    public Response setPutHandler(final Request request){
+    /**
+     * Get Setting the response to receiving the PuT command.
+     * @return The reaction of the server.
+     */
+    public Response setPutHandler(final Request request) {
         try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
@@ -42,7 +50,11 @@ public class EntityHandlers {
         }
     }
 
-    public Response setDeleteHandler(){
+    /**
+     * Get Setting the response to receiving the GET command.
+     * @return The reaction of the server.
+     */
+    public Response setDeleteHandler() {
         try {
             dao.remove(key);
             return new Response(Response.ACCEPTED, Response.EMPTY);
