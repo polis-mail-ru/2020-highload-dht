@@ -9,6 +9,7 @@ import ru.mail.polis.service.art241111.utils.ResponseHelper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.logging.Logger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.art241111.codes.CommandsCode.*;
@@ -20,6 +21,8 @@ public class EntityHandlers {
     private final DAO dao;
     private String id;
 
+    private HttpExchange http;
+
     public EntityHandlers(@NotNull DAO dao, HttpServer server) {
         this.dao = dao;
         setHandlers(server);
@@ -30,20 +33,21 @@ public class EntityHandlers {
                 DirectCode.ENTITY.getCode(),
                 new ErrorHandler(
                         http -> {
+                            this.http = http;
                             id = extractId(http.getRequestURI().getQuery());
 
                             switch (http.getRequestMethod()) {
                                 case "GET":
-                                    setGetHandler(http);
+                                    setGetHandler();
                                     break;
                                 case "PUT":
-                                    setPutHandler(http);
+                                    setPutHandler();
                                     break;
                                 case "DELETE":
-                                    setDeleteHandler(http);
+                                    setDeleteHandler();
                                     break;
                                 default:
-                                    setDefaultHandler(http);
+                                    setDefaultHandler();
                             }
                             http.close();
                         }
@@ -51,30 +55,30 @@ public class EntityHandlers {
         );
     }
 
-    public void setGetHandler(HttpExchange http) throws IOException {
+    public void setGetHandler() throws IOException {
         final ByteBuffer getValue = dao.get(ByteBuffer.wrap(id.getBytes(UTF_8)));
         responseHelper.setResponse(getValue.array(), id, http);
     }
 
-    public void setPutHandler(HttpExchange http) throws IOException {
-        final int contentLength = Integer.parseInt(
-                http.getRequestHeaders().getFirst(http.getHttpContext().getPath())
-        );
+    public void setPutHandler() throws IOException {
+        final int contentLength =
+                http.getRequestHeaders().getFirst("Content-length").length();
+
         final byte[] putValue = new byte[contentLength];
         if(http.getRequestBody().read(putValue) != putValue.length){
             throw new IOException("Can not read at once");
         }
 
-        dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)), ByteBuffer.wrap(id.getBytes(UTF_8)));
+        dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)), ByteBuffer.wrap(putValue));
         responseHelper.setResponse(DATA_IS_UPSET.getCode(), http);
     }
 
-    public void setDeleteHandler(HttpExchange http) throws IOException {
+    public void setDeleteHandler() throws IOException {
         dao.remove(ByteBuffer.wrap(id.getBytes(UTF_8)));
         responseHelper.setResponse(DELETE_IS_GOOD.getCode(), http);
     }
 
-    public void setDefaultHandler(HttpExchange http) throws IOException {
+    public void setDefaultHandler() throws IOException {
         responseHelper.setResponse(METHOD_NOT_ALLOWED.getCode(), http);
     }
 }
