@@ -27,11 +27,8 @@ public class ErrorHandler implements HttpHandler {
         } catch (NoSuchElementException e){
             responseHelper.setResponse(ERR_STATUS.getCode(), exchange);
             exchange.close();
-        } catch (IllegalArgumentException e){
-            responseHelper.setResponse(EMPTY_ID.getCode(), exchange);
-            exchange.close();
-        } catch (IOException e){
-            responseHelper.setResponse(DATA_IS_UPSET.getCode(), exchange);
+        } catch (IllegalArgumentException | IOException e){
+            responseHelper.setResponse(METHOD_NOT_ALLOWED.getCode(), exchange);
             exchange.close();
         }
     }
