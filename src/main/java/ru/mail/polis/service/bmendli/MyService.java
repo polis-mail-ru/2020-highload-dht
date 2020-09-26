@@ -29,6 +29,10 @@ public class MyService extends HttpServer implements Service {
         this.dao = dao;
     }
 
+    /**
+     * Get request. Return a data which associated with
+     * passed id in path '/v0/entity' from dao
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response get(@NotNull @Param(required = true, value = "id") final String id) {
@@ -46,9 +50,14 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Put request. Put data in dao which associated with
+     * passed id in path '/v0/entity'
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response put(@NotNull @Param(required = true, value = "id") final String id, @NotNull final Request request) {
+    public Response put(@NotNull @Param(required = true, value = "id") final String id,
+                        @NotNull final Request request) {
         try {
             final Response response = handleParam(id);
             if (response != null) {
@@ -62,6 +71,10 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Delete request. Delete data from dao which associated with
+     * passed id in path '/v0/entity'
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public Response delete(@NotNull @Param(required = true, value = "id") final String id) {
@@ -78,6 +91,9 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Return status for path '/v0/status'
+     */
     @Path("/v0/status")
     public Response status() {
         return Response.ok(Response.EMPTY);

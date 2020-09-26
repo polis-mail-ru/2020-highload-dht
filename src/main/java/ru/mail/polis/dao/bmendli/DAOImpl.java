@@ -3,6 +3,8 @@ package ru.mail.polis.dao.bmendli;
 import com.google.common.collect.Iterators;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.Iters;
 import ru.mail.polis.Record;
 
 import java.io.File;
@@ -19,8 +21,6 @@ import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.Iters;
 
 /**
  * Persistent storage.
