@@ -6,6 +6,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.StasyanOi.CustomServer;
+import ru.mail.polis.service.StasyanOi.IteratorImpl;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,17 +34,25 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException {
-        return null;
+        return new IteratorImpl(storageInstance.newIterator());
     }
 
     @Override
     public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
-storageInstance.close();
+        try {
+            storageInstance.put(CustomServer.toBytes(key), CustomServer.toBytes(value));
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void remove(@NotNull ByteBuffer key) throws IOException {
-
+        try {
+            storageInstance.delete(CustomServer.toBytes(key));
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
