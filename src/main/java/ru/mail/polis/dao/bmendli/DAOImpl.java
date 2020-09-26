@@ -3,8 +3,8 @@ package ru.mail.polis.dao.bmendli;
 import com.google.common.collect.Iterators;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
 import java.io.File;
