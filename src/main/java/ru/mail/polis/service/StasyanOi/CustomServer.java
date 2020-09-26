@@ -1,18 +1,29 @@
 package ru.mail.polis.service.StasyanOi;
 
 import com.google.common.net.HttpHeaders;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.NoSuchElementException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static one.nio.http.Request.*;
-import static one.nio.http.Response.*;
+import static one.nio.http.Request.METHOD_DELETE;
+import static one.nio.http.Request.METHOD_GET;
+import static one.nio.http.Request.METHOD_PUT;
+import static one.nio.http.Response.ACCEPTED;
+import static one.nio.http.Response.BAD_REQUEST;
+import static one.nio.http.Response.CREATED;
+import static one.nio.http.Response.NOT_FOUND;
+import static one.nio.http.Response.OK;
+import static one.nio.http.Response.ok;
 
 public class CustomServer extends HttpServer {
 
@@ -37,7 +48,7 @@ public class CustomServer extends HttpServer {
         ByteBuffer id = fromBytes(idParam.getBytes(UTF_8));
 
         //get the response from db
-        ByteBuffer response = null;
+        ByteBuffer response;
         try {
             response = dao.get(id);
         } catch (IOException e) {
@@ -51,8 +62,7 @@ public class CustomServer extends HttpServer {
 
         // if found then return
         byte[] bytes = toBytes(response);
-        Response okResponse = ok(bytes);
-        return okResponse;
+        return ok(bytes);
     }
 
     @NotNull
