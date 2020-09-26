@@ -31,7 +31,7 @@ public class MyService extends HttpServer implements Service {
 
     /**
      * Get request. Return a data which associated with
-     * passed id in path '/v0/entity' from dao
+     * passed id in path '/v0/entity' from dao.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -52,7 +52,7 @@ public class MyService extends HttpServer implements Service {
 
     /**
      * Put request. Put data in dao which associated with
-     * passed id in path '/v0/entity'
+     * passed id in path '/v0/entity'.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -73,7 +73,7 @@ public class MyService extends HttpServer implements Service {
 
     /**
      * Delete request. Delete data from dao which associated with
-     * passed id in path '/v0/entity'
+     * passed id in path '/v0/entity'.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -92,7 +92,7 @@ public class MyService extends HttpServer implements Service {
     }
 
     /**
-     * Return status for path '/v0/status'
+     * Return status for path '/v0/status'.
      */
     @Path("/v0/status")
     public Response status() {
