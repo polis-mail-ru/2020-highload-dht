@@ -61,7 +61,7 @@ public final class ServiceFactory {
         }
 
         AcceptorConfig acceptorConfig = new AcceptorConfig();
-        acceptorConfig.port = 8080;
+        acceptorConfig.port = port;
 
         HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
