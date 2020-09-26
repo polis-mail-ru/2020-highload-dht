@@ -8,17 +8,15 @@ import java.util.Iterator;
 
 public class IteratorImpl implements Iterator<Record> {
 
-    private ByteBuffer key;
     private RocksIterator rocksIterator;
 
     public IteratorImpl(ByteBuffer key, RocksIterator rocksIterator) {
-        this.key = key;
         this.rocksIterator = rocksIterator;
+        this.rocksIterator.seek(CustomServer.toBytes(key));
     }
 
     @Override
     public boolean hasNext() {
-        rocksIterator.seek(CustomServer.toBytes(key));
         return rocksIterator.isValid();
     }
 
@@ -26,6 +24,7 @@ public class IteratorImpl implements Iterator<Record> {
     public Record next() {
         byte[] key = rocksIterator.key();
         byte[] value = rocksIterator.value();
+        rocksIterator.next();
         return Record.of(CustomServer.fromBytes(key), CustomServer.fromBytes(value));
     }
 }
