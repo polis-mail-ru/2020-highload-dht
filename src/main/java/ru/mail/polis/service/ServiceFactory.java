@@ -16,6 +16,8 @@
 
 package ru.mail.polis.service;
 
+import one.nio.http.HttpServerConfig;
+import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.jhoysbou.LsmService;
@@ -53,6 +55,12 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new LsmService(port, dao);
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = port;
+
+        final HttpServerConfig config = new HttpServerConfig();
+        config.acceptors = new AcceptorConfig[]{acceptorConfig};
+
+        return new LsmService(config, dao);
     }
 }
