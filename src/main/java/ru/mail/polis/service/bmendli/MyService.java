@@ -1,7 +1,6 @@
 package ru.mail.polis.service.bmendli;
 
 import com.google.common.base.Charsets;
-import java.util.NoSuchElementException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -18,6 +17,7 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 
 public class MyService extends HttpServer implements Service {
 
