@@ -1,8 +1,6 @@
 package ru.mail.polis.service.bmendli;
 
 import com.google.common.base.Charsets;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -18,12 +16,15 @@ import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
 public class MyService extends HttpServer implements Service {
 
     @NotNull
     private final DAO dao;
 
-    public MyService(final int port, @NotNull DAO dao) throws IOException {
+    public MyService(final int port, @NotNull final DAO dao) throws IOException {
         super(createConfigFromPort(port));
         this.dao = dao;
     }
@@ -83,7 +84,7 @@ public class MyService extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
@@ -107,12 +108,12 @@ public class MyService extends HttpServer implements Service {
 
     @NotNull
     private static HttpServerConfig createConfigFromPort(final int port) {
-        AcceptorConfig acceptor = new AcceptorConfig();
+        final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
         acceptor.reusePort = true;
 
-        HttpServerConfig config = new HttpServerConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
         config.selectors = 4;
         return config;
