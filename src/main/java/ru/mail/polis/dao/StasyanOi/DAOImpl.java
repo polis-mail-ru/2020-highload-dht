@@ -34,7 +34,7 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException {
-        return new IteratorImpl(storageInstance.newIterator());
+        return new IteratorImpl(from, storageInstance.newIterator());
     }
 
     @Override

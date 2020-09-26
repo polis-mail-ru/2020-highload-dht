@@ -6,7 +6,6 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
@@ -25,7 +24,7 @@ public class CustomServer extends HttpServer {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") String idParam) {
-        ByteBuffer id = fromBytes(idParam.getBytes(UTF_8));
+        ByteBuffer id = fromBytes(alignByteArray(idParam.getBytes(UTF_8)));
         ByteBuffer response = null;
         try {
             response = dao.get(id);
@@ -35,43 +34,65 @@ public class CustomServer extends HttpServer {
             return Response.ok(Response.NOT_FOUND);
         }
         byte[] bytesResponse = toBytes(response);
-        return Response.ok(bytesResponse);
+        byte[] bytes = dealignBuffer(bytesResponse);
+        return Response.ok(bytes);
     }
 
     @NotNull
     public static byte[] toBytes(ByteBuffer buffer) {
         byte[] bytes = new byte[buffer.limit()];
         buffer.get(bytes);
+        buffer.clear();
         return bytes;
+    }
+
+    private static byte[] dealignBuffer(byte[] bytes) {
+        int length = bytes.length;
+
+        byte padding = bytes[length - 1];
+        if (padding > 7) {
+            padding = 0;
+        }
+        return Arrays.copyOf(bytes, length - padding);
     }
 
     @NotNull
     public static ByteBuffer fromBytes(byte[] bytes) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(bytes.length);
-        byteBuffer.put(bytes);
-        return byteBuffer;
+        return ByteBuffer.wrap(bytes);
     }
 
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public Response put(@Param("id") String idParam, Request request) throws IOException {
-        byte[] body = getByteArray(request.getBody());
-        ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
-        ByteBuffer value = fromBytes(body);
+        ByteBuffer key = fromBytes(alignByteArray(idParam.getBytes(UTF_8)));
+        ByteBuffer value = fromBytes(alignByteArray(request.getBody()));
         dao.upsert(key, value);
         return Response.ok(Response.CREATED);
     }
 
-    private byte[] getByteArray(byte[] body) {
+    private byte[] alignByteArray(byte[] body) {
         int length = body.length;
-        int mod = length % 8;
-        return Arrays.copyOf(body,length + mod);
+        int mod = getDiv8(length);
+        byte[] newBody = Arrays.copyOf(body, mod);
+        if (mod != length) {
+            newBody[newBody.length - 1] = (byte) (mod - length);
+        }
+        return newBody;
+    }
+
+    private int getDiv8(int length) {
+
+        while (length % 8 != 0){
+            ++length;
+        }
+
+        return length;
     }
 
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(@Param("id") String idParam) throws IOException {
-        ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
+        ByteBuffer key = fromBytes(alignByteArray(idParam.getBytes(UTF_8)));
         dao.remove(key);
         return Response.ok(Response.ACCEPTED);
     }
