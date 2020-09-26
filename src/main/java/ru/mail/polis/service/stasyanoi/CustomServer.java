@@ -1,4 +1,4 @@
-package ru.mail.polis.service.StasyanOi;
+package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpServer;

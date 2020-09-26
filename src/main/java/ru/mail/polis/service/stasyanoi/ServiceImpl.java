@@ -1,9 +1,6 @@
-package ru.mail.polis.service.StasyanOi;
+package ru.mail.polis.service.stasyanoi;
 
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
-
-import java.io.IOException;
 
 public class ServiceImpl implements Service {
 

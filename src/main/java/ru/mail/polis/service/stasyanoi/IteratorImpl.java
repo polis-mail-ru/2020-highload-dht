@@ -1,4 +1,4 @@
-package ru.mail.polis.service.StasyanOi;
+package ru.mail.polis.service.stasyanoi;
 
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;

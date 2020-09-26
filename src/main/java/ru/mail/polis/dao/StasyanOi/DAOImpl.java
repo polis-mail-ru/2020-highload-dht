@@ -4,8 +4,8 @@ import org.jetbrains.annotations.NotNull;
 import org.rocksdb.*;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.StasyanOi.CustomServer;
-import ru.mail.polis.service.StasyanOi.IteratorImpl;
+import ru.mail.polis.service.stasyanoi.CustomServer;
+import ru.mail.polis.service.stasyanoi.IteratorImpl;
 
 import java.io.File;
 import java.nio.ByteBuffer;
