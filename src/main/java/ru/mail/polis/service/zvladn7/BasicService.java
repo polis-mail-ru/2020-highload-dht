@@ -18,6 +18,10 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 public class BasicService extends HttpServer implements Service {
@@ -25,6 +29,7 @@ public class BasicService extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(BasicService.class);
 
     private final DAO dao;
+    private final LinkedHashMap<String, byte[]> cache = new LinkedHashMap<>();
 
     public BasicService(final int port,
                         @NotNull final DAO dao) throws IOException {
@@ -46,6 +51,25 @@ public class BasicService extends HttpServer implements Service {
         return Utf8.toBytes(str);
     }
 
+    private static byte[] toBytes(final ByteBuffer value) {
+        if (value.hasRemaining()) {
+            final byte[] result = new byte[value.remaining()];
+            value.get(result);
+
+            return result;
+        }
+
+        return Response.EMPTY;
+    }
+
+    private static ByteBuffer wrapString(final String str) {
+        return ByteBuffer.wrap(toBytes(str));
+    }
+
+    private static ByteBuffer wrapArray(final byte[] arr) {
+        return ByteBuffer.wrap(arr);
+    }
+
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
         log.error("Unsupported mapping request.\n Cannot understand it: {} {}",
@@ -59,49 +83,52 @@ public class BasicService extends HttpServer implements Service {
         return Response.ok("Status: OK");
     }
 
-    private static byte[] toBytes(final ByteBuffer value) {
-        if (value.hasRemaining()) {
-            final byte[] result = new byte[value.remaining()];
-            value.get(result);
-
-            return result;
-        }
-
-        return Response.EMPTY;
-    }
-
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response get(@Param(value = "id", required = true) final String  id) {
+        log.debug("GET request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
-        final ByteBuffer key = ByteBuffer.wrap(toBytes(id));
-        final ByteBuffer value;
+        byte[] body = cache.get(id);
+        if (body == null) {
+            final ByteBuffer key = wrapString(id);
+            final ByteBuffer value;
 
-        try {
-            value = dao.get(key);
-        } catch (NoSuchElementException ex) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            return  new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            try {
+                value = dao.get(key);
+            } catch (NoSuchElementException ex) {
+                return new Response(Response.NOT_FOUND, Response.EMPTY);
+            } catch (IOException e) {
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }
+
+            body = toBytes(value);
+            if (cache.size() >= 10) {
+                Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
+                iterator.next();
+                iterator.remove();
+            }
+            cache.put(id, body);
         }
 
-        return Response.ok(toBytes(value));
+        return Response.ok(body);
     }
 
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public Response remove(@Param(value = "id", required = true) final String  id) {
+        log.debug("DELETE request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
-        final ByteBuffer key = ByteBuffer.wrap(toBytes(id));
+        final ByteBuffer key = wrapString(id);
 
         try {
             dao.remove(key);
+            cache.remove(id);
         } catch (IOException e) {
             return  new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
@@ -114,22 +141,24 @@ public class BasicService extends HttpServer implements Service {
     public Response upsert(
             @Param(value = "id", required = true) final String  id,
             Request request) {
+        log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
+                id, new String(request.getBody(), StandardCharsets.UTF_8));
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
-        final ByteBuffer key = ByteBuffer.wrap(toBytes(id));
-        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+        final ByteBuffer key = wrapString(id);
+        final ByteBuffer value = wrapArray(request.getBody());
 
         try {
             dao.upsert(key, value);
+            cache.put(id, request.getBody());
         } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
         return new Response(Response.CREATED, Response.EMPTY);
     }
-
 
 
 }
