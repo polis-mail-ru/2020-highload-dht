@@ -9,10 +9,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
-public class LsmService extends HttpServer implements Service {
+public class LsmServer extends HttpServer implements Service {
     private final DAO dao;
 
-    public LsmService(final HttpServerConfig config, final DAO dao) throws IOException {
+    public LsmServer(final HttpServerConfig config, final DAO dao) throws IOException {
         super(config);
         this.dao = dao;
     }
