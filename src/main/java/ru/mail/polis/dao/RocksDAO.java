@@ -10,11 +10,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-public class RocksDAO implements DAO {
+public final class RocksDAO implements DAO {
 
     private final RocksDB db;
 
-    private RocksDAO(RocksDB db) {
+    private RocksDAO(final RocksDB db) {
         this.db = db;
     }
 
@@ -92,7 +92,7 @@ public class RocksDAO implements DAO {
         }
     }
 
-    public static byte[] toArray(@NotNull final ByteBuffer buffer){
+    public static byte[] toArray(@NotNull final ByteBuffer buffer) {
         final ByteBuffer bufferCopy = buffer.duplicate();
         final byte[] array = new byte[bufferCopy.remaining()];
         bufferCopy.get(array);
