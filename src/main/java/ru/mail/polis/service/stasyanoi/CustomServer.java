@@ -36,7 +36,7 @@ public class CustomServer extends HttpServer {
         //check id param
         if (idParam == null || idParam.isEmpty()) {
             final Response badReqResponse = new Response(Response.BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ":" + 0);
+            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
             return badReqResponse;
         }
 
