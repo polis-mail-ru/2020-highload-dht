@@ -4,9 +4,9 @@ import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.Record;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,7 +14,11 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -122,7 +126,7 @@ public class DAOImpl implements DAO {
 
         final List<TableIterator> tableIteratorList = new ArrayList<>(ssTables.size() + 1);
         int index = 0;
-        for (final Table table: ssTables.values()) {
+        for (final Table table : ssTables.values()) {
             tableIteratorList.add(
                     new TableIterator(index, table)
             );
