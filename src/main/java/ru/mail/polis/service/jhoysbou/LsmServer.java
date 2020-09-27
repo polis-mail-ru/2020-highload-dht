@@ -37,7 +37,7 @@ public class LsmServer extends HttpServer implements Service {
      *
      * @param id - String
      *
-     * @return response - Responce
+     * @return a Response instance
      *
      * <p> Http code status:
      * 200 - successfully get value by key
@@ -78,7 +78,7 @@ public class LsmServer extends HttpServer implements Service {
      * @param id      - String
      * @param request - Request with value to save in body
      *
-     * @return response - Responce
+     * @return a Response instance
      *
      * <p> Http code status:
      * 200 - value successfully saved or updated
@@ -113,7 +113,7 @@ public class LsmServer extends HttpServer implements Service {
      *
      * @param id - String
      *
-     * @return response - Responce
+     * @return a Response instance
      *
      * <p>Http code status:
      * 201 - value successfully deleted
