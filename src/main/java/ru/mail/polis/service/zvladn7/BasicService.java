@@ -74,8 +74,7 @@ public class BasicService extends HttpServer implements Service {
     public void handleDefault(Request request, HttpSession session) throws IOException {
         log.error("Unsupported mapping request.\n Cannot understand it: {} {}",
                 request.getMethodName(), request.getPath());
-        Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        session.sendResponse(response);
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Path("/v0/status")
@@ -130,7 +129,7 @@ public class BasicService extends HttpServer implements Service {
             dao.remove(key);
             cache.remove(id);
         } catch (IOException e) {
-            return  new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
         return new Response(Response.ACCEPTED, Response.EMPTY);
@@ -152,6 +151,11 @@ public class BasicService extends HttpServer implements Service {
 
         try {
             dao.upsert(key, value);
+            if (cache.size() >= 10) {
+                Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
+                iterator.next();
+                iterator.remove();
+            }
             cache.put(id, request.getBody());
         } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
