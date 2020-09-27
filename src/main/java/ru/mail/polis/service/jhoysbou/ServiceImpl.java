@@ -23,6 +23,7 @@ public class ServiceImpl implements Service {
      * @param dao  - DAO implementation
      *
      * @return a ServiceImpl instance
+     *
      */
     public ServiceImpl(final int port, final DAO dao) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
