@@ -23,6 +23,8 @@ public class DAOImpl implements DAO {
     private final RocksDB storageInstance;
 
     /**
+     * Creates a dao implementation based on the given dir
+     *
      * @param data - db storage location
      */
     public DAOImpl(final File data) {
