@@ -22,9 +22,6 @@ public class DAOImpl implements DAO {
 
     private final RocksDB storageInstance;
 
-    /**
-     * @param data
-     */
     public DAOImpl(final File data) {
         Options options = new Options().setCreateIfMissing(true);
         final ComparatorOptions comparatorOptions = new ComparatorOptions();

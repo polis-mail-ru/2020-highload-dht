@@ -36,10 +36,6 @@ public class CustomServer extends HttpServer {
         this.dao = dao;
     }
 
-    /**
-     * @param idParam
-     * @return
-     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(final @Param("id") String idParam) {
@@ -71,10 +67,6 @@ public class CustomServer extends HttpServer {
         return ok(bytes);
     }
 
-    /**
-     * @param buffer
-     * @return
-     */
     @NotNull
     public static byte[] toBytes(ByteBuffer buffer) {
         byte[] bytes = new byte[buffer.limit()];
@@ -83,11 +75,6 @@ public class CustomServer extends HttpServer {
         return bytes;
     }
 
-    /**
-     * @param bytes
-     * @return
-     */
-    @NotNull
     public static ByteBuffer fromBytes(byte[] bytes) {
         return ByteBuffer.wrap(bytes);
     }
@@ -109,11 +96,6 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
-    /**
-     * @param idParam
-     * @return
-     * @throws IOException
-     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(@Param("id") String idParam) throws IOException {
@@ -131,9 +113,6 @@ public class CustomServer extends HttpServer {
         return acceptedResponse;
     }
 
-    /**
-     * @return
-     */
     @Path("/abracadabra")
     @RequestMethod(METHOD_GET)
     public Response abracadabra() {
@@ -142,9 +121,6 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
-    /**
-     * @return
-     */
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
