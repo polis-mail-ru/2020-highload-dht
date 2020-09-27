@@ -2,6 +2,7 @@ package ru.mail.polis.service.jhoysbou;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
+import one.nio.server.AcceptorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -15,8 +16,15 @@ public class ServiceImpl implements Service {
     private final DAO dao;
     private HttpServer httpServer;
 
-    public ServiceImpl(HttpServerConfig config, final DAO dao) {
-        this.config = config;
+    public ServiceImpl(final int port, final DAO dao) {
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = port;
+        acceptorConfig.deferAccept = true;
+        acceptorConfig.reusePort = true;
+
+        this.config = new HttpServerConfig();
+        this.config.acceptors = new AcceptorConfig[]{acceptorConfig};
+
         this.dao = dao;
     }
 

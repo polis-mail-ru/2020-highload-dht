@@ -56,14 +56,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final AcceptorConfig acceptorConfig = new AcceptorConfig();
-        acceptorConfig.port = port;
-        acceptorConfig.deferAccept = true;
-        acceptorConfig.reusePort = true;
-
-        final HttpServerConfig config = new HttpServerConfig();
-        config.acceptors = new AcceptorConfig[]{acceptorConfig};
-
-        return new ServiceImpl(config, dao);
+        return new ServiceImpl(port, dao);
     }
 }
