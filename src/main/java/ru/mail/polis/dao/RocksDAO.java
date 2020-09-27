@@ -1,7 +1,10 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.ComparatorOptions;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import org.rocksdb.util.BytewiseComparator;
 import ru.mail.polis.Record;
 
@@ -92,6 +95,12 @@ public final class RocksDAO implements DAO {
         }
     }
 
+    /**
+     * Convert ByteBuffer from java.nio to byte array.
+     *
+     * @param buffer byte buffer
+     * @return array bytes
+     */
     public static byte[] toArray(@NotNull final ByteBuffer buffer) {
         final ByteBuffer bufferCopy = buffer.duplicate();
         final byte[] array = new byte[bufferCopy.remaining()];
