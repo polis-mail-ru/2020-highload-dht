@@ -7,8 +7,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 
-import ru.mail.polis.Record;
-
 /**
  * Generates {@link Record}s for test purposes.
  */

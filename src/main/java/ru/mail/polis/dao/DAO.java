@@ -18,7 +18,6 @@ package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import ru.mail.polis.Record;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -61,7 +60,7 @@ public interface DAO extends Closeable {
             return Iters.empty();
         }
 
-        final Record bound = Record.of(to, ByteBuffer.allocate(0));
+        final Record bound = new Record(to, ByteBuffer.allocate(0));
         return Iters.until(iterator(from), bound);
     }
 

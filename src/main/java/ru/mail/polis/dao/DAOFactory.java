@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 (c) Odnoklassniki
+ * Copyright 2020 (c) OK
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.suhova.TurboDAO;
 
 import java.io.File;
-import java.io.IOException;
 
 /**
  * Custom {@link DAO} factory.
@@ -40,7 +40,7 @@ public final class DAOFactory {
      * @return a storage instance
      */
     @NotNull
-    public static DAO create(@NotNull final File data) throws IOException {
+    public static DAO create(@NotNull final File data) {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -52,7 +52,6 @@ public final class DAOFactory {
         if (!data.isDirectory()) {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
-
-        throw new UnsupportedOperationException("Implement me!");
+        return new TurboDAO(data, MAX_HEAP / 32);
     }
 }

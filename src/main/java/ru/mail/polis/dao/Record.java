@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package ru.mail.polis;
+package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -27,11 +26,11 @@ import java.util.Objects;
  *
  * @author Dmitry Schitinin
  */
-public final class Record implements Comparable<Record> {
+public class Record implements Comparable<Record> {
     private final ByteBuffer key;
     private final ByteBuffer value;
 
-    private Record(
+    Record(
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value) {
         this.key = key;
@@ -55,7 +54,7 @@ public final class Record implements Comparable<Record> {
     @Override
     public boolean equals(final Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (!(o instanceof Record)) return false;
         final Record record = (Record) o;
         return Objects.equals(key, record.key)
                 && Objects.equals(value, record.value);
