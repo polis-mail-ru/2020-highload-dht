@@ -1,6 +1,5 @@
 package ru.mail.polis.dao.stasyanoi;
 
-import one.nio.http.Param;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
@@ -46,7 +45,7 @@ public class DAOImpl implements DAO {
         return getIterator(from);
     }
 
-    private Iterator<Record> getIterator(final @NotNull ByteBuffer from){
+    private Iterator<Record> getIterator(final @NotNull ByteBuffer from) {
         if (recordIterator != null) {
             recordIterator.close();
         }
