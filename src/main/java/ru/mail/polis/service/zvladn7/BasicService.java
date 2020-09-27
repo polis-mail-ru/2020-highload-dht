@@ -19,7 +19,6 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,7 +29,7 @@ public class BasicService extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(BasicService.class);
 
     private final DAO dao;
-    private final HashMap<String, byte[]> cache = new LinkedHashMap<>();
+    private final Map<String, byte[]> cache = new LinkedHashMap<>();
 
     public BasicService(final int port,
                         @NotNull final DAO dao) throws IOException {
