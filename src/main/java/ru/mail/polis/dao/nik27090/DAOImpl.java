@@ -2,8 +2,8 @@ package ru.mail.polis.dao.nik27090;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
 import java.io.File;

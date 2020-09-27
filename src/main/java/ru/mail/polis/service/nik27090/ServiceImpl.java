@@ -48,7 +48,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Get data by key
+     * Get data by key.
      *
      * @param id - key for storage
      * @return - code 200 and data,
@@ -83,7 +83,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Create/overwrite data by key
+     * Create/overwrite data by key.
      *
      * @param id - key for storage
      * @param request - body request
@@ -115,7 +115,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Delete data by key
+     * Delete data by key.
      *
      * @param id - key for storage
      * @return - 200 if value was remote
