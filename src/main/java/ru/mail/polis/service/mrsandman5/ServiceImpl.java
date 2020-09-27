@@ -30,11 +30,10 @@ public class ServiceImpl extends HttpServer implements Service {
         this.dao = dao;
     }
 
-    /**
-     * Request method for HTTP server
-     * @param id - id request
-     * @param request - type of request
-     * @return response to request with id code
+    /** Request method for HTTP server.
+     * @param id - id request.
+     * @param request - type of request.
+     * @return response to request with id code.
      * */
     @Path("/v0/entity")
     public Response response(@Param(value = "id", required = true) final String id,
