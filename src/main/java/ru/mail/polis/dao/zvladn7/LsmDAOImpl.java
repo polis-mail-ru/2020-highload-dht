@@ -5,8 +5,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.dao.Iters;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.Iters;
 
 import java.io.File;
 import java.io.IOException;

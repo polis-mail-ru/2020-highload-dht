@@ -19,6 +19,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,7 +30,7 @@ public class BasicService extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(BasicService.class);
 
     private final DAO dao;
-    private final LinkedHashMap<String, byte[]> cache = new LinkedHashMap<>();
+    private final HashMap<String, byte[]> cache = new LinkedHashMap<>();
 
     public BasicService(final int port,
                         @NotNull final DAO dao) throws IOException {
@@ -38,7 +39,7 @@ public class BasicService extends HttpServer implements Service {
     }
 
     private static HttpServerConfig provideConfig(final int port) {
-        AcceptorConfig acceptorConfig = new AcceptorConfig();
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
 
         final HttpServerConfig config = new HttpServerConfig();
@@ -71,7 +72,7 @@ public class BasicService extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.error("Unsupported mapping request.\n Cannot understand it: {} {}",
                 request.getMethodName(), request.getPath());
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -82,9 +83,20 @@ public class BasicService extends HttpServer implements Service {
         return Response.ok("Status: OK");
     }
 
+    /**
+     * This method get value with provided id.
+     * Response can have different values which depend on the key or io errors.
+     * Values:
+     * 1. 200 OK. Also return body.
+     * 2. 400 if id is empty
+     * 3. 404 if value with id was not found
+     * 4. 500 if some io error was happened
+     * @param id - String
+     * @return response - Response
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response get(@Param(value = "id", required = true) final String  id) {
+    public Response get(@Param(value = "id", required = true) final String id) {
         log.debug("GET request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -105,7 +117,7 @@ public class BasicService extends HttpServer implements Service {
 
             body = toBytes(value);
             if (cache.size() >= 10) {
-                Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
+                final Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
                 iterator.next();
                 iterator.remove();
             }
@@ -115,9 +127,19 @@ public class BasicService extends HttpServer implements Service {
         return Response.ok(body);
     }
 
+    /**
+     * This method delete value with provided id.
+     * Response can have different values which depend on the key or io errors.
+     * Values:
+     * 1. 202 if value is successfully deleted
+     * 2. 400 if id is empty
+     * 3. 500 if some io error was happened
+     * @param id - String
+     * @return response - Response
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response remove(@Param(value = "id", required = true) final String  id) {
+    public Response remove(@Param(value = "id", required = true) final String id) {
         log.debug("DELETE request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -135,11 +157,21 @@ public class BasicService extends HttpServer implements Service {
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
+    /**
+     * This method insert or update value with provided id.
+     * Response can have different values which depend on the key or io errors.
+     * Values:
+     * 1. 201 if value is successfully inserted and created
+     * 2. 400 if id is empty
+     * 3. 500 if some io error was happened
+     * @param id - String
+     * @return response - Response
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public Response upsert(
-            @Param(value = "id", required = true) final String  id,
-            Request request) {
+            @Param(value = "id", required = true) final String id,
+            final Request request) {
         log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
                 id, new String(request.getBody(), StandardCharsets.UTF_8));
         if (id.isEmpty()) {
@@ -152,7 +184,7 @@ public class BasicService extends HttpServer implements Service {
         try {
             dao.upsert(key, value);
             if (cache.size() >= 10) {
-                Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
+                final Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
                 iterator.next();
                 iterator.remove();
             }
