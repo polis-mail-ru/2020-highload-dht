@@ -1,12 +1,7 @@
 package ru.mail.polis.service.kate.moreva;
 
 import com.google.common.base.Charsets;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.server.AcceptorConfig;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
@@ -41,6 +36,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         return config;
+    }
+
+    @Override
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     /**
@@ -129,4 +129,5 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
+
 }
