@@ -16,7 +16,6 @@
 
 package ru.mail.polis.service;
 
-import one.nio.http.HttpServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.nik27090.ServiceImpl;

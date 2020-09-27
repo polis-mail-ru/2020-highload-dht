@@ -47,6 +47,15 @@ public class ServiceImpl extends HttpServer implements Service {
         return Response.ok("OK");
     }
 
+    /**
+     * Get data by key
+     *
+     * @param id - key for storage
+     * @return - code 200 and data,
+     *           code 400 if id is empty,
+     *           code 404 if data not found,
+     *           code 500 if internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response getEntity(final @Param(value = "id", required = true) String id) {
@@ -73,6 +82,16 @@ public class ServiceImpl extends HttpServer implements Service {
         return Response.ok(response);
     }
 
+    /**
+     * Create/overwrite data by key
+     *
+     * @param id - key for storage
+     * @param request - body request
+     * @return - 200 if value has been created/overwritten,
+     *           400 if id is empty,
+     *           500 if internal error
+     *
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public Response putEntity(@Param(value = "id", required = true) final String id, final Request request) {
@@ -95,6 +114,13 @@ public class ServiceImpl extends HttpServer implements Service {
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
+    /**
+     * Delete data by key
+     *
+     * @param id - key for storage
+     * @return - 200 if value was remote
+     *           500 if internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public Response deleteEntity(@Param(value = "id", required = true) final String id) {
@@ -115,7 +141,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.debug("Can't understand request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
