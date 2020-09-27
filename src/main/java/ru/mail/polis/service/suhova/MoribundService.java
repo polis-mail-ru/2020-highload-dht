@@ -32,7 +32,7 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     /**
-     * Request to get a value by id
+     * Request to get a value by id.
      * Path /v0/entity
      *
      * @param id - key
@@ -56,7 +56,7 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     /**
-     * Request to put a value by id
+     * Request to put a value by id.
      * Path /v0/entity
      *
      * @param id - key
@@ -79,7 +79,7 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     /**
-     * Request to delete a value by id
+     * Request to delete a value by id.
      * Path /v0/entity
      *
      * @param id - key
@@ -102,7 +102,7 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     /**
-     * All requests to /v0/status
+     * All requests to /v0/status.
      *
      * @return 200 OK
      */
@@ -117,10 +117,10 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     private static HttpServerConfig getConfig(final int port) {
-        AcceptorConfig acceptorConfig = new AcceptorConfig();
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
-        HttpServerConfig httpServerConfig = new HttpServerConfig();
+        final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -133,7 +133,7 @@ public class MoribundService extends HttpServer implements Service {
         if (!byteBuffer.hasRemaining()) {
             return Response.EMPTY;
         }
-        byte[] result = new byte[byteBuffer.remaining()];
+        final byte[] result = new byte[byteBuffer.remaining()];
         byteBuffer.get(result);
         return result;
     }
