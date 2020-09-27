@@ -23,7 +23,7 @@ public final class RocksDAO implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
 
         final var iterator = db.newIterator();
         iterator.seek(toArray(from));
@@ -32,7 +32,7 @@ public final class RocksDAO implements DAO {
 
     @NotNull
     @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) throws IOException {
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException {
         try {
             final var result = db.get(toArray(key));
             if (result == null) {
@@ -45,7 +45,7 @@ public final class RocksDAO implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             db.put(toArray(key), toArray(value));
         } catch (RocksDBException exception) {
@@ -54,7 +54,7 @@ public final class RocksDAO implements DAO {
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(toArray(key));
         } catch (RocksDBException exception) {
@@ -81,7 +81,7 @@ public final class RocksDAO implements DAO {
         }
     }
 
-    static DAO create(File data) throws IOException {
+    static DAO create(final File data) throws IOException {
         RocksDB.loadLibrary();
         try {
             final var comparator = new BytewiseComparator(new ComparatorOptions());
