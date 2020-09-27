@@ -71,6 +71,7 @@ public class DAOImpl implements DAO {
     public void compact() {
         try {
             storageInstance.compactRange();
+            System.out.println("compact");
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
