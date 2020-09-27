@@ -34,10 +34,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     }
 
     private static HttpServerConfig getConfigPort(final int port) {
-        if (port <= 1024 || port >= 65535) {
-            throw new IllegalArgumentException("Invalid port");
-        }
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.deferAccept = true;
+        acceptorConfig.reusePort = true;
         acceptorConfig.port = port;
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
@@ -50,7 +49,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * */
     @Path("/v0/status")
     public Response status() {
-        return Response.ok(Response.OK);
+        return new Response(Response.OK, Response.EMPTY);
     }
 
     /**
@@ -64,7 +63,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      *         {@code 500} (internal server error occurred).
      * */
     @Path("/v0/entity")
-    public Response entity(@Param("id") final String id, final Request request) {
+    public Response entity(@Param(value = "id", required = true) final String id, final Request request) {
         if (id.isBlank()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -90,7 +89,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * */
     private Response getEntity(final ByteBuffer key) {
         try {
-            return new Response(Response.OK, dao.get(key).duplicate().array());
+            ByteBuffer value = dao.get(key).duplicate();
+            byte[] body = new byte[value.remaining()];
+            value.get(body);
+            return new Response(Response.OK, body);
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
