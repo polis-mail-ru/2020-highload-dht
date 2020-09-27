@@ -1,14 +1,16 @@
-package ru.mail.polis.dao.StasyanOi;
+package ru.mail.polis.dao.stasyanoi;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.ComparatorOptions;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomServer;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
@@ -20,9 +22,12 @@ public class DAOImpl implements DAO {
 
     private final RocksDB storageInstance;
 
-    public DAOImpl(File data) {
+    /**
+     * @param data
+     */
+    public DAOImpl(final File data) {
         Options options = new Options().setCreateIfMissing(true);
-        ComparatorOptions comparatorOptions = new ComparatorOptions();
+        final ComparatorOptions comparatorOptions = new ComparatorOptions();
         options = options.setComparator(new ComparatorImpl(comparatorOptions));
         try {
             storageInstance = RocksDB.open(options, data.getAbsolutePath());
@@ -33,12 +38,12 @@ public class DAOImpl implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(final @NotNull ByteBuffer from) {
         return new IteratorImpl(from, storageInstance.newIterator());
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
             storageInstance.put(CustomServer.toBytes(key), CustomServer.toBytes(value));
         } catch (RocksDBException e) {
@@ -47,7 +52,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void remove(final @NotNull ByteBuffer key) {
         try {
             storageInstance.delete(CustomServer.toBytes(key));
         } catch (RocksDBException e) {

@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.StasyanOi;
+package ru.mail.polis.dao.stasyanoi;
 
 import com.google.common.primitives.SignedBytes;
 import org.rocksdb.Comparator;
@@ -6,7 +6,7 @@ import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Slice;
 
 public class ComparatorImpl extends Comparator {
-    public ComparatorImpl(ComparatorOptions copt) {
+    public ComparatorImpl(final ComparatorOptions copt) {
         super(copt);
     }
 
@@ -18,7 +18,7 @@ public class ComparatorImpl extends Comparator {
     }
 
     @Override
-    public int compare(Slice a, Slice b) {
+    public int compare(final Slice a,final Slice b) {
         return comparator.compare(a.data(), b.data());
     }
 }

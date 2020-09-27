@@ -29,23 +29,29 @@ public class CustomServer extends HttpServer {
 
     private final DAO dao;
 
-    public CustomServer(DAO dao, HttpServerConfig config, Object... routers) throws IOException {
+    public CustomServer(final DAO dao,
+                        final HttpServerConfig config,
+                        final Object... routers) throws IOException {
         super(config, routers);
         this.dao = dao;
     }
 
+    /**
+     * @param idParam
+     * @return
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public Response get(@Param("id") String idParam) {
+    public Response get(final @Param("id") String idParam) {
         //check id param
         if (idParam == null || idParam.isEmpty()) {
-            Response badReqResponse = new Response(BAD_REQUEST);
+            final Response badReqResponse = new Response(BAD_REQUEST);
             badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
             return badReqResponse;
         }
 
         //get id as aligned byte buffer
-        ByteBuffer id = fromBytes(idParam.getBytes(UTF_8));
+        final ByteBuffer id = fromBytes(idParam.getBytes(UTF_8));
 
         //get the response from db
         ByteBuffer response;
@@ -55,16 +61,20 @@ public class CustomServer extends HttpServer {
             throw new RuntimeException(e);
         } catch (NoSuchElementException e) {
             //if not found then 404
-            Response notFoundResponse = new Response(NOT_FOUND);
+            final Response notFoundResponse = new Response(NOT_FOUND);
             notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
             return notFoundResponse;
         }
 
         // if found then return
-        byte[] bytes = toBytes(response);
+        final byte[] bytes = toBytes(response);
         return ok(bytes);
     }
 
+    /**
+     * @param buffer
+     * @return
+     */
     @NotNull
     public static byte[] toBytes(ByteBuffer buffer) {
         byte[] bytes = new byte[buffer.limit()];
@@ -73,6 +83,10 @@ public class CustomServer extends HttpServer {
         return bytes;
     }
 
+    /**
+     * @param bytes
+     * @return
+     */
     @NotNull
     public static ByteBuffer fromBytes(byte[] bytes) {
         return ByteBuffer.wrap(bytes);
@@ -95,6 +109,11 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
+    /**
+     * @param idParam
+     * @return
+     * @throws IOException
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(@Param("id") String idParam) throws IOException {
@@ -112,6 +131,9 @@ public class CustomServer extends HttpServer {
         return acceptedResponse;
     }
 
+    /**
+     * @return
+     */
     @Path("/abracadabra")
     @RequestMethod(METHOD_GET)
     public Response abracadabra() {
@@ -120,6 +142,9 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
+    /**
+     * @return
+     */
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
