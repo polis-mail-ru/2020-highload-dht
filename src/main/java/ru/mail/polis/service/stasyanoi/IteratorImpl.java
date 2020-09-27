@@ -8,9 +8,9 @@ import java.util.Iterator;
 
 public class IteratorImpl implements Iterator<Record> {
 
-    private RocksIterator rocksIterator;
+    private final RocksIterator rocksIterator;
 
-    public IteratorImpl(ByteBuffer key, RocksIterator rocksIterator) {
+    public IteratorImpl(final ByteBuffer key, final RocksIterator rocksIterator) {
         this.rocksIterator = rocksIterator;
         this.rocksIterator.seek(CustomServer.toBytes(key));
     }
@@ -22,8 +22,8 @@ public class IteratorImpl implements Iterator<Record> {
 
     @Override
     public Record next() {
-        byte[] key = rocksIterator.key();
-        byte[] value = rocksIterator.value();
+        final byte[] key = rocksIterator.key();
+        final byte[] value = rocksIterator.value();
         rocksIterator.next();
         return Record.of(CustomServer.fromBytes(key), CustomServer.fromBytes(value));
     }

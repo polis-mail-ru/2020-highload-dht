@@ -6,7 +6,7 @@ public class ServiceImpl implements Service {
 
     private final CustomServer customServer;
 
-    public ServiceImpl(CustomServer customServer) {
+    public ServiceImpl(final CustomServer customServer) {
         this.customServer = customServer;
     }
 

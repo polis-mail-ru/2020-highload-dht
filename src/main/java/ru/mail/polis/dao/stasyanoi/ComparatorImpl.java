@@ -6,11 +6,11 @@ import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Slice;
 
 public class ComparatorImpl extends Comparator {
+    java.util.Comparator<byte[]> comparator = SignedBytes.lexicographicalComparator();
+
     public ComparatorImpl(final ComparatorOptions copt) {
         super(copt);
     }
-
-    java.util.Comparator<byte[]> comparator = SignedBytes.lexicographicalComparator();
 
     @Override
     public String name() {

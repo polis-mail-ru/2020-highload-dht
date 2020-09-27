@@ -68,47 +68,48 @@ public class CustomServer extends HttpServer {
     }
 
     @NotNull
-    public static byte[] toBytes(ByteBuffer buffer) {
-        byte[] bytes = new byte[buffer.limit()];
+    public static byte[] toBytes(final ByteBuffer buffer) {
+        final byte[] bytes = new byte[buffer.limit()];
         buffer.get(bytes);
         buffer.clear();
         return bytes;
     }
 
-    public static ByteBuffer fromBytes(byte[] bytes) {
+    public static ByteBuffer fromBytes(final byte[] bytes) {
         return ByteBuffer.wrap(bytes);
     }
 
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public Response put(@Param("id") String idParam, Request request) throws IOException {
+    public Response put(final @Param("id") String idParam,
+                        final Request request) throws IOException {
         if (idParam == null || idParam.isEmpty()) {
-            Response response = new Response(BAD_REQUEST);
+            final Response response = new Response(BAD_REQUEST);
             response.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
             return response;
         }
 
-        ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
-        ByteBuffer value = fromBytes(request.getBody());
+        final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
+        final ByteBuffer value = fromBytes(request.getBody());
         dao.upsert(key, value);
-        Response response = new Response(CREATED);
+        final Response response = new Response(CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
     }
 
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public Response delete(@Param("id") String idParam) throws IOException {
+    public Response delete(final @Param("id") String idParam) throws IOException {
         if (idParam == null || idParam.isEmpty()) {
-            Response badReqResponse = new Response(BAD_REQUEST);
+            final Response badReqResponse = new Response(BAD_REQUEST);
             badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
             return badReqResponse;
         }
 
-        ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
+        final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
         dao.remove(key);
 
-        Response acceptedResponse = new Response(ACCEPTED);
+        final Response acceptedResponse = new Response(ACCEPTED);
         acceptedResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return acceptedResponse;
     }
@@ -116,7 +117,7 @@ public class CustomServer extends HttpServer {
     @Path("/abracadabra")
     @RequestMethod(METHOD_GET)
     public Response abracadabra() {
-        Response response = new Response(BAD_REQUEST);
+        final Response response = new Response(BAD_REQUEST);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
     }
@@ -124,7 +125,7 @@ public class CustomServer extends HttpServer {
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
-        Response response = new Response(OK);
+        final Response response = new Response(OK);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
     }
