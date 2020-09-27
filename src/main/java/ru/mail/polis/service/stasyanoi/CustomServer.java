@@ -30,6 +30,12 @@ public class CustomServer extends HttpServer {
         this.dao = dao;
     }
 
+    /**
+     * Get a record by key.
+     *
+     * @param idParam - key.
+     * @return Response with the value.
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(final @Param("id") String idParam) {
@@ -61,6 +67,12 @@ public class CustomServer extends HttpServer {
         return Response.ok(bytes);
     }
 
+    /**
+     * ByteBuffer to byte array.
+     *
+     * @param buffer - input buffer.
+     * @return byte array.
+     */
     @NotNull
     public static byte[] toBytes(final ByteBuffer buffer) {
         final byte[] bytes = new byte[buffer.limit()];
@@ -73,6 +85,14 @@ public class CustomServer extends HttpServer {
         return ByteBuffer.wrap(bytes);
     }
 
+    /**
+     * Create or update a record.
+     *
+     * @param idParam - key of the record.
+     * @param request - request with the body.
+     * @return Response with a status.
+     * @throws IOException - read/write file exception.
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public Response put(final @Param("id") String idParam,
@@ -91,6 +111,13 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
+    /**
+     * Delete a record.
+     *
+     * @param idParam - key of the record to delete.
+     * @return Response with a status.
+     * @throws IOException - file read/write exception
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(final @Param("id") String idParam) throws IOException {
@@ -108,6 +135,11 @@ public class CustomServer extends HttpServer {
         return acceptedResponse;
     }
 
+    /**
+     * Abracadabra check.
+     *
+     * @return Response with status.
+     */
     @Path("/abracadabra")
     @RequestMethod(METHOD_GET)
     public Response abracadabra() {
@@ -116,6 +148,11 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
+    /**
+     * Status check.
+     *
+     * @return Response with status.
+     */
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
