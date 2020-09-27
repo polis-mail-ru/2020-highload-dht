@@ -92,8 +92,7 @@ public class ServiceImpl extends HttpServer implements Service {
      * Http method handler for getting a value in the DAO by the key.
      *
      * @param id is the key for searching for a value in the DAO.
-     * @return {@link Response} instance with value as body, if the key exists,
-     * Response status is
+     * @return {@link Response} instance with value as body, if the key exists. Response status is
      * {@code 200} if data is found
      * {@code 400} if id is empty
      * {@code 404} if not found,
