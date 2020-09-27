@@ -30,6 +30,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     /**
      * Implementation of a persistent storage with HTTP API.
+     *
      * @author Marashov Alexander
      */
     public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
@@ -39,9 +40,10 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Static function for creating an {@link HttpServerConfig} instance
-     * @param port port on which the {@link HttpServer} should listen
-     * @return {@link HttpServerConfig} for {@link HttpServer} with specified port
+     * Static function for creating an {@link HttpServerConfig} instance.
+     *
+     * @param port port on which the {@link HttpServer} should listen.
+     * @return {@link HttpServerConfig} for {@link HttpServer} with specified port.
      */
     @NotNull
     private static HttpServerConfig configFrom(final int port) {
@@ -54,9 +56,10 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Static function for converting {@link ByteBuffer} object to simple byte[] array
-     * @param buffer {@link ByteBuffer} instance that needs to be converted
-     * @return byte[] array with buffer's data or empty array if buffer is empty
+     * Static function for converting {@link ByteBuffer} object to simple byte[] array.
+     *
+     * @param buffer {@link ByteBuffer} instance that needs to be converted.
+     * @return byte[] array with buffer's data or empty array if buffer is empty.
      */
     @NotNull
     private static byte[] getBytes(@NotNull final ByteBuffer buffer) {
@@ -70,13 +73,14 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
     }
 
     /**
-     * Http method handler for checking server's reachability
-     * @return {@link Response} with status {@code 200} if the server is available
+     * Http method handler for checking server's reachability.
+     *
+     * @return {@link Response} with status {@code 200} if the server is available.
      */
     @Path("/v0/status")
     public Response handleStatus() {
@@ -85,13 +89,15 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Http method handler for getting a value in the DAO by the key
-     * @param id is the key for searching for a value in the DAO
+     * Http method handler for getting a value in the DAO by the key.
+     *
+     * @param id is the key for searching for a value in the DAO.
      * @return {@link Response} instance with value as body, if the key exists,
-     * Response status is {@code 200} if data is found
+     * Response status is
+     * {@code 200} if data is found
      * {@code 400} if id is empty
      * {@code 404} if not found,
-     * {@code 500} if an internal server error occurred
+     * {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -121,12 +127,13 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * HTTP method handler for placing a value by the key in the DAO storage
-     * @param id is the key that the data will be associated with
+     * HTTP method handler for placing a value by the key in the DAO storage.
+     *
+     * @param id is the key that the data will be associated with.
      * @return {@link Response} instance with
      * {@code 201} if data saved
      * {@code 400} if id is empty,
-     * {@code 500} if an internal server error occurred,
+     * {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -155,12 +162,13 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * HTTP method handler for removing a value by the key from the DAO storage
-     * @param id is the key that the data associated with
+     * HTTP method handler for removing a value by the key from the DAO storage.
+     *
+     * @param id is the key that the data associated with.
      * @return {@link Response} instance with
      * {@code 202} if the key deleted,
      * {@code 400} if id is empty,
-     * {@code 500} if an internal server error occurred
+     * {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
