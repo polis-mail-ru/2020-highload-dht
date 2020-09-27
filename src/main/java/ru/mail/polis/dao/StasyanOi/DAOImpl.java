@@ -8,6 +8,7 @@ import ru.mail.polis.service.stasyanoi.CustomServer;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
@@ -57,5 +58,14 @@ public class DAOImpl implements DAO {
     @Override
     public void close() {
         storageInstance.close();
+    }
+
+    @Override
+    public void compact() {
+        try {
+            storageInstance.compactRange();
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
