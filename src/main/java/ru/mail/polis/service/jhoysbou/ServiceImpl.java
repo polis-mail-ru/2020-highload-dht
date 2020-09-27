@@ -16,6 +16,14 @@ public class ServiceImpl implements Service {
     private final DAO dao;
     private HttpServer httpServer;
 
+    /**
+     * Prepare an http server to be started.
+     *
+     * @param port – int  port to listen
+     * @param dao - DAO implementation
+     * @return instance of ServiceImpl
+     *
+     */
     public ServiceImpl(final int port, final DAO dao) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;

@@ -1,6 +1,13 @@
 package ru.mail.polis.service.jhoysbou;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -25,10 +32,22 @@ public class LsmServer extends HttpServer implements Service {
         return Response.ok("OK");
     }
 
+    /**
+     * Provides an entity by the id.
+     *
+     * @param id – String
+     * @return response – Responce
+     * <p>
+     * Http code status:
+     * 200 – successfully get value by key
+     * 400 - no id or it is empty
+     * 404 - no value was found for a provided key
+     * 500 - internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response getValue(@Param(value = "id", required = true) final String id) {
-        if (id.equals("")) {
+        if ("".equals(id)) {
             log.error("Couldn't get value with empty key");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -51,11 +70,23 @@ public class LsmServer extends HttpServer implements Service {
         return new Response(Response.OK, array);
     }
 
+    /**
+     * Save or update an entity by id.
+     *
+     * @param id      – String
+     * @param request - Request with value to save in body
+     * @return response – Responce
+     * <p>
+     * Http code status:
+     * 200 – value successfully saved or updated
+     * 400 - no id or it is empty
+     * 500 - internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public Response putValue(@Param(value = "id", required = true) final String id,
                              final Request request) {
-        if (id.equals("")) {
+        if ("".equals(id)) {
             log.error("Couldn't put value with empty key");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -73,10 +104,21 @@ public class LsmServer extends HttpServer implements Service {
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
+    /**
+     * Delete an entity by id.
+     *
+     * @param id – String
+     * @return response – Responce
+     * <p>
+     * Http code status:
+     * 201 – value successfully deleted
+     * 400 - no id or it is empty
+     * 500 - internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public Response deleteValue(@Param(value = "id", required = true) final String id) throws IOException {
-        if (id.equals("")) {
+        if ("".equals(id)) {
             log.error("Couldn't delete value with empty key");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -87,7 +129,7 @@ public class LsmServer extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.error("Unknown request: {}", request);
         Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
