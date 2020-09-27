@@ -1,8 +1,8 @@
 package ru.mail.polis.service.stakenschneider;
 
 import one.nio.http.HttpServer;
-import one.nio.http.HttpSession;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
@@ -36,6 +36,13 @@ public class ServiceImplementation extends HttpServer implements Service {
         return Response.ok("OK");
     }
 
+    /**
+     * Provide access to entities.
+     *
+     * @param id key of entity
+     * @param request HTTP request
+     * @return response or error
+     */
     @Path("/v0/entity")
     public Response entity(
             @Param("id") final String id,
