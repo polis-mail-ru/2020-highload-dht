@@ -21,6 +21,7 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.jhoysbou.LsmServer;
+import ru.mail.polis.service.jhoysbou.ServiceImpl;
 
 import java.io.IOException;
 
@@ -63,6 +64,6 @@ public final class ServiceFactory {
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
 
-        return new LsmServer(config, dao);
+        return new ServiceImpl(config, dao);
     }
 }

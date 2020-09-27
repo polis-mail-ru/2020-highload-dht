@@ -1,6 +1,8 @@
 package ru.mail.polis.service.jhoysbou;
 
 import one.nio.http.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
@@ -10,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
 public class LsmServer extends HttpServer implements Service {
+    private static final Logger log = LoggerFactory.getLogger(LsmServer.class);
     private final DAO dao;
 
     public LsmServer(final HttpServerConfig config, final DAO dao) throws IOException {
@@ -78,6 +81,7 @@ public class LsmServer extends HttpServer implements Service {
 
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
+        log.error("Unknown request: {}", request);
         Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
     }
