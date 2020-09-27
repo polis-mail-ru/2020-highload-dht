@@ -22,11 +22,11 @@ import java.util.NoSuchElementException;
 
 /**
  * Поддержка следующего HTTP REST API протокола:
- * 1. HTTP GET /v0/entity?id=<ID> -- получить данные по ключу <ID>.
+ * 1. HTTP GET /v0/entity?id="ID" -- получить данные по ключу.
  * Возвращает 200 OK и данные или 404 Not Found
- * 2. HTTP PUT /v0/entity?id=<ID> -- создать/перезаписать (upsert) данные по ключу <ID>.
+ * 2. HTTP PUT /v0/entity?id="ID" -- создать/перезаписать (upsert) данные по ключу.
  * Возвращает 201 Created
- * 3. HTTP DELETE /v0/entity?id=<ID> -- удалить данные по ключу <ID>.
+ * 3. HTTP DELETE /v0/entity?id="ID" -- удалить данные по ключу.
  * Возвращает 202 Accepted
  *
  * @author makary
@@ -74,7 +74,7 @@ public class NewService extends HttpServer implements Service {
     }
 
     /**
-     * HTTP GET /v0/entity?id=<ID> -- получает данные по ключу <ID>
+     * HTTP GET /v0/entity?id="ID" -- получает данные по ключу.
      *
      * @param id ключ
      * @return 200 OK и данные или 404 Not Found
@@ -85,13 +85,12 @@ public class NewService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id
     ) {
         return
-                id.isEmpty() ?
-                        resp(Response.BAD_REQUEST) :
-                        operation(Operations.GETTING, id, null);
+                id.isEmpty()
+                        ? resp(Response.BAD_REQUEST) : operation(Operations.GETTING, id, null);
     }
 
     /**
-     * HTTP PUT /v0/entity?id=<ID> -- создает/перезаписывает (upsert) данные по ключу <ID>
+     * HTTP PUT /v0/entity?id="ID" -- создает/перезаписывает (upsert) данные по ключу.
      *
      * @param id ключ
      * @param request данные
@@ -104,13 +103,12 @@ public class NewService extends HttpServer implements Service {
             final Request request
     ) {
         return
-                id.isEmpty() ?
-                        resp(Response.BAD_REQUEST) :
-                        operation(Operations.UPSERTING, id, request);
+                id.isEmpty()
+                        ? resp(Response.BAD_REQUEST) : operation(Operations.UPSERTING, id, request);
     }
 
     /**
-     * HTTP DELETE /v0/entity?id=<ID> -- удаляет данные по ключу <ID>
+     * HTTP DELETE /v0/entity?id="ID" - удаляет данные по ключу.
      *
      * @param id ключ
      * @return 202 Accepted
@@ -121,9 +119,8 @@ public class NewService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id
     ) {
         return
-                id.isEmpty() ?
-                        resp(Response.BAD_REQUEST) :
-                        operation(Operations.REMOVING, id, null);
+                id.isEmpty()
+                        ? resp(Response.BAD_REQUEST) : operation(Operations.REMOVING, id, null);
     }
 
     private Response operation(
@@ -172,7 +169,7 @@ public class NewService extends HttpServer implements Service {
     }
 
     /**
-     * Логирует непонятные запросы
+     * Логирует непонятные запросы.
      *
      * @param request Запрос
      * @param httpSession Диалоговое состояние
@@ -181,13 +178,13 @@ public class NewService extends HttpServer implements Service {
     @Override
     public void handleDefault(
             final Request request,
-            HttpSession httpSession
+            final HttpSession httpSession
     ) throws IOException {
         logger.error("Непонятный запрос: {}", request);
         httpSession.sendResponse(resp(Response.BAD_REQUEST));
     }
 
-    private Response resp(String response) {
+    private Response resp(final String response) {
         return new Response(response, Response.EMPTY);
     }
 }
