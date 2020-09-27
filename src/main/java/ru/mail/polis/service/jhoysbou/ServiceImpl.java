@@ -24,8 +24,9 @@ public class ServiceImpl implements Service {
     public void start() {
         try {
             this.httpServer = new LsmServer(config, dao);
+            log.info("Server started successfully");
         } catch (IOException e) {
-            log.error("IOException {}", e);
+            log.error("Couldn't start the server", e);
         }
         this.httpServer.start();
     }
@@ -34,6 +35,7 @@ public class ServiceImpl implements Service {
     public void stop() {
         if (this.httpServer != null) {
             this.httpServer.stop();
+            log.info("Server stopped");
         }
     }
 }

@@ -29,6 +29,7 @@ public class LsmServer extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public Response getValue(@Param(value = "id", required = true) final String id) {
         if (id.equals("")) {
+            log.error("Couldn't get value with empty key");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
@@ -38,8 +39,10 @@ public class LsmServer extends HttpServer implements Service {
         try {
             value = dao.get(idBuffer);
         } catch (IOException e) {
+            log.error("Error getting {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
+            log.info("There is now element with key {}", id, e);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
@@ -53,14 +56,17 @@ public class LsmServer extends HttpServer implements Service {
     public Response putValue(@Param(value = "id", required = true) final String id,
                              final Request request) {
         if (id.equals("")) {
+            log.error("Couldn't put value with empty key");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
         final ByteBuffer idBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final ByteBuffer valueBuffer = ByteBuffer.wrap(request.getBody());
+
         try {
             dao.upsert(idBuffer, valueBuffer);
         } catch (IOException e) {
+            log.error("Error putting element with id = {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
@@ -71,6 +77,7 @@ public class LsmServer extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public Response deleteValue(@Param(value = "id", required = true) final String id) throws IOException {
         if (id.equals("")) {
+            log.error("Couldn't delete value with empty key");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
