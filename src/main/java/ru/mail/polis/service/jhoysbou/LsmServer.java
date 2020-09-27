@@ -37,8 +37,7 @@ public class LsmServer extends HttpServer implements Service {
      *
      * @param id – String
      * @return response – Responce
-     * <p>
-     * Http code status:
+     * <p>Http code status:
      * 200 – successfully get value by key
      * 400 - no id or it is empty
      * 404 - no value was found for a provided key
@@ -76,8 +75,7 @@ public class LsmServer extends HttpServer implements Service {
      * @param id      – String
      * @param request - Request with value to save in body
      * @return response – Responce
-     * <p>
-     * Http code status:
+     * <p>Http code status:
      * 200 – value successfully saved or updated
      * 400 - no id or it is empty
      * 500 - internal error
@@ -109,8 +107,7 @@ public class LsmServer extends HttpServer implements Service {
      *
      * @param id – String
      * @return response – Responce
-     * <p>
-     * Http code status:
+     * <p>Http code status:
      * 201 – value successfully deleted
      * 400 - no id or it is empty
      * 500 - internal error
