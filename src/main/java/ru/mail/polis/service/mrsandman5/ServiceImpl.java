@@ -1,6 +1,12 @@
 package ru.mail.polis.service.mrsandman5;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -12,13 +18,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.function.Function;
 
 public class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private static final Response ERROR = new Response(Response.BAD_REQUEST, Response.EMPTY);
-    private static final Function<String, ByteBuffer> getKey = (String id) -> ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
     private final DAO dao;
 
     public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
@@ -30,9 +34,11 @@ public class ServiceImpl extends HttpServer implements Service {
     public Response response(@Param(value = "id", required = true) final String id,
                              final Request request) {
         log.debug("Request handling : {}", id);
-        if (id.isEmpty()){ return ERROR; }
+        if (id.isEmpty()) {
+            return ERROR;
+        }
 
-        final var key = getKey.apply(id);
+        final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 return get(key);
@@ -84,7 +90,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     @Path("/v0/status")
-    public Response status(){
+    public Response status() {
         return Response.ok("OK");
     }
 
@@ -109,7 +115,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
-        if (!buffer.hasRemaining()){
+        if (!buffer.hasRemaining()) {
             return Response.EMPTY;
         }
 
