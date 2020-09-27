@@ -4,6 +4,7 @@
 # But not Java files...
 !put.lua
 !get.lua
+!*.docx
 !logback.xml
 !.gitignore
 !*.java
