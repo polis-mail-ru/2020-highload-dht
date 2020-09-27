@@ -27,68 +27,56 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public Response get(@Param(value = "id", required = true) final String id){
-        log.debug("GET request hadling : {}", id);
-
+    public Response response(@Param(value = "id", required = true) final String id,
+                             final Request request) {
+        log.debug("Request handling : {}", id);
         if (id.isEmpty()){ return ERROR; }
 
         final var key = getKey.apply(id);
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                return get(key);
+            case Request.METHOD_PUT:
+                return put(key, request.getBody());
+            case Request.METHOD_DELETE:
+                return delete(key);
+            default:
+                log.warn("Non-supported request : {}", id);
+                return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
+        }
+    }
+
+    private Response get(@NotNull final ByteBuffer key) {
         final ByteBuffer value;
         try {
             value = dao.get(key);
-        } catch (NoSuchElementException e){
+        } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
-            log.error("GET error : {}", id, e);
+            log.error("GET error : {}", toByteArray(key));
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
         return Response.ok(toByteArray(value));
     }
 
-    @NotNull
-    private static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
-        if (!buffer.hasRemaining()){
-            return Response.EMPTY;
-        }
-
-        final var bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-        return bytes;
-    }
-
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public Response put(@Param(value = "id", required = true) final String id,
-                        @NotNull final Request request){
-        log.debug("PUT request handling : {} with {} byte(s)", id, request.getBody().length);
-
-        if (id.isEmpty()){ return ERROR; }
-
-        final var key = getKey.apply(id);
-        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+    private Response put(@NotNull final ByteBuffer key,
+                          final byte[] body) {
+        final ByteBuffer value = ByteBuffer.wrap(body);
         try {
             dao.upsert(key, value);
         } catch (IOException e) {
-            log.error("PUT error : {}", id, e);
+            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public Response delete(@Param(value = "id", required = true) final String id){
-        log.debug("DELETE request handling : {}", id);
-
-        if (id.isEmpty()){ return ERROR; }
-
-        final var key = getKey.apply(id);
+    private Response delete(@NotNull final ByteBuffer key) {
         try {
             dao.remove(key);
         } catch (IOException e) {
-            log.error("DELETE error : {}", id, e);
+            log.error("DELETE error : {}", toByteArray(key));
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
@@ -117,5 +105,16 @@ public class ServiceImpl extends HttpServer implements Service {
         final var config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
         return config;
+    }
+
+    @NotNull
+    private static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
+        if (!buffer.hasRemaining()){
+            return Response.EMPTY;
+        }
+
+        final var bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        return bytes;
     }
 }
