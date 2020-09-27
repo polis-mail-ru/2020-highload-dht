@@ -46,7 +46,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Method to check whether the server is reachable or not.
-     *
      * If the server is available @return {@link Response} {@code 200}.
      * */
     @Path("/v0/status")
@@ -58,11 +57,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Method for working with value in the DAO by the key.
      *
      * @return {@code 200, data} (data is found).
-     * @return {@code 404} (data is not found).
-     * @return {@code 201} (new data created).
-     * @return {@code 202} (data deleted).
-     * @return {@code 405} (unexpected method).
-     * @return {@code 500} (internal server error occurred).
+     *         {@code 404} (data is not found).
+     *         {@code 201} (new data created).
+     *         {@code 202} (data deleted).
+     *         {@code 405} (unexpected method).
+     *         {@code 500} (internal server error occurred).
      * */
     @Path("/v0/entity")
     public Response entity(@Param("id") final String id, final Request request) {
@@ -86,8 +85,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Subsidiary method to get value.
      *
      * @return {@code 200, data} (data is found).
-     * @return {@code 404} (data is not found).
-     * @return {@code 500} (internal server error occurred).
+     *         {@code 404} (data is not found).
+     *         {@code 500} (internal server error occurred).
      * */
     private Response getEntity(final ByteBuffer key) {
         try {
@@ -103,7 +102,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Subsidiary method to put new value.
      *
      * @return {@code 201} (new data created).
-     * @return {@code 500} (internal server error occurred).
+     *         {@code 500} (internal server error occurred).
      * */
     private Response putEntity(final ByteBuffer key, final Request request) {
         try {
@@ -118,7 +117,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Subsidiary method to delete value by the key.
      *
      * @return {@code 202} (data deleted).
-     * @return {@code 500} (internal server error occurred).
+     *         {@code 500} (internal server error occurred).
      * */
     private Response deleteEntity(final ByteBuffer key) {
         try {
