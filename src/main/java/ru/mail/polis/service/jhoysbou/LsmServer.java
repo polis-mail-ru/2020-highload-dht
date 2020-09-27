@@ -80,10 +80,11 @@ public class LsmServer extends HttpServer implements Service {
      *
      * @return response - Responce
      *
-     * <p>Http code status:
+     * <p> Http code status:
      * 200 - value successfully saved or updated
      * 400 - no id or it is empty
      * 500 - internal error
+     * </p>
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -118,6 +119,7 @@ public class LsmServer extends HttpServer implements Service {
      * 201 - value successfully deleted
      * 400 - no id or it is empty
      * 500 - internal error
+     * </p>
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -135,7 +137,7 @@ public class LsmServer extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.error("Unknown request: {}", request);
-        Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
     }
 
