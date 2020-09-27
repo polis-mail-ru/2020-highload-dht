@@ -57,6 +57,8 @@ public final class ServiceFactory {
 
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
+        acceptorConfig.deferAccept = true;
+        acceptorConfig.reusePort = true;
 
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
