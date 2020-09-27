@@ -35,13 +35,16 @@ public class LsmServer extends HttpServer implements Service {
     /**
      * Provides an entity by the id.
      *
-     * @param id – String
-     * @return response – Responce
-     * <p>Http code status:
-     * 200 – successfully get value by key
+     * @param id - String
+     *
+     * @return response - Responce
+     *
+     * <p> Http code status:
+     * 200 - successfully get value by key
      * 400 - no id or it is empty
      * 404 - no value was found for a provided key
      * 500 - internal error
+     * </p>
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -72,11 +75,13 @@ public class LsmServer extends HttpServer implements Service {
     /**
      * Save or update an entity by id.
      *
-     * @param id      – String
+     * @param id      - String
      * @param request - Request with value to save in body
-     * @return response – Responce
+     *
+     * @return response - Responce
+     *
      * <p>Http code status:
-     * 200 – value successfully saved or updated
+     * 200 - value successfully saved or updated
      * 400 - no id or it is empty
      * 500 - internal error
      */
@@ -105,10 +110,12 @@ public class LsmServer extends HttpServer implements Service {
     /**
      * Delete an entity by id.
      *
-     * @param id – String
-     * @return response – Responce
+     * @param id - String
+     *
+     * @return response - Responce
+     *
      * <p>Http code status:
-     * 201 – value successfully deleted
+     * 201 - value successfully deleted
      * 400 - no id or it is empty
      * 500 - internal error
      */

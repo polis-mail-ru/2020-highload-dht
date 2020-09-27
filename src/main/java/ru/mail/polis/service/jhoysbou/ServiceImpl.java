@@ -19,8 +19,9 @@ public class ServiceImpl implements Service {
     /**
      * Prepare an http server to be started.
      *
-     * @param port – int  port to listen
+     * @param port - int  port to listen
      * @param dao  - DAO implementation
+     *
      * @return instance of ServiceImpl
      */
     public ServiceImpl(final int port, final DAO dao) {
