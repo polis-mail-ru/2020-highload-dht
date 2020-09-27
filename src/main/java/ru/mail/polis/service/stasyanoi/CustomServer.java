@@ -18,12 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
-import static one.nio.http.Response.ACCEPTED;
-import static one.nio.http.Response.BAD_REQUEST;
-import static one.nio.http.Response.CREATED;
-import static one.nio.http.Response.NOT_FOUND;
-import static one.nio.http.Response.OK;
-import static one.nio.http.Response.ok;
 
 public class CustomServer extends HttpServer {
 
@@ -41,8 +35,8 @@ public class CustomServer extends HttpServer {
     public Response get(final @Param("id") String idParam) {
         //check id param
         if (idParam == null || idParam.isEmpty()) {
-            final Response badReqResponse = new Response(BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
+            final Response badReqResponse = new Response(Response.BAD_REQUEST);
+            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ":" + 0);
             return badReqResponse;
         }
 
@@ -57,14 +51,14 @@ public class CustomServer extends HttpServer {
             throw new RuntimeException(e);
         } catch (NoSuchElementException e) {
             //if not found then 404
-            final Response notFoundResponse = new Response(NOT_FOUND);
-            notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
+            final Response notFoundResponse = new Response(Response.NOT_FOUND);
+            notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
             return notFoundResponse;
         }
 
         // if found then return
         final byte[] bytes = toBytes(response);
-        return ok(bytes);
+        return Response.ok(bytes);
     }
 
     @NotNull
@@ -84,15 +78,15 @@ public class CustomServer extends HttpServer {
     public Response put(final @Param("id") String idParam,
                         final Request request) throws IOException {
         if (idParam == null || idParam.isEmpty()) {
-            final Response response = new Response(BAD_REQUEST);
-            response.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
+            final Response response = new Response(Response.BAD_REQUEST);
+            response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
             return response;
         }
 
         final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
         final ByteBuffer value = fromBytes(request.getBody());
         dao.upsert(key, value);
-        final Response response = new Response(CREATED);
+        final Response response = new Response(Response.CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
     }
@@ -101,15 +95,15 @@ public class CustomServer extends HttpServer {
     @RequestMethod(METHOD_DELETE)
     public Response delete(final @Param("id") String idParam) throws IOException {
         if (idParam == null || idParam.isEmpty()) {
-            final Response badReqResponse = new Response(BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": 0");
+            final Response badReqResponse = new Response(Response.BAD_REQUEST);
+            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
             return badReqResponse;
         }
 
         final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
         dao.remove(key);
 
-        final Response acceptedResponse = new Response(ACCEPTED);
+        final Response acceptedResponse = new Response(Response.ACCEPTED);
         acceptedResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return acceptedResponse;
     }
@@ -117,7 +111,7 @@ public class CustomServer extends HttpServer {
     @Path("/abracadabra")
     @RequestMethod(METHOD_GET)
     public Response abracadabra() {
-        final Response response = new Response(BAD_REQUEST);
+        final Response response = new Response(Response.BAD_REQUEST);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
     }
@@ -125,7 +119,7 @@ public class CustomServer extends HttpServer {
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
-        final Response response = new Response(OK);
+        final Response response = new Response(Response.OK);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
     }
