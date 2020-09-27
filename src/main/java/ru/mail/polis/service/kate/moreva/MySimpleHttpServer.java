@@ -89,8 +89,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * */
     private Response getEntity(final ByteBuffer key) {
         try {
-            ByteBuffer value = dao.get(key).duplicate();
-            byte[] body = new byte[value.remaining()];
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] body = new byte[value.remaining()];
             value.get(body);
             return new Response(Response.OK, body);
         } catch (NoSuchElementException e) {
