@@ -27,4 +27,8 @@ public class IteratorImpl implements Iterator<Record> {
         rocksIterator.next();
         return Record.of(CustomServer.fromBytes(key), CustomServer.fromBytes(value));
     }
+
+    public void close() {
+        rocksIterator.close();
+    }
 }

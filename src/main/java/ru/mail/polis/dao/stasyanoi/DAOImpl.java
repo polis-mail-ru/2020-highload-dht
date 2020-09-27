@@ -1,5 +1,6 @@
 package ru.mail.polis.dao.stasyanoi;
 
+import one.nio.http.Param;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
@@ -21,6 +22,7 @@ public class DAOImpl implements DAO {
     }
 
     private final RocksDB storageInstance;
+    private IteratorImpl recordIterator;
 
     /**
      * Creates a dao implementation based on the given dir.
@@ -41,7 +43,15 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(final @NotNull ByteBuffer from) {
-        return new IteratorImpl(from, storageInstance.newIterator());
+        return getIterator(from);
+    }
+
+    private Iterator<Record> getIterator(final @NotNull ByteBuffer from){
+        if (recordIterator != null) {
+            recordIterator.close();
+        }
+        recordIterator = new IteratorImpl(from, storageInstance.newIterator());
+        return recordIterator;
     }
 
     @Override
@@ -71,7 +81,6 @@ public class DAOImpl implements DAO {
     public void compact() {
         try {
             storageInstance.compactRange();
-            System.err.println("compact");
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
