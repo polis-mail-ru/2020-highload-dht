@@ -16,8 +16,11 @@
 
 package ru.mail.polis.service;
 
+import one.nio.http.HttpServerConfig;
+import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.codearound.TaskService;
 
 import java.io.IOException;
 
@@ -52,6 +55,8 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        //throw new UnsupportedOperationException("Implement me!");
+
+        return new TaskService(port, dao);
     }
 }

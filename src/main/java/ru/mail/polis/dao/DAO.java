@@ -65,6 +65,8 @@ public interface DAO extends Closeable {
         return Iters.until(iterator(from), bound);
     }
 
+    //void removeValue(@NotNull ByteBuffer key) throws IOException;
+
     /**
      * Obtains {@link Record} corresponding to given key.
      *
@@ -93,12 +95,27 @@ public interface DAO extends Closeable {
             @NotNull ByteBuffer value) throws IOException;
 
     /**
+     * Inserts or updates value with timestamp by given key.
+     */
+    //void upsertValue(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException;
+
+    /**
      * Removes value by given key.
      */
     void remove(@NotNull ByteBuffer key) throws IOException;
 
     /**
-     * Perform compaction
+     * Getting a Value with timestamp by given key.
+     *
+     * @param key - ByteBuffer key
+     * @return a Value with timestamp
+     * @throws IOException is possible
+     * @throws NoSuchElementException is possible
+     */
+    //Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException;
+
+    /**
+     * Performs compaction.
      */
     default void compact() throws IOException {
         // Implement me when you get to stage 3
