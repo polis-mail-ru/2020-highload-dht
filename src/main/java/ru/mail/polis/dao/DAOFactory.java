@@ -17,7 +17,6 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.RocksDBException;
 import ru.mail.polis.service.codearound.TaskDAO;
 
 import java.io.File;

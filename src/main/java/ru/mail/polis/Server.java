@@ -16,7 +16,6 @@
 
 package ru.mail.polis;
 
-import org.rocksdb.RocksDBException;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DAOFactory;
 import ru.mail.polis.service.Service;
