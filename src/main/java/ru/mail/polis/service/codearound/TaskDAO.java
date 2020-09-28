@@ -13,6 +13,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TaskDAO implements DAO {
 
@@ -22,6 +24,7 @@ public class TaskDAO implements DAO {
 
         File dbLocalDir;
         private RocksDB db;
+        Logger logger = Logger.getLogger(TaskDAO.class.getName());
 
         public TaskDAO(final RocksDB db) {
             this.db = db;
@@ -31,7 +34,7 @@ public class TaskDAO implements DAO {
         * class instance const.
         * @param data - file to store key-value records
         */
-        public TaskDAO(@NotNull final File data) {
+        public TaskDAO(@NotNull final File data) throws IOException {
             final Options opts = new Options();
             opts.setCreateIfMissing(true);
             dbLocalDir = data;
@@ -40,7 +43,7 @@ public class TaskDAO implements DAO {
                 Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
                 db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
             } catch (IOException | RocksDBException exc) {
-                exc.printStackTrace();
+                logger.log(Level.SEVERE, "Storage initialization failed");
             }
         }
 
