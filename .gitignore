@@ -12,9 +12,10 @@
 !.travis.yml
 !settings.gradle
 !checkstyle.xml
-!.codeclimate.yml
-!wrk2
-!highloadTest
+!.codeclimate.ymlz
+!*.txt
+!*.svg
+!highloadTest/readme.md
 
 # ...even if they are in subdirectories
 !*/
