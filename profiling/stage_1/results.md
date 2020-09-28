@@ -414,7 +414,8 @@ Transfer/sec:    478.32KB
 
 ## GET
 ### В 1 соединение
-Кладем значения в хранилище. Формируем пакеты с помощью скриптов lua (находятся в /wrk/put.lua)
+Читаем из хранилища. Формируем пакеты с помощью скриптов lua (находятся в /wrk/get.lua)
+
 Запускаю wrk c такими параметрами:
 + 1 thread (worker) send requests
 + keeping 1 HTTP connections open
@@ -423,9 +424,11 @@ Transfer/sec:    478.32KB
 
 Результаты с async profiler-а (CPU):
 ![Flame graph from async profiler](1-get-flamegraph-cpu.svg?raw=true "Flame graph from async profiler")
+Картина особо не изменилась, просто мы видим, что вызываем get, а не put.
 
 Результаты с async profiler-а (ALLOC):
 ![Flame graph from async profiler](1-get-flamegraph-alloc.svg?raw=true "Flame graph from async profiler")
+То же самое.
 
 Результаты wrk2:
 ```
