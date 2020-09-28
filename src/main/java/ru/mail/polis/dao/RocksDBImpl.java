@@ -1,10 +1,7 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
+import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
@@ -24,7 +21,8 @@ public class RocksDBImpl implements DAO{
     }
 
     public RocksDBImpl(final File data) {
-        final Options options = new Options().setCreateIfMissing(true);
+        final Options options = new Options().setCreateIfMissing(true)
+                .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
         try{
             db = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException e) {
@@ -59,12 +57,12 @@ public class RocksDBImpl implements DAO{
 
     @Override
     public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
-        try {
-            db.put(unfoldToBytes(key), unfoldToBytes(value));
-        } catch (RocksDBException e) {
-            log.error("Rocks upsert error: ", e);
-            throw new RuntimeException("Rocks upsert error: ", e);
-        }
+            try {
+                db.put(unfoldToBytes(key), unfoldToBytes(value));
+            } catch (RocksDBException e) {
+                log.error("Rocks upsert error: ", e);
+                throw new RuntimeException("Rocks upsert error: ", e);
+            }
     }
 
     @Override
@@ -100,8 +98,9 @@ public class RocksDBImpl implements DAO{
     }
 
     public static byte[] unfoldToBytes(@NotNull final ByteBuffer b) {
-        final byte[] bytes = new byte[b.limit()]; //todo remaining ??
-        b.get(bytes).clear();
+        final byte[] bytes = new byte[b.limit()];
+        b.get(bytes);
+        b.clear();
         return bytes;
     }
 }
