@@ -17,6 +17,12 @@ public class StartService implements Service {
     private HttpServer server;
     private static final Logger log = LoggerFactory.getLogger(StartService.class.getName());
 
+    /**
+     * Service configuration.
+     *
+     * @param port - which port should be listened
+     * @param dao - database
+     */
     public StartService(final int port, final DAO dao) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;

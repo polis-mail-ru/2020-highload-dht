@@ -34,7 +34,6 @@ public class MyService extends HttpServer implements Service {
         return Response.ok("OK");
     }
 
-    @Path("/v0/entity")
     /**
      * Put/delete and get data from dao.
      *
@@ -49,6 +48,7 @@ public class MyService extends HttpServer implements Service {
      *           code 405 - "method is not allowed" - method can't be used
      *           code 500 - "internal error" - server is not responding
      */
+    @Path("/v0/entity")
     public Response entity(final @Param(value = "id", required = true) String id, final Request request) {
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);

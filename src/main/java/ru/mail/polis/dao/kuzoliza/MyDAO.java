@@ -2,9 +2,8 @@ package ru.mail.polis.dao.kuzoliza;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.Record;
-
+import ru.mail.polis.dao.DAO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
