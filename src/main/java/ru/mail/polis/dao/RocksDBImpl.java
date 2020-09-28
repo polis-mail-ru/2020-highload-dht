@@ -49,7 +49,7 @@ public final class RocksDBImpl implements DAO {
 
     @NotNull
     @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
         try {
             final var res = db.get(fromByteBufferToByte(key));
             if (res == null) {

@@ -1,4 +1,4 @@
-package ru.mail.polis.service.httpService;
+package ru.mail.polis.service.ivanovandrey;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -111,11 +111,11 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             dao.remove(key);
         } catch (NoSuchElementException e) {
-            return new Response (Response.NOT_FOUND, Response.EMPTY);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
-            return new Response (Response.INTERNAL_ERROR, Response.EMPTY);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-        return new Response (Response.ACCEPTED, Response.EMPTY);
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
     @Path("/v0/status")

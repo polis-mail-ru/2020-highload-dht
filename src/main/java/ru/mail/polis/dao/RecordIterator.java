@@ -1,4 +1,5 @@
 package ru.mail.polis.dao;
+
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
