@@ -6,8 +6,12 @@ import static java.lang.Byte.MIN_VALUE;
 
 public class DAOByteOnlyConverter {
 
+    private DAOByteOnlyConverter() {
+
+    }
+
     /**
-     * implement size manipulation to ensure proper conversion from ByteBuffer object to plain byte array
+     * implement size manipulation to ensure proper conversion from ByteBuffer object to plain byte array.
      *
      * @param buf ByteBuffer object to be arithmetically tuned to byte array
      * @return a byte array object
@@ -22,7 +26,7 @@ public class DAOByteOnlyConverter {
     }
 
     /**
-     * implement size manipulation to ensure proper conversion from byte array to ByteBuffer instance
+     * implement size manipulation to ensure proper conversion from byte array to ByteBuffer instance.
      *
      * @param byteArray byte array to be arithmetically tuned to ByteBuffer instance
      * @return a ByteBuffer object
@@ -36,9 +40,9 @@ public class DAOByteOnlyConverter {
     }
 
     /**
-     * read data from ByteByffer to enforce return as a byte array
+     * read data from ByteByffer to enforce return as a byte array.
      *
-     * @param buf ByteBuffer object to be handled  to return byte array
+     * @param buf ByteBuffer object to be handled  to return byte array.
      * @return a byte array object
      */
     public static byte[] readByteArray(final ByteBuffer buf) {

@@ -1,18 +1,15 @@
 package ru.mail.polis.service.codearound;
 
-import one.nio.http.Path;
 import one.nio.http.Param;
-
-import org.jetbrains.annotations.NotNull;
-
-import one.nio.http.HttpServerConfig;
+import one.nio.http.Path;
 import one.nio.http.HttpServer;
-import one.nio.http.Response;
-import one.nio.http.Request;
+import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
-
 import com.google.common.base.Charsets;
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import java.io.IOException;
@@ -30,7 +27,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * define HTTP server configuration parameters initially
+     * define HTTP server configuration parameters initially.
      * @param port - server listening port
      * @return HTTP server configuration object
      */
@@ -49,7 +46,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * try formation request to secure OK as response
+     * try formation request to secure OK as response.
      */
     @Path("/v0/status")
     public Response status() {
@@ -57,7 +54,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * determine what request and how to be handled if receiving one
+     * determine what request and how to be handled if receiving one.
      *
      * @param id String object to be processed as a key in terms of data storage design
      * @param req client host request
@@ -88,7 +85,7 @@ public class TaskService extends HttpServer implements Service {
         }
     }
     /**
-     * handle GET request
+     * handle GET request.
      * @param key - key that should match for sending a value in server response
      * @return Response object
      */
@@ -106,7 +103,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * handle PUT request
+     * handle PUT request.
      * @param key - key to either initiate a new record or to modify an existing one
      * @param req client host request
      * @return server response object
@@ -117,7 +114,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * handle DELETE request
+     * handle DELETE request.
      * @param key - specific key to remove a record from storage unless match is missing there
      * @return server response object
      */

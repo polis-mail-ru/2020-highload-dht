@@ -15,7 +15,7 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * define iterator move to next element of stuff within file content
+     * define iterator move to next element of stuff within file content.
      */
     @Override
     public boolean hasNext() {
@@ -23,11 +23,11 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * define evaluation of an element (record) at next step of file reading by iterator
+     * define evaluation of an element (record) at next step of file reading by iterator.
      */
     @Override
     public Record next() {
-        if(hasNext()) {
+        if (hasNext()) {
             final ByteBuffer buf = DAOByteOnlyConverter.tuneArrayToBuf(rocksIt.key());
             final Record rec = Record.of(buf, ByteBuffer.wrap(rocksIt.value()));
             rocksIt.next();
@@ -38,7 +38,7 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * define termination of iterator call
+     * define termination of iterator call.
      */
     public void close() {
         rocksIt.close();

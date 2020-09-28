@@ -1,8 +1,10 @@
 package ru.mail.polis.service.codearound;
 
 import org.jetbrains.annotations.NotNull;
-
-import org.rocksdb.*;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import java.io.File;
@@ -11,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+
 public class TaskDAO implements DAO {
 
         static {
@@ -20,9 +23,14 @@ public class TaskDAO implements DAO {
         File dbLocalDir;
         private RocksDB db;
 
-        public TaskDAO(RocksDB db) {
+        public TaskDAO(final RocksDB db) {
             this.db = db;
         }
+
+        /**
+        * class instance const.
+        * @param data - file to store key-value records
+        */
         public TaskDAO(@NotNull final File data) {
             final Options opts = new Options();
             opts.setCreateIfMissing(true);
@@ -32,7 +40,7 @@ public class TaskDAO implements DAO {
                 Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
                 db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
             } catch (IOException | RocksDBException exc) {
-                System.out.println("Error initializing DB instance in local file system - DB access can't be provided\n");
+                System.out.println("Error initializing DB instance in local file system - no DB access yet\n");
             }
             System.out.println("DB initializing finished - storage function enabled\n");
         }
@@ -47,7 +55,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * define insert/update dual method
+     * define insert/update dual method.
      * @param key - key that should match for attaching a value to server response
      * @param value - key-bound value
      */
@@ -63,7 +71,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * define remove method
+     * define remove method.
      * @param key - target key
      */
     @Override
@@ -77,7 +85,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * define get method
+     * define get method.
      * @param key - target key
      */
     @NotNull
@@ -96,7 +104,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * stop and close connection to key-value storage
+     * stop and close connection to key-value storage.
      */
     @Override
     public void close() {
