@@ -1,4 +1,4 @@
-package ru.mail.polis.service.HttpService;
+package ru.mail.polis.service.httpService;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -45,7 +45,7 @@ public class ServiceImpl extends HttpServer implements Service {
         return config;
     }
 
-    /** Get data by key method
+    /** Get data by key method.
      * @param id - id request.
      * @return code 200 and data,
      *         code 400 - id is empty,
@@ -70,7 +70,7 @@ public class ServiceImpl extends HttpServer implements Service {
         return Response.ok(fromByteBufferToByte(val));
     }
 
-    /** Put/update data by key method
+    /** Put/update data by key method.
      * @param id - id request.
      * @param request - data.
      * @return code 201 - created,
@@ -88,13 +88,13 @@ public class ServiceImpl extends HttpServer implements Service {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         try {
             dao.upsert(key, value);
-        } catch (IOException e){
+        } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
-    /** Delete data by key method
+    /** Delete data by key method.
      * @param id - id request.
      * @return code 202 - delited,
      *         code 400 - id is empty,
@@ -111,8 +111,8 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             dao.remove(key);
         } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e){
+            return new Response (Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
             return new Response (Response.INTERNAL_ERROR, Response.EMPTY);
         }
         return new Response (Response.ACCEPTED, Response.EMPTY);
@@ -129,12 +129,11 @@ public class ServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    public static ByteBuffer strToByteBuffer(String msg, Charset charset) {
+    public static ByteBuffer strToByteBuffer(final String msg, final Charset charset) {
         return ByteBuffer.wrap(msg.getBytes(charset));
     }
 
-    /**
-     * Convert from ByteBuffer to Byte massive
+    /** Convert from ByteBuffer to Byte massive.
      *
      * @param buffer - ByteBuffer variable to convert
      */

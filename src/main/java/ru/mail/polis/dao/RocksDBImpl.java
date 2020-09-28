@@ -26,6 +26,7 @@ public final class RocksDBImpl implements DAO {
      *
      * @param path - db storage location
      */
+
     public RocksDBImpl(final File path) {
         try {
             final var comparator = new BytewiseComparator(new ComparatorOptions());
@@ -35,12 +36,12 @@ public final class RocksDBImpl implements DAO {
             db = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
-        } ;
+        }
     }
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         final var iterator = db.newIterator();
         iterator.seek(fromByteBufferToByte(from));
         return new RecordIterator(iterator);
@@ -61,7 +62,7 @@ public final class RocksDBImpl implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
        try {
            db.put(fromByteBufferToByte(key), fromByteBufferToByte(value));
        } catch (RocksDBException e) {
@@ -70,7 +71,7 @@ public final class RocksDBImpl implements DAO {
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(fromByteBufferToByte(key));
         } catch (RocksDBException e) {
@@ -92,8 +93,7 @@ public final class RocksDBImpl implements DAO {
         db.close();
     }
 
-    /**
-     * Convert from ByteBuffer to Byte massive
+    /** Convert from ByteBuffer to Byte massive.
      *
      * @param buffer - ByteBuffer variable to convert
      */
