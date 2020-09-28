@@ -1,5 +1,11 @@
-# 2020-highload-dht
-Курсовой проект 2020 года [курса](https://polis.mail.ru/curriculum/program/discipline/1017/) "Highload системы" в [Технополис](https://polis.mail.ru).
+# Оценка времени отклика сервера в режиме симулирования запросов (wrk + async-profiler)
+
+Сведения о системе:<br/>
+ОС Ubuntu 18.04 LTS x64-bit <br/>
+Процессор Intel(R) Celeron(R) N4000 CPU @ 1.10GHz<br/>
+Объём RAM: 8 ГБ<br/>
+Количество ядер ЦПУ: 2<br/>  
+
 
 ## Этап 1. HTTP + storage (deadline 2020-09-30)
 ### Fork
