@@ -18,6 +18,8 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.kuzoliza.MyService;
+import ru.mail.polis.service.kuzoliza.StartService;
 
 import java.io.IOException;
 
@@ -52,6 +54,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        return new StartService(port, dao);
     }
 }
