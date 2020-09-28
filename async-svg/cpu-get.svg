@@ -1,0 +1,605 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="694" onload="init(evt)" viewBox="0 0 1200 694" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
+<text id="title" x="600" y="24">Flame Graph</text>
+<text id="details" x="10" y="677"> </text>
+<text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090" y="24">Search</text>
+<text id="matched" x="1090" y="677"> </text>
+<g id="frames">
+<g>
+<title>all (7 samples, 100.00%)</title><rect x="10.0" y="643.0" width="1180.0" height="15" fill="#fa7b7b" rx="2" ry="2"/>
+<text x="13.0" y="654.0">all</text>
+</g>
+<g>
+<title>java/lang/Thread.run (3 samples, 42.86%)</title><rect x="10.0" y="627.0" width="505.7" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="13.0" y="638.0">java/lang/Thread.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (3 samples, 42.86%)</title><rect x="10.0" y="611.0" width="505.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="13.0" y="622.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (3 samples, 42.86%)</title><rect x="10.0" y="595.0" width="505.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="13.0" y="606.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run (3 samples, 42.86%)</title><rect x="10.0" y="579.0" width="505.7" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="13.0" y="590.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run</text>
+</g>
+<g>
+<title>java/security/AccessController.doPrivileged (3 samples, 42.86%)</title><rect x="10.0" y="563.0" width="505.7" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="13.0" y="574.0">java/security/AccessController.doPrivileged</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler$$Lambda$91/1780139009.run (3 samples, 42.86%)</title><rect x="10.0" y="547.0" width="505.7" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="13.0" y="558.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler$$Lambda$91/178013..</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.lambda$run$0 (3 samples, 42.86%)</title><rect x="10.0" y="531.0" width="505.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="13.0" y="542.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.lambda$run$0</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run0 (3 samples, 42.86%)</title><rect x="10.0" y="515.0" width="505.7" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="13.0" y="526.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run0</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport.handleMessages (3 samples, 42.86%)</title><rect x="10.0" y="499.0" width="505.7" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="13.0" y="510.0">sun/rmi/transport/tcp/TCPTransport.handleMessages</text>
+</g>
+<g>
+<title>sun/rmi/transport/Transport.serviceCall (2 samples, 28.57%)</title><rect x="178.6" y="483.0" width="337.1" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="181.6" y="494.0">sun/rmi/transport/Transport.serviceCall</text>
+</g>
+<g>
+<title>java/security/AccessController.doPrivileged (2 samples, 28.57%)</title><rect x="178.6" y="467.0" width="337.1" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="181.6" y="478.0">java/security/AccessController.doPrivileged</text>
+</g>
+<g>
+<title>sun/rmi/transport/Transport$1.run (2 samples, 28.57%)</title><rect x="178.6" y="451.0" width="337.1" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="181.6" y="462.0">sun/rmi/transport/Transport$1.run</text>
+</g>
+<g>
+<title>sun/rmi/transport/Transport$1.run (2 samples, 28.57%)</title><rect x="178.6" y="435.0" width="337.1" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="181.6" y="446.0">sun/rmi/transport/Transport$1.run</text>
+</g>
+<g>
+<title>sun/rmi/server/UnicastServerRef.dispatch (2 samples, 28.57%)</title><rect x="178.6" y="419.0" width="337.1" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="181.6" y="430.0">sun/rmi/server/UnicastServerRef.dispatch</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 14.29%)</title><rect x="178.6" y="403.0" width="168.5" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="181.6" y="414.0">java/lang/reflect/Meth..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 14.29%)</title><rect x="178.6" y="387.0" width="168.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="181.6" y="398.0">jdk/internal/reflect/D..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor37.invoke (1 samples, 14.29%)</title><rect x="178.6" y="371.0" width="168.5" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="181.6" y="382.0">jdk/internal/reflect/G..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.invoke (1 samples, 14.29%)</title><rect x="178.6" y="355.0" width="168.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="181.6" y="366.0">javax/management/remot..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doPrivilegedOperation (1 samples, 14.29%)</title><rect x="178.6" y="339.0" width="168.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="181.6" y="350.0">javax/management/remot..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$PrivilegedOperation.run (1 samples, 14.29%)</title><rect x="178.6" y="323.0" width="168.5" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="181.6" y="334.0">javax/management/remot..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doOperation (1 samples, 14.29%)</title><rect x="178.6" y="307.0" width="168.5" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="181.6" y="318.0">javax/management/remot..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/JmxMBeanServer.invoke (1 samples, 14.29%)</title><rect x="178.6" y="291.0" width="168.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="181.6" y="302.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.invoke (1 samples, 14.29%)</title><rect x="178.6" y="275.0" width="168.5" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="181.6" y="286.0">com/sun/jmx/intercepto..</text>
+</g>
+<g>
+<title>javax/management/StandardMBean.invoke (1 samples, 14.29%)</title><rect x="178.6" y="259.0" width="168.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="181.6" y="270.0">javax/management/Stand..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanSupport.invoke (1 samples, 14.29%)</title><rect x="178.6" y="243.0" width="168.5" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="181.6" y="254.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/PerInterface.invoke (1 samples, 14.29%)</title><rect x="178.6" y="227.0" width="168.5" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="181.6" y="238.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanIntrospector.invokeM (1 samples, 14.29%)</title><rect x="178.6" y="211.0" width="168.5" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="181.6" y="222.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2 (1 samples, 14.29%)</title><rect x="178.6" y="195.0" width="168.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="181.6" y="206.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2 (1 samples, 14.29%)</title><rect x="178.6" y="179.0" width="168.5" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="181.6" y="190.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn (1 samples, 14.29%)</title><rect x="178.6" y="163.0" width="168.5" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="181.6" y="174.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn (1 samples, 14.29%)</title><rect x="178.6" y="147.0" width="168.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="181.6" y="158.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMapping.toOpenValue (1 samples, 14.29%)</title><rect x="178.6" y="131.0" width="168.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="181.6" y="142.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$ArrayMapping.toNonNullOpenValue (1 samples, 14.29%)</title><rect x="178.6" y="115.0" width="168.5" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="181.6" y="126.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMapping.toOpenValue (1 samples, 14.29%)</title><rect x="178.6" y="99.0" width="168.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="181.6" y="110.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$CompositeMapping.toNonNullOpenValue (1 samples, 14.29%)</title><rect x="178.6" y="83.0" width="168.5" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="181.6" y="94.0">com/sun/jmx/mbeanserve..</text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.&lt;init&gt; (1 samples, 14.29%)</title><rect x="178.6" y="67.0" width="168.5" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="181.6" y="78.0">javax/management/openm..</text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.makeMap (1 samples, 14.29%)</title><rect x="178.6" y="51.0" width="168.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="181.6" y="62.0">javax/management/openm..</text>
+</g>
+<g>
+<title>java/util/TreeMap.containsKey (1 samples, 14.29%)</title><rect x="178.6" y="35.0" width="168.5" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="181.6" y="46.0">java/util/TreeMap.cont..</text>
+</g>
+<g>
+<title>sun/rmi/server/UnicastRef.unmarshalValue (1 samples, 14.29%)</title><rect x="347.1" y="403.0" width="168.6" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="350.1" y="414.0">sun/rmi/server/Unicast..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (1 samples, 14.29%)</title><rect x="347.1" y="387.0" width="168.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="350.1" y="398.0">java/io/ObjectInputStr..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (1 samples, 14.29%)</title><rect x="347.1" y="371.0" width="168.6" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="350.1" y="382.0">java/io/ObjectInputStr..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (1 samples, 14.29%)</title><rect x="347.1" y="355.0" width="168.6" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="350.1" y="366.0">java/io/ObjectInputStr..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readOrdinaryObject (1 samples, 14.29%)</title><rect x="347.1" y="339.0" width="168.6" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="350.1" y="350.0">java/io/ObjectInputStr..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readSerialData (1 samples, 14.29%)</title><rect x="347.1" y="323.0" width="168.6" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="350.1" y="334.0">java/io/ObjectInputStr..</text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeReadObject (1 samples, 14.29%)</title><rect x="347.1" y="307.0" width="168.6" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="350.1" y="318.0">java/io/ObjectStreamCl..</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 14.29%)</title><rect x="347.1" y="291.0" width="168.6" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="350.1" y="302.0">java/lang/reflect/Meth..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 14.29%)</title><rect x="347.1" y="275.0" width="168.6" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="350.1" y="286.0">jdk/internal/reflect/D..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor2.invoke (1 samples, 14.29%)</title><rect x="347.1" y="259.0" width="168.6" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="350.1" y="270.0">jdk/internal/reflect/G..</text>
+</g>
+<g>
+<title>javax/management/ObjectName.readObject (1 samples, 14.29%)</title><rect x="347.1" y="243.0" width="168.6" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="350.1" y="254.0">javax/management/Objec..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.defaultReadObject (1 samples, 14.29%)</title><rect x="347.1" y="227.0" width="168.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="350.1" y="238.0">java/io/ObjectInputStr..</text>
+</g>
+<g>
+<title>start_thread (4 samples, 57.14%)</title><rect x="515.7" y="627.0" width="674.3" height="15" fill="#e35d5d" rx="2" ry="2"/>
+<text x="518.7" y="638.0">start_thread</text>
+</g>
+<g>
+<title>thread_native_entry(Thread*) (4 samples, 57.14%)</title><rect x="515.7" y="611.0" width="674.3" height="15" fill="#e66161" rx="2" ry="2"/>
+<text x="518.7" y="622.0">thread_native_entry(Thread*)</text>
+</g>
+<g>
+<title>Thread::call_run() (4 samples, 57.14%)</title><rect x="515.7" y="595.0" width="674.3" height="15" fill="#dbdb42" rx="2" ry="2"/>
+<text x="518.7" y="606.0">Thread::call_run()</text>
+</g>
+<g>
+<title>JavaThread::thread_main_inner() (4 samples, 57.14%)</title><rect x="515.7" y="579.0" width="674.3" height="15" fill="#e2e244" rx="2" ry="2"/>
+<text x="518.7" y="590.0">JavaThread::thread_main_inner()</text>
+</g>
+<g>
+<title>CompileBroker::compiler_thread_loop() (4 samples, 57.14%)</title><rect x="515.7" y="563.0" width="674.3" height="15" fill="#d2d23f" rx="2" ry="2"/>
+<text x="518.7" y="574.0">CompileBroker::compiler_thread_loop()</text>
+</g>
+<g>
+<title>CompileBroker::invoke_compiler_on_method(CompileTask*) (4 samples, 57.14%)</title><rect x="515.7" y="547.0" width="674.3" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="518.7" y="558.0">CompileBroker::invoke_compiler_on_method(CompileTask*)</text>
+</g>
+<g>
+<title>C2Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*) (4 samples, 57.14%)</title><rect x="515.7" y="531.0" width="674.3" height="15" fill="#c8c83c" rx="2" ry="2"/>
+<text x="518.7" y="542.0">C2Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*)</text>
+</g>
+<g>
+<title>Compile::Compile(ciEnv*, C2Compiler*, ciMethod*, int, bool, bool, bool, DirectiveSet*) (4 samples, 57.14%)</title><rect x="515.7" y="515.0" width="674.3" height="15" fill="#d5d540" rx="2" ry="2"/>
+<text x="518.7" y="526.0">Compile::Compile(ciEnv*, C2Compiler*, ciMethod*, int, bool, bool, bool, DirectiveSet*)</text>
+</g>
+<g>
+<title>Compile::Code_Gen() (4 samples, 57.14%)</title><rect x="515.7" y="499.0" width="674.3" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="518.7" y="510.0">Compile::Code_Gen()</text>
+</g>
+<g>
+<title>PhaseCFG::do_global_code_motion() (1 samples, 14.29%)</title><rect x="515.7" y="483.0" width="168.6" height="15" fill="#cfcf3e" rx="2" ry="2"/>
+<text x="518.7" y="494.0">PhaseCFG::do_global_co..</text>
+</g>
+<g>
+<title>PhaseCFG::global_code_motion() (1 samples, 14.29%)</title><rect x="515.7" y="467.0" width="168.6" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="518.7" y="478.0">PhaseCFG::global_code_..</text>
+</g>
+<g>
+<title>PhaseCFG::schedule_early(VectorSet&amp;, Node_Stack&amp;) (1 samples, 14.29%)</title><rect x="515.7" y="451.0" width="168.6" height="15" fill="#e3e345" rx="2" ry="2"/>
+<text x="518.7" y="462.0">PhaseCFG::schedule_ear..</text>
+</g>
+<g>
+<title>PhaseChaitin::Register_Allocate() (2 samples, 28.57%)</title><rect x="684.3" y="483.0" width="337.1" height="15" fill="#e1e144" rx="2" ry="2"/>
+<text x="687.3" y="494.0">PhaseChaitin::Register_Allocate()</text>
+</g>
+<g>
+<title>PhaseChaitin::post_allocate_copy_removal() (2 samples, 28.57%)</title><rect x="684.3" y="467.0" width="337.1" height="15" fill="#cfcf3e" rx="2" ry="2"/>
+<text x="687.3" y="478.0">PhaseChaitin::post_allocate_copy_removal()</text>
+</g>
+<g>
+<title>PhaseChaitin::elide_copy(Node*, int, Block*, Node_List&amp;, Node_List&amp;, bool) (1 samples, 14.29%)</title><rect x="852.9" y="451.0" width="168.5" height="15" fill="#d8d841" rx="2" ry="2"/>
+<text x="855.9" y="462.0">PhaseChaitin::elide_co..</text>
+</g>
+<g>
+<title>loadINode::out_RegMask() const (1 samples, 14.29%)</title><rect x="1021.4" y="483.0" width="168.6" height="15" fill="#d3d33f" rx="2" ry="2"/>
+<text x="1024.4" y="494.0">loadINode::out_RegMask..</text>
+</g>
+</g>
+</svg>
