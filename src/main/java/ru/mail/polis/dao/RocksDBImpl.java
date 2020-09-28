@@ -57,7 +57,7 @@ public final class RocksDBImpl implements DAO {
         }
         return ByteBuffer.wrap(res);
     } catch (RocksDBException e) {
-        throw new NoSuchElementException();
+        throw new RuntimeException(e);
     }
     }
 
@@ -75,7 +75,7 @@ public final class RocksDBImpl implements DAO {
         try {
             db.delete(fromByteBufferToByte(key));
         } catch (RocksDBException e) {
-            throw new NoSuchElementException();
+            throw new RuntimeException(e);
         }
     }
 
@@ -84,7 +84,7 @@ public final class RocksDBImpl implements DAO {
         try {
             db.compactRange();
         } catch (RocksDBException e) {
-            throw new NoSuchElementException();
+            throw new RuntimeException(e);
         }
     }
 
