@@ -16,27 +16,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.NoSuchElementException;
 
-/**
- * A persistent storage with HTTP API.
- * <p>
- * The following HTTP protocol is supported:
- * <ul>
- * <li>{@code GET /v0/status} -- returns {@code 200} or {@code 503}</li>
- * <li>{@code GET /v0/entity?id=<ID>} -- get data by {@code ID}. Returns {@code 200} and data if found, {@code 404} if not found.</li>
- * <li>{@code PUT /v0/entity?id=<ID>} -- upsert (create or replace) data by {@code ID}. Returns {@code 201}.</li>
- * <li>{@code DELETE /v0/entity?id=<ID>} -- remove data by {@code ID}. Returns {@code 202}.</li>
- * </ul>
- * <p>
- * {@code ID} is a non empty char sequence.
- * <p>
- * In all the cases the storage may return:
- * <ul>
- * <li>{@code 4xx} for malformed requests</li>
- * <li>{@code 5xx} for internal errors</li>
- * </ul>
- *
- * @author Vadim Tsesko
- */
 public class ServiceImpl extends HttpServer implements Service {
     private final DAO dao;
 
@@ -74,7 +53,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 );
             }
 
-            var key = ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
             switch (request.getMethod()) {
                 case Request.METHOD_GET: {
                     return get(key);
@@ -122,20 +101,20 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     private static HttpServerConfig getConfig(final int port) {
-        int PORT_MIN = 1024;
-        int PORT_MAX = 65536;
-        if (port <= PORT_MIN || PORT_MAX <= port) {
+        final int portMin = 1024;
+        final int portMax = 65536;
+        if (port <= portMin || portMax <= port) {
             throw new IllegalArgumentException(
-                String.format("Invalid port value provided. It must be between %d and %d", PORT_MIN, PORT_MAX)
+                String.format("Invalid port value provided. It must be between %d and %d", portMin, portMax)
             );
         }
 
-        AcceptorConfig acceptor_config = new AcceptorConfig();
-        acceptor_config.port = port;
-        acceptor_config.deferAccept = true;
-        acceptor_config.reusePort = true;
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = port;
+        acceptorConfig.deferAccept = true;
+        acceptorConfig.reusePort = true;
         final HttpServerConfig server_config = new HttpServerConfig();
-        server_config.acceptors = new AcceptorConfig[]{acceptor_config};
+        server_config.acceptors = new AcceptorConfig[]{acceptorConfig};
         return server_config;
     }
 }

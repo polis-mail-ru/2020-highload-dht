@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public class Util {
+public final class Util {
     /**
      * This converts ByteBuffer to byte array.
      *
@@ -12,8 +12,8 @@ public class Util {
      * @return array bytes
      */
     public static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
-        ByteBuffer copy = buffer.duplicate();
-        byte[] arr = new byte[copy.remaining()];
+        final ByteBuffer copy = buffer.duplicate();
+        final byte[] arr = new byte[copy.remaining()];
         copy.get(arr);
         return arr;
     }

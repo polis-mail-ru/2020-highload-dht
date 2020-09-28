@@ -1,7 +1,11 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.ComparatorOptions;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import org.rocksdb.util.BytewiseComparator;
 import ru.mail.polis.Record;
 
@@ -46,7 +50,7 @@ public final class DAOImpl implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final var result = db.get(toByteArray(key));
+            final byte[] result = db.get(toByteArray(key));
             if (result == null) {
                 throw new NoSuchElementException(String.format("No record found by key %s", key.toString()));
             }
@@ -81,12 +85,12 @@ public final class DAOImpl implements DAO {
 
     static DAO init(final File data) throws IOException {
         RocksDB.loadLibrary();
-        final var comparator = new BytewiseComparator(new ComparatorOptions());
-        final var options = new Options()
+        final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
+        final Options options = new Options()
             .setCreateIfMissing(true)
             .setComparator(comparator);
         try {
-            final var db = RocksDB.open(options, data.getAbsolutePath());
+            final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException exception) {
             throw new IOException(exception);

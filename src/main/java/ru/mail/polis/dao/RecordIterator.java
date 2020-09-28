@@ -25,8 +25,8 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
             throw new IllegalStateException("End of file");
         }
 
-        final var key = iterator.key();
-        final var value = iterator.value();
+        final byte[] key = iterator.key();
+        final byte[] value = iterator.value();
         iterator.next();
         return Record.of(ByteBuffer.wrap(key), ByteBuffer.wrap(value));
     }
