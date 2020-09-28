@@ -8,7 +8,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.server.AcceptorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -36,6 +35,20 @@ public class MyService extends HttpServer implements Service {
     }
 
     @Path("/v0/entity")
+    /**
+     * Put/delete and get data from dao.
+     *
+     * @param id - key
+     * @param request - body of request
+     *
+     * @return - code 200 - "success" - successfully got data
+     *           code 201 - "created" - successful respond to put request
+     *           code 202 - "accepted" - successfully deleted data
+     *           code 400 - "bad request" - syntax error (id is empty)
+     *           code 404 - "not found" - server can't find the resource
+     *           code 405 - "method is not allowed" - method can't be used
+     *           code 500 - "internal error" - server is not responding
+     */
     public Response entity(final @Param(value = "id", required = true) String id, final Request request) {
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);

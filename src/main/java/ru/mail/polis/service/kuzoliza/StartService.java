@@ -17,8 +17,8 @@ public class StartService implements Service {
     private HttpServer server;
     private static final Logger log = LoggerFactory.getLogger(StartService.class.getName());
 
-    public StartService (final int port, final DAO dao) {
-        AcceptorConfig acceptorConfig = new AcceptorConfig();
+    public StartService(final int port, final DAO dao) {
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
 
         this.dao = dao;
@@ -38,11 +38,8 @@ public class StartService implements Service {
 
     @Override
     public void stop() {
-        try {
+        if (this.server != null) {
             this.server.stop();
-        }
-        catch (NullPointerException ex) {
-            log.error("Can't stop server");
         }
     }
 }
