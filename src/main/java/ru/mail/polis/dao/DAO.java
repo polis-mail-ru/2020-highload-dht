@@ -32,6 +32,7 @@ import java.util.NoSuchElementException;
  * @author Vadim Tsesko
  * @author Dmitry Schitinin
  */
+
 public interface DAO extends Closeable {
 
     /**
@@ -49,6 +50,7 @@ public interface DAO extends Closeable {
      * N.B. The iterator should be obtained as fast as possible, e.g.
      * one should not "seek" to start point ("from" element) in linear time ;)
      */
+
     @NotNull
     default Iterator<Record> range(
             @NotNull ByteBuffer from,
@@ -65,13 +67,12 @@ public interface DAO extends Closeable {
         return Iters.until(iterator(from), bound);
     }
 
-    //void removeValue(@NotNull ByteBuffer key) throws IOException;
-
     /**
      * Obtains {@link Record} corresponding to given key.
      *
      * @throws NoSuchElementException if no such record
      */
+
     @NotNull
     default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
@@ -97,7 +98,6 @@ public interface DAO extends Closeable {
     /**
      * Inserts or updates value with timestamp by given key.
      */
-    //void upsertValue(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException;
 
     /**
      * Removes value by given key.
@@ -112,11 +112,11 @@ public interface DAO extends Closeable {
      * @throws IOException is possible
      * @throws NoSuchElementException is possible
      */
-    //Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException;
 
     /**
      * Performs compaction.
      */
+
     default void compact() throws IOException {
         // Implement me when you get to stage 3
     }

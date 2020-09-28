@@ -1,47 +1,64 @@
 package ru.mail.polis.service.codearound;
-import static java.lang.Byte.MIN_VALUE;
+
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
+
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+
 import java.io.File;
 import java.io.IOException;
+
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+
 public class TaskDAO implements DAO {
 
-        static {
-            RocksDB.loadLibrary();
-        }
+    static {
+        RocksDB.loadLibrary();
+    }
 
-        File dbLocalDir;
-        private RocksDB db;
+    File dbLocalDir;
+    private RocksDB db;
 
-        public TaskDAO(RocksDB db) {
-            this.db = db;
-        }
-        public TaskDAO(@NotNull final File data) {
-            final Options opts = new Options();
-            opts.setCreateIfMissing(true);
-            dbLocalDir = data;
-            try {
-                Files.createDirectories(dbLocalDir.getParentFile().toPath());
-                Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
-                db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
-            } catch (IOException | RocksDBException exc) {
-                System.out.println("Error initializing DB instance in local file system - DB access can't be provided\n");
-            }
-            System.out.println("DB initializing finished - storage function enabled\n");
-        }
+    public TaskDAO(final RocksDB db) {
+        this.db = db;
+    }
 
     /**
-     * Getting a byte array.
+     * class instance const
      *
-     * @param buffer - final ByteBuffer
-     * @return byte array
+     * @param data file object that stores key-value records
      */
+    public TaskDAO(@NotNull final File data) {
+        final Options opts = new Options();
+        opts.setCreateIfMissing(true);
+        dbLocalDir = data;
+        try {
+            Files.createDirectories(dbLocalDir.getParentFile().toPath());
+            Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
+            db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
+        } catch (IOException | RocksDBException exc) {
+            System.out.println("Error initializing DB instance in local file system - DB connection not available\n");
+        }
+        System.out.println("DB initializing finished - storage function enabled\n");
+    }
+
+    @Override
+    public void compact() throws IOException {
+        try {
+            db.compactRange();
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
+    }
 
     @NotNull
     @Override
@@ -51,6 +68,12 @@ public class TaskDAO implements DAO {
         rocksIterator.seek(byteArray);
         return new RocksRecordIterator(rocksIterator);
     }
+
+    /**
+     * insert/update dual method definition
+     * @param key either new or modified record key
+     * @param value key-bound value
+     */
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
@@ -61,6 +84,11 @@ public class TaskDAO implements DAO {
             throw new IOException(e);
         }
     }
+
+    /**
+     * remove method definition
+     * @param key - key which related record to be removed
+     */
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
@@ -70,6 +98,11 @@ public class TaskDAO implements DAO {
             throw new IOException(e);
         }
     }
+
+    /**
+     * get method definition
+     * @param key - key to occur a match record
+     */
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
@@ -84,6 +117,10 @@ public class TaskDAO implements DAO {
             throw new IOException(e);
         }
     }
+
+    /**
+     * stop handling request and drop active connection
+     */
     @Override
     public void close() {
         db.close();
