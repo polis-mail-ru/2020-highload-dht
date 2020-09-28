@@ -7,18 +7,17 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 public class RocksDBImpl implements DAO{
-    private static final Logger log = LoggerFactory.getLogger(RocksDBImpl.class);
-    private RocksDB db;
-
     static {
         RocksDB.loadLibrary();
     }
+
+    private static final Logger log = LoggerFactory.getLogger(RocksDBImpl.class);
+    private RocksDB db;
 
     public RocksDBImpl(final File data) {
         final Options options = new Options().setCreateIfMissing(true)
@@ -33,7 +32,7 @@ public class RocksDBImpl implements DAO{
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException {
+    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
         final RocksIterator rocksIterator = db.newIterator();
         rocksIterator.seek(unfoldToBytes(from));
         return new RecordIterator(rocksIterator);
@@ -41,7 +40,7 @@ public class RocksDBImpl implements DAO{
 
     @NotNull
     @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) throws IOException{
+    public ByteBuffer get(@NotNull ByteBuffer key) {
         try {
             final byte[] value = db.get(unfoldToBytes(key));
             if (value == null) {
@@ -87,7 +86,6 @@ public class RocksDBImpl implements DAO{
 
     @Override
     public void close() {
-
         try {
             db.syncWal();
             db.closeE();
