@@ -1,6 +1,7 @@
 package ru.mail.polis.service.codearound;
-import static java.lang.Byte.MIN_VALUE;
+
 import org.jetbrains.annotations.NotNull;
+
 import org.rocksdb.*;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
@@ -36,13 +37,6 @@ public class TaskDAO implements DAO {
             System.out.println("DB initializing finished - storage function enabled\n");
         }
 
-    /**
-     * Getting a byte array.
-     *
-     * @param buffer - final ByteBuffer
-     * @return byte array
-     */
-
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
@@ -51,6 +45,12 @@ public class TaskDAO implements DAO {
         rocksIterator.seek(byteArray);
         return new RocksRecordIterator(rocksIterator);
     }
+
+    /**
+     * define insert/update dual method
+     * @param key - key that should match for attaching a value to server response
+     * @param value - key-bound value
+     */
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
@@ -61,6 +61,11 @@ public class TaskDAO implements DAO {
             throw new IOException(e);
         }
     }
+
+    /**
+     * define remove method
+     * @param key - target key
+     */
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
@@ -70,6 +75,11 @@ public class TaskDAO implements DAO {
             throw new IOException(e);
         }
     }
+
+    /**
+     * define get method
+     * @param key - target key
+     */
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
@@ -84,8 +94,21 @@ public class TaskDAO implements DAO {
             throw new IOException(e);
         }
     }
+
+    /**
+     * stop and close connection to key-value storage
+     */
     @Override
     public void close() {
         db.close();
+    }
+
+    @Override
+    public void compact() throws IOException {
+        try {
+            db.compactRange();
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
     }
 }

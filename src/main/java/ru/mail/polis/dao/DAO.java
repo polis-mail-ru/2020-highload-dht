@@ -65,8 +65,6 @@ public interface DAO extends Closeable {
         return Iters.until(iterator(from), bound);
     }
 
-    //void removeValue(@NotNull ByteBuffer key) throws IOException;
-
     /**
      * Obtains {@link Record} corresponding to given key.
      *
