@@ -1,14 +1,14 @@
 package ru.mail.polis.service.codearound;
 
-import one.nio.http.Param;
-import one.nio.http.Path;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.server.AcceptorConfig;
 import com.google.common.base.Charsets;
+import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
@@ -97,7 +97,7 @@ public class TaskService extends HttpServer implements Service {
             copy.get(vals);
             return new Response(Response.OK, vals);
         } catch (NoSuchElementException e) {
-            String faultMessage = "There is no match key paired with value to be returned. Operation failed\n";
+            final String faultMessage = "There is no match key paired with value to be returned. Operation failed\n";
             return new Response(Response.NOT_FOUND, faultMessage.getBytes(Charsets.UTF_8));
         }
     }
@@ -131,7 +131,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * set default handler
+     * set default handler.
      * @param req client host request
      * @param session ongoing client-server session instance
      */

@@ -40,9 +40,8 @@ public class TaskDAO implements DAO {
                 Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
                 db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
             } catch (IOException | RocksDBException exc) {
-                System.out.println("Error initializing DB instance in local file system - no DB access yet\n");
+                exc.printStackTrace();
             }
-            System.out.println("DB initializing finished - storage function enabled\n");
         }
 
     @NotNull

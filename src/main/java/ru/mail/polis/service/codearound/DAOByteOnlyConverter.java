@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 import static java.lang.Byte.MIN_VALUE;
 
-public class DAOByteOnlyConverter {
+final public class DAOByteOnlyConverter {
 
     private DAOByteOnlyConverter() {
 
