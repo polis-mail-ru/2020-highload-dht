@@ -14,7 +14,9 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
-!wrk
+!wrk/
+!async-svg/
+!highload-analysis
 
 # ...even if they are in subdirectories
 !*/
