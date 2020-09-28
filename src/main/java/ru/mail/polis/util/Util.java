@@ -5,6 +5,10 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 
 public final class Util {
+    private Util() {
+        /* Add private constructor to prevent instantiation */
+    }
+
     /**
      * This converts ByteBuffer to byte array.
      *
