@@ -1,6 +1,13 @@
 package ru.mail.polis.service.kovalkov;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -24,17 +31,6 @@ public class ServiceImpl extends HttpServer implements Service {
         this.dao = dao;
     }
 
-//    @NotNull
-//    private static HttpServerConfig configFrom(final int port) {
-//        AcceptorConfig acceptorConfig = new AcceptorConfig();
-//        acceptorConfig.port = port;
-//        acceptorConfig.deferAccept = true;
-//        acceptorConfig.reusePort = true;
-//        HttpServerConfig config = new HttpServerConfig();
-//        config.acceptors = new AcceptorConfig[]{acceptorConfig};
-//        return config;
-//    }
-
     @Path("/v0/status")
     public Response status() {
         return new Response(Response.OK);
@@ -43,11 +39,11 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") final String id) {
+        if (id == null || id.isEmpty()) {
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
+        }
         final ByteBuffer value;
         try {
-            if (id.isEmpty()) {
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
-            }
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
              value = dao.get(key);
         }catch (NoSuchElementException e){
