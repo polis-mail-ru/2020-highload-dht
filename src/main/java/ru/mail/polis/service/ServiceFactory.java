@@ -21,7 +21,7 @@ import one.nio.server.AcceptorConfig;
 import one.nio.server.ServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.basta123.MyHTTPServer;
+import ru.mail.polis.service.basta123.MyHttpServer;
 
 import java.io.IOException;
 
@@ -59,8 +59,8 @@ public final class ServiceFactory {
         }
 
         HttpServerConfig httpServerConfig = getHttpServerConfig(port);
-        MyHTTPServer myHTTPServer = new MyHTTPServer(httpServerConfig, dao);
-        return myHTTPServer;
+        MyHttpServer myHttpServer = new MyHttpServer(httpServerConfig, dao);
+        return myHttpServer;
     }
 
 
