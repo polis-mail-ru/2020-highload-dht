@@ -3,7 +3,7 @@ package ru.mail.polis.dao.kovalkov;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.kovalkov.Utils.BufferConverter;
+import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -17,17 +17,17 @@ public class RocksToDAOAdapter extends RocksDBImpl implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from){
         return iterator(BufferConverter.unfoldToBytes(from));
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value){
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value){
         put(BufferConverter.unfoldToBytes(key), BufferConverter.unfoldToBytes(value));
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key){
+    public void remove(@NotNull final ByteBuffer key){
         delete(BufferConverter.unfoldToBytes(key));
     }
 }

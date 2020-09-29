@@ -11,7 +11,7 @@ import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.kovalkov.Utils.BufferConverter;
+import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -27,17 +27,25 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
 
-
-    public ServiceImpl(HttpServerConfig config, DAO dao, Object... routers) throws IOException {
+    public ServiceImpl(final HttpServerConfig config, final DAO dao, final Object... routers) throws IOException {
         super(config, routers);
         this.dao = dao;
     }
 
+    /**
+     * Check status
+     * @return - return code 200 OK
+     */
     @Path("/v0/status")
     public Response status() {
         return new Response(Response.OK);
     }
 
+    /**
+     * Get value by key
+     * @param id - key
+     * @return - value as byte array, also return code 404 if not found and status 400 if key empty
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") final String id) {
@@ -48,16 +56,22 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
              value = dao.get(key);
-        }catch (NoSuchElementException e){
+        } catch (NoSuchElementException e){
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
-            log.error("Method get. IO exception. ", e);
-            throw new RuntimeException("Method GET. IO exception occurred");
+            log.error("Method get. IO exception ", e);
+            throw new RuntimeException("Method GET. IO exception ");
         }
         final byte[] bytes = BufferConverter.unfoldToBytes(value);
         return Response.ok(bytes);
     }
 
+    /**
+     * Put key and value to LSM
+     * @param id - key
+     * @param request - contains value in the body
+     * @return - code 201 if all's ok, and status 400 if key empty
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public Response put(@Param("id") final String id, final Request request) {
@@ -70,11 +84,16 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.upsert(key,value);
         } catch (IOException e) {
             log.error("Method get. IO exception. ", e);
-            throw new RuntimeException("Method GET. IO exception occurred");
+            throw new RuntimeException("Method PUT. IO exception occurred");
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
+    /**
+     * Delete by key
+     * @param id - key
+     * @return - code 202 if all's ok, and status 400 if key empty
+     */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(@Param("id") final String id) {
@@ -86,7 +105,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.remove(key);
         } catch (IOException e) {
             log.error("Method get. IO exception. ", e);
-            throw new RuntimeException("Method GET. IO exception occurred");
+            throw new RuntimeException("Method DELETE. IO exception occurred");
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
@@ -94,11 +113,6 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, new byte[0]));
-    }
-
-    @Override
-    public void start() {
-        super.start();
     }
 
     @Override

@@ -7,7 +7,7 @@ import ru.mail.polis.Record;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-public class RecordIterator implements Iterator<Record>, AutoCloseable{
+public class RecordIterator implements Iterator<Record>, AutoCloseable {
     private final RocksIterator rocksIterator;
 
     public RecordIterator(@NotNull final RocksIterator rocksIterator) {
@@ -21,10 +21,8 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable{
 
     @Override
     public Record next() {
-        if(!hasNext()){
-            throw new IndexOutOfBoundsException("No further");
-        }
-        Record record = Record.of(ByteBuffer.wrap(rocksIterator.key()),
+        if(!hasNext()) throw new IndexOutOfBoundsException("No further");
+        final Record record = Record.of(ByteBuffer.wrap(rocksIterator.key()),
                 ByteBuffer.wrap(rocksIterator.value()));
         rocksIterator.next();
         return record;

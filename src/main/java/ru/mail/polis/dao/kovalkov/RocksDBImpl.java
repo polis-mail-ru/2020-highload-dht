@@ -18,11 +18,12 @@ public class RocksDBImpl {
     static {
         RocksDB.loadLibrary();
     }
+
     private final RocksDB db;
     protected static final Logger log = LoggerFactory.getLogger(RocksDBImpl.class);
 
     RocksDBImpl(final File data) {
-        try{
+        try {
             final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
             final Options options = new Options().setCreateIfMissing(true)
                     .setComparator(comparator);
@@ -67,7 +68,7 @@ public class RocksDBImpl {
         }
     }
 
-    public void close()  {
+    public void close() {
         db.close();
     }
 }
