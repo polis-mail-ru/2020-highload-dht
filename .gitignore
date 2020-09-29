@@ -12,7 +12,7 @@
 !.travis.yml
 !settings.gradle
 !checkstyle.xml
-!.codeclimate.ymlz
+!.codeclimate.yml
 !*.txt
 !*.svg
 !highloadTest/readme.md
