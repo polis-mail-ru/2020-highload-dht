@@ -53,7 +53,7 @@ public class MyHttpServer extends HttpServer implements Service {
     }
 
     /**
-     * Supported: Get, Put, Delete
+     * Supported: Get, Put, Delete.
      * Path /v0/entity?id=
      *
      * @param id - entity's id
