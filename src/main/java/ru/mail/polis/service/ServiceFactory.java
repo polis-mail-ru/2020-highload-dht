@@ -17,11 +17,9 @@
 package ru.mail.polis.service;
 
 import one.nio.http.HttpServerConfig;
-import one.nio.server.AcceptorConfig;
-import one.nio.server.ServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.basta123.MyHttpServer;
+import ru.mail.polis.service.basta123.MyHttpServerImpl;
 
 import java.io.IOException;
 
@@ -59,8 +57,8 @@ public final class ServiceFactory {
         }
 
         HttpServerConfig httpServerConfig = getHttpServerConfig(port);
-        MyHttpServer myHttpServer = new MyHttpServer(httpServerConfig, dao);
-        return myHttpServer;
+        MyHttpServerImpl myHttpServerImpl = new MyHttpServerImpl(httpServerConfig, dao);
+        return myHttpServerImpl;
     }
 
 

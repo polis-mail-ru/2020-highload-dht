@@ -19,11 +19,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
-public class MyHttpServer extends HttpServer implements Service {
+public class MyHttpServerImpl extends HttpServer implements Service {
 
     private final DAO dao;
 
-    public MyHttpServer(final HttpServerConfig config, final DAO dao) throws IOException {
+    public MyHttpServerImpl(final HttpServerConfig config, final DAO dao) throws IOException {
         super(config);
         this.dao = dao;
     }
