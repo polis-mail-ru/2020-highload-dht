@@ -15,5 +15,6 @@
 !.codeclimate.yml
 !wrk.png
 !flamegraph.svg
+!summary.md
 # ...even if they are in subdirectories
 !*/
