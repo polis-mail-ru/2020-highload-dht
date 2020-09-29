@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.basta123;
+package ru.mail.polis.dao.Basta123;
 
 import com.google.common.primitives.SignedBytes;
 import org.rocksdb.Comparator;
@@ -18,7 +18,9 @@ public class MyComparator extends Comparator {
 
     @Override
     public int compare(final Slice a, final Slice b) {
-        return SignedBytes.lexicographicalComparator().compare(a.data(), b.data());
+        int comparisonResult = SignedBytes.lexicographicalComparator().compare(a.data(), b.data());
+        return comparisonResult;
     }
+
 
 }
