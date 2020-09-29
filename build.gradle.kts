@@ -17,7 +17,7 @@ repositories {
 
 dependencies {
 
-    compile("org.rocksdb:rocksdbjni:5.8.0")
+    compile("org.rocksdb:rocksdbjni:6.5.3")
 
     // Checks
     errorprone("com.google.errorprone:error_prone_core:2.3.3")
