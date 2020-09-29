@@ -1,11 +1,18 @@
 package ru.mail.polis.service.gogun;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
-import org.slf4j.Logger;
-import ru.mail.polis.dao.DAO;
-import org.slf4j.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -26,17 +33,17 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private static HttpServerConfig makeConfig(final int port) {
-        AcceptorConfig acceptorConfig = new AcceptorConfig();
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
 
-        HttpServerConfig config = new HttpServerConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
 
         return config;
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.error("Can't understand request {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
         super.handleDefault(request, session);
@@ -53,19 +60,26 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private byte[] getArray(final ByteBuffer buffer) {
         byte[] body;
-        if (!buffer.hasRemaining()) {
-            body = Response.EMPTY;
-        } else {
+        if (buffer.hasRemaining()) {
             body = new byte[buffer.remaining()];
             buffer.get(body);
+        } else {
+            body = Response.EMPTY;
         }
 
         return body;
     }
 
+
+    /**
+     * Provide getting data by id from lsm
+     *
+     * @param id - key
+     * @return 200 / 400 / 404
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response get(@Param(value = "id", required = true) @NotNull final String id)  {
+    public Response get(@Param(value = "id", required = true)@NotNull final String id)  {
         log.debug("GET request with id: {}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -84,9 +98,16 @@ public class ServiceImpl extends HttpServer implements Service {
         return Response.ok(getArray(buffer));
     }
 
+    /**
+     * Provide putting/updating data by key
+     *
+     * @param id - key
+     * @param request - value
+     * @return 201 / 400 / 404
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response upsert(@Param(value = "id", required = true) @NotNull final String id, final Request request) {
+    public Response upsert(@Param(value = "id", required = true)@NotNull final String id, final Request request) {
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -100,13 +121,18 @@ public class ServiceImpl extends HttpServer implements Service {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
-
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
+    /**
+     * Provide deleting by id
+     *
+     * @param id - key
+     * @return 202 / 400 / 404
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response delete(@Param(value = "id", required = true) @NotNull final String id)  {
+    public Response delete(@Param(value = "id", required = true)@NotNull final String id)  {
         log.debug("DELETE request with id: {}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
