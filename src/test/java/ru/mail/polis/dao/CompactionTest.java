@@ -18,6 +18,8 @@ package ru.mail.polis.dao;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import ru.mail.polis.DAO;
+import ru.mail.polis.DAOFactory;
 import ru.mail.polis.Files;
 import ru.mail.polis.TestBase;
 

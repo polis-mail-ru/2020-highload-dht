@@ -16,8 +16,6 @@
 
 package ru.mail.polis;
 
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.DAOFactory;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.ServiceFactory;
 

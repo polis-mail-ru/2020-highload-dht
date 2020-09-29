@@ -21,6 +21,8 @@ import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import ru.mail.polis.DAO;
+import ru.mail.polis.DAOFactory;
 import ru.mail.polis.TestBase;
 
 import java.io.File;

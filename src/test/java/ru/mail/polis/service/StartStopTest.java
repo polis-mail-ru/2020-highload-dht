@@ -29,8 +29,8 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.platform.commons.util.ExceptionUtils;
 import ru.mail.polis.Files;
 import ru.mail.polis.TestBase;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.DAOFactory;
+import ru.mail.polis.DAO;
+import ru.mail.polis.DAOFactory;
 
 import java.io.File;
 import java.io.IOException;

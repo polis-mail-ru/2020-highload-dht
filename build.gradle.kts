@@ -12,6 +12,7 @@ java {
 }
 
 repositories {
+    maven(url = "https://www.jitpack.io")
     jcenter()
 }
 
@@ -35,6 +36,9 @@ dependencies {
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")
+
+    // Used for DAO implementation
+    implementation("com.github.Nekobitlz:2020-db-lsm:1.0")
 }
 
 val run by tasks.getting(JavaExec::class) {

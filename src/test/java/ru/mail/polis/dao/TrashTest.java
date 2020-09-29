@@ -25,6 +25,8 @@ import java.nio.file.StandardOpenOption;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import ru.mail.polis.DAO;
+import ru.mail.polis.DAOFactory;
 import ru.mail.polis.TestBase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

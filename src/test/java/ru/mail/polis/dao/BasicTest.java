@@ -19,6 +19,8 @@ package ru.mail.polis.dao;
 import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import ru.mail.polis.DAO;
+import ru.mail.polis.DAOFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.TestBase;
 

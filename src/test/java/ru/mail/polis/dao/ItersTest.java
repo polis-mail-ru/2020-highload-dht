@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import org.junit.jupiter.api.Test;
+import ru.mail.polis.Iters;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
