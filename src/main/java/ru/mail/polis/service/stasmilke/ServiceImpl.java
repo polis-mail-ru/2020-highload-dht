@@ -8,9 +8,10 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-
 import one.nio.server.AcceptorConfig;
+
 import org.jetbrains.annotations.NotNull;
+
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
@@ -73,7 +74,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * PUT - upsert (create or replace) data by {@code ID}
+     * PUT - upsert (create or replace) data by {@code ID}.
      * @param id - key
      * @param request - value
      * @return 201 CREATED, errors: 400, 500
@@ -89,7 +90,7 @@ public class ServiceImpl extends HttpServer implements Service {
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
     }
