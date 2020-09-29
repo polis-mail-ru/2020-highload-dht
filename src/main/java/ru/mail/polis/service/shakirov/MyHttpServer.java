@@ -53,11 +53,11 @@ public class MyHttpServer extends HttpServer implements Service {
     }
 
     /**
-     * @param id - entity's id
-     * @return response
-     *
      * Supported: Get, Put, Delete
      * Path /v0/entity?id=
+     *
+     * @param id - entity's id
+     * @return response
      */
     @Path("/v0/entity")
     public Response entity(@NotNull final Request request, @Param("id") final String id) {
