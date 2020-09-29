@@ -1,6 +1,12 @@
 package ru.mail.polis.service;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.DAO;
@@ -10,14 +16,20 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
-import static ru.mail.polis.service.ServiceUtils.*;
+import static ru.mail.polis.service.ServiceUtils.assertNotEmpty;
+import static ru.mail.polis.service.ServiceUtils.configFrom;
+import static ru.mail.polis.service.ServiceUtils.byteArrayFrom;
+import static ru.mail.polis.service.ServiceUtils.byteBufferFrom;
+import static ru.mail.polis.service.ServiceUtils.logger;
 
 public class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
+    private static final String EMPTY_MESSAGE = "Required param must not be empty!";
+    @NotNull
     private final DAO dao;
 
-    public ServiceImpl(@NotNull DAO dao, int port) throws IOException {
+    public ServiceImpl(@NotNull final DAO dao, final int port) throws IOException {
         super(configFrom(port));
         this.dao = dao;
     }
@@ -34,7 +46,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.upsert(byteBufferFrom(id), byteBufferFrom(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IllegalArgumentException e) {
-            logger.error("Required param must not be empty!");
+            logger.error(EMPTY_MESSAGE);
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         } catch (IOException e) {
             logger.debug("Failed to get data {}", request.getBody(), e);
@@ -54,7 +66,7 @@ public class ServiceImpl extends HttpServer implements Service {
             final ByteBuffer value = dao.get(byteBufferFrom(id));
             return Response.ok(byteArrayFrom(value));
         } catch (IllegalArgumentException e) {
-            logger.error("Required param must not be empty!");
+            logger.error(EMPTY_MESSAGE);
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         } catch (NoSuchElementException e) {
             logger.error("Failed to find value by key {}", id);
@@ -77,7 +89,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.remove(byteBufferFrom(id));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IllegalArgumentException e) {
-            logger.error("Required param must not be empty!");
+            logger.error(EMPTY_MESSAGE);
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         } catch (IOException e) {
             logger.debug("Failed to delete {}", id, e);
@@ -86,7 +98,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Checks server status
+     * Checks server status.
      */
     @NotNull
     @Path("/v0/status")

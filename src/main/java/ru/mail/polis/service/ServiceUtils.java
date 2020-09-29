@@ -11,38 +11,38 @@ import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-public class ServiceUtils {
+public final class ServiceUtils {
 
     static final Logger logger = LoggerFactory.getLogger(ServiceUtils.class);
 
     private ServiceUtils() {
     }
 
-    static void assertNotEmpty(@Nullable String str) throws IllegalArgumentException {
-        if (str == null || str.trim().isEmpty()) {
+    static void assertNotEmpty(@Nullable final String str) throws IllegalArgumentException {
+        if (str == null || str.isBlank()) {
             throw new IllegalArgumentException("Required param must not be empty!");
         }
     }
 
     @NotNull
     static HttpServerConfig configFrom(final int port) {
-        AcceptorConfig ac = new AcceptorConfig();
+        final AcceptorConfig ac = new AcceptorConfig();
         ac.port = port;
         ac.deferAccept = true;
         ac.reusePort = true;
 
-        HttpServerConfig config = new HttpServerConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{ac};
         return config;
     }
 
     @NotNull
-    static ByteBuffer byteBufferFrom(@NotNull String value) {
+    static ByteBuffer byteBufferFrom(@NotNull final String value) {
         return ByteBuffer.wrap(value.getBytes(StandardCharsets.UTF_8));
     }
 
     @NotNull
-    static ByteBuffer byteBufferFrom(@NotNull byte[] bytes) {
+    static ByteBuffer byteBufferFrom(@NotNull final byte[] bytes) {
         return ByteBuffer.wrap(bytes);
     }
 
@@ -51,7 +51,7 @@ public class ServiceUtils {
         if (!buffer.hasRemaining()) {
             return Response.EMPTY;
         }
-        final var bytes = new byte[buffer.remaining()];
+        final byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
     }
