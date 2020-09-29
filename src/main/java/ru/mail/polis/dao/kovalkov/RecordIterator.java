@@ -24,7 +24,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable{
     @Override
     public Record next() {
         if(!hasNext()){
-            throw new IllegalStateException("Iterator is not viable!");
+            throw new IndexOutOfBoundsException("No further");
         }
         Record record = Record.of(foldToBuffer(rocksIterator.key()),
                 ByteBuffer.wrap(rocksIterator.value()));

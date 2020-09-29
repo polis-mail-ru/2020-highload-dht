@@ -16,8 +16,11 @@
 
 package ru.mail.polis.service;
 
+import one.nio.http.HttpServerConfig;
+import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.kovalkov.ServiceImpl;
 
 import java.io.IOException;
 
@@ -51,7 +54,10 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-
-        throw new UnsupportedOperationException("Implement me!");
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = port;
+        final HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+        return new ServiceImpl(httpServerConfig, dao);
     }
 }

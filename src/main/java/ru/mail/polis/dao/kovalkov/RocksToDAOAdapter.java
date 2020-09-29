@@ -6,7 +6,6 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.Utils.BufferConverter;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -19,23 +18,23 @@ public class RocksToDAOAdapter extends RocksDBImpl implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException {
-        return iterator(BufferConverter.decompressKey(from));
+    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+        return iterator(BufferConverter.convertBuffer(from));
     }
 
     @NotNull
     @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
-        return get(BufferConverter.decompressKey(key));
+    public ByteBuffer get(@NotNull ByteBuffer key) throws NoSuchElementException {
+        return get(BufferConverter.convertBuffer(key));
     }
 
     @Override
     public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value){
-        put(BufferConverter.decompressKey(key), BufferConverter.unfoldToBytes(value));
+        put(BufferConverter.convertBuffer(key), BufferConverter.unfoldToBytes(value));
     }
 
     @Override
     public void remove(@NotNull ByteBuffer key){
-        delete(BufferConverter.decompressKey(key));
+        delete(BufferConverter.convertBuffer(key));
     }
 }
