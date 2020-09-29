@@ -17,7 +17,7 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.Mariarheon.DAOImpl;
+import ru.mail.polis.dao.mariarheon.DAOImpl;
 
 import java.io.File;
 import java.io.IOException;

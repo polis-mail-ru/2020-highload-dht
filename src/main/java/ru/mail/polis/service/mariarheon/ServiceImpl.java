@@ -1,7 +1,8 @@
-package ru.mail.polis.service.Mariarheon;
+package ru.mail.polis.service.mariarheon;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
@@ -9,7 +10,7 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.Mariarheon.ByteBufferUtils;
+import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -21,24 +22,22 @@ import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
 
-import one.nio.http.HttpSession;
-
 public class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
 
     public ServiceImpl(final HttpServerConfig config,
-                       @NotNull final DAO dao) throws IOException{
+                       @NotNull final DAO dao) throws IOException {
         super(config);
         this.dao = dao;
     }
 
-    /** Get data by key
+    /** Get data by key.
      * @param key - record id.
      * @return 200 OK + data,
-     *         400 Bad Request
-     *         404 Not Found
-     *         500 Internal Server Error
+     *         400 Bad Request,
+     *         404 Not Found,
+     *         500 Internal Server Error.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
@@ -56,12 +55,12 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /** Insert or change key-data pair
+    /** Insert or change key-data pair.
      * @param key - record id.
      * @param request - record data.
-     * @return 200 Created
-     *         400 Bad Request
-     *         500 Internal Server Error
+     * @return 200 Created,
+     *         400 Bad Request,
+     *         500 Internal Server Error.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
@@ -79,12 +78,12 @@ public class ServiceImpl extends HttpServer implements Service {
         return new ZeroResponse(Response.CREATED);
     }
 
-    /** Remove key-data pair
+    /** Remove key-data pair.
      * @param key - record id.
-     * @return 202 Accepted
-     *         400 Bad Request
-     *         404 Not Found
-     *         500 Internal Server Error
+     * @return 202 Accepted,
+     *         400 Bad Request,
+     *         404 Not Found,
+     *         500 Internal Server Error.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
@@ -96,8 +95,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchElementException ex) {
             return new ZeroResponse(Response.NOT_FOUND);
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             return new ZeroResponse(Response.INTERNAL_ERROR);
         }
         return new ZeroResponse(Response.ACCEPTED);

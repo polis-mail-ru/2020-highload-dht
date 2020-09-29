@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.Mariarheon;
+package ru.mail.polis.dao.mariarheon;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
@@ -25,7 +25,8 @@ public class RocksIteratorAdapter implements Iterator<Record>, AutoCloseable {
             throw new IllegalStateException("Iterator is not valid!");
         }
 
-        final  Record record = Record.of(ByteBufferUtils.toByteBuffer(iter.key()), ByteBufferUtils.toByteBuffer(iter.value()));
+        final Record record = Record.of(ByteBufferUtils.toByteBuffer(iter.key()),
+                                         ByteBufferUtils.toByteBuffer(iter.value()));
         iter.next();
 
         return record;
