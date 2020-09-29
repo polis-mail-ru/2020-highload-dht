@@ -5,6 +5,7 @@ import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RocksIteratorAdapter implements Iterator<Record>, AutoCloseable {
 
@@ -20,9 +21,9 @@ public class RocksIteratorAdapter implements Iterator<Record>, AutoCloseable {
     }
 
     @Override
-    public Record next() throws IllegalStateException {
+    public Record next() throws NoSuchElementException {
         if (!hasNext()) {
-            throw new IllegalStateException("Iterator is not valid!");
+            throw new NoSuchElementException("Iterator is not valid!");
         }
 
         final Record record = Record.of(ByteBufferUtils.toByteBuffer(iter.key()),
