@@ -25,7 +25,7 @@ public class DAOImpl implements DAO {
      * Constructor for DAOImpl.
      *
      * @param path - directory.
-     */ 
+     */
     public DAOImpl(@NotNull final File path) throws DAOException {
         final Options options = new Options()
                 .setCreateIfMissing(true)
@@ -63,7 +63,7 @@ public class DAOImpl implements DAO {
         }
     }
 
-    @NotNull
+  /*  @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
         try {
@@ -76,6 +76,7 @@ public class DAOImpl implements DAO {
             throw new DAOException("Error: can't ger record", ex);
         }
     }
+*/
 
     @Override
     public void compact() throws DAOException {
