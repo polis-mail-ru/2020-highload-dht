@@ -72,14 +72,14 @@ public class ServiceImpl extends HttpServer implements Service {
 
 
     /**
-     * Provide getting data by id from lsm
+     * Provide getting data by id from lsm.
      *
      * @param id - key
      * @return 200 / 400 / 404
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response get(@Param(value = "id", required = true)@NotNull final String id)  {
+    public Response get(@Param(value = "id", required = true)@NotNull final String id) {
         log.debug("GET request with id: {}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -99,7 +99,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Provide putting/updating data by key
+     * Provide putting/updating data by key.
      *
      * @param id - key
      * @param request - value
@@ -125,14 +125,14 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Provide deleting by id
+     * Provide deleting by id.
      *
      * @param id - key
      * @return 202 / 400 / 404
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response delete(@Param(value = "id", required = true)@NotNull final String id)  {
+    public Response delete(@Param(value = "id", required = true)@NotNull final String id) {
         log.debug("DELETE request with id: {}", id);
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
