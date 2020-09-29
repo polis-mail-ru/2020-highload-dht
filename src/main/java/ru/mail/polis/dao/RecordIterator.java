@@ -6,6 +6,7 @@ import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RecordIterator implements Iterator<Record>, AutoCloseable {
     private final RocksIterator iterator;
@@ -22,7 +23,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
     @Override
     public Record next() throws IllegalStateException {
         if (!hasNext()) {
-            throw new IllegalStateException("End of file");
+            throw new NoSuchElementException("No such element");
         }
 
         final byte[] key = iterator.key();

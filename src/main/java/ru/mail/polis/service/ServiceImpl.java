@@ -79,8 +79,10 @@ public class ServiceImpl extends HttpServer implements Service {
             final byte[] body = new byte[duplicate.remaining()];
             duplicate.get(body);
             return new Response(Response.OK, body);
-        } catch (NoSuchElementException | IOException ex) {
+        } catch (NoSuchElementException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 

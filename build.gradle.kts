@@ -30,7 +30,7 @@ dependencies {
     compile("com.intellij:annotations:12.0")
 
     // Solution to implement DAO
-    compile("org.rocksdb", "rocksdbjni", "6.2.2")
+    compile("org.rocksdb", "rocksdbjni", "6.6.4")
 
     // Guava primitives
     compile("com.google.guava:guava:27.0.1-jre")

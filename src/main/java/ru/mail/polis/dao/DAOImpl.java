@@ -84,7 +84,6 @@ public final class DAOImpl implements DAO {
     }
 
     static DAO init(final File data) throws IOException {
-        RocksDB.loadLibrary();
         final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
         final Options options = new Options()
             .setCreateIfMissing(true)
