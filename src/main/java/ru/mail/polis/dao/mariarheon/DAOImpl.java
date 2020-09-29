@@ -11,7 +11,7 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.Iterator; 
+import java.util.Iterator;
 
 public class DAOImpl implements DAO {
     static {
