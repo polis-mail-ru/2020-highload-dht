@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.shakirov_aa.MyHttpServer;
+import ru.mail.polis.service.shakirov.MyHttpServer;
 
 import java.io.IOException;
 

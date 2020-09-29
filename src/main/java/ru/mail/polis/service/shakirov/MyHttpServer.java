@@ -1,7 +1,13 @@
-package ru.mail.polis.service.shakirov_aa;
+package ru.mail.polis.service.shakirov;
 
 import com.google.common.base.Charsets;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -30,12 +36,12 @@ public class MyHttpServer extends HttpServer implements Service {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        AcceptorConfig acceptorConfig = new AcceptorConfig();
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
         acceptorConfig.deferAccept = true;
 
-        HttpServerConfig config = new HttpServerConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         config.selectors = 4;
         return config;
@@ -46,18 +52,24 @@ public class MyHttpServer extends HttpServer implements Service {
         return Response.ok("OK");
     }
 
+    /**
+     * @param id - entity's id
+     *
+     * Supported: Get, Put, Delete
+     * Path /v0/entity?id=<ID>
+     */
     @Path("/v0/entity")
     public Response entity(@NotNull final Request request, @Param("id") final String id) {
         if (id == null || id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
-        ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    ByteBuffer value = dao.get(key);
-                    ByteBuffer duplicate = value.duplicate();
-                    byte[] body = new byte[duplicate.remaining()];
+                    final ByteBuffer value = dao.get(key);
+                    final ByteBuffer duplicate = value.duplicate();
+                    final byte[] body = new byte[duplicate.remaining()];
                     duplicate.get(body);
                     return new Response(Response.OK, body);
                 case Request.METHOD_PUT:
@@ -77,7 +89,7 @@ public class MyHttpServer extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
         LOGGER.error("Unknown request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
