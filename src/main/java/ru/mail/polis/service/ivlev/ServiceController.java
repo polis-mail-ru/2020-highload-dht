@@ -19,9 +19,9 @@ import java.util.Objects;
 
 public class ServiceController extends HttpServer {
 
-    private DAO dao;
+    private final DAO dao;
 
-    public ServiceController(HttpServerConfig config, DAO dao) throws IOException {
+    public ServiceController(final HttpServerConfig config, final DAO dao) throws IOException {
         super(config, dao);
         this.dao = dao;
     }
@@ -32,6 +32,13 @@ public class ServiceController extends HttpServer {
         return Response.ok("OK");
     }
 
+    /**
+     * Контроллер на end-point "/v0/entity". Работаюет с методами get, put, delete
+     *
+     * @param id
+     * @param request
+     * @return
+     */
     @Path("/v0/entity")
     public Response entity(@Param(value = "id", required = true) final String id, @NotNull final Request request) {
         if (Objects.isNull(id) || id.isEmpty()) {

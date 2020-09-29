@@ -18,6 +18,12 @@ public final class SSTable implements Table {
     private final int count;
     private final int size;
 
+    /**
+     * Конструктор класса SSTable
+     *
+     * @param file
+     * @throws IOException
+     */
     public SSTable(@NotNull final File file) throws IOException {
         this.fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
         final int fileSize = (int) fileChannel.size() - Integer.BYTES;
