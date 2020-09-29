@@ -20,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import ru.mail.polis.dao.s3ponia.PersistenceDAO;
 
 /**
  * Custom {@link DAO} factory.
@@ -53,6 +54,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        return PersistenceDAO.of(data, 128 * 1024 * 1024 / 8);
     }
 }
