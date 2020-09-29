@@ -40,9 +40,8 @@ public class ServiceImpl extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-
     /**
-     * status method, checks if server is working
+     * status method, checks if server is working.
      *
      * @return 200
      */

@@ -153,7 +153,7 @@ class SSTable implements Table, Closeable {
         }
     }
 
-    private int position(@NotNull final ByteBuffer from, @NotNull final Boolean isDirect) {
+    private int position(@NotNull final ByteBuffer from) {
         int left = 0;
         int right = rows - 1;
 
@@ -169,14 +169,14 @@ class SSTable implements Table, Closeable {
                 return mid;
             }
         }
-        return isDirect ? left : right;
+        return left;
     }
 
     @NotNull
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return new Iterator<>() {
-            int next = position(from, true);
+            int next = position(from);
 
             @Override
             public boolean hasNext() {
@@ -187,44 +187,6 @@ class SSTable implements Table, Closeable {
             public Cell next() {
                 assert hasNext();
                 return cellAt(next++);
-            }
-        };
-    }
-
-    @NotNull
-    @Override
-    public Iterator<Cell> reverseIterator(@NotNull final ByteBuffer from) {
-        return new Iterator<>() {
-            int next = position(from, false);
-
-            @Override
-            public boolean hasNext() {
-                return next >= 0;
-            }
-
-            @Override
-            public Cell next() {
-                assert hasNext();
-                return cellAt(next--);
-            }
-        };
-    }
-
-    @NotNull
-    @Override
-    public Iterator<Cell> reverseIterator() {
-        return new Iterator<>() {
-            int last = rows - 1;
-
-            @Override
-            public boolean hasNext() {
-                return last >= 0;
-            }
-
-            @Override
-            public Cell next() {
-                assert hasNext();
-                return cellAt(last--);
             }
         };
     }

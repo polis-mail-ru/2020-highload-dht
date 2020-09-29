@@ -21,24 +21,6 @@ class MemTable implements Table {
                 e -> new Cell(e.getKey(), e.getValue()));
     }
 
-    @NotNull
-    @Override
-    public Iterator<Cell> reverseIterator(@NotNull final ByteBuffer from) {
-        return Iterators.transform(
-                storage.headMap(from, true).descendingMap().entrySet().iterator(),
-                e -> new Cell(e.getKey(), e.getValue())
-        );
-    }
-
-    @NotNull
-    @Override
-    public Iterator<Cell> reverseIterator() {
-        return Iterators.transform(
-                storage.descendingMap().entrySet().iterator(),
-                e -> new Cell(e.getKey(), e.getValue())
-        );
-    }
-
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value) {

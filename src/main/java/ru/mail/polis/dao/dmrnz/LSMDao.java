@@ -2,9 +2,9 @@ package ru.mail.polis.dao.dmrnz;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.Record;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,7 +26,6 @@ public final class LSMDao implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
     private static final String PREFIX = "SSTABLE";
-    private static final ByteBuffer MAX_REACHABLE_VALUE = ByteBuffer.allocate(0);
 
     private Table memTable = new MemTable();
     private final File base;
@@ -67,43 +66,24 @@ public final class LSMDao implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        return Iterators.transform(cellIterator(from, true),
+        return Iterators.transform(cellIterator(from),
                 cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
 
     @NotNull
-    private Iterator<Cell> cellIterator(@NotNull final ByteBuffer from, final boolean isDirect) throws IOException {
+    private Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
 
         final List<Iterator<Cell>> ssTablesIterator = new ArrayList<>();
 
-        if (isDirect) {
-            for (final SSTable ssTable : ssTables) {
-                ssTablesIterator.add(ssTable.iterator(from));
-            }
-            ssTablesIterator.add(memTable.iterator(from));
-        } else {
-            if (isUnreachableLastKey(from)) {
-                for (final SSTable ssTable : ssTables) {
-                    ssTablesIterator.add(ssTable.reverseIterator());
-                }
-                ssTablesIterator.add(memTable.reverseIterator());
-            } else {
-                for (final SSTable ssTable : ssTables) {
-                    ssTablesIterator.add(ssTable.reverseIterator(from));
-                }
-                ssTablesIterator.add(memTable.reverseIterator(from));
-            }
+        for (final SSTable ssTable : ssTables) {
+            ssTablesIterator.add(ssTable.iterator(from));
         }
+        ssTablesIterator.add(memTable.iterator(from));
 
         final Iterator<Cell> mergedCells = Iterators.mergeSorted(ssTablesIterator, Cell.COMPARATOR);
         final Iterator<Cell> cells = Iters.collapseEquals(mergedCells, Cell::getKey);
 
         return Iterators.filter(cells, cell -> !cell.getValue().isRemoved());
-    }
-
-    @SuppressWarnings("ReferenceEquality")
-    private boolean isUnreachableLastKey(@NotNull final ByteBuffer from) {
-        return from == MAX_REACHABLE_VALUE;
     }
 
     @Override
@@ -133,7 +113,7 @@ public final class LSMDao implements DAO {
 
     @Override
     public void compact() throws IOException {
-        final Iterator<Cell> cells = cellIterator(ByteBuffer.allocate(0), true);
+        final Iterator<Cell> cells = cellIterator(ByteBuffer.allocate(0));
         final File temp = new File(base, PREFIX + 1 + TEMP);
         SSTable.write(cells, temp);
 
