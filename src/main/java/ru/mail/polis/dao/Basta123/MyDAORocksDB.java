@@ -74,7 +74,7 @@ public class MyDAORocksDB implements DAO {
     public void compact() {
         try {
             rocksDBInstance.compactRange();
-        }  catch (RocksDBException e) {
+        } catch (RocksDBException e) {
             throw new RuntimeException("Compact error :", e);
         }
     }

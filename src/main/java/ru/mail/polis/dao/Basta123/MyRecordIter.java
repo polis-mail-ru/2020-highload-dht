@@ -11,7 +11,7 @@ import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
 public class MyRecordIter implements Iterator<Record> {
 
-    private RocksIterator rocksIterator;
+    final private RocksIterator rocksIterator;
 
     public MyRecordIter(final ByteBuffer key, final RocksIterator rocksIterator) {
         this.rocksIterator = rocksIterator;

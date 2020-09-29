@@ -2,10 +2,9 @@ package ru.mail.polis.service.basta123;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
-
 import java.nio.ByteBuffer;
 
-public class Utils {
+public final class Utils {
 
     private Utils() {
     }

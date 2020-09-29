@@ -36,28 +36,24 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     @Path("/abracadabra")
     @RequestMethod(Request.METHOD_GET)
     public Response abracadabraCheckMethod() {
-        Response responseBadRequest = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        return responseBadRequest;
+        return new Response(Response.BAD_REQUEST, Response.EMPTY);
     }
 
     @Path("/v0/status")
     @RequestMethod(Request.METHOD_GET)
     public Response statusCheckMethod() {
-        final Response responseOk = new Response(Response.OK, new byte[0]);
-        return responseOk;
+        return new Response(Response.OK, new byte[0]);
     }
 
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response getValueByKey(final @Param("id") String id) {
         if (id == null || "".equals(id)) {
-            final Response responseBadRequest = new Response(Response.BAD_REQUEST, Response.EMPTY);
-            return responseBadRequest;
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
         final byte[] keyBytes = id.getBytes(UTF_8);
         final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
 
         ByteBuffer valueByteBuffer;
         try {
@@ -67,22 +63,20 @@ public class MyHttpServerImpl extends HttpServer implements Service {
             throw new RuntimeException("Error getting value :", e);
 
         } catch (NoSuchElementException e) {
-            final Response responseNotFound = new Response(Response.NOT_FOUND, Response.EMPTY);
-            return responseNotFound;
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
+
         final byte[] valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
         final Response responseOk = new Response(Response.OK, valueBytes);
         responseOk.addHeader(HttpHeaders.CONTENT_TYPE + ": " + "text/plain");
         return responseOk;
     }
 
-
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public Response putValueByKey(final @Param("id") String id, final Request request) throws IOException {
         if ("".equals(id)) {
-            final Response responseBadRequest = new Response(Response.BAD_REQUEST, Response.EMPTY);
-            return responseBadRequest;
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
         final byte[] keyBytes = id.getBytes(UTF_8);
@@ -100,17 +94,15 @@ public class MyHttpServerImpl extends HttpServer implements Service {
 
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response deleteValueByKey(@Param("id") String id) throws IOException {
+    public Response deleteValueByKey(final @Param("id") String id) throws IOException {
         if ("".equals(id)) {
-            Response responseBadRequest = new Response(Response.BAD_REQUEST, Response.EMPTY);
-            return responseBadRequest;
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final byte[] keyBytes = id.getBytes(UTF_8);
         final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
 
         dao.remove(keyByteBuffer);
-        final Response responseAccepted = new Response(Response.ACCEPTED, Response.EMPTY);
-        return responseAccepted;
+        return new Response(Response.ACCEPTED, Response.EMPTY);
 
     }
 
