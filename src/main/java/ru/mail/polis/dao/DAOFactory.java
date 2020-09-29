@@ -17,10 +17,10 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.s3ponia.PersistenceDAO;
 
 import java.io.File;
 import java.io.IOException;
-import ru.mail.polis.dao.s3ponia.PersistenceDAO;
 
 /**
  * Custom {@link DAO} factory.

@@ -25,7 +25,7 @@ public final class BasicService extends HttpServer implements Service {
     private static final byte[] EMPTY = Response.EMPTY;
     private final DAO dao;
     
-    private BasicService(final int port, @NotNull DAO dao) throws IOException {
+    private BasicService(final int port, @NotNull final DAO dao) throws IOException {
         super(configFrom(port));
         this.dao = dao;
     }
