@@ -1,7 +1,13 @@
 package ru.mail.polis.dao.kovalkov;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.BuiltinComparator;
+import org.rocksdb.CompressionType;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
+import org.rocksdb.WriteOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
@@ -136,7 +142,7 @@ public class DAOImpl implements DAO {
         return ByteBuffer.wrap(copy);
     }
 
-    public static DAO getInstance(final File data) {
+    public static DAO createDAO(final File data) {
         try {
             final var options = new Options();
             options.setCreateIfMissing(true);
@@ -144,7 +150,7 @@ public class DAOImpl implements DAO {
             options.setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             options.setMaxBackgroundCompactions(2);
             options.setMaxBackgroundFlushes(2);
-            WriteOptions wOptions = new WriteOptions();
+            final WriteOptions wOptions = new WriteOptions();
             wOptions.setDisableWAL(true);
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);

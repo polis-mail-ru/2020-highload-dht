@@ -54,7 +54,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-//        return new RocksToDAOAdapter(data);
-        return DAOImpl.getInstance(data);
+        return DAOImpl.createDAO(data);
     }
 }
