@@ -142,6 +142,12 @@ public class DAOImpl implements DAO {
         return ByteBuffer.wrap(copy);
     }
 
+    /**
+     * Create DAO based on RocksDB.
+     *
+     * @param data - store data.
+     * @return - new DAO.
+     */
     public static DAO createDAO(final File data) {
         try {
             final var options = new Options();
