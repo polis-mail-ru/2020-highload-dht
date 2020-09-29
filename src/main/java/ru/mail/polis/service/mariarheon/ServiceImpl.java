@@ -46,7 +46,7 @@ public class ServiceImpl extends HttpServer implements Service {
             return new ZeroResponse(Response.BAD_REQUEST);
         }
         try {
-            ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
+            final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
             return Response.ok(ByteBufferUtils.toArray(response));
         } catch (NoSuchElementException ex) {
             return new ZeroResponse(Response.NOT_FOUND);

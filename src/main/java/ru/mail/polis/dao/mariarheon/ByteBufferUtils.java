@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public class ByteBufferUtils {
+public final class ByteBufferUtils {
     private ByteBufferUtils() {
     }
 
@@ -14,6 +14,7 @@ public class ByteBufferUtils {
      * @param buffer - ByteBuffer.
      * @return byte[] from buffer.
      */
+    @NotNull
     public static byte[] toArray(@NotNull final ByteBuffer buffer) {
         final ByteBuffer duplicate = buffer.duplicate();
         final byte[] body = new byte[duplicate.remaining()];
@@ -29,7 +30,8 @@ public class ByteBufferUtils {
      * @param array - byte array.
      * @return buffer from byte[].
      */
-    public static ByteBuffer toByteBuffer(final byte[] array){
+    @NotNull
+    public static ByteBuffer toByteBuffer(final byte[] array) {
         return ByteBuffer.wrap(array);
     }
 }

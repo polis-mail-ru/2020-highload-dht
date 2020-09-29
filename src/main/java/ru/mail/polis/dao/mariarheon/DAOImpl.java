@@ -21,6 +21,11 @@ public class DAOImpl implements DAO {
 
     private final RocksDB db;
 
+    /**
+     * Constructor for DAOImpl.
+     *
+     * @param path - directory.
+     */ 
     public DAOImpl(@NotNull final File path) throws DAOException {
         final Options options = new Options()
                 .setCreateIfMissing(true)
