@@ -16,6 +16,7 @@
 !*.lua
 !*.svg
 !*.txt
+!analysis.md
 
 # ...even if they are in subdirectories
 !*/
