@@ -14,5 +14,6 @@
 !checkstyle.xml
 !.codeclimate.yml
 !wrk.png
+!flamegraph.svg
 # ...even if they are in subdirectories
 !*/
