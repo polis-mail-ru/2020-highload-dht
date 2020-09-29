@@ -33,8 +33,8 @@ dependencies {
     compile("com.google.guava:guava:27.0.1-jre")
 
     // https://mvnrepository.com/artifact/org.rocksdb/rocksdbjni
-    compile(group="org.rocksdb", name="rocksdbjni", version="6.11.4")
-
+//    compile(group="org.rocksdb", name="rocksdbjni", version="6.2.2")
+    compile("org.rocksdb", "rocksdbjni", "6.2.2")
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")

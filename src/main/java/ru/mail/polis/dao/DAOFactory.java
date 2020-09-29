@@ -17,7 +17,7 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.kovalkov.RocksToDAOAdapter;
+import ru.mail.polis.dao.kovalkov.DAOImpl;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,6 +54,7 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new RocksToDAOAdapter(data);
+//        return new RocksToDAOAdapter(data);
+        return DAOImpl.getInstance(data);
     }
 }
