@@ -83,12 +83,5 @@ public class RocksDBImpl {
 
     public void close()  {
         db.close();
-//        try {
-//            db.syncWal();
-//            db.closeE();
-//        } catch (RocksDBException e) {
-//            log.error("Close error: ",e);
-//            throw new RuntimeException("Close error: ", e);
-//        }
     }
 }
