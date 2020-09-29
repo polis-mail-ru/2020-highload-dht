@@ -83,7 +83,7 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             dao.upsert(key,value);
         } catch (IOException e) {
-            log.error("Method get. IO exception. ", e);
+            log.error("Method put. IO exception. ", e);
             throw new RuntimeException(e);
         }
         return new Response(Response.CREATED, Response.EMPTY);
