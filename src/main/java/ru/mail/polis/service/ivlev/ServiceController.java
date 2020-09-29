@@ -35,14 +35,14 @@ public class ServiceController extends HttpServer {
     /**
      * Контроллер на end-point "/v0/entity". Работаюет с методами get, put, delete.
      *
-     * @param id - id
+     * @param id      - id
      * @param request - запрос
      * @return
      */
     @Path("/v0/entity")
     public Response entity(@Param(value = "id", required = true) final String id, @NotNull final Request request) {
         if (Objects.isNull(id) || id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST);
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
 
@@ -62,10 +62,10 @@ public class ServiceController extends HttpServer {
                     return methodDelete(key);
                 }
                 default:
-                    return new Response(Response.METHOD_NOT_ALLOWED);
+                    return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         } catch (IOException ex) {
-            return new Response(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -76,23 +76,23 @@ public class ServiceController extends HttpServer {
             duplicate.get(body);
             return new Response(Response.OK, body);
         } catch (NoSuchElementException | IOException ex) {
-            return new Response(Response.NOT_FOUND);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
     private Response methodPut(final ByteBuffer key, final Request request) throws IOException {
         dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-        return new Response(Response.CREATED);
+        return new Response(Response.CREATED, Response.EMPTY);
     }
 
     private Response methodDelete(final ByteBuffer key) throws IOException {
         dao.remove(key);
-        return new Response(Response.ACCEPTED);
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = new Response(Response.BAD_REQUEST);
+        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
     }
 }
