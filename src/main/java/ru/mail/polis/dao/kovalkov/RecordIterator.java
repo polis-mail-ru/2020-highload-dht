@@ -6,6 +6,7 @@ import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RecordIterator implements Iterator<Record>, AutoCloseable {
     private final RocksIterator rocksIterator;
@@ -21,7 +22,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
 
     @Override
     public Record next() {
-        if(!hasNext()) throw new IndexOutOfBoundsException("No further");
+        if(!hasNext()) throw new NoSuchElementException("No further");
         final Record record = Record.of(ByteBuffer.wrap(rocksIterator.key()),
                 ByteBuffer.wrap(rocksIterator.value()));
         rocksIterator.next();

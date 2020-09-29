@@ -1,11 +1,7 @@
 package ru.mail.polis.dao.kovalkov;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ComparatorOptions;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
+import org.rocksdb.*;
 import org.rocksdb.util.BytewiseComparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +20,9 @@ public class RocksDBImpl {
 
     RocksDBImpl(final File data) {
         try {
-            final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
+//            final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
             final Options options = new Options().setCreateIfMissing(true)
-                    .setComparator(comparator);
+                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             db = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException e) {
             log.error("Rocks open error: ", e);

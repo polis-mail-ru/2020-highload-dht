@@ -10,7 +10,7 @@ public final class BufferConverter {
     }
 
     /**
-     * Unfolding ByteBuffer to byte array
+     * Unfolding ByteBuffer to byte array.
      * @param b - buffer
      * @return - byte
      */
@@ -20,4 +20,6 @@ public final class BufferConverter {
         b.clear();
         return bytes;
     }
+
+
 }
