@@ -1,5 +1,6 @@
 package ru.mail.polis.service.kovalkov;
 
+import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -37,8 +38,11 @@ public class ServiceImpl extends HttpServer implements Service {
      * @return - return code 200 OK
      */
     @Path("/v0/status")
+    @RequestMethod(METHOD_GET)
     public Response status() {
-        return new Response(Response.OK);
+        final Response response = new Response(Response.OK);
+        response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        return response;
     }
 
     /**
@@ -50,17 +54,21 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") final String id) {
         if (id == null || id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
+            final Response badReqResponse = new Response(Response.BAD_REQUEST);
+            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            return badReqResponse;
         }
-        final ByteBuffer value;
+        final ByteBuffer key= ByteBuffer.wrap(id.getBytes(UTF_8));
+        ByteBuffer value;
         try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-             value = dao.get(key);
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
+            value = dao.get(key);
         } catch (IOException e) {
-            log.error("Method get. IO exception. ", e);
             throw new RuntimeException(e);
+        } catch (NoSuchElementException e) {
+            log.error("Method get. IO exception. ", e);
+            final Response notFoundResponse = new Response(Response.NOT_FOUND);
+            notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            return notFoundResponse;
         }
         final byte[] bytes = BufferConverter.unfoldToBytes(value);
         return Response.ok(bytes);
