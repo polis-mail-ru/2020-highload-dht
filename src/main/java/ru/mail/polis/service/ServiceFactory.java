@@ -16,10 +16,16 @@
 
 package ru.mail.polis.service;
 
+import one.nio.http.HttpServerConfig;
+import one.nio.server.AcceptorConfig;
+import one.nio.server.ServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.Basta123.MyHTTPServer;
 
 import java.io.IOException;
+
+import static ru.mail.polis.service.Basta123.Utils.getHttpServerConfig;
 
 /**
  * Constructs {@link Service} instances.
@@ -52,6 +58,10 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        HttpServerConfig httpServerConfig = getHttpServerConfig(port);
+        MyHTTPServer myHTTPServer=new MyHTTPServer(httpServerConfig, dao);
+        return myHTTPServer;
     }
+
+
 }
