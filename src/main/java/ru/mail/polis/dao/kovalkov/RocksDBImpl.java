@@ -1,4 +1,4 @@
-package ru.mail.polis.dao;
+package ru.mail.polis.dao.kovalkov;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.*;
@@ -11,18 +11,17 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class RocksDBImpl implements DAO{
+public class RocksDBImpl {
     static {
         RocksDB.loadLibrary();
     }
+    private final RocksDB db;
+    protected static final Logger log = LoggerFactory.getLogger(RocksDBImpl.class);
 
-    private static final Logger log = LoggerFactory.getLogger(RocksDBImpl.class);
-    private RocksDB db;
-
-    public RocksDBImpl(final File data) {
-        final Options options = new Options().setCreateIfMissing(true)
-                .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
+    RocksDBImpl(final File data) {
         try{
+            final Options options = new Options().setCreateIfMissing(true)
+                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             db = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException e) {
             log.error("Rocks open error: ", e);
@@ -31,21 +30,19 @@ public class RocksDBImpl implements DAO{
     }
 
     @NotNull
-    @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull byte[] from) {
         final RocksIterator rocksIterator = db.newIterator();
-        rocksIterator.seek(unfoldToBytes(from));
+        rocksIterator.seek(from);
         return new RecordIterator(rocksIterator);
     }
 
     @NotNull
-    @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) {
+    public ByteBuffer get(@NotNull byte[] key) {
         try {
-            final byte[] value = db.get(unfoldToBytes(key));
+            final byte[] value = db.get(key);
             if (value == null) {
-                log.error("Get method can't find value by key {} ",unfoldToBytes(key));
-                throw new NoSuchElementException();
+                log.error("Get method can't find value by key {} ",key);
+                throw new NoSuchElementException("Get method can't find value by key");
             }
             return ByteBuffer.wrap(value);
         } catch (RocksDBException e) {
@@ -54,27 +51,24 @@ public class RocksDBImpl implements DAO{
         }
     }
 
-    @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
-            try {
-                db.put(unfoldToBytes(key), unfoldToBytes(value));
-            } catch (RocksDBException e) {
-                log.error("Rocks upsert error: ", e);
-                throw new RuntimeException("Rocks upsert error: ", e);
-            }
+    public void put(@NotNull byte[] key, @NotNull byte[] value) {
+        try {
+            db.put(key, value);
+        } catch (RocksDBException e) {
+            log.error("Rocks upsert error: ", e);
+            throw new RuntimeException("Rocks upsert error: ", e);
+        }
     }
 
-    @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void delete(@NotNull byte[] key) {
         try {
-            db.delete(unfoldToBytes(key));
+            db.delete(key);
         } catch (RocksDBException e) {
             log.error("Remove error: ",e);
             throw new RuntimeException("Remove error: ", e);
         }
     }
 
-    @Override
     public void compact() {
         try {
             db.compactRange();
@@ -84,8 +78,7 @@ public class RocksDBImpl implements DAO{
         }
     }
 
-    @Override
-    public void close() {
+    public void close()  {
         try {
             db.syncWal();
             db.closeE();
@@ -93,12 +86,5 @@ public class RocksDBImpl implements DAO{
             log.error("Close error: ",e);
             throw new RuntimeException("Close error: ", e);
         }
-    }
-
-    public static byte[] unfoldToBytes(@NotNull final ByteBuffer b) {
-        final byte[] bytes = new byte[b.limit()];
-        b.get(bytes);
-        b.clear();
-        return bytes;
     }
 }
