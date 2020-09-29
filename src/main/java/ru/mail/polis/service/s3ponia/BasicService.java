@@ -59,7 +59,7 @@ public final class BasicService extends HttpServer implements Service {
     }
     
     /**
-     * Basic implementation of http get handling
+     * Basic implementation of http get handling.
      *
      * @param id key in database
      * @return response with value from database by key or http error code
@@ -88,7 +88,7 @@ public final class BasicService extends HttpServer implements Service {
     }
     
     /**
-     * Basic implementation of http put handling
+     * Basic implementation of http put handling.
      *
      * @param id      key
      * @param request value for putting in database
@@ -115,7 +115,7 @@ public final class BasicService extends HttpServer implements Service {
     }
     
     /**
-     * Basic implementation of http put handling
+     * Basic implementation of http put handling.
      *
      * @param id key in database to delete
      * @return response with http code
