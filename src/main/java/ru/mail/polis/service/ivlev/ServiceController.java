@@ -33,10 +33,10 @@ public class ServiceController extends HttpServer {
     }
 
     /**
-     * Контроллер на end-point "/v0/entity". Работаюет с методами get, put, delete
+     * Контроллер на end-point "/v0/entity". Работаюет с методами get, put, delete.
      *
-     * @param id
-     * @param request
+     * @param id - id
+     * @param request - запрос
      * @return
      */
     @Path("/v0/entity")

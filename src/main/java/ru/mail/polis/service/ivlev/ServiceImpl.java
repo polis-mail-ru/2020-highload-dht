@@ -16,10 +16,10 @@ public class ServiceImpl implements Service {
     private HttpServer server;
 
     /**
-     * Конструктор класса ServiceImpl
+     * Конструктор класса ServiceImpl.
      *
-     * @param port
-     * @param dao
+     * @param port - порт
+     * @param dao - реализация DAO
      */
     public ServiceImpl(final int port, @NotNull final DAO dao) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();

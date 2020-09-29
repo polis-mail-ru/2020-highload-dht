@@ -19,10 +19,10 @@ public final class SSTable implements Table {
     private final int size;
 
     /**
-     * Конструктор класса SSTable
+     * Конструктор класса SSTable.
      *
-     * @param file
-     * @throws IOException
+     * @param file - файл
+     * @throws IOException - ошибка чтения файла
      */
     public SSTable(@NotNull final File file) throws IOException {
         this.fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
