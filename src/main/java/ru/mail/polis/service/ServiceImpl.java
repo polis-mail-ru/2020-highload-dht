@@ -4,6 +4,7 @@ import one.nio.http.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.DAO;
+import ru.mail.polis.Record;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -21,6 +22,9 @@ public class ServiceImpl extends HttpServer implements Service {
         this.dao = dao;
     }
 
+    /**
+     * Inserts or updates value by given key.
+     */
     @NotNull
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -38,6 +42,9 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Obtains {@link Record} corresponding to given key.
+     */
     @NotNull
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -58,6 +65,9 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Removes value by given key.
+     */
     @NotNull
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -75,6 +85,9 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Checks server status
+     */
     @NotNull
     @Path("/v0/status")
     public Response status() {
@@ -85,5 +98,15 @@ public class ServiceImpl extends HttpServer implements Service {
     public void handleDefault(@Nullable final Request request, @NotNull final HttpSession session) throws IOException {
         logger.error("Incorrect request {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        try {
+            dao.close();
+        } catch (IOException e) {
+            logger.warn("Failed to close dao", e);
+        }
     }
 }
