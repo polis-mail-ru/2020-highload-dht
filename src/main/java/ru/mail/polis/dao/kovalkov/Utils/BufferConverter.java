@@ -18,17 +18,17 @@ import java.util.Arrays;
  * 16 cores, 15G,  Windows 10 , 64 bit Build 19041 (10.0.19041.292)
  * Firewall: turned-off
  *
- * Use: ByteBuffer.wrap(copy); instead {@link #foldToBuffer(byte[])} {@link #convertBuffer(ByteBuffer)}
+ * Use: ByteBuffer.wrap(copy); instead {@link #returnToSignedByteArray(byte[])} {@link #converToUnsignedByteArray(ByteBuffer)}
  * Get: Unexpected exception thrown.
  * org.gradle.internal.remote.internal.MessageIOException: Could not read message from '/127.0.0.1:62529'.
  */
 public class BufferConverter {
 
-    public static byte[] convertBuffer(@NotNull final ByteBuffer key) {
+    public static byte[] converToUnsignedByteArray(@NotNull final ByteBuffer key) {
         final byte[] bytes = unfoldToBytes(key);
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] -= Byte.MIN_VALUE;
-        }
+//        for (int i = 0; i < bytes.length; i++) {
+//            bytes[i] -= Byte.MIN_VALUE;
+//        }
         return bytes;
     }
 
@@ -40,11 +40,12 @@ public class BufferConverter {
     }
 
 
-    public static ByteBuffer foldToBuffer(@NotNull final byte[] key) {
-        final byte[] copy = Arrays.copyOf(key, key.length);
-        for (int i = 0; i < copy.length; i++) {
-            copy[i] += Byte.MIN_VALUE;
-        }
-        return ByteBuffer.wrap(copy);
+    public static ByteBuffer returnToSignedByteArray(@NotNull final byte[] key) {
+//        final byte[] copy = Arrays.copyOf(key, key.length);
+//        for (int i = 0; i < copy.length; i++) {
+//            copy[i] += Byte.MIN_VALUE;
+//        }
+//        return ByteBuffer.wrap(copy);
+        return ByteBuffer.wrap(key);
     }
 }

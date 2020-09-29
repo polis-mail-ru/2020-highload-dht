@@ -7,7 +7,7 @@ import ru.mail.polis.Record;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-import static ru.mail.polis.dao.kovalkov.Utils.BufferConverter.foldToBuffer;
+import static ru.mail.polis.dao.kovalkov.Utils.BufferConverter.returnToSignedByteArray;
 
 public class RecordIterator implements Iterator<Record>, AutoCloseable{
     private final RocksIterator rocksIterator;
@@ -26,7 +26,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable{
         if(!hasNext()){
             throw new IndexOutOfBoundsException("No further");
         }
-        Record record = Record.of(foldToBuffer(rocksIterator.key()),
+        Record record = Record.of(returnToSignedByteArray(rocksIterator.key()),
                 ByteBuffer.wrap(rocksIterator.value()));
         rocksIterator.next();
         return record;

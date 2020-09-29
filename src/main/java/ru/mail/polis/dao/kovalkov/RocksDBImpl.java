@@ -1,13 +1,17 @@
 package ru.mail.polis.dao.kovalkov;
 
+import com.google.common.primitives.UnsignedBytes;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.*;
+import org.rocksdb.util.BytewiseComparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -20,8 +24,10 @@ public class RocksDBImpl {
 
     RocksDBImpl(final File data) {
         try{
+            final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
             final Options options = new Options().setCreateIfMissing(true)
-                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
+//                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
+                    .setComparator(comparator);
             db = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException e) {
             log.error("Rocks open error: ", e);
@@ -37,7 +43,7 @@ public class RocksDBImpl {
     }
 
     @NotNull
-    public ByteBuffer get(@NotNull byte[] key) {
+    public ByteBuffer get(@NotNull byte[] key) throws NoSuchElementException{
         try {
             final byte[] value = db.get(key);
             if (value == null) {
@@ -79,12 +85,13 @@ public class RocksDBImpl {
     }
 
     public void close()  {
-        try {
-            db.syncWal();
-            db.closeE();
-        } catch (RocksDBException e) {
-            log.error("Close error: ",e);
-            throw new RuntimeException("Close error: ", e);
-        }
+        db.close();
+//        try {
+//            db.syncWal();
+//            db.closeE();
+//        } catch (RocksDBException e) {
+//            log.error("Close error: ",e);
+//            throw new RuntimeException("Close error: ", e);
+//        }
     }
 }
