@@ -55,7 +55,5 @@ public final class DAOFactory {
         }
 
         return new MyDAORocksDB(data);
-
-        //throw new UnsupportedOperationException("Implement me!");
     }
 }

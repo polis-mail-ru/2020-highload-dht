@@ -2,7 +2,6 @@ package ru.mail.polis.dao.basta123;
 
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
-import ru.mail.polis.service.basta123.MyHTTPServer;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -14,7 +13,7 @@ public class MyRecordIter implements Iterator<Record> {
 
     private RocksIterator rocksIterator;
 
-    public MyRecordIter(ByteBuffer key, RocksIterator rocksIterator) {
+    public MyRecordIter(final ByteBuffer key, final RocksIterator rocksIterator) {
         this.rocksIterator = rocksIterator;
         this.rocksIterator.seek(getByteArrayFromByteBuffer(key));
     }
@@ -26,15 +25,14 @@ public class MyRecordIter implements Iterator<Record> {
 
     @Override
     public Record next() {
-        byte[] keyBytes = rocksIterator.key();
-        byte[] valueBytes = rocksIterator.value();
+        final byte[] keyBytes = rocksIterator.key();
+        final byte[] valueBytes = rocksIterator.value();
         rocksIterator.next();
 
-        ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-        ByteBuffer valueByteBuffer = getByteBufferFromByteArray(valueBytes);
+        final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+        final ByteBuffer valueByteBuffer = getByteBufferFromByteArray(valueBytes);
 
-        Record record = Record.of(keyByteBuffer, valueByteBuffer);
-        return record;
+        return Record.of(keyByteBuffer, valueByteBuffer);
     }
 
     public void close() {
