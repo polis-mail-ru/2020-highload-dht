@@ -14,5 +14,7 @@
 !checkstyle.xml
 !.codeclimate.yml
 
+!profiling/*
+
 # ...even if they are in subdirectories
 !*/
