@@ -11,7 +11,7 @@ import java.util.Iterator;
 
 public class RocksToDAOAdapter extends RocksDBImpl implements DAO {
 
-    public RocksToDAOAdapter(File data) {
+    public RocksToDAOAdapter(final File data) {
         super(data);
     }
 
