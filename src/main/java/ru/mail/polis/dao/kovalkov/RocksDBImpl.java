@@ -1,6 +1,5 @@
 package ru.mail.polis.dao.kovalkov;
 
-import com.google.common.primitives.UnsignedBytes;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.*;
 import org.rocksdb.util.BytewiseComparator;
@@ -9,9 +8,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
