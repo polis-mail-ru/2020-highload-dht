@@ -12,9 +12,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 public class RocksDBImpl {
     static {
@@ -27,7 +25,6 @@ public class RocksDBImpl {
         try{
             final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
             final Options options = new Options().setCreateIfMissing(true)
-//                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
                     .setComparator(comparator);
             db = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException e) {
@@ -41,21 +38,6 @@ public class RocksDBImpl {
         final RocksIterator rocksIterator = db.newIterator();
         rocksIterator.seek(from);
         return new RecordIterator(rocksIterator);
-    }
-
-    @NotNull
-    public ByteBuffer get(@NotNull byte[] key) throws NoSuchElementException{
-        try {
-            final byte[] value = db.get(key);
-            if (value == null) {
-                log.error("Get method can't find value by key {} ",key);
-                throw new NoSuchElementException("Get method can't find value by key");
-            }
-            return ByteBuffer.wrap(value);
-        } catch (RocksDBException e) {
-            log.error("Rocks get error: ", e);
-            throw new RuntimeException("Rocks open error: ", e);
-        }
     }
 
     public void put(@NotNull byte[] key, @NotNull byte[] value) {

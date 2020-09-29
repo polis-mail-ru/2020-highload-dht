@@ -18,22 +18,16 @@ public class RocksToDAOAdapter extends RocksDBImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull ByteBuffer from) {
-        return iterator(BufferConverter.converToUnsignedByteArray(from));
+        return iterator(BufferConverter.unfoldToBytes(from));
     }
-
-//    @NotNull
-//    @Override
-//    public ByteBuffer get(@NotNull ByteBuffer key) throws NoSuchElementException {
-//        return get(BufferConverter.converToUnsignedByteArray(key));
-//    }
 
     @Override
     public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value){
-        put(BufferConverter.converToUnsignedByteArray(key), BufferConverter.unfoldToBytes(value));
+        put(BufferConverter.unfoldToBytes(key), BufferConverter.unfoldToBytes(value));
     }
 
     @Override
     public void remove(@NotNull ByteBuffer key){
-        delete(BufferConverter.converToUnsignedByteArray(key));
+        delete(BufferConverter.unfoldToBytes(key));
     }
 }
