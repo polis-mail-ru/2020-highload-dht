@@ -26,15 +26,15 @@ public class HttpService extends HttpServer implements Service {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpService.class);
 
     @NotNull
-    private static HttpServerConfig createConfig(final int port){
-        AcceptorConfig acceptorConfig = new AcceptorConfig();
+    private static HttpServerConfig createConfig(final int port) {
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
-        HttpServerConfig httpServerConfig = new HttpServerConfig();
-        httpServerConfig.acceptors = new AcceptorConfig[] {acceptorConfig};
-        return  httpServerConfig;
+        final HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+        return httpServerConfig;
     }
 
-    public HttpService(final int port, @NotNull DAO dao) throws IOException {
+    public HttpService(final int port, @NotNull final DAO dao) throws IOException {
         super(createConfig(port));
         this.dao = dao;
     }
@@ -46,7 +46,8 @@ public class HttpService extends HttpServer implements Service {
     }
 
     /**
-     * Get status of server
+     * Get status of server.
+     *
      * @return 200 - OK
      */
     @Path("/v0/status")
@@ -55,7 +56,8 @@ public class HttpService extends HttpServer implements Service {
     }
 
     /**
-     * Requst to get Entity by id
+     * Requst to get Entity by id.
+     *
      * @param id - Entity id
      * @return 200 - OK
      *         400 - Empty id in param
@@ -66,7 +68,7 @@ public class HttpService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public Response get(@Param(value = "id", required = true) final String id) {
         try {
-            if (id.length() == 0){
+            if (id.length() == 0) {
                 LOGGER.error("GET: get empty id in param");
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
@@ -81,7 +83,8 @@ public class HttpService extends HttpServer implements Service {
     }
 
     /**
-     * Delete entity from dao by id
+     * Delete entity from dao by id.
+     *
      * @param id - Entity id
      * @return 202 - Delete entity
      *         400 - Empty id in param
@@ -91,7 +94,7 @@ public class HttpService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public Response delete(@Param(value = "id", required = true) final String id) {
         try {
-            if (id.length() == 0){
+            if (id.length() == 0) {
                 LOGGER.error("DELETE: get empty id in param");
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
@@ -104,7 +107,8 @@ public class HttpService extends HttpServer implements Service {
     }
 
     /**
-     * Delete entity from dao by id
+     * Delete entity from dao by id.
+     *
      * @param id - Entity id
      * @return 201 - Created entity
      *         400 - Empty id in param
@@ -112,16 +116,17 @@ public class HttpService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response put(@Param(value = "id", required = true) final String id, @NotNull Request request) {
+    public Response put(@Param(value = "id", required = true) final String id, @NotNull final Request request) {
         try {
-            if (id.length() == 0){
+            if (id.length() == 0) {
                 LOGGER.error("PUT: get empty id in param");
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             dao.upsert(convertToBB(id), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException exc) {
-            LOGGER.error("PUT: can't get element with id: {}, request: {}, errorMsg: {}", id, request.getBody(), exc.getMessage());
+            LOGGER.error("PUT: can't get element with id: {}, request: {}, errorMsg: {}",
+                    id, request.getBody(), exc.getMessage());
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
