@@ -1,12 +1,14 @@
 package ru.mail.polis.dao.stasyanoi;
 
-import com.google.common.primitives.SignedBytes;
-import org.rocksdb.Comparator;
+import com.google.common.primitives.UnsignedBytes;
+import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
-import org.rocksdb.Slice;
+import ru.mail.polis.service.stasyanoi.CustomServer;
 
-public class ComparatorImpl extends Comparator {
-    java.util.Comparator<byte[]> comparator = SignedBytes.lexicographicalComparator();
+import java.nio.ByteBuffer;
+
+public class ComparatorImpl extends AbstractComparator {
+    java.util.Comparator<byte[]> comparator = UnsignedBytes.lexicographicalComparator();
 
     public ComparatorImpl(final ComparatorOptions copt) {
         super(copt);
@@ -18,7 +20,7 @@ public class ComparatorImpl extends Comparator {
     }
 
     @Override
-    public int compare(final Slice a,final Slice b) {
-        return comparator.compare(a.data(), b.data());
+    public int compare(ByteBuffer a, ByteBuffer b) {
+        return comparator.compare(CustomServer.toBytes(a), CustomServer.toBytes(b));
     }
 }
