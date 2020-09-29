@@ -1,7 +1,11 @@
 package ru.mail.polis.dao.kovalkov;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.ComparatorOptions;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import org.rocksdb.util.BytewiseComparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
