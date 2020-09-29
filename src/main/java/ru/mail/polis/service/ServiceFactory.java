@@ -52,6 +52,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        return new ServiceImpl(dao, port);
     }
 }
