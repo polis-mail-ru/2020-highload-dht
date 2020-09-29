@@ -11,8 +11,7 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
+import java.util.Iterator; 
 
 public class DAOImpl implements DAO {
     static {
@@ -62,21 +61,6 @@ public class DAOImpl implements DAO {
             throw new DAOException("Error: can't remove record", ex);
         }
     }
-
-  /*  @NotNull
-    @Override
-    public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
-        try {
-            final var record = db.get(ByteBufferUtils.toArray(key));
-            if (record == null) {
-                throw new NoSuchElementException("Error finding record with key" + key.toString());
-            }
-            return ByteBufferUtils.toByteBuffer(record);
-        } catch (RocksDBException ex) {
-            throw new DAOException("Error: can't ger record", ex);
-        }
-    }
-*/
 
     @Override
     public void compact() throws DAOException {
