@@ -51,15 +51,16 @@ public class ServiceImpl extends HttpServer implements Service {
         return ByteBuffer.wrap(bytes);
     }
 
-    private byte[] getArray(final ByteBuffer value) {
-        if (value.hasRemaining()) {
-            final byte[] result = new byte[value.remaining()];
-            value.get(result);
-
-            return result;
+    private byte[] getArray(final ByteBuffer buffer) {
+        byte[] body;
+        if (!buffer.hasRemaining()) {
+            body = Response.EMPTY;
+        } else {
+            body = new byte[buffer.remaining()];
+            buffer.get(body);
         }
 
-        return Response.EMPTY;
+        return body;
     }
 
     @Path("/v0/entity")
