@@ -6,6 +6,7 @@ import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RecordIterator implements Iterator<Record>, AutoCloseable {
 
@@ -21,9 +22,9 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
     }
 
     @Override
-    public Record next() throws IllegalStateException {
+    public Record next() throws NoSuchElementException {
         if (!hasNext()) {
-            throw new IllegalStateException("Empty");
+            throw new NoSuchElementException();
         }
 
         final var key = iterator.key();

@@ -67,7 +67,7 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        return Response.ok(fromByteBufferToByte(val));
+        return Response.ok(fromByteBufferToByteArray(val));
     }
 
     /** Put/update data by key method.
@@ -137,7 +137,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @param buffer - ByteBuffer variable to convert
      */
-    public static byte[] fromByteBufferToByte(@NotNull final ByteBuffer buffer) {
+    public static byte[] fromByteBufferToByteArray(@NotNull final ByteBuffer buffer) {
         final ByteBuffer bufferCopy = buffer.duplicate();
         final byte[] array = new byte[bufferCopy.remaining()];
         bufferCopy.get(array);
