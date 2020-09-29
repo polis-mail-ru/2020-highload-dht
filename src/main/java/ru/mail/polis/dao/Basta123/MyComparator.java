@@ -18,9 +18,7 @@ public class MyComparator extends Comparator {
 
     @Override
     public int compare(final Slice a, final Slice b) {
-        int comparisonResult = SignedBytes.lexicographicalComparator().compare(a.data(), b.data());
-        return comparisonResult;
+        return SignedBytes.lexicographicalComparator().compare(a.data(), b.data());
     }
-
 
 }
