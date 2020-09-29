@@ -1,4 +1,4 @@
-package ru.mail.polis.service.basta123;
+package ru.mail.polis.service.asta1234;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
