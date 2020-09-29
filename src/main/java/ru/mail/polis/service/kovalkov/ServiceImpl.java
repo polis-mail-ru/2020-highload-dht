@@ -60,7 +60,7 @@ public class ServiceImpl extends HttpServer implements Service {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
             log.error("Method get. IO exception. ", e);
-            throw new RuntimeException("Method GET. IO exception :",e);
+            throw new RuntimeException(e);
         }
         final byte[] bytes = BufferConverter.unfoldToBytes(value);
         return Response.ok(bytes);
@@ -84,7 +84,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.upsert(key,value);
         } catch (IOException e) {
             log.error("Method get. IO exception. ", e);
-            throw new RuntimeException("Method PUT. IO exception occurred: ", e);
+            throw new RuntimeException(e);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
@@ -105,7 +105,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.remove(key);
         } catch (IOException e) {
             log.error("Method get. IO exception. ", e);
-            throw new RuntimeException("Method DELETE. IO exception occurred", e);
+            throw new RuntimeException(e);
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
@@ -123,7 +123,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.close();
         } catch (IOException e) {
             log.error("Dao IO exception when try close: ", e);
-            throw new RuntimeException("Dao IO exception when try close");
+            throw new RuntimeException(e);
         }
     }
 }
