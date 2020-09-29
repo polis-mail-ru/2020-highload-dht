@@ -33,8 +33,8 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Check status
-     * @return - return code 200 OK
+     * Check status.
+     * @return - return code 200 OK.
      */
     @Path("/v0/status")
     public Response status() {
@@ -42,9 +42,9 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Get value by key
-     * @param id - key
-     * @return - value as byte array, also return code 404 if not found and status 400 if key empty
+     * Get value by key.
+     * @param id - key.
+     * @return - value as byte array, also return code 404 if not found and status 400 if key empty.
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
@@ -67,10 +67,10 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Put key and value to LSM
-     * @param id - key
-     * @param request - contains value in the body
-     * @return - code 201 if all's ok, and status 400 if key empty
+     * Put key and value to LSM.
+     * @param id - key.
+     * @param request - contains value in the body.
+     * @return - code 201 if all's ok, and status 400 if key empty.
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
@@ -90,9 +90,9 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Delete by key
-     * @param id - key
-     * @return - code 202 if all's ok, and status 400 if key empty
+     * Delete by key.
+     * @param id - key.
+     * @return - code 202 if all's ok, and status 400 if key empty.
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
