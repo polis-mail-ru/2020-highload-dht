@@ -5,15 +5,11 @@ import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public final class ServiceUtils {
-
-    static final Logger logger = LoggerFactory.getLogger(ServiceUtils.class);
 
     private ServiceUtils() {
     }

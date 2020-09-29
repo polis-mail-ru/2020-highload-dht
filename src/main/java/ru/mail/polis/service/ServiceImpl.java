@@ -9,6 +9,8 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Record;
 
@@ -17,13 +19,14 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import static ru.mail.polis.service.ServiceUtils.assertNotEmpty;
-import static ru.mail.polis.service.ServiceUtils.configFrom;
 import static ru.mail.polis.service.ServiceUtils.byteArrayFrom;
 import static ru.mail.polis.service.ServiceUtils.byteBufferFrom;
-import static ru.mail.polis.service.ServiceUtils.logger;
+import static ru.mail.polis.service.ServiceUtils.configFrom;
 
 public class ServiceImpl extends HttpServer implements Service {
 
+    @NotNull
+    private static final Logger logger = LoggerFactory.getLogger(ServiceImpl.class);
     @NotNull
     private static final String EMPTY_MESSAGE = "Required param must not be empty!";
     @NotNull
