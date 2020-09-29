@@ -18,7 +18,7 @@ public class ComparatorImpl extends Comparator {
     }
 
     @Override
-    public int compare(Slice a, Slice b) {
+    public int compare(final Slice a,final Slice b) {
         return comparator.compare(a.data(), b.data());
     }
 }
