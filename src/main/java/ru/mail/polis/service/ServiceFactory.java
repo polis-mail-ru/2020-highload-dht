@@ -21,11 +21,11 @@ import one.nio.server.AcceptorConfig;
 import one.nio.server.ServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.Basta123.MyHTTPServer;
+import ru.mail.polis.service.basta123.MyHTTPServer;
 
 import java.io.IOException;
 
-import static ru.mail.polis.service.Basta123.Utils.getHttpServerConfig;
+import static ru.mail.polis.service.basta123.Utils.getHttpServerConfig;
 
 /**
  * Constructs {@link Service} instances.
@@ -59,7 +59,7 @@ public final class ServiceFactory {
         }
 
         HttpServerConfig httpServerConfig = getHttpServerConfig(port);
-        MyHTTPServer myHTTPServer=new MyHTTPServer(httpServerConfig, dao);
+        MyHTTPServer myHTTPServer = new MyHTTPServer(httpServerConfig, dao);
         return myHTTPServer;
     }
 

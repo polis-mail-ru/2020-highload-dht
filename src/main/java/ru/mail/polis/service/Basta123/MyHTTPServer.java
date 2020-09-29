@@ -1,4 +1,4 @@
-package ru.mail.polis.service.Basta123;
+package ru.mail.polis.service.basta123;
 
 import com.google.common.net.HttpHeaders;
 import one.nio.http.*;
@@ -10,8 +10,8 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.Basta123.Utils.getByteArrayFromByteBuffer;
-import static ru.mail.polis.service.Basta123.Utils.getByteBufferFromByteArray;
+import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
+import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
 public class MyHTTPServer extends HttpServer implements Service {
 
