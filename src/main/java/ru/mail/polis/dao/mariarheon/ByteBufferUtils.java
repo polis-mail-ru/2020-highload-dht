@@ -34,4 +34,5 @@ public final class ByteBufferUtils {
     public static ByteBuffer toByteBuffer(final byte[] array) {
         return ByteBuffer.wrap(array);
     }
+
 }

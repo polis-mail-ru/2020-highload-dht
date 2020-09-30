@@ -27,7 +27,7 @@ public class RocksIteratorAdapter implements Iterator<Record>, AutoCloseable {
         }
 
         final Record record = Record.of(ByteBufferUtils.toByteBuffer(iter.key()),
-                                         ByteBufferUtils.toByteBuffer(iter.value()));
+                                        ByteBufferUtils.toByteBuffer(iter.value()));
         iter.next();
 
         return record;
