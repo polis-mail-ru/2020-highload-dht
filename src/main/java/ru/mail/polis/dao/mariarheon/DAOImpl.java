@@ -67,11 +67,11 @@ public class DAOImpl implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
         try {
-            final var val = db.get(ByteBufferUtils.toArray(key));
-            if (val == null) {
+            final var record = db.get(ByteBufferUtils.toArray(key));
+            if (record == null) {
                 throw new NoSuchElementException("Error finding record with key" + key.toString());
             }
-            return ByteBufferUtils.toByteBuffer(val);
+            return ByteBufferUtils.toByteBuffer(record);
         } catch (RocksDBException ex) {
             throw new DAOException("Error: can't ger record", ex);
         }
