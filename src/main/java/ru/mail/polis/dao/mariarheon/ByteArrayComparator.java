@@ -21,11 +21,11 @@ public class ByteArrayComparator extends AbstractComparator {
     }
 
     @Override
-    public int compare(ByteBuffer a, ByteBuffer b) {
-        var aBytes = new byte[a.remaining()];
-        var bBytes = new byte[b.remaining()];
-        a.get(aBytes);
-        b.get(bBytes);
-        return comparator.compare(aBytes, bBytes);
+    public int compare(final ByteBuffer a, final ByteBuffer b) {
+        final var fs = new byte[a.remaining()];
+        final var sc = new byte[b.remaining()];
+        a.get(fs);
+        b.get(sc);
+        return comparator.compare(fs, sc);
     }
 }

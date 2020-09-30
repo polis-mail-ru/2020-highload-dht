@@ -61,7 +61,6 @@ public class DAOImpl implements DAO {
         }
     }
 
-
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
@@ -75,7 +74,6 @@ public class DAOImpl implements DAO {
             throw new DAOException("Error: can't ger record", ex);
         }
     }
-
 
     @Override
     public void compact() throws DAOException {
