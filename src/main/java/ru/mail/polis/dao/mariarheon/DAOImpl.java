@@ -1,11 +1,9 @@
 package ru.mail.polis.dao.mariarheon;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.util.BytewiseComparator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
@@ -29,7 +27,7 @@ public class DAOImpl implements DAO {
     public DAOImpl(@NotNull final File path) throws DAOException {
         final Options options = new Options()
                 .setCreateIfMissing(true)
-                .setComparator(new BytewiseComparator(new ComparatorOptions()));
+                .setComparator(new ByteArrayComparator());
         try {
             db = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException ex) {
@@ -63,19 +61,21 @@ public class DAOImpl implements DAO {
         }
     }
 
+
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
         try {
-            final var record = db.get(ByteBufferUtils.toArray(key));
-            if (record == null) {
+            final var val = db.get(ByteBufferUtils.toArray(key));
+            if (val == null) {
                 throw new NoSuchElementException("Error finding record with key" + key.toString());
             }
-            return ByteBufferUtils.toByteBuffer(record);
+            return ByteBufferUtils.toByteBuffer(val);
         } catch (RocksDBException ex) {
             throw new DAOException("Error: can't ger record", ex);
         }
     }
+
 
     @Override
     public void compact() throws DAOException {
