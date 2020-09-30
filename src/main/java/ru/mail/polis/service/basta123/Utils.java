@@ -27,7 +27,7 @@ public final class Utils {
     }
 
     /**
-     * config server setup
+     * config server setup.
      *
      * @param port server port
      * @return serverConfig

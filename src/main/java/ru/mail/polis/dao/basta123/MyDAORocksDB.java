@@ -20,7 +20,7 @@ public class MyDAORocksDB implements DAO {
     private MyRecordIter recordIter;
 
     /**
-     * database initialization
+     * database initialization.
      *
      * @param path DB location path
      */

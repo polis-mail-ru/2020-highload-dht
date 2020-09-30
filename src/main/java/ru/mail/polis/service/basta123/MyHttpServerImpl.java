@@ -80,7 +80,7 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
-     * put value in the DB
+     * put value in the DB.
      *
      * @param id - key
      * @param request with value
@@ -108,7 +108,7 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
-     * delete value by key
+     * delete value by key.
      *
      * @param id - key
      * @return sends status
