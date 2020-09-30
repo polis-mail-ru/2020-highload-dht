@@ -13,6 +13,10 @@ public final class Utils {
         return ByteBuffer.wrap(bytes);
     }
 
+    /**
+     * @param buffer input buffer
+     * @return bytes array
+     */
     public static byte[] getByteArrayFromByteBuffer(final ByteBuffer buffer) {
         final byte[] bytes = new byte[buffer.limit()];
         buffer.get(bytes);
@@ -20,6 +24,10 @@ public final class Utils {
         return bytes;
     }
 
+    /**
+     * @param port server port
+     * @return serverConfig
+     */
     public static HttpServerConfig getHttpServerConfig(final int port) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;

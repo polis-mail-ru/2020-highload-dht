@@ -45,7 +45,11 @@ public class MyHttpServerImpl extends HttpServer implements Service {
         return new Response(Response.OK, new byte[0]);
     }
 
-    @Path("/v0/entity")
+    /**
+     * @param id - key
+     * @return value by key
+     */
+    @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response getValueByKey(final @Param("id") String id) {
         if (id == null || "".equals(id)) {
@@ -72,6 +76,12 @@ public class MyHttpServerImpl extends HttpServer implements Service {
         return responseOk;
     }
 
+    /**
+     * @param id - key
+     * @param request with value
+     * @return sends status
+     * @throws IOException - possible IO exception.
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public Response putValueByKey(final @Param("id") String id, final Request request) throws IOException {
@@ -92,6 +102,11 @@ public class MyHttpServerImpl extends HttpServer implements Service {
         return responseCreated;
     }
 
+    /**
+     * @param id - key
+     * @return sends status
+     * @throws IOException - possible IO exception
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public Response deleteValueByKey(final @Param("id") String id) throws IOException {

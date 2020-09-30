@@ -19,6 +19,9 @@ public class MyDAORocksDB implements DAO {
     private RocksDB rocksDBInstance;
     private MyRecordIter recordIter;
 
+    /**
+     * @param path DB location path
+     */
     public MyDAORocksDB(final File path) {
         RocksDB.loadLibrary();
         final ComparatorOptions comOptions = new ComparatorOptions();
