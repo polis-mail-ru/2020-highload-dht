@@ -102,16 +102,16 @@ class StartStopTest extends TestBase {
     }
 
     @Test
-    @DisabledOnOs(OS.WINDOWS)
-    void create() {
+    @EnabledOnOs(OS.LINUX)
+    void createNative() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertThrows(PoolException.class, this::status);
         });
     }
 
     @Test
-    @EnabledOnOs(OS.WINDOWS)
-    void createOnWindows() throws InterruptedException {
+    @DisabledOnOs(OS.LINUX)
+    void createNonNative() throws InterruptedException {
         assertNotFinishesIn(this::status);
     }
 
