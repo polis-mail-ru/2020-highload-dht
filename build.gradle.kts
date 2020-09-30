@@ -33,7 +33,7 @@ dependencies {
     compile("com.google.guava:guava:27.0.1-jre")
 
     // Rocks DB
-    compile("org.rocksdb", "rocksdbjni", "6.2.2")
+    compile("org.rocksdb", "rocksdbjni", "6.11.4")
 
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
