@@ -9,6 +9,7 @@ public class Util {
         ByteBuffer bufCopy = buffer.duplicate();
         byte[] bytes = new byte[bufCopy.remaining()];
         bufCopy.get(bytes,0,bytes.length);
+        bufCopy.clear();
         return bytes;
     }
 }
