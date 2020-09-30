@@ -17,7 +17,7 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.asta1234.MyDAORocksDB;
+import ru.mail.polis.dao.basta123.MyDAORocksDB;
 
 import java.io.File;
 import java.io.IOException;

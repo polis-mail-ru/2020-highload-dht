@@ -1,8 +1,9 @@
-package ru.mail.polis.service.asta1234;
+package ru.mail.polis.service.basta123;
 
 import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
@@ -16,8 +17,8 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.asta1234.Utils.getByteArrayFromByteBuffer;
-import static ru.mail.polis.service.asta1234.Utils.getByteBufferFromByteArray;
+import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
+import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
 public class MyHttpServerImpl extends HttpServer implements Service {
 
@@ -46,6 +47,8 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
+     * Get value by key.
+     *
      * @param id - key
      * @return value by key
      */
@@ -77,6 +80,8 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
+     * put value in the DB
+     *
      * @param id - key
      * @param request with value
      * @return sends status
@@ -103,6 +108,8 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
+     * delete value by key
+     *
      * @param id - key
      * @return sends status
      * @throws IOException - possible IO exception
@@ -119,6 +126,11 @@ public class MyHttpServerImpl extends HttpServer implements Service {
         dao.remove(keyByteBuffer);
         return new Response(Response.ACCEPTED, Response.EMPTY);
 
+    }
+
+    @Override
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+        session.sendResponse(new Response(Response.BAD_REQUEST, new byte[0]));
     }
 
     @Override

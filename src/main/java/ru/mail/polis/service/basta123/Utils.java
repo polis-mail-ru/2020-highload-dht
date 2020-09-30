@@ -1,4 +1,4 @@
-package ru.mail.polis.service.asta1234;
+package ru.mail.polis.service.basta123;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
@@ -14,6 +14,8 @@ public final class Utils {
     }
 
     /**
+     * ByteArrayFromByteBuffer.
+     *
      * @param buffer input buffer
      * @return bytes array
      */
@@ -25,6 +27,8 @@ public final class Utils {
     }
 
     /**
+     * config server setup
+     *
      * @param port server port
      * @return serverConfig
      */

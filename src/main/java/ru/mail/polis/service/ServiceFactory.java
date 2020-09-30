@@ -19,11 +19,11 @@ package ru.mail.polis.service;
 import one.nio.http.HttpServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.asta1234.MyHttpServerImpl;
+import ru.mail.polis.service.basta123.MyHttpServerImpl;
 
 import java.io.IOException;
 
-import static ru.mail.polis.service.asta1234.Utils.getHttpServerConfig;
+import static ru.mail.polis.service.basta123.Utils.getHttpServerConfig;
 
 /**
  * Constructs {@link Service} instances.

@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.asta1234;
+package ru.mail.polis.dao.basta123;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.ComparatorOptions;
@@ -12,7 +12,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-import static ru.mail.polis.service.asta1234.Utils.getByteArrayFromByteBuffer;
+import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 
 public class MyDAORocksDB implements DAO {
 
@@ -20,6 +20,8 @@ public class MyDAORocksDB implements DAO {
     private MyRecordIter recordIter;
 
     /**
+     * database initialization
+     *
      * @param path DB location path
      */
     public MyDAORocksDB(final File path) {
