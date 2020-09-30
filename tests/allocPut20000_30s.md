@@ -90,4 +90,10 @@ Running 30s test @ http://localhost:8080
 Requests/sec:  19972.01
 Transfer/sec:      1.28MB
 
+Http буфер занимает 99.87%
+Обработчик 53.37%
+Response ok 7.54%
+DAO.upsert 16.06%
+
+Flush не асинхронный, из-за блокировки запросов перед записью на диск возрастает время отклика, от сюда плохое stdev. 
 

@@ -1,4 +1,5 @@
 -d30s -R20000 --latency http://localhost:8080/v0/status
+
 Running 30s test @ http://localhost:8080/v0/status
   1 threads and 1 connections
   Thread calibration: mean lat.: 20.280ms, rate sampling interval: 95ms
@@ -103,4 +104,7 @@ Running 30s test @ http://localhost:8080/v0/status
 Requests/sec:  19999.58
 Transfer/sec:      1.18MB
 
-
+Обработка http запроса 84.29%
+Запись в сокет 63.66%
+Чтение из сокета 12.29%
+Stdev получилось большим, скорее всего, из-за сборок мусора (1%, занимающий более 62ms).

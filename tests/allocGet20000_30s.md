@@ -79,4 +79,7 @@ Running 30s test @ http://localhost:8080
 Requests/sec:   5759.13
 Transfer/sec:    412.24KB
 
-
+Http буфер занимает 99.58%
+Обработчик 97.03%
+Response 0.86%
+Поиск ключа в SSTable 58.01% 

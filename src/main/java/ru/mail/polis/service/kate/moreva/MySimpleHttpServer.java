@@ -9,6 +9,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
@@ -24,6 +26,7 @@ import java.util.NoSuchElementException;
 public class MySimpleHttpServer extends HttpServer implements Service {
 
     private final DAO dao;
+    private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
 
     /**
      * Http Server constructor.
@@ -71,6 +74,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     @Path("/v0/entity")
     public Response entity(@Param(value = "id", required = true) final String id, final Request request) {
         if (id.isBlank()) {
+            log.error("Request with empty id on /v0/entity");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
@@ -82,6 +86,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             case Request.METHOD_DELETE:
                 return deleteEntity(key);
             default:
+                log.error("Not allowed method on /v0/entity");
                 return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
         }
     }
@@ -102,6 +107,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
+            log.error("GET method failed on /v0/entity for id {}, error{}", key, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -117,6 +123,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException e) {
+            log.error("PUT method failed on /v0/entity for id {}, request body{}, error{}", key, request.getBody(), e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -132,8 +139,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             dao.remove(key);
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException e) {
+            log.error("DELETE method failed on /v0/entity for id {}, error{}", key, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
-
 }
