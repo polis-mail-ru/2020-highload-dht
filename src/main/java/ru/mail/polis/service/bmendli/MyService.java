@@ -11,7 +11,8 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
@@ -20,6 +21,8 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 public class MyService extends HttpServer implements Service {
+
+    private final Logger logger = LoggerFactory.getLogger(MyService.class);
 
     @NotNull
     private final DAO dao;
@@ -37,15 +40,18 @@ public class MyService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public Response get(@NotNull @Param(required = true, value = "id") final String id) {
         try {
-            final Response response = handleParam(id);
-            return response == null
-                    ? Response.ok(getBytesFromByteBuffer(dao.get(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)))))
-                    : response;
+            if (id.isBlank()) {
+                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+            }
+            final byte[] bytes = id.getBytes(Charsets.UTF_8);
+            final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
+            final ByteBuffer byteBuffer = dao.get(wrappedBytes);
+            return Response.ok(getBytesFromByteBuffer(byteBuffer));
         } catch (NoSuchElementException nsee) {
-            nsee.printStackTrace();
+            logger.error("Does not exist record by id = {}", id);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ioe) {
-            ioe.printStackTrace();
+            logger.error("Error when trying get record", ioe);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -59,14 +65,13 @@ public class MyService extends HttpServer implements Service {
     public Response put(@NotNull @Param(required = true, value = "id") final String id,
                         @NotNull final Request request) {
         try {
-            final Response response = handleParam(id);
-            if (response != null) {
-                return response;
+            if (id.isBlank()) {
+                return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             dao.upsert(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ioe) {
+            logger.error("Error when trying put record", ioe);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -79,14 +84,13 @@ public class MyService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public Response delete(@NotNull @Param(required = true, value = "id") final String id) {
         try {
-            final Response response = handleParam(id);
-            if (response != null) {
-                return response;
+            if (id.isBlank()) {
+                return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             dao.remove(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)));
             return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (IOException ioe) {
+            logger.error("Error when trying delete record", ioe);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -102,13 +106,6 @@ public class MyService extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    @Nullable
-    private static Response handleParam(@NotNull final String param) {
-        return param.isBlank()
-                ? new Response(Response.BAD_REQUEST, Response.EMPTY)
-                : null;
     }
 
     @NotNull
