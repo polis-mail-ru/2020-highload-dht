@@ -16,6 +16,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ServiceImpl extends HttpServer implements Service {
@@ -78,9 +79,12 @@ public class ServiceImpl extends HttpServer implements Service {
             final byte[] body = new byte[duplicate.remaining()];
             duplicate.get(body);
             return new Response(Response.OK, body);
-        } catch (NoSuchElementLiteException | IOException ex) {
-            log.info(ex.getMessage());
+        } catch (NoSuchElementLiteException ex) {
+            log.log(Level.SEVERE, "Empty value: ", ex);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException ex) {
+            log.log(Level.SEVERE, "IOException: ", ex);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -97,7 +101,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        log.info("bad request");
+        log.info("Can't find handler for " + request.getPath());
         session.sendResponse(response);
     }
 
