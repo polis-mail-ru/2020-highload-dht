@@ -8,6 +8,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.NoSuchElementLiteException;
@@ -16,12 +18,10 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class ServiceImpl extends HttpServer implements Service {
+    private static final Logger logger = LogManager.getLogger(ServiceImpl.class);
     private final DAO dao;
-    private static Logger log = Logger.getLogger(ServiceImpl.class.getName());
 
     public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
         super(getConfig(port));
@@ -49,7 +49,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public Response entity(@Param("id") final String id, @NotNull final Request request) {
         try {
             if (id == null || id.isEmpty()) {
-                log.info("id is null or empty");
+                logger.info("id is null or empty");
                 return new Response(Response.BAD_REQUEST, "Id must be not null".getBytes(StandardCharsets.UTF_8));
             }
             final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -67,7 +67,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         } catch (IOException ex) {
-            log.info(ex.getMessage());
+            logger.error(ex.getMessage());
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -80,10 +80,10 @@ public class ServiceImpl extends HttpServer implements Service {
             duplicate.get(body);
             return new Response(Response.OK, body);
         } catch (NoSuchElementLiteException ex) {
-            log.log(Level.SEVERE, "Empty value: ", ex);
+            logger.error("Empty value: ", ex);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ex) {
-            log.log(Level.SEVERE, "IOException: ", ex);
+            logger.error("IOException: ", ex);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -101,7 +101,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        log.info("Can't find handler for ".concat(request.getPath()));
+        logger.warn("Can't find handler for ".concat(request.getPath()));
         session.sendResponse(response);
     }
 
