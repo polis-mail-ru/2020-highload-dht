@@ -101,7 +101,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        log.info("Can't find handler for " + request.getPath());
+        log.info("Can't find handler for ".concat(request.getPath()));
         session.sendResponse(response);
     }
 
