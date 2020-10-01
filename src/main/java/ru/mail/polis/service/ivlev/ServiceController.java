@@ -37,7 +37,7 @@ public class ServiceController extends HttpServer {
      *
      * @param id      - id
      * @param request - запрос
-     * @return
+     * @return response - ответ
      */
     @Path("/v0/entity")
     public Response entity(@Param(value = "id", required = true) final String id, @NotNull final Request request) {
@@ -49,7 +49,7 @@ public class ServiceController extends HttpServer {
         return getResponse(key, request);
     }
 
-    private Response getResponse(final ByteBuffer key, final Request request) {
+    private Response getResponse(final ByteBuffer key, @NotNull final Request request) {
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET: {
@@ -71,16 +71,16 @@ public class ServiceController extends HttpServer {
 
     private Response methodGet(final ByteBuffer key) {
         try {
-            final ByteBuffer duplicate = dao.get(key).duplicate();
-            final byte[] body = new byte[duplicate.remaining()];
-            duplicate.get(body);
+            final ByteBuffer record = dao.get(key);
+            final byte[] body = new byte[record.remaining()];
+            record.get(body);
             return new Response(Response.OK, body);
         } catch (NoSuchElementException | IOException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
-    private Response methodPut(final ByteBuffer key, final Request request) throws IOException {
+    private Response methodPut(final ByteBuffer key, @NotNull final Request request) throws IOException {
         dao.upsert(key, ByteBuffer.wrap(request.getBody()));
         return new Response(Response.CREATED, Response.EMPTY);
     }
@@ -91,7 +91,7 @@ public class ServiceController extends HttpServer {
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+    public void handleDefault(final Request request, @NotNull final HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
     }

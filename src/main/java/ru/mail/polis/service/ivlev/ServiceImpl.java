@@ -33,7 +33,6 @@ public class ServiceImpl implements Service {
     public void start() throws IOException {
         this.server = new ServiceController(config, dao);
         this.server.start();
-
     }
 
     @Override
