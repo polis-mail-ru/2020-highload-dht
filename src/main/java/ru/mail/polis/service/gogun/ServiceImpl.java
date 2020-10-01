@@ -81,6 +81,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public Response get(@Param(value = "id", required = true)@NotNull final String id) {
         log.debug("GET request with id: {}", id);
+
         if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
