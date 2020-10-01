@@ -3,9 +3,9 @@ package ru.mail.polis.dao;
 import java.util.NoSuchElementException;
 
 @SuppressWarnings("serial")
-public class NoSuchElementLite extends NoSuchElementException {
+public class NoSuchElementLiteException extends NoSuchElementException {
 
-    NoSuchElementLite(final String s) {
+    NoSuchElementLiteException(final String s) {
         super(s);
     }
 

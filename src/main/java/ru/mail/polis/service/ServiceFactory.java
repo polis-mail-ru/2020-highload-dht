@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.stakenschneider.ServiceImplementation;
+import ru.mail.polis.service.stakenschneider.ServiceImpl;
 
 import java.io.IOException;
 
@@ -53,6 +53,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImplementation(port, dao);
+        return new ServiceImpl(port, dao);
     }
 }

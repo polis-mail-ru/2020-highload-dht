@@ -698,7 +698,7 @@
 <text x="113.1" y="734.0">byte[]</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.NoSuchElementLite (7 samples, 0.45%)</title><rect x="194.4" y="835.0" width="5.2" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.NoSuchElementLiteException (7 samples, 0.45%)</title><rect x="194.4" y="835.0" width="5.2" height="15" fill="#66d4d4" rx="2" ry="2"/>
 <text x="197.4" y="846.0"></text>
 </g>
 <g>
@@ -1114,7 +1114,7 @@
 <text x="391.5" y="734.0">byte[]</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.NoSuchElementLite (16 samples, 1.02%)</title><rect x="496.9" y="835.0" width="12.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.NoSuchElementLiteException (16 samples, 1.02%)</title><rect x="496.9" y="835.0" width="12.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
 <text x="499.9" y="846.0"></text>
 </g>
 <g>
@@ -1534,7 +1534,7 @@
 <text x="689.5" y="734.0">byte[]</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.NoSuchElementLite (31 samples, 1.98%)</title><rect x="804.7" y="835.0" width="23.3" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.NoSuchElementLiteException (31 samples, 1.98%)</title><rect x="804.7" y="835.0" width="23.3" height="15" fill="#69d7d7" rx="2" ry="2"/>
 <text x="807.7" y="846.0">r..</text>
 </g>
 <g>
@@ -1962,7 +1962,7 @@
 <text x="997.3" y="734.0">byte[]</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.NoSuchElementLite (5 samples, 0.32%)</title><rect x="1095.2" y="835.0" width="3.7" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.NoSuchElementLiteException (5 samples, 0.32%)</title><rect x="1095.2" y="835.0" width="3.7" height="15" fill="#53c1c1" rx="2" ry="2"/>
 <text x="1098.2" y="846.0"></text>
 </g>
 <g>

@@ -36,11 +36,11 @@ public final class RocksDAO implements DAO {
         try {
             final var result = db.get(toArray(key));
             if (result == null) {
-                throw new NoSuchElementLite("cant find element " + key.toString());
+                throw new NoSuchElementLiteException("cant find element " + key.toString());
             }
             return ByteBuffer.wrap(result);
         } catch (RocksDBException exception) {
-            throw new IOException("", exception);
+            throw new IOException("Getting error", exception);
         }
     }
 
@@ -49,7 +49,7 @@ public final class RocksDAO implements DAO {
         try {
             db.put(toArray(key), toArray(value));
         } catch (RocksDBException exception) {
-            throw new IOException("", exception);
+            throw new IOException("Upserting error", exception);
         }
     }
 
@@ -58,7 +58,7 @@ public final class RocksDAO implements DAO {
         try {
             db.delete(toArray(key));
         } catch (RocksDBException exception) {
-            throw new IOException("", exception);
+            throw new IOException("Removing error", exception);
         }
     }
 
@@ -67,7 +67,7 @@ public final class RocksDAO implements DAO {
         try {
             db.compactRange();
         } catch (RocksDBException exception) {
-            throw new IOException("", exception);
+            throw new IOException("Compaction error", exception);
         }
     }
 
@@ -77,7 +77,7 @@ public final class RocksDAO implements DAO {
             db.syncWal();
             db.closeE();
         } catch (RocksDBException exception) {
-            throw new IOException("", exception);
+            throw new IOException("Closing error", exception);
         }
     }
 
@@ -91,7 +91,7 @@ public final class RocksDAO implements DAO {
             final var db = RocksDB.open(options, data.getAbsolutePath());
             return new RocksDAO(db);
         } catch (RocksDBException exception) {
-            throw new IOException("", exception);
+            throw new IOException("Creating error", exception);
         }
     }
 

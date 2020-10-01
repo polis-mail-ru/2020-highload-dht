@@ -10,18 +10,19 @@ import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.NoSuchElementLite;
+import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Logger;
 
-public class ServiceImplementation extends HttpServer implements Service {
+public class ServiceImpl extends HttpServer implements Service {
     private final DAO dao;
+    private static Logger log = Logger.getLogger(ServiceImpl.class.getName());
 
-    public ServiceImplementation(final int port,
-                                 @NotNull final DAO dao) throws IOException {
+    public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
         super(getConfig(port));
         this.dao = dao;
     }
@@ -39,34 +40,33 @@ public class ServiceImplementation extends HttpServer implements Service {
     /**
      * Provide access to entities.
      *
-     * @param id key of entity
+     * @param id      key of entity
      * @param request HTTP request
      * @return response or error
      */
     @Path("/v0/entity")
-    public Response entity(
-            @Param("id") final String id,
-            @NotNull final Request request
-    ) {
+    public Response entity(@Param("id") final String id, @NotNull final Request request) {
         try {
             if (id == null || id.isEmpty()) {
+                log.info("id is null or empty");
                 return new Response(Response.BAD_REQUEST, "Id must be not null".getBytes(StandardCharsets.UTF_8));
             }
             final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             switch (request.getMethod()) {
-                case Request.METHOD_GET: {
+                case Request.METHOD_GET:
                     return get(key);
-                }
-                case Request.METHOD_PUT: {
+
+                case Request.METHOD_PUT:
                     return put(key, request);
-                }
-                case Request.METHOD_DELETE: {
+
+                case Request.METHOD_DELETE:
                     return delete(key);
-                }
+
                 default:
                     return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         } catch (IOException ex) {
+            log.info(ex.getMessage());
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -78,7 +78,8 @@ public class ServiceImplementation extends HttpServer implements Service {
             final byte[] body = new byte[duplicate.remaining()];
             duplicate.get(body);
             return new Response(Response.OK, body);
-        } catch (NoSuchElementLite | IOException ex) {
+        } catch (NoSuchElementLiteException | IOException ex) {
+            log.info(ex.getMessage());
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
@@ -96,6 +97,7 @@ public class ServiceImplementation extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        log.info("bad request");
         session.sendResponse(response);
     }
 

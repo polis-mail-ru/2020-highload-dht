@@ -778,7 +778,7 @@
 <text x="501.0" y="526.0">byte[]</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.NoSuchElementLite (52 samples, 2.43%)</title><rect x="892.8" y="627.0" width="28.7" height="15" fill="#60cece" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.NoSuchElementLiteException (52 samples, 2.43%)</title><rect x="892.8" y="627.0" width="28.7" height="15" fill="#60cece" rx="2" ry="2"/>
 <text x="895.8" y="638.0">ru..</text>
 </g>
 <g>
