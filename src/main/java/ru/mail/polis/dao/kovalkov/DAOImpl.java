@@ -19,7 +19,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class DAOImpl implements DAO {
+public final class DAOImpl implements DAO {
     protected static final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     private final RocksDB db;
 

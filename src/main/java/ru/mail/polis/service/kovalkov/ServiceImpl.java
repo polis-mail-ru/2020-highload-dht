@@ -1,6 +1,5 @@
 package ru.mail.polis.service.kovalkov;
 
-import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -34,7 +33,12 @@ public class ServiceImpl extends HttpServer implements Service {
         this.dao = dao;
     }
 
-    public static HttpServerConfig getConfig(int port){
+    /**
+     * Server configuration.
+     *
+     * @return - return HttpServerConfig
+     */
+    public static HttpServerConfig getConfig(final int port){
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
@@ -68,8 +72,10 @@ public class ServiceImpl extends HttpServer implements Service {
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
         ByteBuffer value;
+        byte[] bytes;
         try {
             value = dao.get(key);
+            bytes = BufferConverter.unfoldToBytes(value);
         } catch (IOException e) {
             log.error("Method get. IO exception. ", e);
             throw new RuntimeException(e);
@@ -77,7 +83,6 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Method get. Can't find value by this key ", e);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
-        final byte[] bytes = BufferConverter.unfoldToBytes(value);
         return Response.ok(bytes);
     }
 
