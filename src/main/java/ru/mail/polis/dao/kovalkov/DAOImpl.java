@@ -20,7 +20,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 public final class DAOImpl implements DAO {
-    protected static final Logger log = LoggerFactory.getLogger(DAOImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     private final RocksDB db;
 
     private DAOImpl(final RocksDB db) {

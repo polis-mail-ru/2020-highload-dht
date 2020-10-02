@@ -38,7 +38,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @return - return HttpServerConfig
      */
-    public static HttpServerConfig getConfig(final int port){
+    public static HttpServerConfig getConfig(final int port) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
