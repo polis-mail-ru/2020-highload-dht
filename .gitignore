@@ -9,6 +9,8 @@
 !gradlew.bat
 !gradlew
 !build.gradle.kts
+!*.svg
+!*.txt
 !.travis.yml
 !settings.gradle
 !checkstyle.xml
