@@ -67,8 +67,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") final String id) {
         if (id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST,Response.EMPTY);
-
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
         ByteBuffer value;
