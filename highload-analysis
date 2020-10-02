@@ -3,56 +3,55 @@
 
 [mrsandman5@simon-gl552vx 2020-highload-dht]$ wrk2 -t1 -c1 -d40s -R2000 -s wrk/get.lua --latency http://127.0.0.1:8080 \
 Running 40s test @ http://127.0.0.1:8080 \
-  1 threads and 1 connections \
-  Thread calibration: mean lat.: 1.110ms, rate sampling interval: 10ms \
-  Thread Stats   Avg      Stdev     Max   +/- Stdev \
-    Latency     1.07ms  498.80us   6.30ms   64.31% \
-    Req/Sec     2.11k   164.10     3.44k    69.76% \
-  Latency Distribution (HdrHistogram - Recorded Latency) \
-   50.000%    1.06ms \
- 75.000%    1.39ms \
- 90.000%    1.77ms \
- 99.000%    2.13ms \
- 99.900%    2.81ms \
- 99.990%    5.83ms \
- 99.999%    6.14ms \
-100.000%    6.31ms 
+1 threads and 1 connections \
+Thread calibration: mean lat.: 1.132ms, rate sampling interval: 10ms \
+Thread Stats   Avg      Stdev     Max   +/- Stdev \
+Latency     1.10ms  725.06us  26.93ms   82.79% \
+Req/Sec     2.11k   187.43     6.20k    74.24% \
+Latency Distribution (HdrHistogram - Recorded Latency) \
+50.000%    1.08ms \
+75.000%    1.41ms \
+90.000%    1.79ms \
+99.000%    2.15ms \
+99.900%    6.97ms \
+99.990%   24.56ms \
+99.999%   26.56ms \
+100.000%   26.94ms \
 
-[Mean    =        1.069, StdDeviation   =        0.499] \
-[Max     =        6.304, Total count    =        59989] \
-[Buckets =           27, SubBuckets     =         2048] \
+[Mean    =        1.103, StdDeviation   =        0.725] \
+[Max     =       26.928, Total count    =        59988] \
+[Buckets =           27, SubBuckets     =         2048]
 
-  79999 requests in 40.00s, 5.26MB read \
-  Non-2xx or 3xx responses: 79999 \
-Requests/sec:   1999.95 \
-Transfer/sec:    134.76KB \
+  79997 requests in 40.00s, 5.10MB read \
+Requests/sec:   1999.92 \
+Transfer/sec:    130.58KB
 
 ### PUT
 
 [mrsandman5@simon-gl552vx 2020-highload-dht]$ wrk2 -t1 -c1 -d40s -R2000 -s wrk/put.lua --latency http://127.0.0.1:8080 \
 Running 40s test @ http://127.0.0.1:8080 \
-  1 threads and 1 connections \
-  Thread calibration: mean lat.: 1.079ms, rate sampling interval: 10ms \
-  Thread Stats   Avg      Stdev     Max   +/- Stdev \
-    Latency     1.07ms  679.26us  26.03ms   80.80% \
-    Req/Sec     2.11k   180.40     4.22k    69.16% \
-  Latency Distribution (HdrHistogram - Recorded Latency) \
- 50.000%    1.05ms \
- 75.000%    1.37ms \
- 90.000%    1.75ms \
- 99.000%    2.13ms \
- 99.900%    3.21ms \
- 99.990%   24.35ms \
- 99.999%   25.79ms \
-100.000%   26.05ms
+1 threads and 1 connections \
+Thread calibration: mean lat.: 1.115ms, rate sampling interval: 10ms \
+Thread Stats   Avg      Stdev     Max   +/- Stdev \
+Latency     1.08ms  647.23us  20.16ms   77.01% \
+Req/Sec     2.11k   193.48     5.60k    72.19% \
+Latency Distribution (HdrHistogram - Recorded Latency) \
+50.000%    1.05ms \
+75.000%    1.39ms \
+90.000%    1.75ms \
+99.000%    2.15ms \
+99.900%    7.26ms \
+99.990%   18.17ms \
+99.999%   19.92ms \
+100.000%   20.17ms
 
-[Mean    =        1.073, StdDeviation   =        0.679] \
-[Max     =       26.032, Total count    =        59991] \
-[Buckets =           27, SubBuckets     =         2048] \
+[Mean    =        1.077, StdDeviation   =        0.647] \
+[Max     =       20.160, Total count    =        59988] \
+[Buckets =           27, SubBuckets     =         2048]
 
-  79999 requests in 40.00s, 5.11MB read \
-Requests/sec:   1999.93 \
-Transfer/sec:    130.85KB \
+  79998 requests in 40.00s, 5.11MB read \
+Requests/sec:   1999.94 \
+Transfer/sec:    130.86KB
 
 ### DELETE
 
