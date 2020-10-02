@@ -105,8 +105,6 @@ public final class DAOImpl implements DAO {
                     .setCreateIfMissing(true)
                     .setCompressionType(CompressionType.NO_COMPRESSION)
                     .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
-            final WriteOptions wOptions = new WriteOptions();
-            wOptions.setDisableWAL(true);
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {
