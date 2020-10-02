@@ -54,10 +54,7 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-        final AcceptorConfig acceptorConfig = new AcceptorConfig();
-        acceptorConfig.port = port;
-        final HttpServerConfig httpServerConfig = new HttpServerConfig();
-        httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
-        return new ServiceImpl(httpServerConfig, dao);
+
+        return new ServiceImpl(ServiceImpl.getConfig(port), dao);
     }
 }

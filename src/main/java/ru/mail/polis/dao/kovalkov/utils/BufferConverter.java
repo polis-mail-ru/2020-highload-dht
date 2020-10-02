@@ -3,6 +3,7 @@ package ru.mail.polis.dao.kovalkov.utils;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public final class BufferConverter {
 
@@ -16,9 +17,26 @@ public final class BufferConverter {
      * @return - Bytes.
      */
     public static byte[] unfoldToBytes(@NotNull final ByteBuffer key) {
-        final byte[] bytes = new byte[key.limit()];
-        key.get(bytes);
-        key.clear();
+        final ByteBuffer copyBuffer = key.duplicate();
+        final byte[] bytes = new byte[copyBuffer.remaining()];
+        copyBuffer.get(bytes);
+        copyBuffer.clear();
         return bytes;
+    }
+
+    public static byte[] convertBytes(@NotNull final ByteBuffer key) {
+        final byte[] arrayKey = unfoldToBytes(key);
+        for (int i = 0; i < arrayKey.length; i++) {
+            arrayKey[i] -= Byte.MIN_VALUE;
+        }
+        return arrayKey;
+    }
+
+    public static ByteBuffer foldToBuffer(@NotNull final byte[] key) {
+        final byte[] copy = Arrays.copyOf(key, key.length);
+        for (int i = 0; i < copy.length; i++) {
+            copy[i] += Byte.MIN_VALUE;
+        }
+        return ByteBuffer.wrap(copy);
     }
 }

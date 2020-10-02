@@ -9,6 +9,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.server.AcceptorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -28,9 +29,17 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
 
-    public ServiceImpl(final HttpServerConfig config, final DAO dao, final Object... routers) throws IOException {
-        super(config, routers);
+    public ServiceImpl(final HttpServerConfig config, final DAO dao) throws IOException {
+        super(config);
         this.dao = dao;
+    }
+
+    public static HttpServerConfig getConfig(int port){
+        final AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = port;
+        final HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+        return httpServerConfig;
     }
 
     /**
@@ -41,9 +50,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
-        final Response response = new Response(Response.OK);
-        response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return response;
+        return new Response(Response.OK, Response.EMPTY);
     }
 
     /**
@@ -56,21 +63,19 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") final String id) {
         if (id == null || id.isEmpty()) {
-            final Response response = new Response(Response.BAD_REQUEST);
-            response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return response;
+            return new Response(Response.BAD_REQUEST,Response.EMPTY);
+
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
         ByteBuffer value;
         try {
             value = dao.get(key);
         } catch (IOException e) {
+            log.error("Method get. IO exception. ", e);
             throw new RuntimeException(e);
         } catch (NoSuchElementException e) {
-            log.error("Method get. IO exception. ", e);
-            final Response notFoundResponse = new Response(Response.NOT_FOUND);
-            notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return notFoundResponse;
+            log.error("Method get. Can't find value by this key ", e);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
         final byte[] bytes = BufferConverter.unfoldToBytes(value);
         return Response.ok(bytes);
@@ -86,7 +91,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public Response put(@Param("id") final String id, final Request request) {
-        if (id.isEmpty()) {
+        if (id != null && id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
@@ -124,12 +129,11 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        session.sendResponse(new Response(Response.BAD_REQUEST, new byte[0]));
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
-    @SuppressWarnings("UnsynchronizedOverridesSynchronized")
-    public void stop() {
+    public synchronized void stop() {
         super.stop();
         try {
             dao.close();
