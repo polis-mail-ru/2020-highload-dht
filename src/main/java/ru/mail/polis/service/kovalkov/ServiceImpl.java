@@ -66,7 +66,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(@Param("id") final String id) {
-        if (id.isEmpty() || id == null) {
+        if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
@@ -95,7 +95,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public Response put(@Param("id") final String id, final Request request) {
-        if (id.isEmpty() || id == null) {
+        if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
