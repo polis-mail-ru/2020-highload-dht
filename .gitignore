@@ -14,5 +14,8 @@
 !checkstyle.xml
 !.codeclimate.yml
 
+!wrk/*
+!doc/**
+
 # ...even if they are in subdirectories
 !*/
