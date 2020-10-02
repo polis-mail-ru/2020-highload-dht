@@ -13,6 +13,8 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
-
+!async/
+!wrk/
+!higload-analysis.md
 # ...even if they are in subdirectories
 !*/
