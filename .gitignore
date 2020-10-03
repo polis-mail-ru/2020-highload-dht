@@ -13,8 +13,6 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
-!wrk.png
-!flamegraph.svg
-!summary.md
+!logs_pics/*
 # ...even if they are in subdirectories
 !*/
