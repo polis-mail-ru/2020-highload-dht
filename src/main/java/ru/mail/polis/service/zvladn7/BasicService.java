@@ -193,8 +193,8 @@ public class BasicService extends HttpServer implements Service {
 
         try {
             dao.upsert(key, value);
-            if (cache.containsKey(id)) {
-                updateCache(id, request.getBody());
+            if (cache.size() >= CACHE_SIZE) {
+                cache.putIfAbsent(id, request.getBody());
             }
         } catch (IOException e) {
             log.error("Internal error. Can't insert or update value with key: {}", id, e);
