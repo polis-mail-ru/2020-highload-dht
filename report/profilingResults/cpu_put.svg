@@ -1,0 +1,2865 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="934" onload="init(evt)" viewBox="0 0 1200 934" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
+<text id="title" x="600" y="24">Flame Graph</text>
+<text id="details" x="10" y="917"> </text>
+<text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090" y="24">Search</text>
+<text id="matched" x="1090" y="917"> </text>
+<g id="frames">
+<g>
+<title>all (1,003 samples, 100.00%)</title><rect x="10.0" y="883.0" width="1180.0" height="15" fill="#e66161" rx="2" ry="2"/>
+<text x="13.0" y="894.0">all</text>
+</g>
+<g>
+<title>[unknown] (5 samples, 0.50%)</title><rect x="10.0" y="867.0" width="5.9" height="15" fill="#e96565" rx="2" ry="2"/>
+<text x="13.0" y="878.0"></text>
+</g>
+<g>
+<title>[unknown] (1 samples, 0.10%)</title><rect x="10.0" y="851.0" width="1.2" height="15" fill="#f47474" rx="2" ry="2"/>
+<text x="13.0" y="862.0"></text>
+</g>
+<g>
+<title>do_futex_wait.constprop.1 (1 samples, 0.10%)</title><rect x="10.0" y="835.0" width="1.2" height="15" fill="#fd7f7f" rx="2" ry="2"/>
+<text x="13.0" y="846.0"></text>
+</g>
+<g>
+<title>entry_SYSCALL_64_after_hwframe (1 samples, 0.10%)</title><rect x="10.0" y="819.0" width="1.2" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="13.0" y="830.0"></text>
+</g>
+<g>
+<title>do_syscall_64 (1 samples, 0.10%)</title><rect x="10.0" y="803.0" width="1.2" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="13.0" y="814.0"></text>
+</g>
+<g>
+<title>__x64_sys_futex (1 samples, 0.10%)</title><rect x="10.0" y="787.0" width="1.2" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="13.0" y="798.0"></text>
+</g>
+<g>
+<title>do_futex (1 samples, 0.10%)</title><rect x="10.0" y="771.0" width="1.2" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="13.0" y="782.0"></text>
+</g>
+<g>
+<title>futex_wait (1 samples, 0.10%)</title><rect x="10.0" y="755.0" width="1.2" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="13.0" y="766.0"></text>
+</g>
+<g>
+<title>futex_wait_setup (1 samples, 0.10%)</title><rect x="10.0" y="739.0" width="1.2" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="13.0" y="750.0"></text>
+</g>
+<g>
+<title>_raw_spin_lock (1 samples, 0.10%)</title><rect x="10.0" y="723.0" width="1.2" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="13.0" y="734.0"></text>
+</g>
+<g>
+<title>native_queued_spin_lock_slowpath (1 samples, 0.10%)</title><rect x="10.0" y="707.0" width="1.2" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="13.0" y="718.0"></text>
+</g>
+<g>
+<title>_IO_vsnprintf (1 samples, 0.10%)</title><rect x="11.2" y="851.0" width="1.2" height="15" fill="#fb7c7c" rx="2" ry="2"/>
+<text x="14.2" y="862.0"></text>
+</g>
+<g>
+<title>__GI__IO_vfprintf (1 samples, 0.10%)</title><rect x="11.2" y="835.0" width="1.2" height="15" fill="#e76363" rx="2" ry="2"/>
+<text x="14.2" y="846.0"></text>
+</g>
+<g>
+<title>clock_gettime (2 samples, 0.20%)</title><rect x="12.4" y="851.0" width="2.3" height="15" fill="#f57474" rx="2" ry="2"/>
+<text x="15.4" y="862.0"></text>
+</g>
+<g>
+<title>clock_gettime (2 samples, 0.20%)</title><rect x="12.4" y="835.0" width="2.3" height="15" fill="#f37373" rx="2" ry="2"/>
+<text x="15.4" y="846.0"></text>
+</g>
+<g>
+<title>[vdso] (1 samples, 0.10%)</title><rect x="13.5" y="819.0" width="1.2" height="15" fill="#f97b7b" rx="2" ry="2"/>
+<text x="16.5" y="830.0"></text>
+</g>
+<g>
+<title>do_futex_wait.constprop.1 (1 samples, 0.10%)</title><rect x="14.7" y="851.0" width="1.2" height="15" fill="#f97a7a" rx="2" ry="2"/>
+<text x="17.7" y="862.0"></text>
+</g>
+<g>
+<title>[unknown_Java] (1 samples, 0.10%)</title><rect x="15.9" y="867.0" width="1.2" height="15" fill="#f87878" rx="2" ry="2"/>
+<text x="18.9" y="878.0"></text>
+</g>
+<g>
+<title>slow_subtype_check Runtime1 stub (1 samples, 0.10%)</title><rect x="15.9" y="851.0" width="1.2" height="15" fill="#e15b5b" rx="2" ry="2"/>
+<text x="18.9" y="862.0"></text>
+</g>
+<g>
+<title>__pthread_cond_signal (1 samples, 0.10%)</title><rect x="17.1" y="867.0" width="1.1" height="15" fill="#f27171" rx="2" ry="2"/>
+<text x="20.1" y="878.0"></text>
+</g>
+<g>
+<title>entry_SYSCALL_64_after_hwframe (1 samples, 0.10%)</title><rect x="17.1" y="851.0" width="1.1" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="20.1" y="862.0"></text>
+</g>
+<g>
+<title>do_syscall_64 (1 samples, 0.10%)</title><rect x="17.1" y="835.0" width="1.1" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="20.1" y="846.0"></text>
+</g>
+<g>
+<title>__x64_sys_futex (1 samples, 0.10%)</title><rect x="17.1" y="819.0" width="1.1" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="20.1" y="830.0"></text>
+</g>
+<g>
+<title>do_futex (1 samples, 0.10%)</title><rect x="17.1" y="803.0" width="1.1" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="20.1" y="814.0"></text>
+</g>
+<g>
+<title>futex_wake (1 samples, 0.10%)</title><rect x="17.1" y="787.0" width="1.1" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="20.1" y="798.0"></text>
+</g>
+<g>
+<title>wake_up_q (1 samples, 0.10%)</title><rect x="17.1" y="771.0" width="1.1" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="20.1" y="782.0"></text>
+</g>
+<g>
+<title>try_to_wake_up (1 samples, 0.10%)</title><rect x="17.1" y="755.0" width="1.1" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="20.1" y="766.0"></text>
+</g>
+<g>
+<title>_raw_spin_unlock_irqrestore (1 samples, 0.10%)</title><rect x="17.1" y="739.0" width="1.1" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="20.1" y="750.0"></text>
+</g>
+<g>
+<title>__pthread_cond_timedwait (2 samples, 0.20%)</title><rect x="18.2" y="867.0" width="2.4" height="15" fill="#eb6868" rx="2" ry="2"/>
+<text x="21.2" y="878.0"></text>
+</g>
+<g>
+<title>one/nio/server/SelectorThread.run (870 samples, 86.74%)</title><rect x="20.6" y="867.0" width="1023.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="23.6" y="878.0">one/nio/server/SelectorThread.run</text>
+</g>
+<g>
+<title>one/nio/net/NativeSelector.select (75 samples, 7.48%)</title><rect x="25.3" y="851.0" width="88.2" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="28.3" y="862.0">one/nio/ne..</text>
+</g>
+<g>
+<title>one/nio/net/NativeSelector.epollWait (75 samples, 7.48%)</title><rect x="25.3" y="835.0" width="88.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="28.3" y="846.0">one/nio/ne..</text>
+</g>
+<g>
+<title>Java_one_nio_net_NativeSelector_epollWait (2 samples, 0.20%)</title><rect x="30.0" y="819.0" width="2.4" height="15" fill="#e45e5e" rx="2" ry="2"/>
+<text x="33.0" y="830.0"></text>
+</g>
+<g>
+<title>[unknown] (62 samples, 6.18%)</title><rect x="32.4" y="819.0" width="72.9" height="15" fill="#ea6767" rx="2" ry="2"/>
+<text x="35.4" y="830.0">[unknown]</text>
+</g>
+<g>
+<title>[unknown] (9 samples, 0.90%)</title><rect x="32.4" y="803.0" width="10.5" height="15" fill="#fb7c7c" rx="2" ry="2"/>
+<text x="35.4" y="814.0"></text>
+</g>
+<g>
+<title>clock_gettime (9 samples, 0.90%)</title><rect x="32.4" y="787.0" width="10.5" height="15" fill="#f37272" rx="2" ry="2"/>
+<text x="35.4" y="798.0"></text>
+</g>
+<g>
+<title>[vdso] (2 samples, 0.20%)</title><rect x="35.9" y="771.0" width="2.3" height="15" fill="#e45e5e" rx="2" ry="2"/>
+<text x="38.9" y="782.0"></text>
+</g>
+<g>
+<title>clock_gettime (4 samples, 0.40%)</title><rect x="38.2" y="771.0" width="4.7" height="15" fill="#f97a7a" rx="2" ry="2"/>
+<text x="41.2" y="782.0"></text>
+</g>
+<g>
+<title>[vdso] (4 samples, 0.40%)</title><rect x="38.2" y="755.0" width="4.7" height="15" fill="#f77777" rx="2" ry="2"/>
+<text x="41.2" y="766.0"></text>
+</g>
+<g>
+<title>__libc_disable_asynccancel (1 samples, 0.10%)</title><rect x="42.9" y="803.0" width="1.2" height="15" fill="#ec6969" rx="2" ry="2"/>
+<text x="45.9" y="814.0"></text>
+</g>
+<g>
+<title>__libc_enable_asynccancel (1 samples, 0.10%)</title><rect x="44.1" y="803.0" width="1.2" height="15" fill="#ec6868" rx="2" ry="2"/>
+<text x="47.1" y="814.0"></text>
+</g>
+<g>
+<title>clock_gettime (1 samples, 0.10%)</title><rect x="45.3" y="803.0" width="1.2" height="15" fill="#ec6969" rx="2" ry="2"/>
+<text x="48.3" y="814.0"></text>
+</g>
+<g>
+<title>clock_gettime (1 samples, 0.10%)</title><rect x="45.3" y="787.0" width="1.2" height="15" fill="#e96464" rx="2" ry="2"/>
+<text x="48.3" y="798.0"></text>
+</g>
+<g>
+<title>epoll_wait (50 samples, 4.99%)</title><rect x="46.5" y="803.0" width="58.8" height="15" fill="#f27171" rx="2" ry="2"/>
+<text x="49.5" y="814.0">epoll_..</text>
+</g>
+<g>
+<title>entry_SYSCALL_64_after_hwframe (18 samples, 1.79%)</title><rect x="84.1" y="787.0" width="21.2" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="87.1" y="798.0">e..</text>
+</g>
+<g>
+<title>__x86_indirect_thunk_rax (1 samples, 0.10%)</title><rect x="84.1" y="771.0" width="1.2" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="87.1" y="782.0"></text>
+</g>
+<g>
+<title>do_syscall_64 (17 samples, 1.69%)</title><rect x="85.3" y="771.0" width="20.0" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="88.3" y="782.0"></text>
+</g>
+<g>
+<title>__x64_sys_epoll_wait (13 samples, 1.30%)</title><rect x="90.0" y="755.0" width="15.3" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="93.0" y="766.0"></text>
+</g>
+<g>
+<title>do_epoll_wait (13 samples, 1.30%)</title><rect x="90.0" y="739.0" width="15.3" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="93.0" y="750.0"></text>
+</g>
+<g>
+<title>__fdget (2 samples, 0.20%)</title><rect x="91.2" y="723.0" width="2.3" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="94.2" y="734.0"></text>
+</g>
+<g>
+<title>__fget_light (2 samples, 0.20%)</title><rect x="91.2" y="707.0" width="2.3" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="94.2" y="718.0"></text>
+</g>
+<g>
+<title>__fget (2 samples, 0.20%)</title><rect x="91.2" y="691.0" width="2.3" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="94.2" y="702.0"></text>
+</g>
+<g>
+<title>ep_poll (10 samples, 1.00%)</title><rect x="93.5" y="723.0" width="11.8" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="96.5" y="734.0"></text>
+</g>
+<g>
+<title>ep_scan_ready_list.constprop.20 (4 samples, 0.40%)</title><rect x="98.2" y="707.0" width="4.7" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="101.2" y="718.0"></text>
+</g>
+<g>
+<title>ep_send_events_proc (3 samples, 0.30%)</title><rect x="99.4" y="691.0" width="3.5" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="102.4" y="702.0"></text>
+</g>
+<g>
+<title>ep_item_poll.isra.16 (2 samples, 0.20%)</title><rect x="100.6" y="675.0" width="2.3" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="103.6" y="686.0"></text>
+</g>
+<g>
+<title>sock_poll (1 samples, 0.10%)</title><rect x="100.6" y="659.0" width="1.2" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="103.6" y="670.0"></text>
+</g>
+<g>
+<title>tcp_poll (1 samples, 0.10%)</title><rect x="100.6" y="643.0" width="1.2" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="103.6" y="654.0"></text>
+</g>
+<g>
+<title>tcp_poll (1 samples, 0.10%)</title><rect x="101.8" y="659.0" width="1.1" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="104.8" y="670.0"></text>
+</g>
+<g>
+<title>schedule_hrtimeout_range (2 samples, 0.20%)</title><rect x="102.9" y="707.0" width="2.4" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="105.9" y="718.0"></text>
+</g>
+<g>
+<title>schedule_hrtimeout_range_clock (2 samples, 0.20%)</title><rect x="102.9" y="691.0" width="2.4" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="105.9" y="702.0"></text>
+</g>
+<g>
+<title>schedule (2 samples, 0.20%)</title><rect x="102.9" y="675.0" width="2.4" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="105.9" y="686.0"></text>
+</g>
+<g>
+<title>clock_gettime (5 samples, 0.50%)</title><rect x="105.3" y="819.0" width="5.9" height="15" fill="#e55f5f" rx="2" ry="2"/>
+<text x="108.3" y="830.0"></text>
+</g>
+<g>
+<title>epoll_wait (2 samples, 0.20%)</title><rect x="111.2" y="819.0" width="2.3" height="15" fill="#e96565" rx="2" ry="2"/>
+<text x="114.2" y="830.0"></text>
+</g>
+<g>
+<title>one/nio/net/Session.process (791 samples, 78.86%)</title><rect x="113.5" y="851.0" width="930.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="116.5" y="862.0">one/nio/net/Session.process</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.processRead (779 samples, 77.67%)</title><rect x="125.3" y="835.0" width="916.5" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="128.3" y="846.0">one/nio/http/HttpSession.processRead</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.processHttpBuffer (729 samples, 72.68%)</title><rect x="125.3" y="819.0" width="857.6" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="128.3" y="830.0">one/nio/http/HttpSession.processHttpBuffer</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.handleParsedRequest (692 samples, 68.99%)</title><rect x="135.9" y="803.0" width="814.1" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="138.9" y="814.0">one/nio/http/HttpSession.handleParsedRequest</text>
+</g>
+<g>
+<title>one/nio/http/HttpServer.handleRequest (692 samples, 68.99%)</title><rect x="135.9" y="787.0" width="814.1" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="138.9" y="798.0">one/nio/http/HttpServer.handleRequest</text>
+</g>
+<g>
+<title>RequestHandler3_upsert.handleRequest (683 samples, 68.10%)</title><rect x="135.9" y="771.0" width="803.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="138.9" y="782.0">RequestHandler3_upsert.handleRequest</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.sendResponse (232 samples, 23.13%)</title><rect x="138.2" y="755.0" width="273.0" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="141.2" y="766.0">one/nio/http/HttpSession.sendResponse</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.writeResponse (230 samples, 22.93%)</title><rect x="140.6" y="739.0" width="270.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="143.6" y="750.0">one/nio/http/HttpSession.writeResponse</text>
+</g>
+<g>
+<title>one/nio/http/Response.toBytes (8 samples, 0.80%)</title><rect x="140.6" y="723.0" width="9.4" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="143.6" y="734.0"></text>
+</g>
+<g>
+<title>one/nio/util/ByteArrayBuilder.append (1 samples, 0.10%)</title><rect x="148.8" y="707.0" width="1.2" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="151.8" y="718.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.write (1 samples, 0.10%)</title><rect x="148.8" y="691.0" width="1.2" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="151.8" y="702.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.write (1 samples, 0.10%)</title><rect x="148.8" y="675.0" width="1.2" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="151.8" y="686.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.write (1 samples, 0.10%)</title><rect x="148.8" y="659.0" width="1.2" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="151.8" y="670.0"></text>
+</g>
+<g>
+<title>java/lang/String.charAt (1 samples, 0.10%)</title><rect x="148.8" y="643.0" width="1.2" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="151.8" y="654.0"></text>
+</g>
+<g>
+<title>one/nio/net/Session.write (222 samples, 22.13%)</title><rect x="150.0" y="723.0" width="261.2" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="153.0" y="734.0">one/nio/net/Session.write</text>
+</g>
+<g>
+<title>one/nio/net/Session.write (222 samples, 22.13%)</title><rect x="150.0" y="707.0" width="261.2" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="153.0" y="718.0">one/nio/net/Session.write</text>
+</g>
+<g>
+<title>[unknown] (1 samples, 0.10%)</title><rect x="150.0" y="691.0" width="1.2" height="15" fill="#f57474" rx="2" ry="2"/>
+<text x="153.0" y="702.0"></text>
+</g>
+<g>
+<title>os::javaTimeMillis() (1 samples, 0.10%)</title><rect x="150.0" y="675.0" width="1.2" height="15" fill="#d5d540" rx="2" ry="2"/>
+<text x="153.0" y="686.0"></text>
+</g>
+<g>
+<title>one/nio/net/Session$ArrayQueueItem.write (220 samples, 21.93%)</title><rect x="151.2" y="691.0" width="258.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="154.2" y="702.0">one/nio/net/Session$ArrayQueueItem..</text>
+</g>
+<g>
+<title>one/nio/net/NativeSocket.write (220 samples, 21.93%)</title><rect x="151.2" y="675.0" width="258.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="154.2" y="686.0">one/nio/net/NativeSocket.write</text>
+</g>
+<g>
+<title>Java_one_nio_net_NativeSocket_write (3 samples, 0.30%)</title><rect x="153.5" y="659.0" width="3.6" height="15" fill="#f67676" rx="2" ry="2"/>
+<text x="156.5" y="670.0"></text>
+</g>
+<g>
+<title>ThreadStateTransition::transition_from_native(JavaThread*, JavaThreadState) [clone .constprop.217] (1 samples, 0.10%)</title><rect x="154.7" y="643.0" width="1.2" height="15" fill="#d4d440" rx="2" ry="2"/>
+<text x="157.7" y="654.0"></text>
+</g>
+<g>
+<title>jni_GetByteArrayRegion (1 samples, 0.10%)</title><rect x="155.9" y="643.0" width="1.2" height="15" fill="#e66161" rx="2" ry="2"/>
+<text x="158.9" y="654.0"></text>
+</g>
+<g>
+<title>__pthread_disable_asynccancel (1 samples, 0.10%)</title><rect x="157.1" y="659.0" width="1.1" height="15" fill="#fa7b7b" rx="2" ry="2"/>
+<text x="160.1" y="670.0"></text>
+</g>
+<g>
+<title>__send (214 samples, 21.34%)</title><rect x="158.2" y="659.0" width="251.8" height="15" fill="#e56060" rx="2" ry="2"/>
+<text x="161.2" y="670.0">__send</text>
+</g>
+<g>
+<title>entry_SYSCALL_64_after_hwframe (202 samples, 20.14%)</title><rect x="172.4" y="643.0" width="237.6" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="175.4" y="654.0">entry_SYSCALL_64_after_hwframe</text>
+</g>
+<g>
+<title>__x64_sys_sendto (1 samples, 0.10%)</title><rect x="172.4" y="627.0" width="1.1" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="175.4" y="638.0"></text>
+</g>
+<g>
+<title>do_syscall_64 (201 samples, 20.04%)</title><rect x="173.5" y="627.0" width="236.5" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="176.5" y="638.0">do_syscall_64</text>
+</g>
+<g>
+<title>__sys_sendto (1 samples, 0.10%)</title><rect x="175.9" y="611.0" width="1.2" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="178.9" y="622.0"></text>
+</g>
+<g>
+<title>__x64_sys_sendto (198 samples, 19.74%)</title><rect x="177.1" y="611.0" width="232.9" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="180.1" y="622.0">__x64_sys_sendto</text>
+</g>
+<g>
+<title>__sys_sendto (198 samples, 19.74%)</title><rect x="177.1" y="595.0" width="232.9" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="180.1" y="606.0">__sys_sendto</text>
+</g>
+<g>
+<title>sock_sendmsg (196 samples, 19.54%)</title><rect x="179.4" y="579.0" width="230.6" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="182.4" y="590.0">sock_sendmsg</text>
+</g>
+<g>
+<title>apparmor_socket_sendmsg (1 samples, 0.10%)</title><rect x="179.4" y="563.0" width="1.2" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="182.4" y="574.0"></text>
+</g>
+<g>
+<title>inet6_sendmsg (190 samples, 18.94%)</title><rect x="180.6" y="563.0" width="223.5" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="183.6" y="574.0">inet6_sendmsg</text>
+</g>
+<g>
+<title>release_sock (1 samples, 0.10%)</title><rect x="180.6" y="547.0" width="1.2" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="183.6" y="558.0"></text>
+</g>
+<g>
+<title>tcp_sendmsg (189 samples, 18.84%)</title><rect x="181.8" y="547.0" width="222.3" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="184.8" y="558.0">tcp_sendmsg</text>
+</g>
+<g>
+<title>_raw_spin_lock_bh (2 samples, 0.20%)</title><rect x="181.8" y="531.0" width="2.3" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="184.8" y="542.0"></text>
+</g>
+<g>
+<title>tcp_sendmsg_locked (187 samples, 18.64%)</title><rect x="184.1" y="531.0" width="220.0" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="187.1" y="542.0">tcp_sendmsg_locked</text>
+</g>
+<g>
+<title>_copy_from_iter_full (1 samples, 0.10%)</title><rect x="187.6" y="515.0" width="1.2" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="190.6" y="526.0"></text>
+</g>
+<g>
+<title>copy_user_enhanced_fast_string (1 samples, 0.10%)</title><rect x="187.6" y="499.0" width="1.2" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="190.6" y="510.0"></text>
+</g>
+<g>
+<title>sk_page_frag_refill (2 samples, 0.20%)</title><rect x="188.8" y="515.0" width="2.4" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="191.8" y="526.0"></text>
+</g>
+<g>
+<title>skb_page_frag_refill (2 samples, 0.20%)</title><rect x="188.8" y="499.0" width="2.4" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="191.8" y="510.0"></text>
+</g>
+<g>
+<title>sk_stream_alloc_skb (8 samples, 0.80%)</title><rect x="191.2" y="515.0" width="9.4" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="194.2" y="526.0"></text>
+</g>
+<g>
+<title>__alloc_skb (6 samples, 0.60%)</title><rect x="193.5" y="499.0" width="7.1" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="196.5" y="510.0"></text>
+</g>
+<g>
+<title>__kmalloc_reserve.isra.56 (2 samples, 0.20%)</title><rect x="194.7" y="483.0" width="2.4" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="197.7" y="494.0"></text>
+</g>
+<g>
+<title>__kmalloc_node_track_caller (2 samples, 0.20%)</title><rect x="194.7" y="467.0" width="2.4" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="197.7" y="478.0"></text>
+</g>
+<g>
+<title>kmem_cache_alloc_node (2 samples, 0.20%)</title><rect x="197.1" y="483.0" width="2.3" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="200.1" y="494.0"></text>
+</g>
+<g>
+<title>ksize (1 samples, 0.10%)</title><rect x="199.4" y="483.0" width="1.2" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="202.4" y="494.0"></text>
+</g>
+<g>
+<title>__ksize (1 samples, 0.10%)</title><rect x="199.4" y="467.0" width="1.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="202.4" y="478.0"></text>
+</g>
+<g>
+<title>tcp_current_mss (1 samples, 0.10%)</title><rect x="200.6" y="515.0" width="1.2" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="203.6" y="526.0"></text>
+</g>
+<g>
+<title>tcp_push (171 samples, 17.05%)</title><rect x="201.8" y="515.0" width="201.1" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="204.8" y="526.0">tcp_push</text>
+</g>
+<g>
+<title>__tcp_push_pending_frames (170 samples, 16.95%)</title><rect x="201.8" y="499.0" width="200.0" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="204.8" y="510.0">__tcp_push_pending_frames</text>
+</g>
+<g>
+<title>tcp_write_xmit (170 samples, 16.95%)</title><rect x="201.8" y="483.0" width="200.0" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="204.8" y="494.0">tcp_write_xmit</text>
+</g>
+<g>
+<title>__tcp_transmit_skb (161 samples, 16.05%)</title><rect x="201.8" y="467.0" width="189.4" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="204.8" y="478.0">__tcp_transmit_skb</text>
+</g>
+<g>
+<title>bictcp_cwnd_event (1 samples, 0.10%)</title><rect x="206.5" y="451.0" width="1.1" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="209.5" y="462.0"></text>
+</g>
+<g>
+<title>ip_queue_xmit (153 samples, 15.25%)</title><rect x="207.6" y="451.0" width="180.0" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="210.6" y="462.0">ip_queue_xmit</text>
+</g>
+<g>
+<title>__ip_queue_xmit (153 samples, 15.25%)</title><rect x="207.6" y="435.0" width="180.0" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="210.6" y="446.0">__ip_queue_xmit</text>
+</g>
+<g>
+<title>ip_local_out (148 samples, 14.76%)</title><rect x="211.2" y="419.0" width="174.1" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="214.2" y="430.0">ip_local_out</text>
+</g>
+<g>
+<title>__ip_local_out (2 samples, 0.20%)</title><rect x="211.2" y="403.0" width="2.3" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="214.2" y="414.0"></text>
+</g>
+<g>
+<title>ip_send_check (1 samples, 0.10%)</title><rect x="212.4" y="387.0" width="1.1" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="215.4" y="398.0"></text>
+</g>
+<g>
+<title>ip_output (146 samples, 14.56%)</title><rect x="213.5" y="403.0" width="171.8" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="216.5" y="414.0">ip_output</text>
+</g>
+<g>
+<title>ip_finish_output (138 samples, 13.76%)</title><rect x="215.9" y="387.0" width="162.3" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="218.9" y="398.0">ip_finish_output</text>
+</g>
+<g>
+<title>__cgroup_bpf_run_filter_skb (2 samples, 0.20%)</title><rect x="215.9" y="371.0" width="2.3" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="218.9" y="382.0"></text>
+</g>
+<g>
+<title>__ip_finish_output (136 samples, 13.56%)</title><rect x="218.2" y="371.0" width="160.0" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="221.2" y="382.0">__ip_finish_output</text>
+</g>
+<g>
+<title>ip_finish_output2 (135 samples, 13.46%)</title><rect x="219.4" y="355.0" width="158.8" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="222.4" y="366.0">ip_finish_output2</text>
+</g>
+<g>
+<title>__local_bh_enable_ip (120 samples, 11.96%)</title><rect x="221.8" y="339.0" width="141.1" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="224.8" y="350.0">__local_bh_enable_ip</text>
+</g>
+<g>
+<title>do_softirq.part.20 (120 samples, 11.96%)</title><rect x="221.8" y="323.0" width="141.1" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="224.8" y="334.0">do_softirq.part.20</text>
+</g>
+<g>
+<title>do_softirq_own_stack (118 samples, 11.76%)</title><rect x="224.1" y="307.0" width="138.8" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="227.1" y="318.0">do_softirq_own_st..</text>
+</g>
+<g>
+<title>__softirqentry_text_start (114 samples, 11.37%)</title><rect x="224.1" y="291.0" width="134.1" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="227.1" y="302.0">__softirqentry_te..</text>
+</g>
+<g>
+<title>net_rx_action (110 samples, 10.97%)</title><rect x="228.8" y="275.0" width="129.4" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="231.8" y="286.0">net_rx_action</text>
+</g>
+<g>
+<title>process_backlog (105 samples, 10.47%)</title><rect x="234.7" y="259.0" width="123.5" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="237.7" y="270.0">process_backlog</text>
+</g>
+<g>
+<title>__netif_receive_skb (102 samples, 10.17%)</title><rect x="238.2" y="243.0" width="120.0" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="241.2" y="254.0">__netif_receive..</text>
+</g>
+<g>
+<title>__netif_receive_skb_core (2 samples, 0.20%)</title><rect x="238.2" y="227.0" width="2.4" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="241.2" y="238.0"></text>
+</g>
+<g>
+<title>__netif_receive_skb_one_core (100 samples, 9.97%)</title><rect x="240.6" y="227.0" width="117.6" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="243.6" y="238.0">__netif_receiv..</text>
+</g>
+<g>
+<title>__netif_receive_skb_core (2 samples, 0.20%)</title><rect x="240.6" y="211.0" width="2.3" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="243.6" y="222.0"></text>
+</g>
+<g>
+<title>ip_rcv (98 samples, 9.77%)</title><rect x="242.9" y="211.0" width="115.3" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="245.9" y="222.0">ip_rcv</text>
+</g>
+<g>
+<title>ip_local_deliver (1 samples, 0.10%)</title><rect x="242.9" y="195.0" width="1.2" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="245.9" y="206.0"></text>
+</g>
+<g>
+<title>ip_rcv_finish (95 samples, 9.47%)</title><rect x="244.1" y="195.0" width="111.8" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="247.1" y="206.0">ip_rcv_finish</text>
+</g>
+<g>
+<title>ip_local_deliver (94 samples, 9.37%)</title><rect x="244.1" y="179.0" width="110.6" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="247.1" y="190.0">ip_local_deli..</text>
+</g>
+<g>
+<title>ip_local_deliver_finish (93 samples, 9.27%)</title><rect x="245.3" y="163.0" width="109.4" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="248.3" y="174.0">ip_local_deli..</text>
+</g>
+<g>
+<title>ip_protocol_deliver_rcu (93 samples, 9.27%)</title><rect x="245.3" y="147.0" width="109.4" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="248.3" y="158.0">ip_protocol_d..</text>
+</g>
+<g>
+<title>raw_local_deliver (2 samples, 0.20%)</title><rect x="246.5" y="131.0" width="2.3" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="249.5" y="142.0"></text>
+</g>
+<g>
+<title>tcp_v4_fill_cb (1 samples, 0.10%)</title><rect x="248.8" y="131.0" width="1.2" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="251.8" y="142.0"></text>
+</g>
+<g>
+<title>tcp_v4_rcv (89 samples, 8.87%)</title><rect x="250.0" y="131.0" width="104.7" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="253.0" y="142.0">tcp_v4_rcv</text>
+</g>
+<g>
+<title>__inet_lookup_established (4 samples, 0.40%)</title><rect x="253.5" y="115.0" width="4.7" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="256.5" y="126.0"></text>
+</g>
+<g>
+<title>inet_ehashfn (1 samples, 0.10%)</title><rect x="257.1" y="99.0" width="1.1" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="260.1" y="110.0"></text>
+</g>
+<g>
+<title>__xfrm_policy_check2.constprop.44 (1 samples, 0.10%)</title><rect x="258.2" y="115.0" width="1.2" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="261.2" y="126.0"></text>
+</g>
+<g>
+<title>sk_filter_trim_cap (8 samples, 0.80%)</title><rect x="259.4" y="115.0" width="9.4" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="262.4" y="126.0"></text>
+</g>
+<g>
+<title>__cgroup_bpf_run_filter_skb (1 samples, 0.10%)</title><rect x="259.4" y="99.0" width="1.2" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="262.4" y="110.0"></text>
+</g>
+<g>
+<title>apparmor_socket_sock_rcv_skb (2 samples, 0.20%)</title><rect x="260.6" y="99.0" width="2.3" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="263.6" y="110.0"></text>
+</g>
+<g>
+<title>security_sock_rcv_skb (4 samples, 0.40%)</title><rect x="262.9" y="99.0" width="4.7" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="265.9" y="110.0"></text>
+</g>
+<g>
+<title>selinux_socket_sock_rcv_skb (2 samples, 0.20%)</title><rect x="265.3" y="83.0" width="2.3" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="268.3" y="94.0"></text>
+</g>
+<g>
+<title>selinux_sock_rcv_skb_compat (1 samples, 0.10%)</title><rect x="266.5" y="67.0" width="1.1" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="269.5" y="78.0"></text>
+</g>
+<g>
+<title>selinux_netlbl_sock_rcv_skb (1 samples, 0.10%)</title><rect x="266.5" y="51.0" width="1.1" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="269.5" y="62.0"></text>
+</g>
+<g>
+<title>selinux_socket_sock_rcv_skb (1 samples, 0.10%)</title><rect x="267.6" y="99.0" width="1.2" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="270.6" y="110.0"></text>
+</g>
+<g>
+<title>tcp_v4_do_rcv (73 samples, 7.28%)</title><rect x="268.8" y="115.0" width="85.9" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="271.8" y="126.0">tcp_v4_do_..</text>
+</g>
+<g>
+<title>sock_def_readable (3 samples, 0.30%)</title><rect x="268.8" y="99.0" width="3.6" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="271.8" y="110.0"></text>
+</g>
+<g>
+<title>tcp_rcv_established (70 samples, 6.98%)</title><rect x="272.4" y="99.0" width="82.3" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="275.4" y="110.0">tcp_rcv_e..</text>
+</g>
+<g>
+<title>bictcp_acked (1 samples, 0.10%)</title><rect x="275.9" y="83.0" width="1.2" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="278.9" y="94.0"></text>
+</g>
+<g>
+<title>sock_def_readable (37 samples, 3.69%)</title><rect x="277.1" y="83.0" width="43.5" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="280.1" y="94.0">sock..</text>
+</g>
+<g>
+<title>__wake_up_sync_key (37 samples, 3.69%)</title><rect x="277.1" y="67.0" width="43.5" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="280.1" y="78.0">__wa..</text>
+</g>
+<g>
+<title>__wake_up_common_lock (37 samples, 3.69%)</title><rect x="277.1" y="51.0" width="43.5" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="280.1" y="62.0">__wa..</text>
+</g>
+<g>
+<title>_raw_spin_unlock_irqrestore (36 samples, 3.59%)</title><rect x="278.2" y="35.0" width="42.4" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="281.2" y="46.0">_raw..</text>
+</g>
+<g>
+<title>tcp_ack (18 samples, 1.79%)</title><rect x="320.6" y="83.0" width="21.2" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="323.6" y="94.0">t..</text>
+</g>
+<g>
+<title>__kfree_skb (4 samples, 0.40%)</title><rect x="331.2" y="67.0" width="4.7" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="334.2" y="78.0"></text>
+</g>
+<g>
+<title>skb_release_all (4 samples, 0.40%)</title><rect x="331.2" y="51.0" width="4.7" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="334.2" y="62.0"></text>
+</g>
+<g>
+<title>skb_release_data (3 samples, 0.30%)</title><rect x="331.2" y="35.0" width="3.5" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="334.2" y="46.0"></text>
+</g>
+<g>
+<title>skb_release_head_state (1 samples, 0.10%)</title><rect x="334.7" y="35.0" width="1.2" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="337.7" y="46.0"></text>
+</g>
+<g>
+<title>bictcp_acked (1 samples, 0.10%)</title><rect x="335.9" y="67.0" width="1.2" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="338.9" y="78.0"></text>
+</g>
+<g>
+<title>rb_erase (1 samples, 0.10%)</title><rect x="337.1" y="67.0" width="1.1" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="340.1" y="78.0"></text>
+</g>
+<g>
+<title>rb_first (1 samples, 0.10%)</title><rect x="338.2" y="67.0" width="1.2" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="341.2" y="78.0"></text>
+</g>
+<g>
+<title>tcp_ack_update_rtt.isra.46 (1 samples, 0.10%)</title><rect x="339.4" y="67.0" width="1.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="342.4" y="78.0"></text>
+</g>
+<g>
+<title>tcp_update_pacing_rate (1 samples, 0.10%)</title><rect x="340.6" y="67.0" width="1.2" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="343.6" y="78.0"></text>
+</g>
+<g>
+<title>tcp_event_data_recv (2 samples, 0.20%)</title><rect x="341.8" y="83.0" width="2.3" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="344.8" y="94.0"></text>
+</g>
+<g>
+<title>tcp_mstamp_refresh (2 samples, 0.20%)</title><rect x="344.1" y="83.0" width="2.4" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="347.1" y="94.0"></text>
+</g>
+<g>
+<title>ktime_get (2 samples, 0.20%)</title><rect x="344.1" y="67.0" width="2.4" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="347.1" y="78.0"></text>
+</g>
+<g>
+<title>read_tsc (2 samples, 0.20%)</title><rect x="344.1" y="51.0" width="2.4" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="347.1" y="62.0"></text>
+</g>
+<g>
+<title>tcp_newly_delivered (3 samples, 0.30%)</title><rect x="346.5" y="83.0" width="3.5" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="349.5" y="94.0"></text>
+</g>
+<g>
+<title>tcp_queue_rcv (3 samples, 0.30%)</title><rect x="350.0" y="83.0" width="3.5" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="353.0" y="94.0"></text>
+</g>
+<g>
+<title>tcp_rearm_rto (1 samples, 0.10%)</title><rect x="353.5" y="83.0" width="1.2" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="356.5" y="94.0"></text>
+</g>
+<g>
+<title>ip_rcv_finish_core.isra.18 (1 samples, 0.10%)</title><rect x="354.7" y="179.0" width="1.2" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="357.7" y="190.0"></text>
+</g>
+<g>
+<title>ip_rcv_finish_core.isra.18 (2 samples, 0.20%)</title><rect x="355.9" y="195.0" width="2.3" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="358.9" y="206.0"></text>
+</g>
+<g>
+<title>net_rx_action (4 samples, 0.40%)</title><rect x="358.2" y="291.0" width="4.7" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="361.2" y="302.0"></text>
+</g>
+<g>
+<title>dev_queue_xmit (13 samples, 1.30%)</title><rect x="362.9" y="339.0" width="15.3" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="365.9" y="350.0"></text>
+</g>
+<g>
+<title>__dev_queue_xmit (12 samples, 1.20%)</title><rect x="362.9" y="323.0" width="14.2" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="365.9" y="334.0"></text>
+</g>
+<g>
+<title>__local_bh_enable_ip (1 samples, 0.10%)</title><rect x="365.3" y="307.0" width="1.2" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="368.3" y="318.0"></text>
+</g>
+<g>
+<title>dev_hard_start_xmit (9 samples, 0.90%)</title><rect x="366.5" y="307.0" width="10.6" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="369.5" y="318.0"></text>
+</g>
+<g>
+<title>loopback_xmit (8 samples, 0.80%)</title><rect x="366.5" y="291.0" width="9.4" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="369.5" y="302.0"></text>
+</g>
+<g>
+<title>eth_type_trans (1 samples, 0.10%)</title><rect x="368.8" y="275.0" width="1.2" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="371.8" y="286.0"></text>
+</g>
+<g>
+<title>netif_rx (4 samples, 0.40%)</title><rect x="370.0" y="275.0" width="4.7" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="373.0" y="286.0"></text>
+</g>
+<g>
+<title>netif_rx_internal (4 samples, 0.40%)</title><rect x="370.0" y="259.0" width="4.7" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="373.0" y="270.0"></text>
+</g>
+<g>
+<title>enqueue_to_backlog (3 samples, 0.30%)</title><rect x="371.2" y="243.0" width="3.5" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="374.2" y="254.0"></text>
+</g>
+<g>
+<title>sk_free (1 samples, 0.10%)</title><rect x="374.7" y="275.0" width="1.2" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="377.7" y="286.0"></text>
+</g>
+<g>
+<title>skb_clone_tx_timestamp (1 samples, 0.10%)</title><rect x="375.9" y="291.0" width="1.2" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="378.9" y="302.0"></text>
+</g>
+<g>
+<title>dev_hard_start_xmit (1 samples, 0.10%)</title><rect x="377.1" y="323.0" width="1.1" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="380.1" y="334.0"></text>
+</g>
+<g>
+<title>nf_hook_slow (5 samples, 0.50%)</title><rect x="378.2" y="387.0" width="5.9" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="381.2" y="398.0"></text>
+</g>
+<g>
+<title>selinux_ipv4_postroute (4 samples, 0.40%)</title><rect x="379.4" y="371.0" width="4.7" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="382.4" y="382.0"></text>
+</g>
+<g>
+<title>selinux_ip_postroute (4 samples, 0.40%)</title><rect x="379.4" y="355.0" width="4.7" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="382.4" y="366.0"></text>
+</g>
+<g>
+<title>selinux_ip_postroute_compat (3 samples, 0.30%)</title><rect x="380.6" y="339.0" width="3.5" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="383.6" y="350.0"></text>
+</g>
+<g>
+<title>selinux_parse_skb.constprop.64 (2 samples, 0.20%)</title><rect x="381.8" y="323.0" width="2.3" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="384.8" y="334.0"></text>
+</g>
+<g>
+<title>selinux_ipv4_postroute (1 samples, 0.10%)</title><rect x="384.1" y="387.0" width="1.2" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="387.1" y="398.0"></text>
+</g>
+<g>
+<title>ip_output (1 samples, 0.10%)</title><rect x="385.3" y="419.0" width="1.2" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="388.3" y="430.0"></text>
+</g>
+<g>
+<title>ipv4_dst_check (1 samples, 0.10%)</title><rect x="386.5" y="419.0" width="1.1" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="389.5" y="430.0"></text>
+</g>
+<g>
+<title>skb_clone (2 samples, 0.20%)</title><rect x="387.6" y="451.0" width="2.4" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="390.6" y="462.0"></text>
+</g>
+<g>
+<title>__skb_clone (2 samples, 0.20%)</title><rect x="387.6" y="435.0" width="2.4" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="390.6" y="446.0"></text>
+</g>
+<g>
+<title>tcp_update_skb_after_send (1 samples, 0.10%)</title><rect x="390.0" y="451.0" width="1.2" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="393.0" y="462.0"></text>
+</g>
+<g>
+<title>bictcp_cwnd_event (1 samples, 0.10%)</title><rect x="391.2" y="467.0" width="1.2" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="394.2" y="478.0"></text>
+</g>
+<g>
+<title>ktime_get (1 samples, 0.10%)</title><rect x="392.4" y="467.0" width="1.1" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="395.4" y="478.0"></text>
+</g>
+<g>
+<title>read_tsc (1 samples, 0.10%)</title><rect x="393.5" y="467.0" width="1.2" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="396.5" y="478.0"></text>
+</g>
+<g>
+<title>tcp_event_new_data_sent (2 samples, 0.20%)</title><rect x="394.7" y="467.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="397.7" y="478.0"></text>
+</g>
+<g>
+<title>tcp_rearm_rto (2 samples, 0.20%)</title><rect x="394.7" y="451.0" width="2.4" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="397.7" y="462.0"></text>
+</g>
+<g>
+<title>mod_timer (1 samples, 0.10%)</title><rect x="395.9" y="435.0" width="1.2" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="398.9" y="446.0"></text>
+</g>
+<g>
+<title>tcp_schedule_loss_probe (1 samples, 0.10%)</title><rect x="397.1" y="467.0" width="1.1" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="400.1" y="478.0"></text>
+</g>
+<g>
+<title>__usecs_to_jiffies (1 samples, 0.10%)</title><rect x="397.1" y="451.0" width="1.1" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="400.1" y="462.0"></text>
+</g>
+<g>
+<title>tcp_update_skb_after_send (1 samples, 0.10%)</title><rect x="398.2" y="467.0" width="1.2" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="401.2" y="478.0"></text>
+</g>
+<g>
+<title>tcp_v4_send_check (2 samples, 0.20%)</title><rect x="399.4" y="467.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="402.4" y="478.0"></text>
+</g>
+<g>
+<title>tcp_write_xmit (1 samples, 0.10%)</title><rect x="401.8" y="499.0" width="1.1" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="404.8" y="510.0"></text>
+</g>
+<g>
+<title>tcp_send_mss (1 samples, 0.10%)</title><rect x="402.9" y="515.0" width="1.2" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="405.9" y="526.0"></text>
+</g>
+<g>
+<title>tcp_current_mss (1 samples, 0.10%)</title><rect x="402.9" y="499.0" width="1.2" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="405.9" y="510.0"></text>
+</g>
+<g>
+<title>security_socket_sendmsg (3 samples, 0.30%)</title><rect x="404.1" y="563.0" width="3.5" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="407.1" y="574.0"></text>
+</g>
+<g>
+<title>selinux_socket_sendmsg (2 samples, 0.20%)</title><rect x="404.1" y="547.0" width="2.4" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="407.1" y="558.0"></text>
+</g>
+<g>
+<title>sock_has_perm (2 samples, 0.20%)</title><rect x="404.1" y="531.0" width="2.4" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="407.1" y="542.0"></text>
+</g>
+<g>
+<title>tomoyo_socket_sendmsg_permission (1 samples, 0.10%)</title><rect x="406.5" y="547.0" width="1.1" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="409.5" y="558.0"></text>
+</g>
+<g>
+<title>tomoyo_socket_sendmsg (2 samples, 0.20%)</title><rect x="407.6" y="563.0" width="2.4" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="410.6" y="574.0"></text>
+</g>
+<g>
+<title>os::javaTimeMillis() (1 samples, 0.10%)</title><rect x="410.0" y="691.0" width="1.2" height="15" fill="#e3e345" rx="2" ry="2"/>
+<text x="413.0" y="702.0"></text>
+</g>
+<g>
+<title>gettimeofday (1 samples, 0.10%)</title><rect x="410.0" y="675.0" width="1.2" height="15" fill="#ec6969" rx="2" ry="2"/>
+<text x="413.0" y="686.0"></text>
+</g>
+<g>
+<title>[vdso] (1 samples, 0.10%)</title><rect x="410.0" y="659.0" width="1.2" height="15" fill="#fd8080" rx="2" ry="2"/>
+<text x="413.0" y="670.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getRequiredParameter (7 samples, 0.70%)</title><rect x="411.2" y="755.0" width="8.2" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="414.2" y="766.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getParameter (7 samples, 0.70%)</title><rect x="411.2" y="739.0" width="8.2" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="414.2" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/String.indexOf (1 samples, 0.10%)</title><rect x="411.2" y="723.0" width="1.2" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="414.2" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.indexOf (1 samples, 0.10%)</title><rect x="411.2" y="707.0" width="1.2" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="414.2" y="718.0"></text>
+</g>
+<g>
+<title>jbyte_arraycopy (1 samples, 0.10%)</title><rect x="411.2" y="691.0" width="1.2" height="15" fill="#fc7e7e" rx="2" ry="2"/>
+<text x="414.2" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/String.startsWith (2 samples, 0.20%)</title><rect x="412.4" y="723.0" width="2.3" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="415.4" y="734.0"></text>
+</g>
+<g>
+<title>one/nio/util/URLEncoder.decode (4 samples, 0.40%)</title><rect x="414.7" y="723.0" width="4.7" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="417.7" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/String.indexOf (4 samples, 0.40%)</title><rect x="414.7" y="707.0" width="4.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="417.7" y="718.0"></text>
+</g>
+<g>
+<title>java/lang/String.indexOf (4 samples, 0.40%)</title><rect x="414.7" y="691.0" width="4.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="417.7" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.indexOf (4 samples, 0.40%)</title><rect x="414.7" y="675.0" width="4.7" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="417.7" y="686.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/BasicService.upsert (442 samples, 44.07%)</title><rect x="419.4" y="755.0" width="520.0" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="422.4" y="766.0">ru/mail/polis/service/zvladn7/BasicService.upsert</text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (3 samples, 0.30%)</title><rect x="422.9" y="739.0" width="3.6" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="425.9" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (3 samples, 0.30%)</title><rect x="422.9" y="723.0" width="3.6" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="425.9" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/StringCoding.decode (1 samples, 0.10%)</title><rect x="424.1" y="707.0" width="1.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="427.1" y="718.0"></text>
+</g>
+<g>
+<title>java/lang/StringCoding.decodeUTF8 (1 samples, 0.10%)</title><rect x="424.1" y="691.0" width="1.2" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="427.1" y="702.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.position (1 samples, 0.10%)</title><rect x="425.3" y="707.0" width="1.2" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="428.3" y="718.0"></text>
+</g>
+<g>
+<title>java/lang/String.isEmpty (1 samples, 0.10%)</title><rect x="426.5" y="739.0" width="1.1" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="429.5" y="750.0"></text>
+</g>
+<g>
+<title>java/util/HashMap.containsKey (1 samples, 0.10%)</title><rect x="427.6" y="739.0" width="1.2" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="430.6" y="750.0"></text>
+</g>
+<g>
+<title>java/util/HashMap.hash (1 samples, 0.10%)</title><rect x="427.6" y="723.0" width="1.2" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="430.6" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/String.hashCode (1 samples, 0.10%)</title><rect x="427.6" y="707.0" width="1.2" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="430.6" y="718.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.hashCode (1 samples, 0.10%)</title><rect x="427.6" y="691.0" width="1.2" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="430.6" y="702.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.upsert (430 samples, 42.87%)</title><rect x="428.8" y="739.0" width="505.9" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="431.8" y="750.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.upsert</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.flush (389 samples, 38.78%)</title><rect x="428.8" y="723.0" width="457.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="431.8" y="734.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.flush</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.serialize (389 samples, 38.78%)</title><rect x="428.8" y="707.0" width="457.7" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="431.8" y="718.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.serialize</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.serialize (389 samples, 38.78%)</title><rect x="428.8" y="691.0" width="457.7" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="431.8" y="702.0">ru/mail/polis/dao/zvladn7/SSTable.serialize</text>
+</g>
+<g>
+<title>java/util/ArrayList.add (1 samples, 0.10%)</title><rect x="430.0" y="675.0" width="1.2" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="433.0" y="686.0"></text>
+</g>
+<g>
+<title>java/util/ArrayList.add (1 samples, 0.10%)</title><rect x="430.0" y="659.0" width="1.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="433.0" y="670.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators$1Adapter.hasNext (8 samples, 0.80%)</title><rect x="431.2" y="675.0" width="9.4" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="434.2" y="686.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator.tryAdvance (7 samples, 0.70%)</title><rect x="432.4" y="659.0" width="8.2" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="435.4" y="670.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$AbstractWrappingSpliterator.doAdvance (6 samples, 0.60%)</title><rect x="433.5" y="643.0" width="7.1" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="436.5" y="654.0"></text>
+</g>
+<g>
+<title>java/util/Spliterator.getExactSizeIfKnown (2 samples, 0.20%)</title><rect x="434.7" y="627.0" width="2.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="437.7" y="638.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators$IteratorSpliterator.estimateSize (2 samples, 0.20%)</title><rect x="434.7" y="611.0" width="2.4" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="437.7" y="622.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$EntrySetView.size (2 samples, 0.20%)</title><rect x="434.7" y="595.0" width="2.4" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="437.7" y="606.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapEntryIterator.next (2 samples, 0.20%)</title><rect x="434.7" y="579.0" width="2.4" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="437.7" y="590.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapEntryIterator.next (2 samples, 0.20%)</title><rect x="434.7" y="563.0" width="2.4" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="437.7" y="574.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapIterator.nextEntry (2 samples, 0.20%)</title><rect x="434.7" y="547.0" width="2.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="437.7" y="558.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.successor (2 samples, 0.20%)</title><rect x="434.7" y="531.0" width="2.4" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="437.7" y="542.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$AbstractWrappingSpliterator.fillBuffer (3 samples, 0.30%)</title><rect x="437.1" y="627.0" width="3.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="440.1" y="638.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator$$Lambda$85/1806973363.getAsBoolean (3 samples, 0.30%)</title><rect x="437.1" y="611.0" width="3.5" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="440.1" y="622.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator.lambda$initPartialTraversalState$0 (3 samples, 0.30%)</title><rect x="437.1" y="595.0" width="3.5" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="440.1" y="606.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators$IteratorSpliterator.tryAdvance (3 samples, 0.30%)</title><rect x="437.1" y="579.0" width="3.5" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="440.1" y="590.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapEntryIterator.next (2 samples, 0.20%)</title><rect x="437.1" y="563.0" width="2.3" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="440.1" y="574.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapEntryIterator.next (2 samples, 0.20%)</title><rect x="437.1" y="547.0" width="2.3" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="440.1" y="558.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapIterator.nextEntry (2 samples, 0.20%)</title><rect x="437.1" y="531.0" width="2.3" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="440.1" y="542.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.successor (2 samples, 0.20%)</title><rect x="437.1" y="515.0" width="2.3" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="440.1" y="526.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$SubMapIterator.hasNext (1 samples, 0.10%)</title><rect x="439.4" y="563.0" width="1.2" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="442.4" y="574.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.write (379 samples, 37.79%)</title><rect x="440.6" y="675.0" width="445.9" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="443.6" y="686.0">sun/nio/ch/FileChannelImpl.write</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.beginBlocking (3 samples, 0.30%)</title><rect x="441.8" y="659.0" width="3.5" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="444.8" y="670.0"></text>
+</g>
+<g>
+<title>java/nio/channels/spi/AbstractInterruptibleChannel.begin (3 samples, 0.30%)</title><rect x="441.8" y="643.0" width="3.5" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="444.8" y="654.0"></text>
+</g>
+<g>
+<title>java/nio/channels/spi/AbstractInterruptibleChannel.blockedOn (2 samples, 0.20%)</title><rect x="442.9" y="627.0" width="2.4" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="445.9" y="638.0"></text>
+</g>
+<g>
+<title>java/lang/System$2.blockedOn (2 samples, 0.20%)</title><rect x="442.9" y="611.0" width="2.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="445.9" y="622.0"></text>
+</g>
+<g>
+<title>java/lang/Thread.blockedOn (2 samples, 0.20%)</title><rect x="442.9" y="595.0" width="2.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="445.9" y="606.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.endBlocking (3 samples, 0.30%)</title><rect x="445.3" y="659.0" width="3.5" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="448.3" y="670.0"></text>
+</g>
+<g>
+<title>java/nio/channels/spi/AbstractInterruptibleChannel.end (3 samples, 0.30%)</title><rect x="445.3" y="643.0" width="3.5" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="448.3" y="654.0"></text>
+</g>
+<g>
+<title>java/nio/channels/spi/AbstractInterruptibleChannel.blockedOn (1 samples, 0.10%)</title><rect x="447.6" y="627.0" width="1.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="450.6" y="638.0"></text>
+</g>
+<g>
+<title>jdk/internal/access/SharedSecrets.getJavaLangAccess (1 samples, 0.10%)</title><rect x="447.6" y="611.0" width="1.2" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="450.6" y="622.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/IOUtil.write (368 samples, 36.69%)</title><rect x="448.8" y="659.0" width="433.0" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="451.8" y="670.0">sun/nio/ch/IOUtil.write</text>
+</g>
+<g>
+<title>java/nio/DirectByteBuffer.put (2 samples, 0.20%)</title><rect x="453.5" y="643.0" width="2.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="456.5" y="654.0"></text>
+</g>
+<g>
+<title>java/nio/Buffer.limit (1 samples, 0.10%)</title><rect x="453.5" y="627.0" width="1.2" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="456.5" y="638.0"></text>
+</g>
+<g>
+<title>java/nio/DirectByteBuffer.put (1 samples, 0.10%)</title><rect x="454.7" y="627.0" width="1.2" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="457.7" y="638.0"></text>
+</g>
+<g>
+<title>java/nio/MappedByteBuffer.position (1 samples, 0.10%)</title><rect x="454.7" y="611.0" width="1.2" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="457.7" y="622.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.position (1 samples, 0.10%)</title><rect x="454.7" y="595.0" width="1.2" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="457.7" y="606.0"></text>
+</g>
+<g>
+<title>java/nio/Buffer.position (1 samples, 0.10%)</title><rect x="454.7" y="579.0" width="1.2" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="457.7" y="590.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/IOUtil.writeFromNativeBuffer (355 samples, 35.39%)</title><rect x="455.9" y="643.0" width="417.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="458.9" y="654.0">sun/nio/ch/IOUtil.writeFromNativeBuffer</text>
+</g>
+<g>
+<title>sun/nio/ch/FileDispatcherImpl.write (355 samples, 35.39%)</title><rect x="455.9" y="627.0" width="417.6" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="458.9" y="638.0">sun/nio/ch/FileDispatcherImpl.write</text>
+</g>
+<g>
+<title>sun/nio/ch/FileDispatcherImpl.write0 (355 samples, 35.39%)</title><rect x="455.9" y="611.0" width="417.6" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="458.9" y="622.0">sun/nio/ch/FileDispatcherImpl.write0</text>
+</g>
+<g>
+<title>Java_sun_nio_ch_FileDispatcherImpl_write0 (1 samples, 0.10%)</title><rect x="459.4" y="595.0" width="1.2" height="15" fill="#f47373" rx="2" ry="2"/>
+<text x="462.4" y="606.0"></text>
+</g>
+<g>
+<title>[unknown] (349 samples, 34.80%)</title><rect x="460.6" y="595.0" width="410.6" height="15" fill="#fe8181" rx="2" ry="2"/>
+<text x="463.6" y="606.0">[unknown]</text>
+</g>
+<g>
+<title>__libc_write (344 samples, 34.30%)</title><rect x="460.6" y="579.0" width="404.7" height="15" fill="#f87979" rx="2" ry="2"/>
+<text x="463.6" y="590.0">__libc_write</text>
+</g>
+<g>
+<title>entry_SYSCALL_64_after_hwframe (264 samples, 26.32%)</title><rect x="554.7" y="563.0" width="310.6" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="557.7" y="574.0">entry_SYSCALL_64_after_hwframe</text>
+</g>
+<g>
+<title>do_syscall_64 (264 samples, 26.32%)</title><rect x="554.7" y="547.0" width="310.6" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="557.7" y="558.0">do_syscall_64</text>
+</g>
+<g>
+<title>__x64_sys_write (238 samples, 23.73%)</title><rect x="585.3" y="531.0" width="280.0" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="588.3" y="542.0">__x64_sys_write</text>
+</g>
+<g>
+<title>fput (1 samples, 0.10%)</title><rect x="585.3" y="515.0" width="1.2" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="588.3" y="526.0"></text>
+</g>
+<g>
+<title>ksys_write (237 samples, 23.63%)</title><rect x="586.5" y="515.0" width="278.8" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="589.5" y="526.0">ksys_write</text>
+</g>
+<g>
+<title>__f_unlock_pos (2 samples, 0.20%)</title><rect x="588.8" y="499.0" width="2.4" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="591.8" y="510.0"></text>
+</g>
+<g>
+<title>mutex_unlock (2 samples, 0.20%)</title><rect x="588.8" y="483.0" width="2.4" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="591.8" y="494.0"></text>
+</g>
+<g>
+<title>__fdget_pos (8 samples, 0.80%)</title><rect x="591.2" y="499.0" width="9.4" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="594.2" y="510.0"></text>
+</g>
+<g>
+<title>__fget_light (4 samples, 0.40%)</title><rect x="592.4" y="483.0" width="4.7" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="595.4" y="494.0"></text>
+</g>
+<g>
+<title>__fget (2 samples, 0.20%)</title><rect x="594.7" y="467.0" width="2.4" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="597.7" y="478.0"></text>
+</g>
+<g>
+<title>_cond_resched (1 samples, 0.10%)</title><rect x="597.1" y="483.0" width="1.1" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="600.1" y="494.0"></text>
+</g>
+<g>
+<title>mutex_lock (2 samples, 0.20%)</title><rect x="598.2" y="483.0" width="2.4" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="601.2" y="494.0"></text>
+</g>
+<g>
+<title>fput (1 samples, 0.10%)</title><rect x="600.6" y="499.0" width="1.2" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="603.6" y="510.0"></text>
+</g>
+<g>
+<title>fput_many (1 samples, 0.10%)</title><rect x="600.6" y="483.0" width="1.2" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="603.6" y="494.0"></text>
+</g>
+<g>
+<title>fsnotify (1 samples, 0.10%)</title><rect x="601.8" y="499.0" width="1.1" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="604.8" y="510.0"></text>
+</g>
+<g>
+<title>rw_verify_area (1 samples, 0.10%)</title><rect x="602.9" y="499.0" width="1.2" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="605.9" y="510.0"></text>
+</g>
+<g>
+<title>vfs_write (222 samples, 22.13%)</title><rect x="604.1" y="499.0" width="261.2" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="607.1" y="510.0">vfs_write</text>
+</g>
+<g>
+<title>__sb_end_write (2 samples, 0.20%)</title><rect x="607.6" y="483.0" width="2.4" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="610.6" y="494.0"></text>
+</g>
+<g>
+<title>__sb_start_write (2 samples, 0.20%)</title><rect x="610.0" y="483.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="613.0" y="494.0"></text>
+</g>
+<g>
+<title>__vfs_write (205 samples, 20.44%)</title><rect x="612.4" y="483.0" width="241.1" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="615.4" y="494.0">__vfs_write</text>
+</g>
+<g>
+<title>new_sync_write (205 samples, 20.44%)</title><rect x="612.4" y="467.0" width="241.1" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="615.4" y="478.0">new_sync_write</text>
+</g>
+<g>
+<title>ext4_file_write_iter (204 samples, 20.34%)</title><rect x="613.5" y="451.0" width="240.0" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="616.5" y="462.0">ext4_file_write_iter</text>
+</g>
+<g>
+<title>__generic_file_write_iter (196 samples, 19.54%)</title><rect x="614.7" y="435.0" width="230.6" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="617.7" y="446.0">__generic_file_write_iter</text>
+</g>
+<g>
+<title>_cond_resched (1 samples, 0.10%)</title><rect x="615.9" y="419.0" width="1.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="618.9" y="430.0"></text>
+</g>
+<g>
+<title>ext4_da_write_begin (1 samples, 0.10%)</title><rect x="617.1" y="419.0" width="1.1" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="620.1" y="430.0"></text>
+</g>
+<g>
+<title>ext4_da_write_end (2 samples, 0.20%)</title><rect x="618.2" y="419.0" width="2.4" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="621.2" y="430.0"></text>
+</g>
+<g>
+<title>file_update_time (1 samples, 0.10%)</title><rect x="620.6" y="419.0" width="1.2" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="623.6" y="430.0"></text>
+</g>
+<g>
+<title>generic_perform_write (190 samples, 18.94%)</title><rect x="621.8" y="419.0" width="223.5" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="624.8" y="430.0">generic_perform_write</text>
+</g>
+<g>
+<title>balance_dirty_pages_ratelimited (1 samples, 0.10%)</title><rect x="622.9" y="403.0" width="1.2" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="625.9" y="414.0"></text>
+</g>
+<g>
+<title>ext4_da_write_begin (51 samples, 5.08%)</title><rect x="624.1" y="403.0" width="60.0" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="627.1" y="414.0">ext4_d..</text>
+</g>
+<g>
+<title>__ext4_journal_start_sb (20 samples, 1.99%)</title><rect x="630.0" y="387.0" width="23.5" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="633.0" y="398.0">_..</text>
+</g>
+<g>
+<title>jbd2__journal_start (20 samples, 1.99%)</title><rect x="630.0" y="371.0" width="23.5" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="633.0" y="382.0">j..</text>
+</g>
+<g>
+<title>_raw_read_lock (1 samples, 0.10%)</title><rect x="632.4" y="355.0" width="1.1" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="635.4" y="366.0"></text>
+</g>
+<g>
+<title>kmem_cache_alloc (1 samples, 0.10%)</title><rect x="633.5" y="355.0" width="1.2" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="636.5" y="366.0"></text>
+</g>
+<g>
+<title>_cond_resched (1 samples, 0.10%)</title><rect x="633.5" y="339.0" width="1.2" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="636.5" y="350.0"></text>
+</g>
+<g>
+<title>rcu_all_qs (1 samples, 0.10%)</title><rect x="633.5" y="323.0" width="1.2" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="636.5" y="334.0"></text>
+</g>
+<g>
+<title>memset_erms (2 samples, 0.20%)</title><rect x="634.7" y="355.0" width="2.4" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="637.7" y="366.0"></text>
+</g>
+<g>
+<title>start_this_handle (14 samples, 1.40%)</title><rect x="637.1" y="355.0" width="16.4" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="640.1" y="366.0"></text>
+</g>
+<g>
+<title>_raw_read_lock (1 samples, 0.10%)</title><rect x="650.0" y="339.0" width="1.2" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="653.0" y="350.0"></text>
+</g>
+<g>
+<title>add_transaction_credits (2 samples, 0.20%)</title><rect x="651.2" y="339.0" width="2.3" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="654.2" y="350.0"></text>
+</g>
+<g>
+<title>ext4_block_write_begin (3 samples, 0.30%)</title><rect x="653.5" y="387.0" width="3.6" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="656.5" y="398.0"></text>
+</g>
+<g>
+<title>grab_cache_page_write_begin (19 samples, 1.89%)</title><rect x="657.1" y="387.0" width="22.3" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="660.1" y="398.0">g..</text>
+</g>
+<g>
+<title>pagecache_get_page (19 samples, 1.89%)</title><rect x="657.1" y="371.0" width="22.3" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="660.1" y="382.0">p..</text>
+</g>
+<g>
+<title>find_get_entry (16 samples, 1.60%)</title><rect x="660.6" y="355.0" width="18.8" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="663.6" y="366.0"></text>
+</g>
+<g>
+<title>xas_load (9 samples, 0.90%)</title><rect x="668.8" y="339.0" width="10.6" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="671.8" y="350.0"></text>
+</g>
+<g>
+<title>xas_start (4 samples, 0.40%)</title><rect x="674.7" y="323.0" width="4.7" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="677.7" y="334.0"></text>
+</g>
+<g>
+<title>rcu_all_qs (1 samples, 0.10%)</title><rect x="679.4" y="387.0" width="1.2" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="682.4" y="398.0"></text>
+</g>
+<g>
+<title>unlock_page (3 samples, 0.30%)</title><rect x="680.6" y="387.0" width="3.5" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="683.6" y="398.0"></text>
+</g>
+<g>
+<title>ext4_da_write_end (126 samples, 12.56%)</title><rect x="684.1" y="403.0" width="148.3" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="687.1" y="414.0">ext4_da_write_end</text>
+</g>
+<g>
+<title>__ext4_journal_stop (21 samples, 2.09%)</title><rect x="687.6" y="387.0" width="24.8" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="690.6" y="398.0">_..</text>
+</g>
+<g>
+<title>jbd2_journal_stop (20 samples, 1.99%)</title><rect x="688.8" y="371.0" width="23.6" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="691.8" y="382.0">j..</text>
+</g>
+<g>
+<title>__wake_up (7 samples, 0.70%)</title><rect x="697.1" y="355.0" width="8.2" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="700.1" y="366.0"></text>
+</g>
+<g>
+<title>__wake_up_common_lock (7 samples, 0.70%)</title><rect x="697.1" y="339.0" width="8.2" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="700.1" y="350.0"></text>
+</g>
+<g>
+<title>_raw_spin_unlock_irqrestore (5 samples, 0.50%)</title><rect x="699.4" y="323.0" width="5.9" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="702.4" y="334.0"></text>
+</g>
+<g>
+<title>kmem_cache_free (6 samples, 0.60%)</title><rect x="705.3" y="355.0" width="7.1" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="708.3" y="366.0"></text>
+</g>
+<g>
+<title>generic_write_end (102 samples, 10.17%)</title><rect x="712.4" y="387.0" width="120.0" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="715.4" y="398.0">generic_write_end</text>
+</g>
+<g>
+<title>__mark_inode_dirty (94 samples, 9.37%)</title><rect x="717.1" y="371.0" width="110.5" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="720.1" y="382.0">__mark_inode_..</text>
+</g>
+<g>
+<title>ext4_dirty_inode (88 samples, 8.77%)</title><rect x="724.1" y="355.0" width="103.5" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="727.1" y="366.0">ext4_dirty_i..</text>
+</g>
+<g>
+<title>__ext4_journal_start_sb (5 samples, 0.50%)</title><rect x="724.1" y="339.0" width="5.9" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="727.1" y="350.0"></text>
+</g>
+<g>
+<title>ext4_journal_check_start (4 samples, 0.40%)</title><rect x="724.1" y="323.0" width="4.7" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="727.1" y="334.0"></text>
+</g>
+<g>
+<title>jbd2__journal_start (1 samples, 0.10%)</title><rect x="728.8" y="323.0" width="1.2" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="731.8" y="334.0"></text>
+</g>
+<g>
+<title>__ext4_journal_stop (1 samples, 0.10%)</title><rect x="730.0" y="339.0" width="1.2" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="733.0" y="350.0"></text>
+</g>
+<g>
+<title>ext4_mark_inode_dirty (82 samples, 8.18%)</title><rect x="731.2" y="339.0" width="96.4" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="734.2" y="350.0">ext4_mark_i..</text>
+</g>
+<g>
+<title>ext4_inode_csum_set (1 samples, 0.10%)</title><rect x="731.2" y="323.0" width="1.2" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="734.2" y="334.0"></text>
+</g>
+<g>
+<title>ext4_mark_iloc_dirty (65 samples, 6.48%)</title><rect x="732.4" y="323.0" width="76.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="735.4" y="334.0">ext4_mar..</text>
+</g>
+<g>
+<title>__brelse (5 samples, 0.50%)</title><rect x="751.2" y="307.0" width="5.9" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="754.2" y="318.0"></text>
+</g>
+<g>
+<title>__ext4_handle_dirty_metadata (2 samples, 0.20%)</title><rect x="757.1" y="307.0" width="2.3" height="15" fill="#e17d00" rx="2" ry="2"/>
+<text x="760.1" y="318.0"></text>
+</g>
+<g>
+<title>_cond_resched (2 samples, 0.20%)</title><rect x="757.1" y="291.0" width="2.3" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="760.1" y="302.0"></text>
+</g>
+<g>
+<title>rcu_all_qs (1 samples, 0.10%)</title><rect x="758.2" y="275.0" width="1.2" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="761.2" y="286.0"></text>
+</g>
+<g>
+<title>_raw_spin_lock (2 samples, 0.20%)</title><rect x="759.4" y="307.0" width="2.4" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="762.4" y="318.0"></text>
+</g>
+<g>
+<title>ext4_inode_csum_set (36 samples, 3.59%)</title><rect x="761.8" y="307.0" width="42.3" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="764.8" y="318.0">ext4..</text>
+</g>
+<g>
+<title>crypto_shash_update (2 samples, 0.20%)</title><rect x="761.8" y="291.0" width="2.3" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="764.8" y="302.0"></text>
+</g>
+<g>
+<title>ext4_inode_csum.isra.63 (34 samples, 3.39%)</title><rect x="764.1" y="291.0" width="40.0" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="767.1" y="302.0">ext..</text>
+</g>
+<g>
+<title>__x86_indirect_thunk_rax (1 samples, 0.10%)</title><rect x="766.5" y="275.0" width="1.1" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="769.5" y="286.0"></text>
+</g>
+<g>
+<title>crc32c_pcl_intel_update (16 samples, 1.60%)</title><rect x="767.6" y="275.0" width="18.9" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="770.6" y="286.0"></text>
+</g>
+<g>
+<title>crypto_shash_update (15 samples, 1.50%)</title><rect x="786.5" y="275.0" width="17.6" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="789.5" y="286.0"></text>
+</g>
+<g>
+<title>crc32c_pcl_intel_update (15 samples, 1.50%)</title><rect x="786.5" y="259.0" width="17.6" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="789.5" y="270.0"></text>
+</g>
+<g>
+<title>from_kprojid (1 samples, 0.10%)</title><rect x="804.1" y="307.0" width="1.2" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="807.1" y="318.0"></text>
+</g>
+<g>
+<title>map_id_up (1 samples, 0.10%)</title><rect x="804.1" y="291.0" width="1.2" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="807.1" y="302.0"></text>
+</g>
+<g>
+<title>from_kuid (2 samples, 0.20%)</title><rect x="805.3" y="307.0" width="2.3" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="808.3" y="318.0"></text>
+</g>
+<g>
+<title>map_id_up (2 samples, 0.20%)</title><rect x="805.3" y="291.0" width="2.3" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="808.3" y="302.0"></text>
+</g>
+<g>
+<title>map_id_up (1 samples, 0.10%)</title><rect x="807.6" y="307.0" width="1.2" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="810.6" y="318.0"></text>
+</g>
+<g>
+<title>ext4_reserve_inode_write (16 samples, 1.60%)</title><rect x="808.8" y="323.0" width="18.8" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="811.8" y="334.0"></text>
+</g>
+<g>
+<title>__ext4_get_inode_loc (10 samples, 1.00%)</title><rect x="811.2" y="307.0" width="11.7" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="814.2" y="318.0"></text>
+</g>
+<g>
+<title>__find_get_block (1 samples, 0.10%)</title><rect x="812.4" y="291.0" width="1.1" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="815.4" y="302.0"></text>
+</g>
+<g>
+<title>__getblk_gfp (7 samples, 0.70%)</title><rect x="813.5" y="291.0" width="8.3" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="816.5" y="302.0"></text>
+</g>
+<g>
+<title>__find_get_block (6 samples, 0.60%)</title><rect x="813.5" y="275.0" width="7.1" height="15" fill="#e48000" rx="2" ry="2"/>
+<text x="816.5" y="286.0"></text>
+</g>
+<g>
+<title>_cond_resched (1 samples, 0.10%)</title><rect x="820.6" y="275.0" width="1.2" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="823.6" y="286.0"></text>
+</g>
+<g>
+<title>rcu_all_qs (1 samples, 0.10%)</title><rect x="820.6" y="259.0" width="1.2" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="823.6" y="270.0"></text>
+</g>
+<g>
+<title>ext4_get_group_desc (1 samples, 0.10%)</title><rect x="821.8" y="291.0" width="1.1" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="824.8" y="302.0"></text>
+</g>
+<g>
+<title>__ext4_journal_get_write_access (2 samples, 0.20%)</title><rect x="822.9" y="307.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="825.9" y="318.0"></text>
+</g>
+<g>
+<title>jbd2_journal_get_write_access (2 samples, 0.20%)</title><rect x="822.9" y="291.0" width="2.4" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="825.9" y="302.0"></text>
+</g>
+<g>
+<title>jbd2_write_access_granted (2 samples, 0.20%)</title><rect x="822.9" y="275.0" width="2.4" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="825.9" y="286.0"></text>
+</g>
+<g>
+<title>ext4_get_group_desc (1 samples, 0.10%)</title><rect x="825.3" y="307.0" width="1.2" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="828.3" y="318.0"></text>
+</g>
+<g>
+<title>jbd2_journal_get_write_access (1 samples, 0.10%)</title><rect x="826.5" y="307.0" width="1.1" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="829.5" y="318.0"></text>
+</g>
+<g>
+<title>block_write_end (2 samples, 0.20%)</title><rect x="827.6" y="371.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="830.6" y="382.0"></text>
+</g>
+<g>
+<title>ext4_dirty_inode (1 samples, 0.10%)</title><rect x="830.0" y="371.0" width="1.2" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="833.0" y="382.0"></text>
+</g>
+<g>
+<title>unlock_page (1 samples, 0.10%)</title><rect x="831.2" y="371.0" width="1.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="834.2" y="382.0"></text>
+</g>
+<g>
+<title>iov_iter_advance (1 samples, 0.10%)</title><rect x="832.4" y="403.0" width="1.1" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="835.4" y="414.0"></text>
+</g>
+<g>
+<title>iov_iter_copy_from_user_atomic (6 samples, 0.60%)</title><rect x="833.5" y="403.0" width="7.1" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="836.5" y="414.0"></text>
+</g>
+<g>
+<title>copy_user_generic_unrolled (3 samples, 0.30%)</title><rect x="835.9" y="387.0" width="3.5" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="838.9" y="398.0"></text>
+</g>
+<g>
+<title>copyin (1 samples, 0.10%)</title><rect x="839.4" y="387.0" width="1.2" height="15" fill="#fb9700" rx="2" ry="2"/>
+<text x="842.4" y="398.0"></text>
+</g>
+<g>
+<title>iov_iter_fault_in_readable (4 samples, 0.40%)</title><rect x="840.6" y="403.0" width="4.7" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="843.6" y="414.0"></text>
+</g>
+<g>
+<title>down_write_trylock (3 samples, 0.30%)</title><rect x="845.3" y="435.0" width="3.5" height="15" fill="#e27e00" rx="2" ry="2"/>
+<text x="848.3" y="446.0"></text>
+</g>
+<g>
+<title>ext4_write_checks (3 samples, 0.30%)</title><rect x="848.8" y="435.0" width="3.6" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="851.8" y="446.0"></text>
+</g>
+<g>
+<title>generic_write_checks (2 samples, 0.20%)</title><rect x="850.0" y="419.0" width="2.4" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="853.0" y="430.0"></text>
+</g>
+<g>
+<title>up_write (1 samples, 0.10%)</title><rect x="852.4" y="435.0" width="1.1" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="855.4" y="446.0"></text>
+</g>
+<g>
+<title>_cond_resched (2 samples, 0.20%)</title><rect x="853.5" y="483.0" width="2.4" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="856.5" y="494.0"></text>
+</g>
+<g>
+<title>fsnotify (1 samples, 0.10%)</title><rect x="855.9" y="483.0" width="1.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="858.9" y="494.0"></text>
+</g>
+<g>
+<title>rw_verify_area (7 samples, 0.70%)</title><rect x="857.1" y="483.0" width="8.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="860.1" y="494.0"></text>
+</g>
+<g>
+<title>security_file_permission (6 samples, 0.60%)</title><rect x="857.1" y="467.0" width="7.0" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="860.1" y="478.0"></text>
+</g>
+<g>
+<title>__inode_security_revalidate (1 samples, 0.10%)</title><rect x="857.1" y="451.0" width="1.1" height="15" fill="#f59100" rx="2" ry="2"/>
+<text x="860.1" y="462.0"></text>
+</g>
+<g>
+<title>apparmor_file_permission (2 samples, 0.20%)</title><rect x="858.2" y="451.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="861.2" y="462.0"></text>
+</g>
+<g>
+<title>common_file_perm (2 samples, 0.20%)</title><rect x="858.2" y="435.0" width="2.4" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="861.2" y="446.0"></text>
+</g>
+<g>
+<title>selinux_file_permission (3 samples, 0.30%)</title><rect x="860.6" y="451.0" width="3.5" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="863.6" y="462.0"></text>
+</g>
+<g>
+<title>selinux_file_permission (1 samples, 0.10%)</title><rect x="864.1" y="467.0" width="1.2" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="867.1" y="478.0"></text>
+</g>
+<g>
+<title>__pthread_disable_asynccancel (3 samples, 0.30%)</title><rect x="865.3" y="579.0" width="3.5" height="15" fill="#f06e6e" rx="2" ry="2"/>
+<text x="868.3" y="590.0"></text>
+</g>
+<g>
+<title>__pthread_enable_asynccancel (2 samples, 0.20%)</title><rect x="868.8" y="579.0" width="2.4" height="15" fill="#e25b5b" rx="2" ry="2"/>
+<text x="871.8" y="590.0"></text>
+</g>
+<g>
+<title>__libc_write (1 samples, 0.10%)</title><rect x="871.2" y="595.0" width="1.2" height="15" fill="#fc7f7f" rx="2" ry="2"/>
+<text x="874.2" y="606.0"></text>
+</g>
+<g>
+<title>fdval (1 samples, 0.10%)</title><rect x="872.4" y="595.0" width="1.1" height="15" fill="#f27070" rx="2" ry="2"/>
+<text x="875.4" y="606.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/Util.getTemporaryDirectBuffer (3 samples, 0.30%)</title><rect x="873.5" y="643.0" width="3.6" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="876.5" y="654.0"></text>
+</g>
+<g>
+<title>java/lang/ThreadLocal.get (2 samples, 0.20%)</title><rect x="873.5" y="627.0" width="2.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="876.5" y="638.0"></text>
+</g>
+<g>
+<title>java/lang/ThreadLocal$ThreadLocalMap.getEntry (1 samples, 0.10%)</title><rect x="874.7" y="611.0" width="1.2" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="877.7" y="622.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/Util$BufferCache.get (1 samples, 0.10%)</title><rect x="875.9" y="627.0" width="1.2" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="878.9" y="638.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/Util.offerFirstTemporaryDirectBuffer (4 samples, 0.40%)</title><rect x="877.1" y="643.0" width="4.7" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="880.1" y="654.0"></text>
+</g>
+<g>
+<title>java/lang/ThreadLocal.get (2 samples, 0.20%)</title><rect x="878.2" y="627.0" width="2.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="881.2" y="638.0"></text>
+</g>
+<g>
+<title>java/lang/ThreadLocal$ThreadLocalMap.getEntry (2 samples, 0.20%)</title><rect x="878.2" y="611.0" width="2.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="881.2" y="622.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/Util$BufferCache.offerFirst (1 samples, 0.10%)</title><rect x="880.6" y="627.0" width="1.2" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="883.6" y="638.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (4 samples, 0.40%)</title><rect x="881.8" y="659.0" width="4.7" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="884.8" y="670.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThread.current (3 samples, 0.30%)</title><rect x="882.9" y="643.0" width="3.6" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="885.9" y="654.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/MemoryTable.upsert (41 samples, 4.09%)</title><rect x="886.5" y="723.0" width="48.2" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="889.5" y="734.0">ru/m..</text>
+</g>
+<g>
+<title>gettimeofday (2 samples, 0.20%)</title><rect x="886.5" y="707.0" width="2.3" height="15" fill="#eb6868" rx="2" ry="2"/>
+<text x="889.5" y="718.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.put (37 samples, 3.69%)</title><rect x="888.8" y="707.0" width="43.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="891.8" y="718.0">java..</text>
+</g>
+<g>
+<title>java/lang/String$CaseInsensitiveComparator.compare (2 samples, 0.20%)</title><rect x="891.2" y="691.0" width="2.3" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="894.2" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/String$CaseInsensitiveComparator.compare (2 samples, 0.20%)</title><rect x="891.2" y="675.0" width="2.3" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="894.2" y="686.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.compareToCI (2 samples, 0.20%)</title><rect x="891.2" y="659.0" width="2.3" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="894.2" y="670.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.compareTo (28 samples, 2.79%)</title><rect x="893.5" y="691.0" width="33.0" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="896.5" y="702.0">ja..</text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.compareTo (28 samples, 2.79%)</title><rect x="893.5" y="675.0" width="33.0" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="896.5" y="686.0">ja..</text>
+</g>
+<g>
+<title>java/nio/BufferMismatch.mismatch (8 samples, 0.80%)</title><rect x="893.5" y="659.0" width="9.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="896.5" y="670.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.get (20 samples, 1.99%)</title><rect x="902.9" y="659.0" width="23.6" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="905.9" y="670.0">j..</text>
+</g>
+<g>
+<title>java/nio/Buffer.checkIndex (20 samples, 1.99%)</title><rect x="902.9" y="643.0" width="23.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="905.9" y="654.0">j..</text>
+</g>
+<g>
+<title>vectorizedMismatch (5 samples, 0.50%)</title><rect x="920.6" y="627.0" width="5.9" height="15" fill="#fa7b7b" rx="2" ry="2"/>
+<text x="923.6" y="638.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.fixAfterInsertion (5 samples, 0.50%)</title><rect x="926.5" y="691.0" width="5.9" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="929.5" y="702.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.rotateRight (5 samples, 0.50%)</title><rect x="926.5" y="675.0" width="5.9" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="929.5" y="686.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.compareTo (2 samples, 0.20%)</title><rect x="930.0" y="659.0" width="2.4" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="933.0" y="670.0"></text>
+</g>
+<g>
+<title>os::javaTimeMillis() (2 samples, 0.20%)</title><rect x="932.4" y="707.0" width="2.3" height="15" fill="#c8c83c" rx="2" ry="2"/>
+<text x="935.4" y="718.0"></text>
+</g>
+<g>
+<title>gettimeofday (2 samples, 0.20%)</title><rect x="932.4" y="691.0" width="2.3" height="15" fill="#e25b5b" rx="2" ry="2"/>
+<text x="935.4" y="702.0"></text>
+</g>
+<g>
+<title>[vdso] (2 samples, 0.20%)</title><rect x="932.4" y="675.0" width="2.3" height="15" fill="#f67777" rx="2" ry="2"/>
+<text x="935.4" y="686.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/BasicService.wrapArray (1 samples, 0.10%)</title><rect x="934.7" y="739.0" width="1.2" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="937.7" y="750.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.wrap (1 samples, 0.10%)</title><rect x="934.7" y="723.0" width="1.2" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="937.7" y="734.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.wrap (1 samples, 0.10%)</title><rect x="934.7" y="707.0" width="1.2" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="937.7" y="718.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 0.10%)</title><rect x="934.7" y="691.0" width="1.2" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="937.7" y="702.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 0.10%)</title><rect x="934.7" y="675.0" width="1.2" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="937.7" y="686.0"></text>
+</g>
+<g>
+<title>java/nio/Buffer.&lt;init&gt; (1 samples, 0.10%)</title><rect x="934.7" y="659.0" width="1.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="937.7" y="670.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.limit (1 samples, 0.10%)</title><rect x="934.7" y="643.0" width="1.2" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="937.7" y="654.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.limit (1 samples, 0.10%)</title><rect x="934.7" y="627.0" width="1.2" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="937.7" y="638.0"></text>
+</g>
+<g>
+<title>java/nio/Buffer.limit (1 samples, 0.10%)</title><rect x="934.7" y="611.0" width="1.2" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="937.7" y="622.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/BasicService.wrapString (3 samples, 0.30%)</title><rect x="935.9" y="739.0" width="3.5" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="938.9" y="750.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.wrap (2 samples, 0.20%)</title><rect x="935.9" y="723.0" width="2.3" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="938.9" y="734.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.wrap (2 samples, 0.20%)</title><rect x="935.9" y="707.0" width="2.3" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="938.9" y="718.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (2 samples, 0.20%)</title><rect x="935.9" y="691.0" width="2.3" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="938.9" y="702.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.&lt;init&gt; (2 samples, 0.20%)</title><rect x="935.9" y="675.0" width="2.3" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="938.9" y="686.0"></text>
+</g>
+<g>
+<title>java/nio/Buffer.&lt;init&gt; (1 samples, 0.10%)</title><rect x="937.1" y="659.0" width="1.1" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="940.1" y="670.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.position (1 samples, 0.10%)</title><rect x="937.1" y="643.0" width="1.1" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="940.1" y="654.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.limit (1 samples, 0.10%)</title><rect x="937.1" y="627.0" width="1.1" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="940.1" y="638.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/BasicService.toBytes (1 samples, 0.10%)</title><rect x="938.2" y="723.0" width="1.2" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="941.2" y="734.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.toBytes (1 samples, 0.10%)</title><rect x="938.2" y="707.0" width="1.2" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="941.2" y="718.0"></text>
+</g>
+<g>
+<title>one/nio/http/PathMapper.find (4 samples, 0.40%)</title><rect x="939.4" y="771.0" width="4.7" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="942.4" y="782.0"></text>
+</g>
+<g>
+<title>java/util/HashMap.get (4 samples, 0.40%)</title><rect x="939.4" y="755.0" width="4.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="942.4" y="766.0"></text>
+</g>
+<g>
+<title>java/util/HashMap.getNode (2 samples, 0.20%)</title><rect x="939.4" y="739.0" width="2.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="942.4" y="750.0"></text>
+</g>
+<g>
+<title>java/util/HashMap.hash (2 samples, 0.20%)</title><rect x="941.8" y="739.0" width="2.3" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="944.8" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/String.hashCode (2 samples, 0.20%)</title><rect x="941.8" y="723.0" width="2.3" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="944.8" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.hashCode (2 samples, 0.20%)</title><rect x="941.8" y="707.0" width="2.3" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="944.8" y="718.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getPath (3 samples, 0.30%)</title><rect x="944.1" y="771.0" width="3.5" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="947.1" y="782.0"></text>
+</g>
+<g>
+<title>java/lang/String.substring (3 samples, 0.30%)</title><rect x="944.1" y="755.0" width="3.5" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="947.1" y="766.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (3 samples, 0.30%)</title><rect x="944.1" y="739.0" width="3.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="947.1" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (1 samples, 0.10%)</title><rect x="944.1" y="723.0" width="1.2" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="947.1" y="734.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOfRange (2 samples, 0.20%)</title><rect x="945.3" y="723.0" width="2.3" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="948.3" y="734.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.sendResponse (1 samples, 0.10%)</title><rect x="946.5" y="707.0" width="1.1" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="949.5" y="718.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getRequiredParameter (2 samples, 0.20%)</title><rect x="947.6" y="771.0" width="2.4" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="950.6" y="782.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.parseRequest (10 samples, 1.00%)</title><rect x="950.0" y="803.0" width="11.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="953.0" y="814.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (7 samples, 0.70%)</title><rect x="953.5" y="787.0" width="8.3" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="956.5" y="798.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (5 samples, 0.50%)</title><rect x="955.9" y="771.0" width="5.9" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="958.9" y="782.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.startParsingRequestBody (3 samples, 0.30%)</title><rect x="961.8" y="803.0" width="3.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="964.8" y="814.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getHeader (8 samples, 0.80%)</title><rect x="965.3" y="803.0" width="9.4" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="968.3" y="814.0"></text>
+</g>
+<g>
+<title>java/lang/String.regionMatches (3 samples, 0.30%)</title><rect x="968.8" y="787.0" width="3.6" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="971.8" y="798.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.regionMatchesCI (3 samples, 0.30%)</title><rect x="968.8" y="771.0" width="3.6" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="971.8" y="782.0"></text>
+</g>
+<g>
+<title>java/lang/String.substring (2 samples, 0.20%)</title><rect x="972.4" y="787.0" width="2.3" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="975.4" y="798.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (2 samples, 0.20%)</title><rect x="972.4" y="771.0" width="2.3" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="975.4" y="782.0"></text>
+</g>
+<g>
+<title>jbyte_disjoint_arraycopy (2 samples, 0.20%)</title><rect x="972.4" y="755.0" width="2.3" height="15" fill="#e25c5c" rx="2" ry="2"/>
+<text x="975.4" y="766.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (7 samples, 0.70%)</title><rect x="974.7" y="803.0" width="8.2" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="977.7" y="814.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.handleParsedRequest (1 samples, 0.10%)</title><rect x="974.7" y="787.0" width="1.2" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="977.7" y="798.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (6 samples, 0.60%)</title><rect x="975.9" y="787.0" width="7.0" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="978.9" y="798.0"></text>
+</g>
+<g>
+<title>one/nio/net/Session.read (50 samples, 4.99%)</title><rect x="982.9" y="819.0" width="58.9" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="985.9" y="830.0">one/ni..</text>
+</g>
+<g>
+<title>one/nio/net/NativeSocket.read (50 samples, 4.99%)</title><rect x="982.9" y="803.0" width="58.9" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="985.9" y="814.0">one/ni..</text>
+</g>
+<g>
+<title>Java_one_nio_net_NativeSocket_read (8 samples, 0.80%)</title><rect x="984.1" y="787.0" width="9.4" height="15" fill="#ea6767" rx="2" ry="2"/>
+<text x="987.1" y="798.0"></text>
+</g>
+<g>
+<title>HandleMark::pop_and_restore() (1 samples, 0.10%)</title><rect x="985.3" y="771.0" width="1.2" height="15" fill="#d4d440" rx="2" ry="2"/>
+<text x="988.3" y="782.0"></text>
+</g>
+<g>
+<title>__memmove_avx_unaligned_erms (2 samples, 0.20%)</title><rect x="986.5" y="771.0" width="2.3" height="15" fill="#e15a5a" rx="2" ry="2"/>
+<text x="989.5" y="782.0"></text>
+</g>
+<g>
+<title>jni_SetByteArrayRegion (4 samples, 0.40%)</title><rect x="988.8" y="771.0" width="4.7" height="15" fill="#ed6a6a" rx="2" ry="2"/>
+<text x="991.8" y="782.0"></text>
+</g>
+<g>
+<title>HandleMark::pop_and_restore() (2 samples, 0.20%)</title><rect x="988.8" y="755.0" width="2.4" height="15" fill="#d8d841" rx="2" ry="2"/>
+<text x="991.8" y="766.0"></text>
+</g>
+<g>
+<title>ThreadStateTransition::transition_from_native(JavaThread*, JavaThreadState) [clone .constprop.217] (2 samples, 0.20%)</title><rect x="991.2" y="755.0" width="2.3" height="15" fill="#e4e445" rx="2" ry="2"/>
+<text x="994.2" y="766.0"></text>
+</g>
+<g>
+<title>__pthread_disable_asynccancel (2 samples, 0.20%)</title><rect x="993.5" y="787.0" width="2.4" height="15" fill="#fb7c7c" rx="2" ry="2"/>
+<text x="996.5" y="798.0"></text>
+</g>
+<g>
+<title>__pthread_enable_asynccancel (1 samples, 0.10%)</title><rect x="995.9" y="787.0" width="1.2" height="15" fill="#e86464" rx="2" ry="2"/>
+<text x="998.9" y="798.0"></text>
+</g>
+<g>
+<title>__recv (37 samples, 3.69%)</title><rect x="997.1" y="787.0" width="43.5" height="15" fill="#f67676" rx="2" ry="2"/>
+<text x="1000.1" y="798.0">__recv</text>
+</g>
+<g>
+<title>entry_SYSCALL_64_after_hwframe (26 samples, 2.59%)</title><rect x="1010.0" y="771.0" width="30.6" height="15" fill="#ec8800" rx="2" ry="2"/>
+<text x="1013.0" y="782.0">en..</text>
+</g>
+<g>
+<title>do_syscall_64 (26 samples, 2.59%)</title><rect x="1010.0" y="755.0" width="30.6" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="1013.0" y="766.0">do..</text>
+</g>
+<g>
+<title>__x64_sys_recvfrom (22 samples, 2.19%)</title><rect x="1014.7" y="739.0" width="25.9" height="15" fill="#f69200" rx="2" ry="2"/>
+<text x="1017.7" y="750.0">_..</text>
+</g>
+<g>
+<title>__sys_recvfrom (22 samples, 2.19%)</title><rect x="1014.7" y="723.0" width="25.9" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="1017.7" y="734.0">_..</text>
+</g>
+<g>
+<title>import_single_range (1 samples, 0.10%)</title><rect x="1014.7" y="707.0" width="1.2" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="1017.7" y="718.0"></text>
+</g>
+<g>
+<title>sock_recvmsg (19 samples, 1.89%)</title><rect x="1015.9" y="707.0" width="22.3" height="15" fill="#ed8900" rx="2" ry="2"/>
+<text x="1018.9" y="718.0">s..</text>
+</g>
+<g>
+<title>inet6_recvmsg (18 samples, 1.79%)</title><rect x="1015.9" y="691.0" width="21.2" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="1018.9" y="702.0">i..</text>
+</g>
+<g>
+<title>tcp_recvmsg (17 samples, 1.69%)</title><rect x="1017.1" y="675.0" width="20.0" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="1020.1" y="686.0"></text>
+</g>
+<g>
+<title>__skb_datagram_iter (1 samples, 0.10%)</title><rect x="1020.6" y="659.0" width="1.2" height="15" fill="#ee8a00" rx="2" ry="2"/>
+<text x="1023.6" y="670.0"></text>
+</g>
+<g>
+<title>lock_sock_nested (2 samples, 0.20%)</title><rect x="1021.8" y="659.0" width="2.3" height="15" fill="#e88400" rx="2" ry="2"/>
+<text x="1024.8" y="670.0"></text>
+</g>
+<g>
+<title>_raw_spin_lock_bh (2 samples, 0.20%)</title><rect x="1021.8" y="643.0" width="2.3" height="15" fill="#fd9900" rx="2" ry="2"/>
+<text x="1024.8" y="654.0"></text>
+</g>
+<g>
+<title>skb_copy_datagram_iter (9 samples, 0.90%)</title><rect x="1024.1" y="659.0" width="10.6" height="15" fill="#e37f00" rx="2" ry="2"/>
+<text x="1027.1" y="670.0"></text>
+</g>
+<g>
+<title>__skb_datagram_iter (9 samples, 0.90%)</title><rect x="1024.1" y="643.0" width="10.6" height="15" fill="#e98500" rx="2" ry="2"/>
+<text x="1027.1" y="654.0"></text>
+</g>
+<g>
+<title>simple_copy_to_iter (4 samples, 0.40%)</title><rect x="1030.0" y="627.0" width="4.7" height="15" fill="#f79300" rx="2" ry="2"/>
+<text x="1033.0" y="638.0"></text>
+</g>
+<g>
+<title>__check_object_size (2 samples, 0.20%)</title><rect x="1030.0" y="611.0" width="2.4" height="15" fill="#ef8b00" rx="2" ry="2"/>
+<text x="1033.0" y="622.0"></text>
+</g>
+<g>
+<title>_copy_to_iter (2 samples, 0.20%)</title><rect x="1032.4" y="611.0" width="2.3" height="15" fill="#fa9600" rx="2" ry="2"/>
+<text x="1035.4" y="622.0"></text>
+</g>
+<g>
+<title>copy_user_enhanced_fast_string (1 samples, 0.10%)</title><rect x="1033.5" y="595.0" width="1.2" height="15" fill="#f99500" rx="2" ry="2"/>
+<text x="1036.5" y="606.0"></text>
+</g>
+<g>
+<title>tcp_rcv_space_adjust (2 samples, 0.20%)</title><rect x="1034.7" y="659.0" width="2.4" height="15" fill="#f08c00" rx="2" ry="2"/>
+<text x="1037.7" y="670.0"></text>
+</g>
+<g>
+<title>tcp_mstamp_refresh (2 samples, 0.20%)</title><rect x="1034.7" y="643.0" width="2.4" height="15" fill="#f49000" rx="2" ry="2"/>
+<text x="1037.7" y="654.0"></text>
+</g>
+<g>
+<title>__x86_indirect_thunk_rax (1 samples, 0.10%)</title><rect x="1034.7" y="627.0" width="1.2" height="15" fill="#f28e00" rx="2" ry="2"/>
+<text x="1037.7" y="638.0"></text>
+</g>
+<g>
+<title>ktime_get (1 samples, 0.10%)</title><rect x="1035.9" y="627.0" width="1.2" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="1038.9" y="638.0"></text>
+</g>
+<g>
+<title>read_tsc (1 samples, 0.10%)</title><rect x="1035.9" y="611.0" width="1.2" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="1038.9" y="622.0"></text>
+</g>
+<g>
+<title>security_socket_recvmsg (1 samples, 0.10%)</title><rect x="1037.1" y="691.0" width="1.1" height="15" fill="#fc9800" rx="2" ry="2"/>
+<text x="1040.1" y="702.0"></text>
+</g>
+<g>
+<title>apparmor_socket_recvmsg (1 samples, 0.10%)</title><rect x="1037.1" y="675.0" width="1.1" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="1040.1" y="686.0"></text>
+</g>
+<g>
+<title>aa_sock_msg_perm (1 samples, 0.10%)</title><rect x="1037.1" y="659.0" width="1.1" height="15" fill="#e68200" rx="2" ry="2"/>
+<text x="1040.1" y="670.0"></text>
+</g>
+<g>
+<title>aa_sk_perm (1 samples, 0.10%)</title><rect x="1037.1" y="643.0" width="1.1" height="15" fill="#eb8700" rx="2" ry="2"/>
+<text x="1040.1" y="654.0"></text>
+</g>
+<g>
+<title>sockfd_lookup_light (2 samples, 0.20%)</title><rect x="1038.2" y="707.0" width="2.4" height="15" fill="#f18d00" rx="2" ry="2"/>
+<text x="1041.2" y="718.0"></text>
+</g>
+<g>
+<title>__fdget (2 samples, 0.20%)</title><rect x="1038.2" y="691.0" width="2.4" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="1041.2" y="702.0"></text>
+</g>
+<g>
+<title>__fget_light (2 samples, 0.20%)</title><rect x="1038.2" y="675.0" width="2.4" height="15" fill="#e78300" rx="2" ry="2"/>
+<text x="1041.2" y="686.0"></text>
+</g>
+<g>
+<title>__fget (2 samples, 0.20%)</title><rect x="1038.2" y="659.0" width="2.4" height="15" fill="#f89400" rx="2" ry="2"/>
+<text x="1041.2" y="670.0"></text>
+</g>
+<g>
+<title>jni_SetByteArrayRegion (1 samples, 0.10%)</title><rect x="1040.6" y="787.0" width="1.2" height="15" fill="#fa7c7c" rx="2" ry="2"/>
+<text x="1043.6" y="798.0"></text>
+</g>
+<g>
+<title>os::javaTimeMillis() (2 samples, 0.20%)</title><rect x="1041.8" y="835.0" width="2.3" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1044.8" y="846.0"></text>
+</g>
+<g>
+<title>gettimeofday (2 samples, 0.20%)</title><rect x="1041.8" y="819.0" width="2.3" height="15" fill="#ee6b6b" rx="2" ry="2"/>
+<text x="1044.8" y="830.0"></text>
+</g>
+<g>
+<title>[vdso] (2 samples, 0.20%)</title><rect x="1041.8" y="803.0" width="2.3" height="15" fill="#f27070" rx="2" ry="2"/>
+<text x="1044.8" y="814.0"></text>
+</g>
+<g>
+<title>start_thread (124 samples, 12.36%)</title><rect x="1044.1" y="867.0" width="145.9" height="15" fill="#f16f6f" rx="2" ry="2"/>
+<text x="1047.1" y="878.0">start_thread</text>
+</g>
+<g>
+<title>thread_native_entry(Thread*) (124 samples, 12.36%)</title><rect x="1044.1" y="851.0" width="145.9" height="15" fill="#f06f6f" rx="2" ry="2"/>
+<text x="1047.1" y="862.0">thread_native_entr..</text>
+</g>
+<g>
+<title>Thread::call_run() (124 samples, 12.36%)</title><rect x="1044.1" y="835.0" width="145.9" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="1047.1" y="846.0">Thread::call_run()</text>
+</g>
+<g>
+<title>GangWorker::loop() (119 samples, 11.86%)</title><rect x="1044.1" y="819.0" width="140.0" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="1047.1" y="830.0">GangWorker::loop()</text>
+</g>
+<g>
+<title>G1CMConcurrentMarkingTask::work(unsigned int) (13 samples, 1.30%)</title><rect x="1044.1" y="803.0" width="15.3" height="15" fill="#c8c83c" rx="2" ry="2"/>
+<text x="1047.1" y="814.0"></text>
+</g>
+<g>
+<title>G1CMTask::do_marking_step(double, bool, bool) (13 samples, 1.30%)</title><rect x="1044.1" y="787.0" width="15.3" height="15" fill="#d4d440" rx="2" ry="2"/>
+<text x="1047.1" y="798.0"></text>
+</g>
+<g>
+<title>G1CMBitMapClosure::do_addr(HeapWord*) (9 samples, 0.90%)</title><rect x="1044.1" y="771.0" width="10.6" height="15" fill="#d1d13f" rx="2" ry="2"/>
+<text x="1047.1" y="782.0"></text>
+</g>
+<g>
+<title>G1CMTask::drain_local_queue(bool) [clone .part.149] (7 samples, 0.70%)</title><rect x="1045.3" y="755.0" width="8.2" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="1048.3" y="766.0"></text>
+</g>
+<g>
+<title>void G1CMTask::process_grey_task_entry&lt;true&gt;(G1TaskQueueEntry) (4 samples, 0.40%)</title><rect x="1048.8" y="739.0" width="4.7" height="15" fill="#d7d741" rx="2" ry="2"/>
+<text x="1051.8" y="750.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1CMOopClosure&gt;::Table::oop_oop_iterate&lt;InstanceKlass, unsigned int&gt;(G1CMOopClosure*, oopDesc*, Klass*) (3 samples, 0.30%)</title><rect x="1050.0" y="723.0" width="3.5" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1053.0" y="734.0"></text>
+</g>
+<g>
+<title>G1CMTask::make_reference_grey(oopDesc*) (3 samples, 0.30%)</title><rect x="1050.0" y="707.0" width="3.5" height="15" fill="#dddd43" rx="2" ry="2"/>
+<text x="1053.0" y="718.0"></text>
+</g>
+<g>
+<title>void G1CMTask::process_grey_task_entry&lt;true&gt;(G1TaskQueueEntry) (1 samples, 0.10%)</title><rect x="1053.5" y="755.0" width="1.2" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="1056.5" y="766.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1CMOopClosure&gt;::Table::oop_oop_iterate&lt;InstanceKlass, unsigned int&gt;(G1CMOopClosure*, oopDesc*, Klass*) (1 samples, 0.10%)</title><rect x="1053.5" y="739.0" width="1.2" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1056.5" y="750.0"></text>
+</g>
+<g>
+<title>G1CMTask::make_reference_grey(oopDesc*) (1 samples, 0.10%)</title><rect x="1053.5" y="723.0" width="1.2" height="15" fill="#d7d741" rx="2" ry="2"/>
+<text x="1056.5" y="734.0"></text>
+</g>
+<g>
+<title>oopDesc::size() (1 samples, 0.10%)</title><rect x="1053.5" y="707.0" width="1.2" height="15" fill="#d7d741" rx="2" ry="2"/>
+<text x="1056.5" y="718.0"></text>
+</g>
+<g>
+<title>G1CMTask::drain_local_queue(bool) [clone .part.149] (3 samples, 0.30%)</title><rect x="1054.7" y="771.0" width="3.5" height="15" fill="#cbcb3d" rx="2" ry="2"/>
+<text x="1057.7" y="782.0"></text>
+</g>
+<g>
+<title>void G1CMTask::process_grey_task_entry&lt;true&gt;(G1TaskQueueEntry) (3 samples, 0.30%)</title><rect x="1054.7" y="755.0" width="3.5" height="15" fill="#cbcb3d" rx="2" ry="2"/>
+<text x="1057.7" y="766.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1CMOopClosure&gt;::Table::oop_oop_iterate&lt;InstanceKlass, unsigned int&gt;(G1CMOopClosure*, oopDesc*, Klass*) (3 samples, 0.30%)</title><rect x="1054.7" y="739.0" width="3.5" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="1057.7" y="750.0"></text>
+</g>
+<g>
+<title>G1CMTask::make_reference_grey(oopDesc*) (3 samples, 0.30%)</title><rect x="1054.7" y="723.0" width="3.5" height="15" fill="#d0d03e" rx="2" ry="2"/>
+<text x="1057.7" y="734.0"></text>
+</g>
+<g>
+<title>oopDesc::size() (1 samples, 0.10%)</title><rect x="1057.1" y="707.0" width="1.1" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="1060.1" y="718.0"></text>
+</g>
+<g>
+<title>oopDesc::size_given_klass(Klass*) (1 samples, 0.10%)</title><rect x="1058.2" y="771.0" width="1.2" height="15" fill="#c8c83c" rx="2" ry="2"/>
+<text x="1061.2" y="782.0"></text>
+</g>
+<g>
+<title>G1CMRootRegionScanTask::work(unsigned int) (1 samples, 0.10%)</title><rect x="1059.4" y="803.0" width="1.2" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1062.4" y="814.0"></text>
+</g>
+<g>
+<title>G1ParTask::work(unsigned int) (93 samples, 9.27%)</title><rect x="1060.6" y="803.0" width="109.4" height="15" fill="#d3d33f" rx="2" ry="2"/>
+<text x="1063.6" y="814.0">G1ParTask::wo..</text>
+</g>
+<g>
+<title>G1ParEvacuateFollowersClosure::do_void() (54 samples, 5.38%)</title><rect x="1060.6" y="787.0" width="63.5" height="15" fill="#d8d841" rx="2" ry="2"/>
+<text x="1063.6" y="798.0">G1ParEv..</text>
+</g>
+<g>
+<title>G1ParScanThreadState::copy_to_survivor_space(InCSetState, oopDesc*, markOopDesc*) (3 samples, 0.30%)</title><rect x="1071.2" y="771.0" width="3.5" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1074.2" y="782.0"></text>
+</g>
+<g>
+<title>G1ParScanThreadState::trim_queue() (40 samples, 3.99%)</title><rect x="1074.7" y="771.0" width="47.1" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1077.7" y="782.0">G1Pa..</text>
+</g>
+<g>
+<title>G1ParScanThreadState::copy_to_survivor_space(InCSetState, oopDesc*, markOopDesc*) (20 samples, 1.99%)</title><rect x="1098.2" y="755.0" width="23.6" height="15" fill="#d2d23f" rx="2" ry="2"/>
+<text x="1101.2" y="766.0">G..</text>
+</g>
+<g>
+<title>void OopOopIterateBackwardsDispatch&lt;G1ScanEvacuatedObjClosure&gt;::Table::oop_oop_iterate_backwards&lt;InstanceKlass, unsigned int&gt;(G1ScanEvacuatedObjClosure*, oopDesc*, Klass*) (11 samples, 1.10%)</title><rect x="1108.8" y="739.0" width="13.0" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1111.8" y="750.0"></text>
+</g>
+<g>
+<title>Monitor::unlock() (1 samples, 0.10%)</title><rect x="1121.8" y="771.0" width="1.1" height="15" fill="#cece3e" rx="2" ry="2"/>
+<text x="1124.8" y="782.0"></text>
+</g>
+<g>
+<title>void objArrayOopDesc::oop_iterate_range&lt;G1ScanEvacuatedObjClosure&gt;(G1ScanEvacuatedObjClosure*, int, int) (1 samples, 0.10%)</title><rect x="1122.9" y="771.0" width="1.2" height="15" fill="#dfdf43" rx="2" ry="2"/>
+<text x="1125.9" y="782.0"></text>
+</g>
+<g>
+<title>G1RemSet::oops_into_collection_set_do(G1ParScanThreadState*, unsigned int) (39 samples, 3.89%)</title><rect x="1124.1" y="787.0" width="45.9" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="1127.1" y="798.0">G1Re..</text>
+</g>
+<g>
+<title>G1RemSet::update_rem_set(G1ParScanThreadState*, unsigned int) (39 samples, 3.89%)</title><rect x="1124.1" y="771.0" width="45.9" height="15" fill="#dede43" rx="2" ry="2"/>
+<text x="1127.1" y="782.0">G1Re..</text>
+</g>
+<g>
+<title>G1CollectedHeap::iterate_dirty_card_closure(CardTableEntryClosure*, unsigned int) (39 samples, 3.89%)</title><rect x="1124.1" y="755.0" width="45.9" height="15" fill="#d1d13f" rx="2" ry="2"/>
+<text x="1127.1" y="766.0">G1Co..</text>
+</g>
+<g>
+<title>DirtyCardQueueSet::apply_closure_during_gc(CardTableEntryClosure*, unsigned int) (39 samples, 3.89%)</title><rect x="1124.1" y="739.0" width="45.9" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="1127.1" y="750.0">Dirt..</text>
+</g>
+<g>
+<title>G1RefineCardClosure::do_card_ptr(signed char*, unsigned int) (39 samples, 3.89%)</title><rect x="1124.1" y="723.0" width="45.9" height="15" fill="#e0e044" rx="2" ry="2"/>
+<text x="1127.1" y="734.0">G1Re..</text>
+</g>
+<g>
+<title>G1ParScanThreadState::trim_queue_partially() (33 samples, 3.29%)</title><rect x="1124.1" y="707.0" width="38.8" height="15" fill="#d2d23f" rx="2" ry="2"/>
+<text x="1127.1" y="718.0">G1P..</text>
+</g>
+<g>
+<title>G1ParScanThreadState::copy_to_survivor_space(InCSetState, oopDesc*, markOopDesc*) (16 samples, 1.60%)</title><rect x="1144.1" y="691.0" width="18.8" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1147.1" y="702.0"></text>
+</g>
+<g>
+<title>page_fault (1 samples, 0.10%)</title><rect x="1161.8" y="675.0" width="1.1" height="15" fill="#e58100" rx="2" ry="2"/>
+<text x="1164.8" y="686.0"></text>
+</g>
+<g>
+<title>do_page_fault (1 samples, 0.10%)</title><rect x="1161.8" y="659.0" width="1.1" height="15" fill="#ea8600" rx="2" ry="2"/>
+<text x="1164.8" y="670.0"></text>
+</g>
+<g>
+<title>__do_page_fault (1 samples, 0.10%)</title><rect x="1161.8" y="643.0" width="1.1" height="15" fill="#fe9a00" rx="2" ry="2"/>
+<text x="1164.8" y="654.0"></text>
+</g>
+<g>
+<title>G1RemSet::refine_card_during_gc(signed char*, G1ScanObjsDuringUpdateRSClosure*) (6 samples, 0.60%)</title><rect x="1162.9" y="707.0" width="7.1" height="15" fill="#dede43" rx="2" ry="2"/>
+<text x="1165.9" y="718.0"></text>
+</g>
+<g>
+<title>bool HeapRegion::oops_on_card_seq_iterate_careful&lt;true, G1ScanObjsDuringUpdateRSClosure&gt;(MemRegion, G1ScanObjsDuringUpdateRSClosure*) (5 samples, 0.50%)</title><rect x="1162.9" y="691.0" width="5.9" height="15" fill="#c9c93c" rx="2" ry="2"/>
+<text x="1165.9" y="702.0"></text>
+</g>
+<g>
+<title>G1BlockOffsetTablePart::forward_to_block_containing_addr_slow(HeapWord*, HeapWord*, void const*) (2 samples, 0.20%)</title><rect x="1162.9" y="675.0" width="2.4" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="1165.9" y="686.0"></text>
+</g>
+<g>
+<title>HeapRegion::block_is_obj(HeapWord const*) const (1 samples, 0.10%)</title><rect x="1162.9" y="659.0" width="1.2" height="15" fill="#cece3e" rx="2" ry="2"/>
+<text x="1165.9" y="670.0"></text>
+</g>
+<g>
+<title>HeapRegion::block_size(HeapWord const*) const (1 samples, 0.10%)</title><rect x="1164.1" y="659.0" width="1.2" height="15" fill="#d9d941" rx="2" ry="2"/>
+<text x="1167.1" y="670.0"></text>
+</g>
+<g>
+<title>OverflowTaskQueue&lt;StarTask, (MemoryType)5, 131072u&gt;::push(StarTask) [clone .constprop.577] (1 samples, 0.10%)</title><rect x="1165.3" y="675.0" width="1.2" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1168.3" y="686.0"></text>
+</g>
+<g>
+<title>void OopOopIterateBoundedDispatch&lt;G1ScanObjsDuringUpdateRSClosure&gt;::Table::oop_oop_iterate_bounded&lt;ObjArrayKlass, unsigned int&gt;(G1ScanObjsDuringUpdateRSClosure*, oopDesc*, Klass*, MemRegion) (1 samples, 0.10%)</title><rect x="1166.5" y="675.0" width="1.1" height="15" fill="#d2d23f" rx="2" ry="2"/>
+<text x="1169.5" y="686.0"></text>
+</g>
+<g>
+<title>void G1ScanObjsDuringUpdateRSClosure::do_oop_work&lt;unsigned int&gt;(unsigned int*) (1 samples, 0.10%)</title><rect x="1166.5" y="659.0" width="1.1" height="15" fill="#dddd43" rx="2" ry="2"/>
+<text x="1169.5" y="670.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1ScanObjsDuringUpdateRSClosure&gt;::Table::oop_oop_iterate&lt;InstanceKlass, unsigned int&gt;(G1ScanObjsDuringUpdateRSClosure*, oopDesc*, Klass*) (1 samples, 0.10%)</title><rect x="1167.6" y="675.0" width="1.2" height="15" fill="#d8d841" rx="2" ry="2"/>
+<text x="1170.6" y="686.0"></text>
+</g>
+<g>
+<title>void G1ScanObjsDuringUpdateRSClosure::do_oop_work&lt;unsigned int&gt;(unsigned int*) (1 samples, 0.10%)</title><rect x="1167.6" y="659.0" width="1.2" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1170.6" y="670.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1ScanObjsDuringUpdateRSClosure&gt;::Table::oop_oop_iterate&lt;TypeArrayKlass, unsigned int&gt;(G1ScanObjsDuringUpdateRSClosure*, oopDesc*, Klass*) (1 samples, 0.10%)</title><rect x="1168.8" y="691.0" width="1.2" height="15" fill="#dede43" rx="2" ry="2"/>
+<text x="1171.8" y="702.0"></text>
+</g>
+<g>
+<title>G1RebuildRemSetTask::work(unsigned int) (8 samples, 0.80%)</title><rect x="1170.0" y="803.0" width="9.4" height="15" fill="#d8d841" rx="2" ry="2"/>
+<text x="1173.0" y="814.0"></text>
+</g>
+<g>
+<title>HeapRegionManager::par_iterate(HeapRegionClosure*, HeapRegionClaimer*, unsigned int) const (8 samples, 0.80%)</title><rect x="1170.0" y="787.0" width="9.4" height="15" fill="#cbcb3d" rx="2" ry="2"/>
+<text x="1173.0" y="798.0"></text>
+</g>
+<g>
+<title>G1RebuildRemSetTask::G1RebuildRemSetHeapRegionClosure::do_heap_region(HeapRegion*) (8 samples, 0.80%)</title><rect x="1170.0" y="771.0" width="9.4" height="15" fill="#cccc3d" rx="2" ry="2"/>
+<text x="1173.0" y="782.0"></text>
+</g>
+<g>
+<title>Klass::start_of_vtable() const (1 samples, 0.10%)</title><rect x="1172.4" y="755.0" width="1.1" height="15" fill="#cbcb3d" rx="2" ry="2"/>
+<text x="1175.4" y="766.0"></text>
+</g>
+<g>
+<title>MarkBitMap::get_next_marked_addr(HeapWord const*, HeapWord const*) const (1 samples, 0.10%)</title><rect x="1173.5" y="755.0" width="1.2" height="15" fill="#dddd43" rx="2" ry="2"/>
+<text x="1176.5" y="766.0"></text>
+</g>
+<g>
+<title>void G1RebuildRemSetClosure::do_oop_work&lt;unsigned int&gt;(unsigned int*) [clone .isra.233] (1 samples, 0.10%)</title><rect x="1174.7" y="755.0" width="1.2" height="15" fill="#dede43" rx="2" ry="2"/>
+<text x="1177.7" y="766.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1RebuildRemSetClosure&gt;::Table::oop_oop_iterate&lt;InstanceKlass, unsigned int&gt;(G1RebuildRemSetClosure*, oopDesc*, Klass*) (2 samples, 0.20%)</title><rect x="1175.9" y="755.0" width="2.3" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1178.9" y="766.0"></text>
+</g>
+<g>
+<title>void G1RebuildRemSetClosure::do_oop_work&lt;unsigned int&gt;(unsigned int*) [clone .isra.233] (2 samples, 0.20%)</title><rect x="1175.9" y="739.0" width="2.3" height="15" fill="#cece3e" rx="2" ry="2"/>
+<text x="1178.9" y="750.0"></text>
+</g>
+<g>
+<title>void OopOopIterateDispatch&lt;G1RebuildRemSetClosure&gt;::Table::oop_oop_iterate&lt;InstanceMirrorKlass, unsigned int&gt;(G1RebuildRemSetClosure*, oopDesc*, Klass*) (1 samples, 0.10%)</title><rect x="1178.2" y="755.0" width="1.2" height="15" fill="#e4e445" rx="2" ry="2"/>
+<text x="1181.2" y="766.0"></text>
+</g>
+<g>
+<title>OtherRegionsTable::add_reference(void*, unsigned int) (1 samples, 0.10%)</title><rect x="1178.2" y="739.0" width="1.2" height="15" fill="#cfcf3e" rx="2" ry="2"/>
+<text x="1181.2" y="750.0"></text>
+</g>
+<g>
+<title>G1RemSetScanState::G1ClearCardTableTask::work(unsigned int) (1 samples, 0.10%)</title><rect x="1179.4" y="803.0" width="1.2" height="15" fill="#cfcf3e" rx="2" ry="2"/>
+<text x="1182.4" y="814.0"></text>
+</g>
+<g>
+<title>HeapRegion::clear_cardtable() (1 samples, 0.10%)</title><rect x="1179.4" y="787.0" width="1.2" height="15" fill="#dddd43" rx="2" ry="2"/>
+<text x="1182.4" y="798.0"></text>
+</g>
+<g>
+<title>ParallelSPCleanupTask::work(unsigned int) (1 samples, 0.10%)</title><rect x="1180.6" y="803.0" width="1.2" height="15" fill="#d9d941" rx="2" ry="2"/>
+<text x="1183.6" y="814.0"></text>
+</g>
+<g>
+<title>Threads::possibly_parallel_threads_do(bool, ThreadClosure*) (1 samples, 0.10%)</title><rect x="1180.6" y="787.0" width="1.2" height="15" fill="#d1d13f" rx="2" ry="2"/>
+<text x="1183.6" y="798.0"></text>
+</g>
+<g>
+<title>ParallelSPCleanupThreadClosure::do_thread(Thread*) (1 samples, 0.10%)</title><rect x="1180.6" y="771.0" width="1.2" height="15" fill="#d8d841" rx="2" ry="2"/>
+<text x="1183.6" y="782.0"></text>
+</g>
+<g>
+<title>ObjectSynchronizer::deflate_thread_local_monitors(Thread*, DeflateMonitorCounters*) (1 samples, 0.10%)</title><rect x="1180.6" y="755.0" width="1.2" height="15" fill="#e4e445" rx="2" ry="2"/>
+<text x="1183.6" y="766.0"></text>
+</g>
+<g>
+<title>SemaphoreGangTaskDispatcher::worker_wait_for_task() (1 samples, 0.10%)</title><rect x="1181.8" y="803.0" width="1.1" height="15" fill="#dfdf43" rx="2" ry="2"/>
+<text x="1184.8" y="814.0"></text>
+</g>
+<g>
+<title>__new_sem_wait (1 samples, 0.10%)</title><rect x="1181.8" y="787.0" width="1.1" height="15" fill="#f57575" rx="2" ry="2"/>
+<text x="1184.8" y="798.0"></text>
+</g>
+<g>
+<title>void WeakProcessor::Task::work&lt;G1STWIsAliveClosure, G1KeepAliveClosure&gt;(unsigned int, G1STWIsAliveClosure*, G1KeepAliveClosure*) (1 samples, 0.10%)</title><rect x="1182.9" y="803.0" width="1.2" height="15" fill="#d0d03e" rx="2" ry="2"/>
+<text x="1185.9" y="814.0"></text>
+</g>
+<g>
+<title>JavaThread::thread_main_inner() (4 samples, 0.40%)</title><rect x="1184.1" y="819.0" width="4.7" height="15" fill="#dfdf43" rx="2" ry="2"/>
+<text x="1187.1" y="830.0"></text>
+</g>
+<g>
+<title>CompileBroker::compiler_thread_loop() (4 samples, 0.40%)</title><rect x="1184.1" y="803.0" width="4.7" height="15" fill="#d5d540" rx="2" ry="2"/>
+<text x="1187.1" y="814.0"></text>
+</g>
+<g>
+<title>CompileBroker::invoke_compiler_on_method(CompileTask*) (4 samples, 0.40%)</title><rect x="1184.1" y="787.0" width="4.7" height="15" fill="#d1d13f" rx="2" ry="2"/>
+<text x="1187.1" y="798.0"></text>
+</g>
+<g>
+<title>C2Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*) (4 samples, 0.40%)</title><rect x="1184.1" y="771.0" width="4.7" height="15" fill="#dfdf43" rx="2" ry="2"/>
+<text x="1187.1" y="782.0"></text>
+</g>
+<g>
+<title>Compile::Compile(ciEnv*, C2Compiler*, ciMethod*, int, bool, bool, bool, DirectiveSet*) (4 samples, 0.40%)</title><rect x="1184.1" y="755.0" width="4.7" height="15" fill="#dcdc42" rx="2" ry="2"/>
+<text x="1187.1" y="766.0"></text>
+</g>
+<g>
+<title>Compile::Code_Gen() (3 samples, 0.30%)</title><rect x="1184.1" y="739.0" width="3.5" height="15" fill="#e3e345" rx="2" ry="2"/>
+<text x="1187.1" y="750.0"></text>
+</g>
+<g>
+<title>PhaseChaitin::Register_Allocate() (3 samples, 0.30%)</title><rect x="1184.1" y="723.0" width="3.5" height="15" fill="#d0d03e" rx="2" ry="2"/>
+<text x="1187.1" y="734.0"></text>
+</g>
+<g>
+<title>PhaseChaitin::build_ifg_physical(ResourceArea*) (2 samples, 0.20%)</title><rect x="1184.1" y="707.0" width="2.4" height="15" fill="#c8c83c" rx="2" ry="2"/>
+<text x="1187.1" y="718.0"></text>
+</g>
+<g>
+<title>PhaseChaitin::interfere_with_live(unsigned int, IndexSet*) (2 samples, 0.20%)</title><rect x="1184.1" y="691.0" width="2.4" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1187.1" y="702.0"></text>
+</g>
+<g>
+<title>IndexSetIterator::advance_and_next() (1 samples, 0.10%)</title><rect x="1185.3" y="675.0" width="1.2" height="15" fill="#e0e044" rx="2" ry="2"/>
+<text x="1188.3" y="686.0"></text>
+</g>
+<g>
+<title>PhaseChaitin::gather_lrg_masks(bool) (1 samples, 0.10%)</title><rect x="1186.5" y="707.0" width="1.1" height="15" fill="#dbdb42" rx="2" ry="2"/>
+<text x="1189.5" y="718.0"></text>
+</g>
+<g>
+<title>RegMask::is_bound_pair() const (1 samples, 0.10%)</title><rect x="1186.5" y="691.0" width="1.1" height="15" fill="#d2d23f" rx="2" ry="2"/>
+<text x="1189.5" y="702.0"></text>
+</g>
+<g>
+<title>CompileWrapper::CompileWrapper(Compile*) (1 samples, 0.10%)</title><rect x="1187.6" y="739.0" width="1.2" height="15" fill="#d3d33f" rx="2" ry="2"/>
+<text x="1190.6" y="750.0"></text>
+</g>
+<g>
+<title>Type::Initialize(Compile*) (1 samples, 0.10%)</title><rect x="1187.6" y="723.0" width="1.2" height="15" fill="#dede43" rx="2" ry="2"/>
+<text x="1190.6" y="734.0"></text>
+</g>
+<g>
+<title>Dict::Insert(void*, void*, bool) (1 samples, 0.10%)</title><rect x="1187.6" y="707.0" width="1.2" height="15" fill="#d7d741" rx="2" ry="2"/>
+<text x="1190.6" y="718.0"></text>
+</g>
+<g>
+<title>Dict::doubhash() (1 samples, 0.10%)</title><rect x="1187.6" y="691.0" width="1.2" height="15" fill="#d7d741" rx="2" ry="2"/>
+<text x="1190.6" y="702.0"></text>
+</g>
+<g>
+<title>VMThread::run() (1 samples, 0.10%)</title><rect x="1188.8" y="819.0" width="1.2" height="15" fill="#d6d640" rx="2" ry="2"/>
+<text x="1191.8" y="830.0"></text>
+</g>
+<g>
+<title>VMThread::loop() (1 samples, 0.10%)</title><rect x="1188.8" y="803.0" width="1.2" height="15" fill="#cfcf3e" rx="2" ry="2"/>
+<text x="1191.8" y="814.0"></text>
+</g>
+<g>
+<title>VMThread::evaluate_operation(VM_Operation*) [clone .constprop.63] (1 samples, 0.10%)</title><rect x="1188.8" y="787.0" width="1.2" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="1191.8" y="798.0"></text>
+</g>
+<g>
+<title>VM_Operation::evaluate() (1 samples, 0.10%)</title><rect x="1188.8" y="771.0" width="1.2" height="15" fill="#dcdc42" rx="2" ry="2"/>
+<text x="1191.8" y="782.0"></text>
+</g>
+<g>
+<title>VM_G1CollectForAllocation::doit() (1 samples, 0.10%)</title><rect x="1188.8" y="755.0" width="1.2" height="15" fill="#cece3e" rx="2" ry="2"/>
+<text x="1191.8" y="766.0"></text>
+</g>
+<g>
+<title>G1CollectedHeap::do_collection_pause_at_safepoint(double) (1 samples, 0.10%)</title><rect x="1188.8" y="739.0" width="1.2" height="15" fill="#cfcf3e" rx="2" ry="2"/>
+<text x="1191.8" y="750.0"></text>
+</g>
+<g>
+<title>G1NewTracer::send_adaptive_ihop_statistics(unsigned long, unsigned long, unsigned long, unsigned long, double, double, bool) (1 samples, 0.10%)</title><rect x="1188.8" y="723.0" width="1.2" height="15" fill="#e4e445" rx="2" ry="2"/>
+<text x="1191.8" y="734.0"></text>
+</g>
+</g>
+</svg>

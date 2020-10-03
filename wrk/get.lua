@@ -13,7 +13,6 @@ request = function()
     path = "/v0/entity?id=key" .. addToCounter .. counter
     wrk.method = "GET"
     wrk.port = 8080
-    wrk.body = nil
     counter = counter + 1
     if counter > 32000 then
         counter = 0

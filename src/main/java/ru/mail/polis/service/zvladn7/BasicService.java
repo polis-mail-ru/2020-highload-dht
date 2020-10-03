@@ -27,6 +27,7 @@ import java.util.NoSuchElementException;
 public class BasicService extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(BasicService.class);
+    private static final int CACHE_SIZE = 15;
 
     private final DAO dao;
     private final Map<String, byte[]> cache = new LinkedHashMap<>();
@@ -60,6 +61,15 @@ public class BasicService extends HttpServer implements Service {
         }
 
         return Response.EMPTY;
+    }
+
+    private void updateCache(final String key, final byte[] value) {
+        if (cache.size() >= CACHE_SIZE) {
+            final Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
+            iterator.next();
+            iterator.remove();
+        }
+        cache.put(key, value);
     }
 
     private static ByteBuffer wrapString(final String str) {
@@ -98,6 +108,7 @@ public class BasicService extends HttpServer implements Service {
     public Response get(@Param(value = "id", required = true) final String id) {
         log.debug("GET request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
+            log.error("Empty key was provided in GET method!");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
@@ -108,19 +119,16 @@ public class BasicService extends HttpServer implements Service {
 
             try {
                 value = dao.get(key);
-            } catch (NoSuchElementException ex) {
+            } catch (NoSuchElementException e) {
+                log.info("Value with key: {} was not found", id, e);
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             } catch (IOException e) {
+                log.error("Internal error. Can't get value with key: {}", id, e);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
 
             body = toBytes(value);
-            if (cache.size() >= 10) {
-                final Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
-                iterator.next();
-                iterator.remove();
-            }
-            cache.put(id, body);
+            updateCache(id, body);
         }
 
         return Response.ok(body);
@@ -141,6 +149,7 @@ public class BasicService extends HttpServer implements Service {
     public Response remove(@Param(value = "id", required = true) final String id) {
         log.debug("DELETE request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
+            log.error("Empty key was provided in DELETE method!");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
@@ -150,6 +159,7 @@ public class BasicService extends HttpServer implements Service {
             dao.remove(key);
             cache.remove(id);
         } catch (IOException e) {
+            log.error("Internal error. Can't delete value with key: {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
@@ -174,6 +184,7 @@ public class BasicService extends HttpServer implements Service {
         log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
                 id, new String(request.getBody(), StandardCharsets.UTF_8));
         if (id.isEmpty()) {
+            log.error("Empty key was provided in PUT method!");
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
@@ -182,13 +193,11 @@ public class BasicService extends HttpServer implements Service {
 
         try {
             dao.upsert(key, value);
-            if (cache.size() >= 10) {
-                final Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
-                iterator.next();
-                iterator.remove();
+            if (cache.containsKey(id    )) {
+                updateCache(id, request.getBody());
             }
-            cache.put(id, request.getBody());
         } catch (IOException e) {
+            log.error("Internal error. Can't insert or update value with key: {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
