@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
+import ru.mail.polis.dao.impl.async.MemTableSet;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.tables.MemTable;
 import ru.mail.polis.dao.impl.tables.SSTable;
@@ -23,7 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 public class DAOImpl implements DAO {
@@ -34,9 +36,8 @@ public class DAOImpl implements DAO {
     @NotNull
     private final File storage;
     private final long flushThreshold;
-    private MemTable memTable;
-    private final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
-    private int generation;
+    private final MemTableSet memTableSet;
+    private final NavigableMap<Long, SSTable> ssTables;
 
     /**
      * Creates persistent DAO.
@@ -47,8 +48,8 @@ public class DAOImpl implements DAO {
     public DAOImpl(@NotNull final File storage, final long flushThreshold) throws IOException {
         this.storage = storage;
         this.flushThreshold = flushThreshold;
-        this.memTable = new MemTable();
-        this.generation = 0;
+        this.ssTables = new ConcurrentSkipListMap<>();
+        final AtomicLong maxGeneration = new AtomicLong();
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
             stream.filter(path -> {
                 final String name = path.getFileName().toString();
@@ -58,15 +59,16 @@ public class DAOImpl implements DAO {
                     .forEach(path -> {
                         try {
                             final String name = path.getFileName().toString();
-                            final int currentGeneration = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
-                            this.generation = Math.max(this.generation, currentGeneration);
+                            final long currentGeneration = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
+                            maxGeneration.set(Math.max(maxGeneration.get(), currentGeneration));
                             ssTables.put(currentGeneration, new SSTable(path.toFile()));
                         } catch (IOException ex) {
                             throw new UncheckedIOException(ex);
                         }
                     });
         }
-        generation++;
+        maxGeneration.set(maxGeneration.get() + 1);
+        this.memTableSet = new MemTableSet(maxGeneration.get(), flushThreshold);
     }
 
     @NotNull
