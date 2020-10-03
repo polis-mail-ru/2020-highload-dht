@@ -5,6 +5,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -25,7 +27,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
-import java.util.TreeMap;
 import java.util.stream.Stream;
 
 /**
@@ -49,6 +50,8 @@ public class DAOImpl implements DAO {
     private final NavigableMap<Integer, Table> ssTables;
     @NotNull
     private final ExecutorService executorService;
+    @NotNull
+    private final ReadWriteLock readWriteLock;
 
     private int generation;
 
@@ -80,6 +83,7 @@ public class DAOImpl implements DAO {
             throw new UncheckedIOException(e);
         }
 
+        this.readWriteLock = new ReentrantReadWriteLock();
         this.memTablePool = new MemTablePool(tableByteSize, ++generation, memTablePoolSize);
         this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
         this.executorService.execute(() -> {
@@ -103,7 +107,14 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final Iterator<Cell> filteredIterator = Iterators.filter(cellIterator(from),
+        final List<Iterator<Cell>> iterators;
+        readWriteLock.readLock().lock();
+        try {
+            iterators = listCellIterator(from);
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+        final Iterator<Cell> filteredIterator = Iterators.filter(mergeIterator(iterators),
                 cell -> !cell.getValue().isTombstone() && !cell.getValue().isExpired());
         return Iterators.transform(filteredIterator, cell -> Record.of(cell.getKey(), cell.getValue().getData()));
     }
@@ -113,12 +124,12 @@ public class DAOImpl implements DAO {
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value,
             final long expireTime) throws IOException {
-        memTablePool.upsert(key.asReadOnlyBuffer(), value.asReadOnlyBuffer(), expireTime);
+        memTablePool.upsert(key.duplicate().asReadOnlyBuffer(), value.duplicate().asReadOnlyBuffer(), expireTime);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTablePool.remove(key.asReadOnlyBuffer());
+        memTablePool.remove(key.duplicate().asReadOnlyBuffer());
     }
 
     @Override
@@ -137,26 +148,32 @@ public class DAOImpl implements DAO {
 
     @Override
     public void compact() throws IOException {
-        final Iterator<Cell> cellIterator = cellIterator(ByteBuffer.allocate(0));
+        final List<Iterator<Cell>> iterators = listCellIterator(ByteBuffer.allocate(0));
+        final Iterator<Cell> cellIterator = mergeIterator(iterators);
         final List<File> oldFiles = new ArrayList<>(generation);
-        for (int i = 0; i < generation; i++) {
-            final File dest = new File(storage, i + "_old" + SSTABLE_FILE_END);
-            new File(storage, i + SSTABLE_FILE_END).renameTo(dest);
-            oldFiles.add(dest);
+        final Path targetPath;
+        readWriteLock.writeLock().lock();
+        try {
+            for (int i = 0; i < generation; i++) {
+                final File dest = new File(storage, i + "_old" + SSTABLE_FILE_END);
+                new File(storage, i + SSTABLE_FILE_END).renameTo(dest);
+                oldFiles.add(dest);
+            }
+            generation = 0;
+            final File fileTmp = new File(storage, generation + SSTABLE_TMP_FILE_END);
+            SSTable.serialize(fileTmp, cellIterator);
+            final File fileDst = new File(storage, generation + SSTABLE_FILE_END);
+            targetPath = fileDst.toPath();
+            Files.move(fileTmp.toPath(), targetPath, StandardCopyOption.ATOMIC_MOVE);
+            for (final File oldFile : oldFiles) {
+                Files.delete(oldFile.toPath());
+            }
+            memTablePool.close();
+            ssTables.clear();
+            ssTables.put(generation++, new SSTable(targetPath));
+        } finally {
+            readWriteLock.writeLock().unlock();
         }
-        generation = 0;
-        final File fileTmp = new File(storage, generation + SSTABLE_TMP_FILE_END);
-        SSTable.serialize(fileTmp, cellIterator);
-        final File fileDst = new File(storage, generation + SSTABLE_FILE_END);
-        final Path targetPath = fileDst.toPath();
-        Files.move(fileTmp.toPath(), targetPath, StandardCopyOption.ATOMIC_MOVE);
-        for (final File oldFile : oldFiles) {
-            Files.delete(oldFile.toPath());
-        }
-        memTablePool.close();
-        ssTables.clear();
-        ssTables.put(generation, new SSTable(targetPath));
-        generation++;
     }
 
     /**
@@ -186,7 +203,7 @@ public class DAOImpl implements DAO {
         }
     }
 
-    private Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) {
+    private List<Iterator<Cell>> listCellIterator(@NotNull final ByteBuffer from) {
         final List<Iterator<Cell>> iterators = new ArrayList<>(ssTables.size() + 1);
         try {
             iterators.add(memTablePool.iterator(from));
@@ -203,6 +220,11 @@ public class DAOImpl implements DAO {
             }
         });
 
+        return iterators;
+    }
+
+    @NotNull
+    private Iterator<Cell> mergeIterator(List<Iterator<Cell>> iterators) {
         final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
                 Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
         return Iters.collapseEquals(mergedCellIterator, Cell::getKey);

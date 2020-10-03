@@ -147,6 +147,7 @@ public class MemTablePool implements Table {
             try {
                 if (currentMemTable.size() > flushThreshold) {
                     flushTable = new FlushTable(generation, currentMemTable);
+                    waitingFlushTables.put(generation, currentMemTable);
                     ++generation;
                     currentMemTable = new MemTable();
                 }
@@ -155,7 +156,6 @@ public class MemTablePool implements Table {
             }
             if (flushTable != null) {
                 try {
-                    waitingFlushTables.put(generation, currentMemTable);
                     blockingQueue.put(flushTable);
                 } catch (InterruptedException e) {
                     logger.error("error put flush table {} int blocking queue", flushTable, e);
