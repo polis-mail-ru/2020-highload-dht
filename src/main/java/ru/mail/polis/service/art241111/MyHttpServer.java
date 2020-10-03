@@ -9,8 +9,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.art241111.handlers.EntityHandler;
@@ -57,11 +55,11 @@ public class MyHttpServer extends HttpServer implements Service {
 
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                return handlers.handlerGetRequest();
+                return handlers.handleGetRequest();
             case Request.METHOD_PUT:
-                return handlers.handlerPutRequest(request);
+                return handlers.handlePutRequest(request);
             case Request.METHOD_DELETE:
-                return handlers.handlerDeleteRequest();
+                return handlers.handleDeleteRequest();
             default:
                 return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
         }
@@ -72,7 +70,7 @@ public class MyHttpServer extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public Response status() {
-        return new StatusHandler().handlerStatusRequest();
+        return new StatusHandler().handleStatusRequest();
     }
 
     private static HttpServerConfig getConfig(final int port) {

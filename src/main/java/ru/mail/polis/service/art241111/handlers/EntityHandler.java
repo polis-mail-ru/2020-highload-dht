@@ -30,7 +30,7 @@ public final class EntityHandler {
      * Get Setting the response to receiving the GET command.
      * @return The reaction of the server.
      */
-    public Response handlerGetRequest() {
+    public Response handleGetRequest() {
         try {
             final ByteBuffer value = dao.get(key);
             final byte[] body = new byte[value.remaining()];
@@ -39,7 +39,6 @@ public final class EntityHandler {
             logger.debug("Handler GET {} {}", key, body);
             return Response.ok(body);
         } catch (NoSuchElementException e) {
-            logger.error("NoSuchElementException in getting {} from dao", key);
             return new Response(Response.NOT_FOUND, "Key not founded".getBytes(Charsets.UTF_8));
         } catch (IOException e) {
             logger.error("IOException in getting {} from dao", key);
@@ -51,7 +50,7 @@ public final class EntityHandler {
      * Get Setting the response to receiving the PuT command.
      * @return The reaction of the server.
      */
-    public Response handlerPutRequest(final Request request) {
+    public Response handlePutRequest(final Request request) {
         try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
 
@@ -67,7 +66,7 @@ public final class EntityHandler {
      * Get Setting the response to receiving the GET command.
      * @return The reaction of the server.
      */
-    public Response handlerDeleteRequest() {
+    public Response handleDeleteRequest() {
         try {
             dao.remove(key);
 

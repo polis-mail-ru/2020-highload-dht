@@ -7,7 +7,7 @@ public final class StatusHandler {
      * Response to a status request.
      * @return Server status.
      */
-    public Response handlerStatusRequest() {
+    public Response handleStatusRequest() {
         return new Response(Response.OK, Response.EMPTY);
     }
 }
