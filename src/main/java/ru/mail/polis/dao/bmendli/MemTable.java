@@ -1,34 +1,37 @@
 package ru.mail.polis.dao.bmendli;
 
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.concurrent.ThreadSafe;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
 
+@ThreadSafe
 public final class MemTable implements Table {
 
     @NotNull
     private final SortedMap<ByteBuffer, Value> map;
-    private long size;
+    private final AtomicLong size;
 
     /**
      * Memory storage for new data.
      */
     public MemTable() {
-        map = new TreeMap<>();
-        size = 0;
+        map = new ConcurrentSkipListMap<>();
+        size = new AtomicLong(0);
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, final long expireTime) {
         final Value removedValue = map.put(key, Value.newInstance(value, System.currentTimeMillis(), expireTime));
-        size += value.remaining();
+        size.addAndGet(value.remaining());
         if (removedValue == null) {
-            size += key.remaining() + Long.BYTES + Long.BYTES;
+            size.addAndGet(key.remaining() + Long.BYTES + Long.BYTES);
         } else if (!removedValue.isTombstone()) {
-            size -= removedValue.getData().remaining();
+            size.addAndGet(-removedValue.getData().remaining());
         }
     }
 
@@ -36,9 +39,9 @@ public final class MemTable implements Table {
     public void remove(@NotNull final ByteBuffer key) {
         final Value removedValue = map.put(key, Value.newInstance());
         if (removedValue == null) {
-            size += key.remaining() + Long.BYTES + Long.BYTES;
+            size.addAndGet(key.remaining() + Long.BYTES + Long.BYTES);
         } else if (!removedValue.isTombstone()) {
-            size -= removedValue.getData().remaining();
+            size.addAndGet(-removedValue.getData().remaining());
         }
     }
 
@@ -57,12 +60,12 @@ public final class MemTable implements Table {
 
     @Override
     public long size() {
-        return size;
+        return size.get();
     }
 
     @Override
     public void close() {
         map.clear();
-        size = 0;
+        size.set(0);
     }
 }

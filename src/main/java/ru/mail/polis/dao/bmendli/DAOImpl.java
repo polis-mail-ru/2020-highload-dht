@@ -1,8 +1,14 @@
 package ru.mail.polis.dao.bmendli;
 
 import com.google.common.collect.Iterators;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
@@ -32,14 +38,17 @@ public class DAOImpl implements DAO {
     private static final String SSTABLE_FILE_END = ".dat";
     private static final String SSTABLE_TMP_FILE_END = ".tmp";
     private static final String FILE_NAME_REGEX = "[0-9]+";
+    private static final int MAX_THREADS = 4;
 
+    private final Logger logger = LoggerFactory.getLogger(DAOImpl.class);
     @NonNull
     private final File storage;
     @NotNull
-    private final MemTable memTable;
+    private final MemTablePool memTablePool;
     @NotNull
     private final NavigableMap<Integer, Table> ssTables;
-    private final long tableByteSize;
+    @NotNull
+    private final ExecutorService executorService;
 
     private int generation;
 
@@ -50,11 +59,11 @@ public class DAOImpl implements DAO {
      * @param storage       - file in which store data
      * @param tableByteSize - max table byte size
      */
-    public DAOImpl(final File storage, final long tableByteSize) {
+    public DAOImpl(final File storage,
+                   final long tableByteSize,
+                   final int memTablePoolSize) {
         this.storage = storage;
-        this.tableByteSize = tableByteSize;
-        this.memTable = new MemTable();
-        this.ssTables = new TreeMap<>();
+        this.ssTables = new ConcurrentSkipListMap<>();
         this.generation = -1;
 
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
@@ -67,9 +76,28 @@ public class DAOImpl implements DAO {
                     })
                     .forEach(this::storeDataFromFile);
         } catch (IOException e) {
+            logger.error(e.getMessage());
             throw new UncheckedIOException(e);
         }
-        generation++;
+
+        this.memTablePool = new MemTablePool(tableByteSize, ++generation, memTablePoolSize);
+        this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
+        this.executorService.execute(() -> {
+            boolean poisonReceived = false;
+            while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
+                try {
+                    final FlushTable flushTable = this.memTablePool.takeTableToFlush();
+                    poisonReceived = flushTable.isPoisonPill();
+                    flush(flushTable);
+                    memTablePool.flushed(flushTable.getGeneration());
+                } catch (InterruptedException e) {
+                    logger.error(e.getMessage());
+                    Thread.currentThread().interrupt();
+                } catch (IOException e) {
+                    logger.error(e.getMessage());
+                }
+            }
+        });
     }
 
     @NotNull
@@ -85,32 +113,26 @@ public class DAOImpl implements DAO {
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value,
             final long expireTime) throws IOException {
-        memTable.upsert(key.asReadOnlyBuffer(), value.asReadOnlyBuffer(), expireTime);
-        if (memTable.size() >= tableByteSize) {
-            flush();
-        }
+        memTablePool.upsert(key.asReadOnlyBuffer(), value.asReadOnlyBuffer(), expireTime);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key.asReadOnlyBuffer());
-        if (memTable.size() >= tableByteSize) {
-            flush();
-        }
+        memTablePool.remove(key.asReadOnlyBuffer());
     }
 
     @Override
-    public void close() throws IOException {
-        if (memTable.size() > 0) {
-            flush();
-        }
-        ssTables.values().forEach(table -> {
-            try {
-                table.close();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
+    public void close() {
+        memTablePool.close();
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
+                executorService.shutdownNow();
             }
-        });
+        } catch (InterruptedException e) {
+            logger.error("error shut down", e);
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Override
@@ -131,7 +153,7 @@ public class DAOImpl implements DAO {
         for (final File oldFile : oldFiles) {
             Files.delete(oldFile.toPath());
         }
-        memTable.close();
+        memTablePool.close();
         ssTables.clear();
         ssTables.put(generation, new SSTable(targetPath));
         generation++;
@@ -140,16 +162,15 @@ public class DAOImpl implements DAO {
     /**
      * Saving data on the disk.
      */
-    public void flush() throws IOException {
-        final File file = new File(storage, generation + SSTABLE_TMP_FILE_END);
-        SSTable.serialize(file, memTable.iterator(ByteBuffer.allocate(0)));
+    public void flush(@NotNull final FlushTable flushTable) throws IOException {
+        final Iterator<Cell> iterator = flushTable.getTable().iterator(ByteBuffer.allocate(0));
+        final File file = new File(storage, flushTable.getGeneration() + SSTABLE_TMP_FILE_END);
+        SSTable.serialize(file, iterator);
 
-        final File dst = new File(storage, generation + SSTABLE_FILE_END);
+        final File dst = new File(storage, flushTable.getGeneration() + SSTABLE_FILE_END);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        ssTables.put(generation, new SSTable(dst.toPath()));
-        generation++;
-        memTable.close();
+        ssTables.put(flushTable.getGeneration(), new SSTable(dst.toPath()));
     }
 
     private void storeDataFromFile(@NotNull final Path path) {
@@ -160,17 +181,24 @@ public class DAOImpl implements DAO {
             generation = Math.max(generation, fileGeneration);
             ssTables.put(fileGeneration, new SSTable(path));
         } catch (IOException e) {
+            logger.error(e.getMessage());
             throw new UncheckedIOException(e);
         }
     }
 
     private Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) {
         final List<Iterator<Cell>> iterators = new ArrayList<>(ssTables.size() + 1);
-        iterators.add(memTable.iterator(from));
+        try {
+            iterators.add(memTablePool.iterator(from));
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+            throw new UncheckedIOException(e);
+        }
         ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iterators.add(ssTable.iterator(from));
             } catch (IOException e) {
+                logger.error(e.getMessage());
                 throw new UncheckedIOException(e);
             }
         });
