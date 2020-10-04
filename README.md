@@ -167,7 +167,7 @@ Transfer/sec:    138.66KB
   
 Итоги профилирования процессов аллокации ```(/profile.sh -d 60 -e alloc -f  /tmp/flameoutput_allocation.svg <server_runner_pid>)```
 
-![image-1](https://user-images.githubusercontent.com/55311053/94415005-aaa2b480-0185-11eb-87dc-8482d9500fec.jpg)
+![flameoutput11](https://user-images.githubusercontent.com/55311053/95015349-ff966d00-0654-11eb-8068-b38304bf19d7.jpg)
 <p align="center">Рис.1. Flamegraph выделения RAM</p>
 
 Визуализация использования RAM подтверждает превалирующий характер операций с буфером среди факторов, определяющих актуальную нагрузку на сервер.   
