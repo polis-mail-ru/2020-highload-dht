@@ -24,7 +24,8 @@ Running 15s test @ http://localhost:8080/v0/entity?id=100
 
   Thread calibration: mean lat.: 1.095ms, rate sampling interval: 10ms
 
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
+
+    Thread Stats   Avg      Stdev     Max   +/- Stdev
 
     Latency     1.10ms  499.29us   2.63ms   62.28%
 
@@ -148,6 +149,7 @@ Running 15s test @ http://localhost:8080/v0/entity?id=100
 100.000%    1.39ms
 
   Detailed Percentile spectrum:
+      
        Value   Percentile   TotalCount 1/(1-Percentile)
 
        0.031     0.000000            1         1.00
@@ -272,7 +274,7 @@ Running 15s test @ http://localhost:8080/v0/entity?id=100
  
   Thread calibration: mean lat.: 1.131ms, rate sampling interval: 10ms
  
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Thread Stats   Avg      Stdev     Max   +/- Stdev
  
     Latency     1.11ms  499.56us   2.25ms   61.61%
  
@@ -492,3 +494,25 @@ ALLOC get
 ------------------------------------------------------------------------------------------------
 ![alt text](flameGetAlloc.svg "get alloc")
 ------------------------------------------------------------------------------------------------
+
+Выводы:
+
+Из данных профилирования видно, что разброс во времени задержки 
+и запросов в секунду больше у PUT чем у GET. 
+Это скорее всего связано с вызовом дополнительной функциональности 
+для сохранения тела запроса в RocksDB, которую можно заметить на flamegraph 
+для PUT cpu. Так же из flamegraph PUT alloc можно заметить, 
+что он гораздо более дробленный по сравнению с GET alloc.
+Это означает, что аллокации памяти происходят более решулярно и 
+так же скорее всего замедляет в некоторых запросах скорость работы.
+
+
+PUT
+1) Задрежка средняя - 1.1 мс. (Макс. - 2.63 мс.)
+2) Запросов в секунду в среднем - 2100 (Макс. - 2670)
+3) 90% запросов укладываются в 1.80ms.
+
+GET
+1) Задрежка средняя - 1.11 мс. (Макс. - 2.25 мс.)
+2) Запросов в секунду в среднем - 2110 (Макс. - 2560)
+3) 90% запросов укладываются в 1.81ms.
