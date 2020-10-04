@@ -17,6 +17,8 @@
 !*.svg
 !*.txt
 !analysis.md
+!profiling/stressTest_1.md
+!src/main/resourses/logback.xml
 
 # ...even if they are in subdirectories
 !*/

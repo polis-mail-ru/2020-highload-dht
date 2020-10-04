@@ -11,17 +11,16 @@ import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
-public class MyService extends HttpServer implements Service {
+public class MyService extends HttpServer {
 
     private final DAO dao;
-    private static final Logger log = LoggerFactory.getLogger(MyService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(MyService.class);
 
     MyService(final HttpServerConfig config, final DAO dao) throws IOException {
         super(config);
@@ -58,7 +57,7 @@ public class MyService extends HttpServer implements Service {
         try {
             return response(key, request);
         } catch (IOException e) {
-            log.error("Can't process response");
+            log.error("Can't process response {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -70,7 +69,7 @@ public class MyService extends HttpServer implements Service {
                     final ByteBuffer value = dao.get(key);
                     return Response.ok(toByteArray(value));
                 } catch (NoSuchElementException e) {
-                    log.error("Can't find resource");
+                    log.debug("Can't find resource {}", key, e);
                     return new Response(Response.NOT_FOUND, Response.EMPTY);
                 }
 
