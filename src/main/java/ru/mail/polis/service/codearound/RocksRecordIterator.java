@@ -5,6 +5,7 @@ import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RocksRecordIterator implements Iterator<Record> {
 
