@@ -78,7 +78,7 @@ public class MyHttpServer extends HttpServer implements Service {
                     return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         } catch (NoSuchElementException e) {
-            log.error("Key(id) = {} not found: {}", id, e);
+            log.info("Key(id) = {} not found: {}", id, e);
             return new Response(Response.NOT_FOUND, "Key not found".getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             log.error("Internal error with key(id) {}, exception: {}", id, e);
