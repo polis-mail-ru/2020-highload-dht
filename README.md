@@ -10,7 +10,7 @@
 
 
 В ходе мониторинга производительности сервера (хост по адресу http://127.0.0.1:8080) с использованием инструмента <strong><em>wrk</em></strong> получены результирующие задержки обработки следующих запросов:<br/>
- <strong>1) wrk -t1 -c1 -d5m -R2000 http://127.0.0.1:8080/ <br/>
+ <strong>1) wrk -t1 -c1 -d5m -R2000 --latency http://127.0.0.1:8080/ <br/>
 2) <em>(PUT /v0/entity?id=<ID></em>) &nbsp; wrk -t1 -c1 -d5m -s src/profiling/wrk_scripts/put.lua -R2000 --latency http://127.0.0.1:8080/<br/>
 3) <em>(GET /v0/entity?id=<ID></em>) &nbsp; wrk -t1 -c1 -d5m -s src/profiling/wrk_scripts/get.lua -R2000 --latency http://127.0.0.1:8080/<br/> 
 4) <em>(DELETE /v0/entity?id=<ID></em>)&nbsp; wrk -t1 -c1 -d5m -s src/profiling/wrk_scripts/delete.lua -R2000 --latency http://127.0.0.1:8080/ </strong> <br/>
@@ -20,7 +20,7 @@
 ``` wrk -t1 -c1 -d5m -R2000 http://127.0.0.1:8080/ ```
 
 Сводки наблюдений по каждой из указанных операций приведены далее.<br/>  
-### 1) wrk -t1 -c1 -d5m -R2000 http://127.0.0.1:8080/ <br/>
+### 1) wrk -t1 -c1 -d5m -R2000 --latency http://127.0.0.1:8080/ <br/>
 
 Консольный вывод:
 ```
