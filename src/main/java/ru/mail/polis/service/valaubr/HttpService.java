@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 public class HttpService extends HttpServer implements Service {
-
     /**
      * key-value storage.
      */
@@ -34,9 +33,9 @@ public class HttpService extends HttpServer implements Service {
     /**
      * Constructor of the service.
      *
-     * @param port - port to connection
+     * @param port - port of connection
      * @param base - object of storage
-     * @throws IOException
+     * @throws IOException - exceptions
      */
     public HttpService(final int port, @NotNull final DAO base) throws IOException {
         super(config(port));
@@ -63,24 +62,26 @@ public class HttpService extends HttpServer implements Service {
         }
     }
 
+
     /**
-     * Get status of server.
+     * Return status of server.
      *
-     * @return 200 - OK
+     * @return 200 - ok
      */
     @Path("/v0/status")
     public Response status() {
         return Response.ok(Response.OK);
     }
 
+
     /**
      * Getting Entity by id.
      *
      * @param id - Entity id
-     * @return 200 - OK
-     * 400 - Empty id in param
-     * 404 - No such element in dao
-     * 500 - Internal error
+     * @return 200 - ok
+     *          400 - Empty id in param
+     *          404 - No such element in dao
+     *          500 - Internal error
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -99,17 +100,19 @@ public class HttpService extends HttpServer implements Service {
         }
     }
 
+
     /**
      * Insertion entity dao by id.
      *
      * @param id - Entity id
      * @return 201 - Create entity
-     * 400 - Empty id in param
-     * 500 - Internal error
+     *          400 - Empty id in param
+     *          500 - Internal error
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response put(@Param(required = true, value = "id") @NotNull final String id, @NotNull final Request request) {
+    public Response put(@Param(required = true, value = "id") @NotNull final String id,
+                        @NotNull final Request request) {
         if (id.strip().isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -127,8 +130,8 @@ public class HttpService extends HttpServer implements Service {
      *
      * @param id - Entity id
      * @return 202 - Delete entity
-     * 400 - Empty id in param
-     * 500 - Internal error
+     *          400 - Empty id in param
+     *          500 - Internal error
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
