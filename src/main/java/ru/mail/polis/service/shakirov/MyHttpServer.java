@@ -39,7 +39,6 @@ public class MyHttpServer extends HttpServer implements Service {
 
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        config.selectors = 4;
         return config;
     }
 
