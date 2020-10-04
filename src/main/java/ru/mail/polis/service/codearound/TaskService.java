@@ -54,7 +54,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * determine what request and how to be handled if receiving one.
+     * returns server status info, feed to respective requests as well.
      *
      * @param id String object to be processed as a key in terms of data storage design
      * @param req client host request
