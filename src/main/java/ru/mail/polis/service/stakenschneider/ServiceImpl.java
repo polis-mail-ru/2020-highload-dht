@@ -11,6 +11,7 @@ import one.nio.server.AcceptorConfig;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.ByteBufferConverter;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
@@ -74,11 +75,9 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private Response get(final ByteBuffer key) {
         try {
-            final ByteBuffer value = dao.get(key);
-            final ByteBuffer duplicate = value.duplicate();
-            final byte[] body = new byte[duplicate.remaining()];
-            duplicate.get(body);
-            return new Response(Response.OK, body);
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] valueArray = ByteBufferConverter.toArray(value);
+            return Response.ok(valueArray);
         } catch (NoSuchElementLiteException ex) {
             logger.error("Empty value: ", ex);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
