@@ -1,8 +1,16 @@
 package ru.mail.polis.service.valaubr;
 
 import com.google.common.base.Charsets;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -14,14 +22,26 @@ import java.util.NoSuchElementException;
 
 public class HttpService extends HttpServer implements Service {
 
+    /**
+     * key-value storage.
+     */
     private final DAO dao;
-    private Logger logger = LoggerFactory.getLogger(HttpService.class);
+    /**
+     * slf4j logger.
+     */
+    private final Logger logger = LoggerFactory.getLogger(HttpService.class);
 
-    public HttpService(final int port, final DAO dao) throws IOException {
+    /**
+     * Constructor of the service.
+     *
+     * @param port - port to connection
+     * @param base - object of storage
+     * @throws IOException
+     */
+    public HttpService(final int port, @NotNull final DAO base) throws IOException {
         super(config(port));
-        this.dao = dao;
+        dao = base;
     }
-
 
     private static HttpServerConfig config(final int port) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
@@ -33,7 +53,7 @@ public class HttpService extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-    private byte[] converterFromByteBuffer(final ByteBuffer byteBuffer) {
+    private byte[] converterFromByteBuffer(@NotNull final ByteBuffer byteBuffer) {
         if (byteBuffer.hasRemaining()) {
             final byte[] bytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(bytes);
@@ -43,14 +63,28 @@ public class HttpService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Get status of server.
+     *
+     * @return 200 - OK
+     */
     @Path("/v0/status")
     public Response status() {
         return Response.ok(Response.OK);
     }
 
+    /**
+     * Getting Entity by id.
+     *
+     * @param id - Entity id
+     * @return 200 - OK
+     * 400 - Empty id in param
+     * 404 - No such element in dao
+     * 500 - Internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response get(@Param(required = true, value = "id") final String id) {
+    public Response get(@Param(required = true, value = "id") @NotNull final String id) {
         if (id.strip().isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -65,9 +99,17 @@ public class HttpService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Insertion entity dao by id.
+     *
+     * @param id - Entity id
+     * @return 201 - Create entity
+     * 400 - Empty id in param
+     * 500 - Internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response put(@Param(required = true, value = "id") final String id, final Request request) {
+    public Response put(@Param(required = true, value = "id") @NotNull final String id, @NotNull final Request request) {
         if (id.strip().isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -80,9 +122,17 @@ public class HttpService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Deleting entity from dao by id.
+     *
+     * @param id - Entity id
+     * @return 202 - Delete entity
+     * 400 - Empty id in param
+     * 500 - Internal error
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response delete(@Param(required = true, value = "id") final String id) {
+    public Response delete(@Param(required = true, value = "id") @NotNull final String id) {
         if (id.strip().isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
@@ -96,7 +146,7 @@ public class HttpService extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
