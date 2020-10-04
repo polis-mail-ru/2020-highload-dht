@@ -53,6 +53,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        return RocksDAO.create(data);
     }
 }
