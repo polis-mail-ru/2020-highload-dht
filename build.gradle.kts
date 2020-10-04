@@ -35,9 +35,6 @@ dependencies {
     // Rocks DB
     compile("org.rocksdb", "rocksdbjni", "6.11.4")
 
-    // https://mvnrepository.com/artifact/log4j/log4j
-    compile( "log4j",  "log4j", "1.2.17")
-
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")

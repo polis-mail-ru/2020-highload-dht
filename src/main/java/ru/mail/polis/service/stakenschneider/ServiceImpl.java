@@ -8,9 +8,9 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.ByteBufferConverter;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.NoSuchElementLiteException;
@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public class ServiceImpl extends HttpServer implements Service {
-    private static final Logger logger = LogManager.getLogger(ServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
 
     public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
@@ -100,7 +100,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        logger.warn("Can't find handler for ".concat(request.getPath()));
+        logger.warn("Can't find handler for {}", request.getPath());
         session.sendResponse(response);
     }
 
