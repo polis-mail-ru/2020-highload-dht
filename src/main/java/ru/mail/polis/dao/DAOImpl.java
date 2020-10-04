@@ -1,12 +1,11 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ComparatorOptions;
+import org.rocksdb.BuiltinComparator;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.util.BytewiseComparator;
 import ru.mail.polis.Record;
 
 import java.io.File;
@@ -15,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import static ru.mail.polis.util.Util.toShiftedArray;
 import static ru.mail.polis.util.Util.toByteArray;
 
 public final class DAOImpl implements DAO {
@@ -33,14 +33,14 @@ public final class DAOImpl implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final RocksIterator iterator = db.newIterator();
-        iterator.seek(toByteArray(from));
+        iterator.seek(toShiftedArray(from));
         return new RecordIterator(iterator);
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
-            db.put(toByteArray(key), toByteArray(value));
+            db.put(toShiftedArray(key), toByteArray(value));
         } catch (RocksDBException exception) {
             throw new IOException(exception);
         }
@@ -50,7 +50,7 @@ public final class DAOImpl implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final byte[] result = db.get(toByteArray(key));
+            final byte[] result = db.get(toShiftedArray(key));
             if (result == null) {
                 throw new NoSuchElementException(String.format("No record found by key %s", key.toString()));
             }
@@ -63,7 +63,7 @@ public final class DAOImpl implements DAO {
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
-            db.delete(toByteArray(key));
+            db.delete(toShiftedArray(key));
         } catch (RocksDBException exception) {
             throw new IOException(exception);
         }
@@ -84,7 +84,7 @@ public final class DAOImpl implements DAO {
     }
 
     static DAO init(final File data) throws IOException {
-        final BytewiseComparator comparator = new BytewiseComparator(new ComparatorOptions());
+        final BuiltinComparator comparator = BuiltinComparator.BYTEWISE_COMPARATOR;
         final Options options = new Options()
             .setCreateIfMissing(true)
             .setComparator(comparator);

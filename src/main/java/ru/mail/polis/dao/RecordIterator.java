@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import static ru.mail.polis.util.Util.fromShiftedArray;
+
 public class RecordIterator implements Iterator<Record>, AutoCloseable {
     private final RocksIterator iterator;
 
@@ -29,7 +31,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
         final byte[] key = iterator.key();
         final byte[] value = iterator.value();
         iterator.next();
-        return Record.of(ByteBuffer.wrap(key), ByteBuffer.wrap(value));
+        return Record.of(fromShiftedArray(key), ByteBuffer.wrap(value));
     }
 
     @Override

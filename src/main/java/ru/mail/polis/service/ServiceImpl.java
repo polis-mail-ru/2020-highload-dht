@@ -16,6 +16,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.NoSuchElementException;
 
+import static ru.mail.polis.util.Util.toByteArray;
+
 public class ServiceImpl extends HttpServer implements Service {
     private final DAO dao;
 
@@ -74,11 +76,8 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private Response get(final ByteBuffer key) {
         try {
-            final ByteBuffer value = dao.get(key);
-            final ByteBuffer duplicate = value.duplicate();
-            final byte[] body = new byte[duplicate.remaining()];
-            duplicate.get(body);
-            return new Response(Response.OK, body);
+            final ByteBuffer duplicate = dao.get(key).duplicate();
+            return Response.ok(toByteArray(duplicate));
         } catch (NoSuchElementException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
