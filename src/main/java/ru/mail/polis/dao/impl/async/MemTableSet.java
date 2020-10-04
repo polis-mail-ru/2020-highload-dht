@@ -20,14 +20,18 @@ public class MemTableSet implements Table {
     private final ReadWriteLock lock;
     private Table currentTable;
     private final NavigableMap<Long, Table> flushingTables;
+    private final Flusher flusher;
     private final AtomicLong generation;
     private final long flushThreshold;
     private final AtomicBoolean isStopped;
 
-    public MemTableSet(final long generation, final long flushThreshold) {
+    public MemTableSet(@NotNull final Flusher flusher,
+                       final long generation,
+                       final long flushThreshold) {
         this.lock = new ReentrantReadWriteLock();
         this.currentTable = new MemTable();
         this.flushingTables = new TreeMap<>();
+        this.flusher = flusher;
         this.generation = new AtomicLong(generation);
         this.flushThreshold = flushThreshold;
         this.isStopped = new AtomicBoolean();

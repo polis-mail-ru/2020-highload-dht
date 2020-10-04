@@ -5,7 +5,9 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
+import ru.mail.polis.dao.impl.async.Flusher;
 import ru.mail.polis.dao.impl.async.MemTableSet;
+import ru.mail.polis.dao.impl.async.TableFlusher;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.tables.MemTable;
 import ru.mail.polis.dao.impl.tables.SSTable;
@@ -38,6 +40,7 @@ public class DAOImpl implements DAO {
     private final long flushThreshold;
     private final MemTableSet memTableSet;
     private final NavigableMap<Long, SSTable> ssTables;
+    private final Flusher flusher;
 
     /**
      * Creates persistent DAO.
@@ -50,6 +53,7 @@ public class DAOImpl implements DAO {
         this.flushThreshold = flushThreshold;
         this.ssTables = new ConcurrentSkipListMap<>();
         final AtomicLong maxGeneration = new AtomicLong();
+        this.flusher = new TableFlusher(this);
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
             stream.filter(path -> {
                 final String name = path.getFileName().toString();
@@ -68,12 +72,12 @@ public class DAOImpl implements DAO {
                     });
         }
         maxGeneration.set(maxGeneration.get() + 1);
-        this.memTableSet = new MemTableSet(maxGeneration.get(), flushThreshold);
+        this.memTableSet = new MemTableSet(this.flusher, maxGeneration.get(), flushThreshold);
     }
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         return Iterators.transform(cellIterator(from),
                 cell -> Record.of(Objects.requireNonNull(cell).getKey(), cell.getValue().getData()));
     }
@@ -85,9 +89,9 @@ public class DAOImpl implements DAO {
      * @return an iterator over alive cells
      */
     @NotNull
-    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) {
+    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(ssTables.size() + 1);
-        fileIterators.add(memTable.iterator(from));
+        fileIterators.add(memTableSet.iterator(from));
         ssTables.descendingMap().values().forEach(v -> {
             try {
                 fileIterators.add(v.iterator(from));
@@ -104,26 +108,28 @@ public class DAOImpl implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTable.upsert(key, value);
-        if (memTable.sizeInBytes() >= flushThreshold) {
+        memTableSet.upsert(key, value);
+        /*if (memTable.sizeInBytes() >= flushThreshold) {
             flush();
-        }
+        }*/
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key);
-        if (memTable.sizeInBytes() >= flushThreshold) {
+        memTableSet.remove(key);
+        /*if (memTable.sizeInBytes() >= flushThreshold) {
             flush();
-        }
+        }*/
     }
 
     @Override
     public void close() throws IOException {
-        if (memTable.getEntryCount() > 0) {
+        memTableSet.close();
+        flusher.close();
+        /*if (memTableSet.getEntryCount() > 0) {
             flush();
         }
-        ssTables.values().forEach(SSTable::close);
+        ssTables.values().forEach(SSTable::close);*/
     }
 
     private void flush() throws IOException {

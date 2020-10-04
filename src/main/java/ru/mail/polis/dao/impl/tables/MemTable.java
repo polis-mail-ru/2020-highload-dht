@@ -47,8 +47,4 @@ public class MemTable implements Table {
         map.put(key, new Value(System.currentTimeMillis()));
     }
 
-    public int getEntryCount() {
-        return map.size();
-    }
-
 }
