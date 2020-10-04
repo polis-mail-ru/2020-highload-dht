@@ -6,6 +6,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public final class ByteBufferConverter {
+
+    private ByteBufferConverter(){}
     
     /**
      * Convert ByteBuffer from java.nio to byte array.
