@@ -127,6 +127,15 @@ public class MemTablePool implements Table {
         }
     }
 
+    public int getGeneration() {
+        readWriteLock.readLock().lock();
+        try {
+            return generation;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+    }
+
     public void flushed(final int generation) {
         readWriteLock.writeLock().lock();
         try {

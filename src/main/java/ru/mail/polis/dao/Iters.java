@@ -20,8 +20,8 @@ import com.google.common.base.Functions;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.function.Function;
+import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
 
 /**
  * Utility methods for iterators.
@@ -38,7 +38,7 @@ public final class Iters {
 
         @Override
         public Object next() {
-            throw new NoSuchElementException("Next on empty iterator");
+            throw new NoSuchElementExceptionLightWeight("Next on empty iterator");
         }
     };
 

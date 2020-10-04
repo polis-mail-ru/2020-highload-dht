@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -53,8 +54,6 @@ public class DAOImpl implements DAO {
     @NotNull
     private final ReadWriteLock readWriteLock;
 
-    private int generation;
-
     /**
      * Creates DAO from file storage, data from file will be store in immutable SSTable
      * and new data - MemTable.
@@ -67,7 +66,7 @@ public class DAOImpl implements DAO {
                    final int memTablePoolSize) {
         this.storage = storage;
         this.ssTables = new ConcurrentSkipListMap<>();
-        this.generation = -1;
+        final AtomicInteger generation = new AtomicInteger(-1);
 
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
             stream
@@ -77,14 +76,25 @@ public class DAOImpl implements DAO {
                                 && !path.toFile().isDirectory()
                                 && name.substring(0, name.indexOf(SSTABLE_FILE_END)).matches(FILE_NAME_REGEX);
                     })
-                    .forEach(this::storeDataFromFile);
+                    .forEach(path -> {
+                        try {
+                            final String fileName = path.getFileName().toString();
+                            final String fileGenerationStr = fileName.substring(0, fileName.indexOf(SSTABLE_FILE_END));
+                            final int fileGeneration = Integer.parseInt(fileGenerationStr);
+                            generation.set(Math.max(generation.get(), fileGeneration));
+                            ssTables.put(fileGeneration, new SSTable(path));
+                        } catch (IOException e) {
+                            logger.error(e.getMessage());
+                            throw new UncheckedIOException(e);
+                        }
+                    });
         } catch (IOException e) {
             logger.error(e.getMessage());
             throw new UncheckedIOException(e);
         }
 
         this.readWriteLock = new ReentrantReadWriteLock();
-        this.memTablePool = new MemTablePool(tableByteSize, ++generation, memTablePoolSize);
+        this.memTablePool = new MemTablePool(tableByteSize, generation.incrementAndGet(), memTablePoolSize);
         this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
         this.executorService.execute(() -> {
             boolean poisonReceived = false;
@@ -150,8 +160,8 @@ public class DAOImpl implements DAO {
     public void compact() throws IOException {
         final List<Iterator<Cell>> iterators = listCellIterator(ByteBuffer.allocate(0));
         final Iterator<Cell> cellIterator = mergeIterator(iterators);
+        int generation = memTablePool.getGeneration();
         final List<File> oldFiles = new ArrayList<>(generation);
-        final Path targetPath;
         readWriteLock.writeLock().lock();
         try {
             for (int i = 0; i < generation; i++) {
@@ -163,14 +173,14 @@ public class DAOImpl implements DAO {
             final File fileTmp = new File(storage, generation + SSTABLE_TMP_FILE_END);
             SSTable.serialize(fileTmp, cellIterator);
             final File fileDst = new File(storage, generation + SSTABLE_FILE_END);
-            targetPath = fileDst.toPath();
+            final Path targetPath = fileDst.toPath();
             Files.move(fileTmp.toPath(), targetPath, StandardCopyOption.ATOMIC_MOVE);
             for (final File oldFile : oldFiles) {
                 Files.delete(oldFile.toPath());
             }
             memTablePool.close();
             ssTables.clear();
-            ssTables.put(generation++, new SSTable(targetPath));
+            ssTables.put(generation, new SSTable(targetPath));
         } finally {
             readWriteLock.writeLock().unlock();
         }
@@ -188,19 +198,6 @@ public class DAOImpl implements DAO {
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         ssTables.put(flushTable.getGeneration(), new SSTable(dst.toPath()));
-    }
-
-    private void storeDataFromFile(@NotNull final Path path) {
-        try {
-            final String fileName = path.getFileName().toString();
-            final String fileGenerationStr = fileName.substring(0, fileName.indexOf(SSTABLE_FILE_END));
-            final int fileGeneration = Integer.parseInt(fileGenerationStr);
-            generation = Math.max(generation, fileGeneration);
-            ssTables.put(fileGeneration, new SSTable(path));
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-            throw new UncheckedIOException(e);
-        }
     }
 
     private List<Iterator<Cell>> listCellIterator(@NotNull final ByteBuffer from) {

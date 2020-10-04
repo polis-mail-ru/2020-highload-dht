@@ -14,11 +14,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.NoSuchElementException;
 
 public class MyService extends HttpServer implements Service {
 
@@ -47,8 +47,8 @@ public class MyService extends HttpServer implements Service {
             final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
             final ByteBuffer byteBuffer = dao.get(wrappedBytes);
             return Response.ok(getBytesFromByteBuffer(byteBuffer));
-        } catch (NoSuchElementException nsee) {
-            logger.error("Does not exist record by id = {}", id);
+        } catch (NoSuchElementExceptionLightWeight e) {
+            logger.error("Does not exist record by id = {}", id, e);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ioe) {
             logger.error("Error when trying get record", ioe);
