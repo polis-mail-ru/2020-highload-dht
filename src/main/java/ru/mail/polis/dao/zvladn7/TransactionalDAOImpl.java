@@ -61,7 +61,7 @@ final class TransactionalDAOImpl implements TransactionalDAO {
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final List<Iterator<Cell>> iters = new ArrayList<>();
         iters.add(memoryTable.iterator(from));
-        iters.addAll(dao.getAllCellItersList(from));
+        dao.getAllCellItersList(from, iters);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
                 iters,

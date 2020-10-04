@@ -20,7 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Stream;
 
 public class LsmDAOImpl implements LsmDAO {
@@ -35,12 +35,10 @@ public class LsmDAOImpl implements LsmDAO {
     @NonNull
     private final File storage;
     private final int amountOfBytesToFlush;
-
-    private MemoryTable memtable;
-    private final NavigableMap<Integer, Table> ssTables;
     Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
     private int generation;
+    private TableSet tableSet;
 
     /**
      * LSM DAO implementation.
@@ -50,8 +48,8 @@ public class LsmDAOImpl implements LsmDAO {
     public LsmDAOImpl(@NotNull final File storage, final int amountOfBytesToFlush) throws IOException {
         this.storage = storage;
         this.amountOfBytesToFlush = amountOfBytesToFlush;
-        this.memtable = new MemoryTable();
-        this.ssTables = new TreeMap<>();
+        NavigableMap<Integer, Table> ssTables = new ConcurrentSkipListMap<>();
+        generation = 0;
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(file -> !file.toFile().isDirectory() && file.toString().endsWith(SSTABLE_FILE_POSTFIX))
                     .forEach(file -> {
@@ -71,12 +69,15 @@ public class LsmDAOImpl implements LsmDAO {
             ++generation;
         }
 
+        this.tableSet = TableSet.provideTableSet(ssTables, generation);
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final Iterator<Cell> freshElements = freshCellIterator(from);
+        final List<Iterator<Cell>> iters = new ArrayList<>(tableSet.ssTables.size() + 2);
+        iters.add(tableSet.memTable.iterator(from));
+        final Iterator<Cell> freshElements = freshCellIterator(from, iters);
         final Iterator<Cell> aliveElements = Iterators.filter(freshElements, el -> !el.getValue().isTombstone());
 
         return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
@@ -84,32 +85,35 @@ public class LsmDAOImpl implements LsmDAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memtable.upsert(key, value);
-        if (memtable.getAmountOfBytes() > amountOfBytesToFlush) {
+        tableSet.memTable.upsert(key, value);
+        if (tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memtable.remove(key);
-        if (memtable.getAmountOfBytes() > amountOfBytesToFlush) {
+        tableSet.memTable.remove(key);
+        if (tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush) {
             flush();
         }
     }
 
     @Override
     public void close() throws IOException {
-        if (memtable.size() > 0) {
+        if (tableSet.memTable.size() > 0) {
             flush();
         }
-        ssTables.values().forEach(Table::close);
+        tableSet.ssTables.values().forEach(Table::close);
     }
 
     @Override
     public void compact() throws IOException {
-        final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER);
-        final File dst = serialize(freshElements);
+        final List<Iterator<Cell>> iters = new ArrayList<>(tableSet.ssTables.size());
+        final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER, iters);
+        final TableSet snapsnot = tableSet;
+        tableSet = tableSet.startCompact();
+        final File dst = serialize(snapsnot, freshElements);
 
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(f -> !f.getFileName().toFile().toString().equals(dst.getName()))
@@ -121,25 +125,19 @@ public class LsmDAOImpl implements LsmDAO {
                     }
                 });
         }
-
-        ssTables.clear();
-        memtable = new MemoryTable();
-        ssTables.put(generation, new SSTable(dst));
-        ++generation;
+        tableSet = tableSet.finishCompact(snapsnot.ssTables, dst);
     }
 
     private void flush() throws IOException {
-        final File dst = serialize(memtable.iterator(EMPTY_BUFFER));
-        ++generation;
-        ssTables.put(generation, new SSTable(dst));
-        memtable = new MemoryTable();
+        final TableSet snapshot = tableSet;
+        tableSet = tableSet.startFlushingOnDisk();
+        final File dst = serialize(snapshot, snapshot.memTable.iterator(EMPTY_BUFFER));
+        tableSet = tableSet.finishFlushingOnDisk(snapshot.memTable, dst);
+
     }
 
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from) {
-        //one more for TransactionalDAO iterator to not reallocate an array
-        final List<Iterator<Cell>> iters = new ArrayList<>(ssTables.size() + 2);
-        iters.add(memtable.iterator(from));
-        ssTables.descendingMap().values().forEach(ssTable -> {
+    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters) {
+        tableSet.ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iters.add(ssTable.iterator(from));
             } catch (IOException e) {
@@ -150,8 +148,10 @@ public class LsmDAOImpl implements LsmDAO {
         return iters;
     }
 
-    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from) {
-        final List<Iterator<Cell>> iters = getAllCellItersList(from);
+
+
+    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList) {
+        final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
                 iters,
@@ -161,11 +161,11 @@ public class LsmDAOImpl implements LsmDAO {
         return Iters.collapseEquals(mergedElements, Cell::getKey);
     }
 
-    private File serialize(final Iterator<Cell> iterator) throws IOException {
-        final File file = new File(storage, generation + SSTABLE_TEMPORARY_FILE_POSTFIX);
+    private File serialize(final TableSet snapshot, final Iterator<Cell> iterator) throws IOException {
+        final File file = new File(storage, snapshot.generation + SSTABLE_TEMPORARY_FILE_POSTFIX);
         file.createNewFile();
         SSTable.serialize(file, iterator);
-        final String newFileName = generation + SSTABLE_FILE_POSTFIX;
+        final String newFileName = snapshot.generation + SSTABLE_FILE_POSTFIX;
         final File dst = new File(storage, newFileName);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
