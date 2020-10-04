@@ -5,13 +5,12 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.dao.impl.async.Flusher;
-import ru.mail.polis.dao.impl.async.MemTableSet;
-import ru.mail.polis.dao.impl.async.TableFlusher;
+import ru.mail.polis.dao.impl.async.TableSet;
 import ru.mail.polis.dao.impl.models.Cell;
-import ru.mail.polis.dao.impl.tables.MemTable;
 import ru.mail.polis.dao.impl.tables.SSTable;
+import ru.mail.polis.dao.impl.tables.Table;
 
+import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -19,15 +18,10 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class DAOImpl implements DAO {
@@ -38,9 +32,10 @@ public class DAOImpl implements DAO {
     @NotNull
     private final File storage;
     private final long flushThreshold;
-    private final MemTableSet memTableSet;
-    private final NavigableMap<Long, SSTable> ssTables;
-    private final Flusher flusher;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    @NotNull
+    @GuardedBy("lock")
+    private TableSet tableSet;
 
     /**
      * Creates persistent DAO.
@@ -51,9 +46,8 @@ public class DAOImpl implements DAO {
     public DAOImpl(@NotNull final File storage, final long flushThreshold) throws IOException {
         this.storage = storage;
         this.flushThreshold = flushThreshold;
-        this.ssTables = new ConcurrentSkipListMap<>();
+        final NavigableMap<Long, Table> ssTables = new TreeMap<>();
         final AtomicLong maxGeneration = new AtomicLong();
-        this.flusher = new TableFlusher(this);
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
             stream.filter(path -> {
                 final String name = path.getFileName().toString();
@@ -72,7 +66,7 @@ public class DAOImpl implements DAO {
                     });
         }
         maxGeneration.set(maxGeneration.get() + 1);
-        this.memTableSet = new MemTableSet(this.flusher, maxGeneration.get(), flushThreshold);
+        this.tableSet = TableSet.fromFiles(ssTables, maxGeneration.get());
     }
 
     @NotNull
@@ -90,9 +84,23 @@ public class DAOImpl implements DAO {
      */
     @NotNull
     public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
-        final List<Iterator<Cell>> fileIterators = new ArrayList<>(ssTables.size() + 1);
-        fileIterators.add(memTableSet.iterator(from));
-        ssTables.descendingMap().values().forEach(v -> {
+        final TableSet snapshot;
+        lock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
+        }
+        final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size() + 1);
+        fileIterators.add(snapshot.memTable.iterator(from));
+        snapshot.flushing.forEach(v -> {
+            try {
+                fileIterators.add(v.iterator(from));
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        });
+        snapshot.ssTables.descendingMap().values().forEach(v -> {
             try {
                 fileIterators.add(v.iterator(from));
             } catch (IOException ex) {
@@ -108,55 +116,112 @@ public class DAOImpl implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTableSet.upsert(key, value);
-        /*if (memTable.sizeInBytes() >= flushThreshold) {
+        final boolean isToFlush;
+        lock.readLock().lock();
+        try {
+            tableSet.memTable.upsert(key, value);
+            isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
+
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (isToFlush) {
             flush();
-        }*/
+        }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTableSet.remove(key);
-        /*if (memTable.sizeInBytes() >= flushThreshold) {
+        final boolean isToFlush;
+        lock.readLock().lock();
+        try {
+            tableSet.memTable.remove(key);
+            isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
+
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (isToFlush) {
             flush();
-        }*/
+        }
     }
 
     @Override
     public void close() throws IOException {
-        memTableSet.close();
-        flusher.close();
-        /*if (memTableSet.getEntryCount() > 0) {
-            flush();
-        }
-        ssTables.values().forEach(SSTable::close);*/
+        flush();
     }
 
     private void flush() throws IOException {
-        final File temp = new File(storage, generation + TEMP);
-        SSTable.write(memTable.iterator(ByteBuffer.allocate(0)), temp);
-        final File file = new File(storage, generation + SUFFIX);
+        final TableSet snapshot;
+        lock.writeLock().lock();
+        try {
+            snapshot = this.tableSet;
+            if (snapshot.memTable.sizeInBytes() == 0L) {
+                return;
+            }
+            this.tableSet = snapshot.markAsFlushing();
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        final File temp = new File(storage, snapshot.generation + TEMP);
+        SSTable.write(snapshot.memTable.iterator(ByteBuffer.allocate(0)), temp);
+        final File file = new File(storage, snapshot.generation + SUFFIX);
         Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        memTable = new MemTable();
-        ssTables.put(generation, new SSTable(file));
-        generation++;
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.moveToFlushedFiles(snapshot.memTable, new SSTable(file), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     @Override
-    public void compact() throws IOException {
-        final Iterator<Cell> cells = cellIterator(ByteBuffer.allocate(0));
-        final File temp = new File(storage, generation + TEMP);
-        SSTable.write(cells, temp);
-
-        for (final Map.Entry<Integer, SSTable> ssTableEntry : ssTables.entrySet()) {
-            ssTableEntry.getValue().deleteSSTableFile();
+    public synchronized void compact() throws IOException {
+        final TableSet snapshot;
+        lock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
         }
-        ssTables.clear();
-        generation = 0;
-        final File file = new File(storage, generation + SUFFIX);
+
+        final ByteBuffer from = ByteBuffer.allocate(0);
+        final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size());
+        snapshot.ssTables.descendingMap().values().forEach(v -> {
+            try {
+                fileIterators.add(v.iterator(from));
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        });
+
+        final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
+        final Iterator<Cell> cells = Iters.collapseEquals(merged, Cell::getKey);
+
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.compacting();
+        } finally {
+            lock.writeLock().unlock();
+        }
+        final File temp = new File(storage, snapshot.generation + TEMP);
+        SSTable.write(cells, temp);
+        final File file = new File(storage, snapshot.generation + SUFFIX);
         Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        ssTables.put(generation, new SSTable(file));
-        memTable = new MemTable();
-        generation++;
+
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.replaceCompactedFiles(snapshot.ssTables, new SSTable(file), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        for (final long generation : snapshot.ssTables.keySet()) {
+            final File deleteFile = new File(storage, generation + SUFFIX);
+            if (!deleteFile.delete()) {
+                throw new IOException();
+            }
+        }
     }
 }

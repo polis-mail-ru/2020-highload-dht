@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.models.Value;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NavigableMap;
@@ -12,6 +13,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class MemTable implements Table {
     private final NavigableMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
     private final AtomicLong sizeInBytes = new AtomicLong();
