@@ -17,6 +17,7 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.valaubr.LsmDAO;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,17 +43,17 @@ public final class DAOFactory {
     @NotNull
     public static DAO create(@NotNull final File data) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
-            throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
+            throw new IllegalStateException("--Xmx overhead value.");
         }
 
         if (!data.exists()) {
-            throw new IllegalArgumentException("Path doesn't exist: " + data);
+            throw new IllegalArgumentException("Path not exist: " + data);
         }
 
         if (!data.isDirectory()) {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        throw new UnsupportedOperationException("Implement me!");
+        return new LsmDAO(data, MAX_HEAP / 32);
     }
 }
