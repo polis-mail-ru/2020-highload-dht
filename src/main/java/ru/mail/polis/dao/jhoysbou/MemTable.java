@@ -7,10 +7,12 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MemTable implements Table {
-    private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
-    private long sizeInBytes;
+    private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
+    private AtomicLong sizeInBytes = new AtomicLong();
 
     @NotNull
     @Override
@@ -27,9 +29,9 @@ public class MemTable implements Table {
         final Value oldValue = map.put(key.duplicate(), new Value(System.currentTimeMillis(), value));
 
         if (oldValue == null) {
-            sizeInBytes += key.remaining() + value.remaining() + Long.BYTES;
+            sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
         } else {
-            sizeInBytes += value.remaining() - oldValue.getData().remaining();
+            sizeInBytes.addAndGet(value.remaining() - oldValue.getData().remaining());
         }
     }
 
@@ -38,9 +40,9 @@ public class MemTable implements Table {
         final Value oldValue = map.put(key.duplicate(), new Value(System.currentTimeMillis()));
 
         if (oldValue == null) {
-            sizeInBytes += key.remaining() + Long.BYTES;
+            sizeInBytes.addAndGet(key.remaining() + Long.BYTES);
         } else {
-            sizeInBytes -= oldValue.getData().remaining();
+            sizeInBytes.addAndGet(-oldValue.getData().remaining());
         }
     }
 
@@ -50,9 +52,7 @@ public class MemTable implements Table {
     }
 
     @Override
-    public long sizeInBytes() {
-        return sizeInBytes;
-    }
+    public long sizeInBytes() { return sizeInBytes.get(); }
 
     @Override
     public void close() {

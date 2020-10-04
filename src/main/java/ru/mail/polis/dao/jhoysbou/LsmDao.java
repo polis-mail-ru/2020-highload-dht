@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 public class LsmDao implements DAO {
@@ -30,11 +31,8 @@ public class LsmDao implements DAO {
     @NotNull
     private final File storage;
     private final long flushThreshold;
-    private NavigableMap<Integer, Table> ssTables;
-    // Data
-    private Table memTable;
-    // State
-    private int generation;
+
+    private TableSet tableSet;
 
     /**
      * Simple LSM.
@@ -42,25 +40,25 @@ public class LsmDao implements DAO {
      * @param storage        the directory to store data
      * @param flushThreshold maximum bytes to store in memory.
      *                       If a size of data gets larger, the program flushes it on drive.
+     *
      * @throws IOException when where are problems with getting list of files in storage directory
      */
     public LsmDao(
             final @NotNull File storage,
             final long flushThreshold) throws IOException {
-        this.generation = 0;
+        AtomicInteger generation = new AtomicInteger();
 
         assert flushThreshold > 0L;
         this.flushThreshold = flushThreshold;
         this.storage = storage;
-        this.memTable = new MemTable();
-        this.ssTables = new TreeMap<>();
+        final NavigableMap<Integer, Table> ssTables = new TreeMap<>();
 
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(path -> path.toString().endsWith(SUFFIX)).forEach(f -> {
                 final String name = f.getFileName().toString();
                 try {
                     final int savedGeneration = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
-                    this.generation = Math.max(this.generation, savedGeneration);
+                    generation.set(Math.max(generation.get(), savedGeneration));
                     ssTables.put(savedGeneration, new SSTable(f.toFile()));
                 } catch (IOException e) {
                     log.error("IOException with .dat file:\n" + e.getMessage());
@@ -69,14 +67,24 @@ public class LsmDao implements DAO {
                 }
             });
         }
+        this.tableSet = TableSet.fromFiles(ssTables, generation.get());
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        final List<Iterator<Cell>> iters = new ArrayList<>(ssTables.size() + 1);
-        iters.add(memTable.iterator(from));
-        ssTables.descendingMap().values().forEach(t -> {
+        final TableSet snapshot = this.tableSet;
+        final List<Iterator<Cell>> iters = new ArrayList<>(this.tableSet.ssTables.size()
+                + this.tableSet.flushingTables.size()
+                + 1);
+
+        iters.add(this.tableSet.memTable.iterator(from));
+
+        for (final Table flushing : snapshot.flushingTables) {
+            iters.add(flushing.iterator(from));
+        }
+
+        this.tableSet.ssTables.descendingMap().values().forEach(t -> {
             try {
                 iters.add(t.iterator(from));
             } catch (IOException e) {
@@ -95,51 +103,54 @@ public class LsmDao implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTable.upsert(key, value);
-        if (memTable.sizeInBytes() > flushThreshold) {
+        this.tableSet.memTable.upsert(key, value);
+        if (this.tableSet.memTable.sizeInBytes() > flushThreshold) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key);
-        if (memTable.sizeInBytes() > flushThreshold) {
+        this.tableSet.memTable.remove(key);
+        if (this.tableSet.memTable.sizeInBytes() > flushThreshold) {
             flush();
         }
     }
 
     private void flush() throws IOException {
-        final File file = new File(storage, generation + TEMP);
+        final File file = new File(storage, this.tableSet.generation + TEMP);
+        final TableSet snapshot = this.tableSet;
+        this.tableSet = snapshot.flushing();
+
         SSTable.serialize(
                 file,
-                memTable.iterator(ByteBuffer.allocate(0))
+                snapshot.memTable.iterator(ByteBuffer.allocate(0))
         );
-        final File dst = new File(storage, generation + SUFFIX);
+        final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        memTable = new MemTable();
-        ssTables.put(generation++, new SSTable(dst));
+        this.tableSet = this.tableSet
+                .flushed(snapshot.memTable, this.tableSet.generation, new SSTable(dst));
     }
 
     @Override
     public void close() throws IOException {
-        if (memTable.size() > 0) {
+        if (this.tableSet.memTable.size() > 0) {
             flush();
         }
 
-        for (final Table t : ssTables.values()) {
+        for (final Table t : this.tableSet.ssTables.values()) {
             t.close();
         }
     }
 
     @Override
-    public void compact() throws IOException {
-        final List<Iterator<Cell>> iters = new ArrayList<>(ssTables.size() + 1);
+    public synchronized void compact() throws IOException {
+        final TableSet snapshot = this.tableSet;
+        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size());
         final ByteBuffer empty = ByteBuffer.allocate(0);
-        iters.add(memTable.iterator(empty));
 
-        ssTables.descendingMap().values().forEach(t -> {
+        snapshot.ssTables.descendingMap().values().forEach(t -> {
             try {
                 iters.add(t.iterator(empty));
             } catch (IOException e) {
@@ -150,19 +161,19 @@ public class LsmDao implements DAO {
         final Iterator<Cell> merged = Iterators.mergeSorted(iters, Cell.COMPARATOR);
         final Iterator<Cell> unique = Iters.collapseEquals(merged, Cell::getKey);
 
-        final File temp = new File(storage, generation + TEMP);
+        this.tableSet = this.tableSet.startCompaction();
+
+        final File temp = new File(storage, snapshot.generation + TEMP);
         SSTable.serialize(temp, unique);
-
-        for (int i = 0; i < generation; i++) {
-            Files.delete(new File(storage, i + SUFFIX).toPath());
-        }
-        generation = 0;
-
-        final File dst = new File(storage, generation + SUFFIX);
+        final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(temp.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        ssTables = new TreeMap<>();
-        ssTables.put(generation++, new SSTable(dst));
-        memTable = new MemTable();
+
+        this.tableSet = this.tableSet
+                .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation);
+
+        for (int gen : snapshot.ssTables.keySet()) {
+            Files.delete(new File(storage, gen + SUFFIX).toPath());
+        }
     }
 }
 
