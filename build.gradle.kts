@@ -33,7 +33,7 @@ dependencies {
     compile("com.google.guava:guava:27.0.1-jre")
 
     // Rocks DB
-    compile("org.rocksdb", "rocksdbjni", "6.7.3")
+    compile("org.rocksdb", "rocksdbjni", "6.11.4")
 
     // https://mvnrepository.com/artifact/log4j/log4j
     compile( "log4j",  "log4j", "1.2.17")
