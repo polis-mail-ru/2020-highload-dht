@@ -1,6 +1,5 @@
 package ru.mail.polis.service.shakirov;
 
-import com.google.common.base.Charsets;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -17,11 +16,12 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
 public class MyHttpServer extends HttpServer implements Service {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MyHttpServer.class);
+    private static final Logger log = LoggerFactory.getLogger(MyHttpServer.class);
 
     @NotNull
     private final DAO dao;
@@ -32,10 +32,6 @@ public class MyHttpServer extends HttpServer implements Service {
     }
 
     private static HttpServerConfig getConfig(final int port) {
-        if (port <= 0 || port >= 65536) {
-            throw new IllegalArgumentException("Port out of range");
-        }
-
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
@@ -60,11 +56,11 @@ public class MyHttpServer extends HttpServer implements Service {
      * @return response
      */
     @Path("/v0/entity")
-    public Response entity(@NotNull final Request request, @Param("id") final String id) {
-        if (id == null || id.isEmpty()) {
+    public Response entity(@NotNull final Request request, @Param(value = "id", required = true) final String id) {
+        if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
@@ -83,15 +79,17 @@ public class MyHttpServer extends HttpServer implements Service {
                     return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, "Key not found".getBytes(Charsets.UTF_8));
+            log.error("Key(id) = {} not found: {}", id, e);
+            return new Response(Response.NOT_FOUND, "Key not found".getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
+            log.error("Internal error with key(id) {}, exception: {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        LOGGER.error("Unknown request: {}", request);
+        log.error("Unknown request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 }
