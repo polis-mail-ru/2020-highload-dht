@@ -35,7 +35,8 @@ public final class RocksDAO implements DAO {
         try {
             final byte[] result = db.get(ByteBufferConverter.toArrayShifted(key));
             if (result == null) {
-                throw new NoSuchElementLiteException("cant find element " + StandardCharsets.UTF_8.decode(key).toString());
+                String stringKey = StandardCharsets.UTF_8.decode(key).toString();
+                throw new NoSuchElementLiteException("cant find element " + stringKey);
             }
             return ByteBuffer.wrap(result);
         } catch (RocksDBException exception) {
