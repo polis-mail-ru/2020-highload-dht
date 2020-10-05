@@ -156,9 +156,6 @@ public class MyDAO implements DAO {
         readWriteLock.readLock().lock();
         try {
             iterators = cellIterator(from);
-        } finally {
-            readWriteLock.readLock().unlock();
-        }
 
         final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
                 Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
@@ -173,6 +170,9 @@ public class MyDAO implements DAO {
 
         return Iterators.transform(filteredIterator,
                 cell -> Record.of(Objects.requireNonNull(cell).getKey(), cell.getValue().getData()));
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
     }
 
     @Override

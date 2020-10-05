@@ -129,7 +129,7 @@ final class SSTable implements Table {
             fileChannel.read(keyByteBufferSize.duplicate(), offset);
             offset += Integer.BYTES;
 
-            final int keySize = keyByteBufferSize.rewind().getInt();
+            final int keySize = keyByteBufferSize.duplicate().rewind().getInt();
             final ByteBuffer keyByteBuffer = ByteBuffer.allocate(keySize);
             fileChannel.read(keyByteBuffer, offset);
             offset += keySize;
