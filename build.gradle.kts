@@ -32,6 +32,11 @@ dependencies {
     // Guava primitives
     compile("com.google.guava:guava:27.0.1-jre")
 
+    // Rocks DB
+    compile("org.rocksdb:rocksdbjni:6.7.3")
+
+    compile( "log4j:log4j:1.2.17")
+
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")
