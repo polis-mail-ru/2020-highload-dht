@@ -13,6 +13,9 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
+!*.txt
+!*.svg
+!highloadTest/readme.md
 
 # ...even if they are in subdirectories
 !*/

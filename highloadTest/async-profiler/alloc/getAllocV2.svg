@@ -1,0 +1,1485 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="550" onload="init(evt)" viewBox="0 0 1200 550" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
+<text id="title" x="600" y="24">Flame Graph</text>
+<text id="details" x="10" y="533"> </text>
+<text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090" y="24">Search</text>
+<text id="matched" x="1090" y="533"> </text>
+<g id="frames">
+<g>
+<title>all (11,094 samples, 100.00%)</title><rect x="10.0" y="499.0" width="1180.0" height="15" fill="#e86464" rx="2" ry="2"/>
+<text x="13.0" y="510.0">all</text>
+</g>
+<g>
+<title>one/nio/server/SelectorThread.run (11,094 samples, 100.00%)</title><rect x="10.0" y="483.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="13.0" y="494.0">one/nio/server/SelectorThread.run</text>
+</g>
+<g>
+<title>one/nio/net/NativeSelector.select (32 samples, 0.29%)</title><rect x="10.0" y="467.0" width="3.4" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="13.0" y="478.0"></text>
+</g>
+<g>
+<title>one.nio.net.NativeSelector$2 (32 samples, 0.29%)</title><rect x="10.0" y="451.0" width="3.4" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="13.0" y="462.0"></text>
+</g>
+<g>
+<title>one/nio/net/Session.process (11,062 samples, 99.71%)</title><rect x="13.4" y="467.0" width="1176.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="16.4" y="478.0">one/nio/net/Session.process</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.processRead (11,062 samples, 99.71%)</title><rect x="13.4" y="451.0" width="1176.6" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="16.4" y="462.0">one/nio/http/HttpSession.processRead</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.processHttpBuffer (11,062 samples, 99.71%)</title><rect x="13.4" y="435.0" width="1176.6" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="16.4" y="446.0">one/nio/http/HttpSession.processHttpBuffer</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.handleParsedRequest (10,796 samples, 97.31%)</title><rect x="13.4" y="419.0" width="1148.3" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="16.4" y="430.0">one/nio/http/HttpSession.handleParsedRequest</text>
+</g>
+<g>
+<title>one/nio/http/HttpServer.handleRequest (10,796 samples, 97.31%)</title><rect x="13.4" y="403.0" width="1148.3" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="16.4" y="414.0">one/nio/http/HttpServer.handleRequest</text>
+</g>
+<g>
+<title>RequestHandler3_getEntity.handleRequest (10,769 samples, 97.07%)</title><rect x="13.4" y="387.0" width="1145.4" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="16.4" y="398.0">RequestHandler3_getEntity.handleRequest</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.sendResponse (98 samples, 0.88%)</title><rect x="13.4" y="371.0" width="10.4" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="16.4" y="382.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.writeResponse (98 samples, 0.88%)</title><rect x="13.4" y="355.0" width="10.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="16.4" y="366.0"></text>
+</g>
+<g>
+<title>one/nio/http/Response.toBytes (60 samples, 0.54%)</title><rect x="13.4" y="339.0" width="6.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="16.4" y="350.0"></text>
+</g>
+<g>
+<title>one/nio/util/ByteArrayBuilder.&lt;init&gt; (60 samples, 0.54%)</title><rect x="13.4" y="323.0" width="6.4" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="16.4" y="334.0"></text>
+</g>
+<g>
+<title>byte[] (60 samples, 0.54%)</title><rect x="13.4" y="307.0" width="6.4" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="16.4" y="318.0"></text>
+</g>
+<g>
+<title>one/nio/net/Session.write (38 samples, 0.34%)</title><rect x="19.8" y="339.0" width="4.0" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="22.8" y="350.0"></text>
+</g>
+<g>
+<title>one.nio.net.Session$ArrayQueueItem (38 samples, 0.34%)</title><rect x="19.8" y="323.0" width="4.0" height="15" fill="#6cdada" rx="2" ry="2"/>
+<text x="22.8" y="334.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getRequiredParameter (46 samples, 0.41%)</title><rect x="23.8" y="371.0" width="4.9" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="26.8" y="382.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getParameter (46 samples, 0.41%)</title><rect x="23.8" y="355.0" width="4.9" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="26.8" y="366.0"></text>
+</g>
+<g>
+<title>java/lang/String.substring (46 samples, 0.41%)</title><rect x="23.8" y="339.0" width="4.9" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="26.8" y="350.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (46 samples, 0.41%)</title><rect x="23.8" y="323.0" width="4.9" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="26.8" y="334.0"></text>
+</g>
+<g>
+<title>java.lang.String (21 samples, 0.19%)</title><rect x="23.8" y="307.0" width="2.3" height="15" fill="#62d0d0" rx="2" ry="2"/>
+<text x="26.8" y="318.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOfRange (25 samples, 0.23%)</title><rect x="26.1" y="307.0" width="2.6" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="29.1" y="318.0"></text>
+</g>
+<g>
+<title>byte[] (25 samples, 0.23%)</title><rect x="26.1" y="291.0" width="2.6" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="29.1" y="302.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/service/nik27090/ServiceImpl.getEntity (10,625 samples, 95.77%)</title><rect x="28.7" y="371.0" width="1130.1" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="31.7" y="382.0">ru/mail/polis/service/nik27090/ServiceImpl.getEntity</text>
+</g>
+<g>
+<title>byte[] (25 samples, 0.23%)</title><rect x="28.7" y="355.0" width="2.7" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="31.7" y="366.0"></text>
+</g>
+<g>
+<title>java/lang/String.getBytes (15 samples, 0.14%)</title><rect x="31.4" y="355.0" width="1.6" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="34.4" y="366.0"></text>
+</g>
+<g>
+<title>java/lang/StringCoding.encode (15 samples, 0.14%)</title><rect x="31.4" y="339.0" width="1.6" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="34.4" y="350.0"></text>
+</g>
+<g>
+<title>java/lang/StringCoding.encodeUTF8 (15 samples, 0.14%)</title><rect x="31.4" y="323.0" width="1.6" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="34.4" y="334.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOf (15 samples, 0.14%)</title><rect x="31.4" y="307.0" width="1.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="34.4" y="318.0"></text>
+</g>
+<g>
+<title>byte[] (15 samples, 0.14%)</title><rect x="31.4" y="291.0" width="1.6" height="15" fill="#63d1d1" rx="2" ry="2"/>
+<text x="34.4" y="302.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.wrap (40 samples, 0.36%)</title><rect x="33.0" y="355.0" width="4.2" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="36.0" y="366.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.wrap (40 samples, 0.36%)</title><rect x="33.0" y="339.0" width="4.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="36.0" y="350.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (40 samples, 0.36%)</title><rect x="33.0" y="323.0" width="4.2" height="15" fill="#5ccaca" rx="2" ry="2"/>
+<text x="36.0" y="334.0"></text>
+</g>
+<g>
+<title>one/nio/http/Response.ok (83 samples, 0.75%)</title><rect x="37.2" y="355.0" width="8.9" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="40.2" y="366.0"></text>
+</g>
+<g>
+<title>one.nio.http.Response (19 samples, 0.17%)</title><rect x="37.2" y="339.0" width="2.1" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="40.2" y="350.0"></text>
+</g>
+<g>
+<title>one/nio/http/Response.&lt;init&gt; (64 samples, 0.58%)</title><rect x="39.3" y="339.0" width="6.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="42.3" y="350.0"></text>
+</g>
+<g>
+<title>byte[] (15 samples, 0.14%)</title><rect x="39.3" y="323.0" width="1.5" height="15" fill="#6cdada" rx="2" ry="2"/>
+<text x="42.3" y="334.0"></text>
+</g>
+<g>
+<title>java.lang.String[] (29 samples, 0.26%)</title><rect x="40.8" y="323.0" width="3.1" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="43.8" y="334.0"></text>
+</g>
+<g>
+<title>java.lang.String (20 samples, 0.18%)</title><rect x="43.9" y="323.0" width="2.2" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="46.9" y="334.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/DAO.get (10,462 samples, 94.30%)</title><rect x="46.1" y="355.0" width="1112.7" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="49.1" y="366.0">ru/mail/polis/dao/DAO.get</text>
+</g>
+<g>
+<title>com/google/common/collect/TransformedIterator.hasNext (361 samples, 3.25%)</title><rect x="46.1" y="339.0" width="38.4" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="49.1" y="350.0">com..</text>
+</g>
+<g>
+<title>com/google/common/collect/AbstractIterator.hasNext (361 samples, 3.25%)</title><rect x="46.1" y="323.0" width="38.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="49.1" y="334.0">com..</text>
+</g>
+<g>
+<title>com/google/common/collect/AbstractIterator.tryToComputeNext (361 samples, 3.25%)</title><rect x="46.1" y="307.0" width="38.4" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="49.1" y="318.0">com..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$5.computeNext (361 samples, 3.25%)</title><rect x="46.1" y="291.0" width="38.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="49.1" y="302.0">com..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/Iters$CollapseEqualsIterator.next (361 samples, 3.25%)</title><rect x="46.1" y="275.0" width="38.4" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="49.1" y="286.0">ru/..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator.next (361 samples, 3.25%)</title><rect x="46.1" y="259.0" width="38.4" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="49.1" y="270.0">com..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.next (44 samples, 0.40%)</title><rect x="46.1" y="243.0" width="4.6" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="49.1" y="254.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (44 samples, 0.40%)</title><rect x="46.1" y="227.0" width="4.6" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="49.1" y="238.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (44 samples, 0.40%)</title><rect x="46.1" y="211.0" width="4.6" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="49.1" y="222.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getNext (44 samples, 0.40%)</title><rect x="46.1" y="195.0" width="4.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="49.1" y="206.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getCell (28 samples, 0.25%)</title><rect x="46.1" y="179.0" width="2.9" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="49.1" y="190.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (23 samples, 0.21%)</title><rect x="46.1" y="163.0" width="2.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="49.1" y="174.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (13 samples, 0.12%)</title><rect x="46.1" y="147.0" width="1.3" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="49.1" y="158.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (10 samples, 0.09%)</title><rect x="47.4" y="147.0" width="1.1" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="50.4" y="158.0"></text>
+</g>
+<g>
+<title>byte[] (10 samples, 0.09%)</title><rect x="47.4" y="131.0" width="1.1" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<text x="50.4" y="142.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Cell (3 samples, 0.03%)</title><rect x="48.5" y="163.0" width="0.3" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="51.5" y="174.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder (16 samples, 0.14%)</title><rect x="49.0" y="179.0" width="1.7" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="52.0" y="190.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (16 samples, 0.14%)</title><rect x="49.0" y="163.0" width="1.7" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="52.0" y="174.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (11 samples, 0.10%)</title><rect x="49.0" y="147.0" width="1.2" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<text x="52.0" y="158.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (5 samples, 0.05%)</title><rect x="50.2" y="147.0" width="0.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="53.2" y="158.0"></text>
+</g>
+<g>
+<title>byte[] (5 samples, 0.05%)</title><rect x="50.2" y="131.0" width="0.5" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<text x="53.2" y="142.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.add (317 samples, 2.86%)</title><rect x="50.7" y="243.0" width="33.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="53.7" y="254.0">ja..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.offer (317 samples, 2.86%)</title><rect x="50.7" y="227.0" width="33.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="53.7" y="238.0">ja..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUp (317 samples, 2.86%)</title><rect x="50.7" y="211.0" width="33.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="53.7" y="222.0">ja..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUpUsingComparator (317 samples, 2.86%)</title><rect x="50.7" y="195.0" width="33.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="53.7" y="206.0">ja..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (317 samples, 2.86%)</title><rect x="50.7" y="179.0" width="33.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="53.7" y="190.0">co..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (317 samples, 2.86%)</title><rect x="50.7" y="163.0" width="33.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="53.7" y="174.0">co..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.peek (317 samples, 2.86%)</title><rect x="50.7" y="147.0" width="33.8" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="53.7" y="158.0">co..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (317 samples, 2.86%)</title><rect x="50.7" y="131.0" width="33.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="53.7" y="142.0">ru..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (317 samples, 2.86%)</title><rect x="50.7" y="115.0" width="33.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="53.7" y="126.0">ru..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getNext (317 samples, 2.86%)</title><rect x="50.7" y="99.0" width="33.8" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="53.7" y="110.0">ru..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getCell (178 samples, 1.60%)</title><rect x="50.7" y="83.0" width="19.0" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="53.7" y="94.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (141 samples, 1.27%)</title><rect x="50.7" y="67.0" width="15.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="53.7" y="78.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (101 samples, 0.91%)</title><rect x="50.7" y="51.0" width="10.8" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="53.7" y="62.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (40 samples, 0.36%)</title><rect x="61.5" y="51.0" width="4.2" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="64.5" y="62.0"></text>
+</g>
+<g>
+<title>byte[] (40 samples, 0.36%)</title><rect x="61.5" y="35.0" width="4.2" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="64.5" y="46.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Cell (24 samples, 0.22%)</title><rect x="65.7" y="67.0" width="2.6" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="68.7" y="78.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Value (13 samples, 0.12%)</title><rect x="68.3" y="67.0" width="1.4" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="71.3" y="78.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder (139 samples, 1.25%)</title><rect x="69.7" y="83.0" width="14.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="72.7" y="94.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (139 samples, 1.25%)</title><rect x="69.7" y="67.0" width="14.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="72.7" y="78.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (104 samples, 0.94%)</title><rect x="69.7" y="51.0" width="11.0" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="72.7" y="62.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (35 samples, 0.32%)</title><rect x="80.7" y="51.0" width="3.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="83.7" y="62.0"></text>
+</g>
+<g>
+<title>byte[] (35 samples, 0.32%)</title><rect x="80.7" y="35.0" width="3.8" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="83.7" y="46.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/TransformedIterator.next (17 samples, 0.15%)</title><rect x="84.5" y="339.0" width="1.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="87.5" y="350.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$6.transform (17 samples, 0.15%)</title><rect x="84.5" y="323.0" width="1.8" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="87.5" y="334.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl$$Lambda$75/1823080608.apply (17 samples, 0.15%)</title><rect x="84.5" y="307.0" width="1.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="87.5" y="318.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl.lambda$iterator$2 (17 samples, 0.15%)</title><rect x="84.5" y="291.0" width="1.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="87.5" y="302.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/Record.of (17 samples, 0.15%)</title><rect x="84.5" y="275.0" width="1.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="87.5" y="286.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.Record (17 samples, 0.15%)</title><rect x="84.5" y="259.0" width="1.8" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<text x="87.5" y="270.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/Record.getKey (41 samples, 0.37%)</title><rect x="86.3" y="339.0" width="4.3" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="89.3" y="350.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.asReadOnlyBuffer (41 samples, 0.37%)</title><rect x="86.3" y="323.0" width="4.3" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="89.3" y="334.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBufferR (41 samples, 0.37%)</title><rect x="86.3" y="307.0" width="4.3" height="15" fill="#6cdada" rx="2" ry="2"/>
+<text x="89.3" y="318.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/Record.getValue (24 samples, 0.22%)</title><rect x="90.6" y="339.0" width="2.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="93.6" y="350.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.asReadOnlyBuffer (24 samples, 0.22%)</title><rect x="90.6" y="323.0" width="2.6" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="93.6" y="334.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBufferR (24 samples, 0.22%)</title><rect x="90.6" y="307.0" width="2.6" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="93.6" y="318.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl.iterator (10,019 samples, 90.31%)</title><rect x="93.2" y="339.0" width="1065.6" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="96.2" y="350.0">ru/mail/polis/dao/nik27090/DAOImpl.iterator</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators.transform (5 samples, 0.05%)</title><rect x="93.2" y="323.0" width="0.5" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="96.2" y="334.0"></text>
+</g>
+<g>
+<title>com.google.common.collect.Iterators$6 (5 samples, 0.05%)</title><rect x="93.2" y="307.0" width="0.5" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="96.2" y="318.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.duplicate (34 samples, 0.31%)</title><rect x="93.7" y="323.0" width="3.6" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="96.7" y="334.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (34 samples, 0.31%)</title><rect x="93.7" y="307.0" width="3.6" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="96.7" y="318.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl.getAliveCells (9,980 samples, 89.96%)</title><rect x="97.3" y="323.0" width="1061.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="100.3" y="334.0">ru/mail/polis/dao/nik27090/DAOImpl.getAliveCells</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators.filter (26 samples, 0.23%)</title><rect x="97.3" y="307.0" width="2.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="100.3" y="318.0"></text>
+</g>
+<g>
+<title>com.google.common.collect.Iterators$5 (26 samples, 0.23%)</title><rect x="97.3" y="291.0" width="2.8" height="15" fill="#5ccaca" rx="2" ry="2"/>
+<text x="100.3" y="302.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators.mergeSorted (1,199 samples, 10.81%)</title><rect x="100.1" y="307.0" width="127.5" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="103.1" y="318.0">com/google/commo..</text>
+</g>
+<g>
+<title>com.google.common.collect.Iterators$MergingIterator (9 samples, 0.08%)</title><rect x="100.1" y="291.0" width="0.9" height="15" fill="#6cdada" rx="2" ry="2"/>
+<text x="103.1" y="302.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator.&lt;init&gt; (1,190 samples, 10.73%)</title><rect x="101.0" y="291.0" width="126.6" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="104.0" y="302.0">com/google/commo..</text>
+</g>
+<g>
+<title>com.google.common.collect.Iterators$MergingIterator$1 (18 samples, 0.16%)</title><rect x="101.0" y="275.0" width="2.0" height="15" fill="#5ecccc" rx="2" ry="2"/>
+<text x="104.0" y="286.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators.peekingIterator (57 samples, 0.51%)</title><rect x="103.0" y="275.0" width="6.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="106.0" y="286.0"></text>
+</g>
+<g>
+<title>com.google.common.collect.Iterators$PeekingImpl (57 samples, 0.51%)</title><rect x="103.0" y="259.0" width="6.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="106.0" y="270.0"></text>
+</g>
+<g>
+<title>java.util.PriorityQueue (22 samples, 0.20%)</title><rect x="109.0" y="275.0" width="2.4" height="15" fill="#61cfcf" rx="2" ry="2"/>
+<text x="112.0" y="286.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.&lt;init&gt; (22 samples, 0.20%)</title><rect x="111.4" y="275.0" width="2.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="114.4" y="286.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (22 samples, 0.20%)</title><rect x="111.4" y="259.0" width="2.3" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="114.4" y="270.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.add (885 samples, 7.98%)</title><rect x="113.7" y="275.0" width="94.1" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="116.7" y="286.0">java/util/P..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.offer (885 samples, 7.98%)</title><rect x="113.7" y="259.0" width="94.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="116.7" y="270.0">java/util/P..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.grow (40 samples, 0.36%)</title><rect x="113.7" y="243.0" width="4.3" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="116.7" y="254.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOf (40 samples, 0.36%)</title><rect x="113.7" y="227.0" width="4.3" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="116.7" y="238.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (40 samples, 0.36%)</title><rect x="113.7" y="211.0" width="4.3" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="116.7" y="222.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUp (845 samples, 7.62%)</title><rect x="118.0" y="243.0" width="89.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="121.0" y="254.0">java/util/..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUpUsingComparator (845 samples, 7.62%)</title><rect x="118.0" y="227.0" width="89.8" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="121.0" y="238.0">java/util/..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (845 samples, 7.62%)</title><rect x="118.0" y="211.0" width="89.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="121.0" y="222.0">com/google..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (845 samples, 7.62%)</title><rect x="118.0" y="195.0" width="89.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="121.0" y="206.0">com/google..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.peek (845 samples, 7.62%)</title><rect x="118.0" y="179.0" width="89.8" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="121.0" y="190.0">com/google..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (845 samples, 7.62%)</title><rect x="118.0" y="163.0" width="89.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="121.0" y="174.0">ru/mail/po..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (845 samples, 7.62%)</title><rect x="118.0" y="147.0" width="89.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="121.0" y="158.0">ru/mail/po..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getNext (845 samples, 7.62%)</title><rect x="118.0" y="131.0" width="89.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="121.0" y="142.0">ru/mail/po..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getCell (481 samples, 4.34%)</title><rect x="118.0" y="115.0" width="51.1" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="121.0" y="126.0">ru/ma..</text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (391 samples, 3.52%)</title><rect x="118.0" y="99.0" width="41.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="121.0" y="110.0">jav..</text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (253 samples, 2.28%)</title><rect x="118.0" y="83.0" width="26.9" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<text x="121.0" y="94.0">j..</text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (138 samples, 1.24%)</title><rect x="144.9" y="83.0" width="14.6" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="147.9" y="94.0"></text>
+</g>
+<g>
+<title>byte[] (138 samples, 1.24%)</title><rect x="144.9" y="67.0" width="14.6" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="147.9" y="78.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Cell (40 samples, 0.36%)</title><rect x="159.5" y="99.0" width="4.3" height="15" fill="#57c5c5" rx="2" ry="2"/>
+<text x="162.5" y="110.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Value (50 samples, 0.45%)</title><rect x="163.8" y="99.0" width="5.3" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="166.8" y="110.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder (364 samples, 3.28%)</title><rect x="169.1" y="115.0" width="38.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="172.1" y="126.0">ru/..</text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (364 samples, 3.28%)</title><rect x="169.1" y="99.0" width="38.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="172.1" y="110.0">jav..</text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (240 samples, 2.16%)</title><rect x="169.1" y="83.0" width="25.5" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="172.1" y="94.0">j..</text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (124 samples, 1.12%)</title><rect x="194.6" y="83.0" width="13.2" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="197.6" y="94.0"></text>
+</g>
+<g>
+<title>byte[] (124 samples, 1.12%)</title><rect x="194.6" y="67.0" width="13.2" height="15" fill="#59c7c7" rx="2" ry="2"/>
+<text x="197.6" y="78.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators$1Adapter.hasNext (186 samples, 1.68%)</title><rect x="207.8" y="275.0" width="19.8" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="210.8" y="286.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator.tryAdvance (186 samples, 1.68%)</title><rect x="207.8" y="259.0" width="19.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="210.8" y="270.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$AbstractWrappingSpliterator.doAdvance (186 samples, 1.68%)</title><rect x="207.8" y="243.0" width="19.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="210.8" y="254.0"></text>
+</g>
+<g>
+<title>java/util/Spliterator.getExactSizeIfKnown (55 samples, 0.50%)</title><rect x="207.8" y="227.0" width="5.9" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="210.8" y="238.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators$IteratorSpliterator.estimateSize (55 samples, 0.50%)</title><rect x="207.8" y="211.0" width="5.9" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="210.8" y="222.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$AscendingSubMap$AscendingEntrySetView.iterator (28 samples, 0.25%)</title><rect x="207.8" y="195.0" width="3.0" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="210.8" y="206.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$NavigableSubMap$SubMapEntryIterator (28 samples, 0.25%)</title><rect x="207.8" y="179.0" width="3.0" height="15" fill="#61cfcf" rx="2" ry="2"/>
+<text x="210.8" y="190.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$NavigableSubMap$EntrySetView.size (27 samples, 0.24%)</title><rect x="210.8" y="195.0" width="2.9" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="213.8" y="206.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$AscendingSubMap$AscendingEntrySetView.iterator (27 samples, 0.24%)</title><rect x="210.8" y="179.0" width="2.9" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="213.8" y="190.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$NavigableSubMap$SubMapEntryIterator (27 samples, 0.24%)</title><rect x="210.8" y="163.0" width="2.9" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="213.8" y="174.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$AbstractWrappingSpliterator.fillBuffer (9 samples, 0.08%)</title><rect x="213.7" y="227.0" width="0.9" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="216.7" y="238.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator$$Lambda$69/1913638415.getAsBoolean (9 samples, 0.08%)</title><rect x="213.7" y="211.0" width="0.9" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="216.7" y="222.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator.lambda$initPartialTraversalState$0 (9 samples, 0.08%)</title><rect x="213.7" y="195.0" width="0.9" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="216.7" y="206.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators$IteratorSpliterator.tryAdvance (9 samples, 0.08%)</title><rect x="213.7" y="179.0" width="0.9" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="216.7" y="190.0"></text>
+</g>
+<g>
+<title>java/util/stream/ReferencePipeline$3$1.accept (9 samples, 0.08%)</title><rect x="213.7" y="163.0" width="0.9" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="216.7" y="174.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/MemTable$$Lambda$66/1694709039.apply (9 samples, 0.08%)</title><rect x="213.7" y="147.0" width="0.9" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="216.7" y="158.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/MemTable.lambda$iterator$0 (9 samples, 0.08%)</title><rect x="213.7" y="131.0" width="0.9" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="216.7" y="142.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Cell (9 samples, 0.08%)</title><rect x="213.7" y="115.0" width="0.9" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<text x="216.7" y="126.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator.initPartialTraversalState (122 samples, 1.10%)</title><rect x="214.6" y="227.0" width="13.0" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="217.6" y="238.0"></text>
+</g>
+<g>
+<title>java.util.stream.SpinedBuffer (24 samples, 0.22%)</title><rect x="214.6" y="211.0" width="2.6" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="217.6" y="222.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/Invokers$Holder.linkToTargetMethod (22 samples, 0.20%)</title><rect x="217.2" y="211.0" width="2.3" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="220.2" y="222.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/DirectMethodHandle$Holder.invokeStatic (22 samples, 0.20%)</title><rect x="217.2" y="195.0" width="2.3" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="220.2" y="206.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator$$Lambda$68/2037717702.get$Lambda (14 samples, 0.13%)</title><rect x="217.2" y="179.0" width="1.5" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="220.2" y="190.0"></text>
+</g>
+<g>
+<title>java.util.stream.StreamSpliterators$WrappingSpliterator$$Lambda$68 (14 samples, 0.13%)</title><rect x="217.2" y="163.0" width="1.5" height="15" fill="#57c5c5" rx="2" ry="2"/>
+<text x="220.2" y="174.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSpliterators$WrappingSpliterator$$Lambda$69/1913638415.get$Lambda (8 samples, 0.07%)</title><rect x="218.7" y="179.0" width="0.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="221.7" y="190.0"></text>
+</g>
+<g>
+<title>java.util.stream.StreamSpliterators$WrappingSpliterator$$Lambda$69 (8 samples, 0.07%)</title><rect x="218.7" y="163.0" width="0.8" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="221.7" y="174.0"></text>
+</g>
+<g>
+<title>java/util/stream/AbstractPipeline.wrapSink (21 samples, 0.19%)</title><rect x="219.5" y="211.0" width="2.3" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="222.5" y="222.0"></text>
+</g>
+<g>
+<title>java/util/stream/ReferencePipeline$3.opWrapSink (21 samples, 0.19%)</title><rect x="219.5" y="195.0" width="2.3" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="222.5" y="206.0"></text>
+</g>
+<g>
+<title>java.util.stream.ReferencePipeline$3$1 (21 samples, 0.19%)</title><rect x="219.5" y="179.0" width="2.3" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="222.5" y="190.0"></text>
+</g>
+<g>
+<title>java/util/stream/SpinedBuffer.&lt;init&gt; (55 samples, 0.50%)</title><rect x="221.8" y="211.0" width="5.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="224.8" y="222.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (55 samples, 0.50%)</title><rect x="221.8" y="195.0" width="5.8" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="224.8" y="206.0"></text>
+</g>
+<g>
+<title>java.util.ArrayList (9 samples, 0.08%)</title><rect x="227.6" y="307.0" width="1.0" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="230.6" y="318.0"></text>
+</g>
+<g>
+<title>java/lang/Iterable.forEach (8,134 samples, 73.32%)</title><rect x="228.6" y="307.0" width="865.1" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="231.6" y="318.0">java/lang/Iterable.forEach</text>
+</g>
+<g>
+<title>java/util/AbstractMap$2.iterator (38 samples, 0.34%)</title><rect x="228.6" y="291.0" width="4.0" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="231.6" y="302.0"></text>
+</g>
+<g>
+<title>java/util/AbstractMap$2$1.&lt;init&gt; (38 samples, 0.34%)</title><rect x="228.6" y="275.0" width="4.0" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="231.6" y="286.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$DescendingSubMap$DescendingEntrySetView.iterator (38 samples, 0.34%)</title><rect x="228.6" y="259.0" width="4.0" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="231.6" y="270.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$NavigableSubMap$DescendingSubMapEntryIterator (38 samples, 0.34%)</title><rect x="228.6" y="243.0" width="4.0" height="15" fill="#62d0d0" rx="2" ry="2"/>
+<text x="231.6" y="254.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl$$Lambda$72/1013792596.accept (8,096 samples, 72.98%)</title><rect x="232.6" y="291.0" width="861.1" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="235.6" y="302.0">ru/mail/polis/dao/nik27090/DAOImpl$$Lambda$72/1013792596.accept</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl.lambda$getAliveCells$3 (8,096 samples, 72.98%)</title><rect x="232.6" y="275.0" width="861.1" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="235.6" y="286.0">ru/mail/polis/dao/nik27090/DAOImpl.lambda$getAliveCells$3</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.iterator (8,096 samples, 72.98%)</title><rect x="232.6" y="259.0" width="861.1" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="235.6" y="270.0">ru/mail/polis/dao/nik27090/SSTable.iterator</text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.SSTable$1 (52 samples, 0.47%)</title><rect x="232.6" y="243.0" width="5.6" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="235.6" y="254.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.&lt;init&gt; (8,044 samples, 72.51%)</title><rect x="238.2" y="243.0" width="855.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="241.2" y="254.0">ru/mail/polis/dao/nik27090/SSTable$1.&lt;init&gt;</text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.duplicate (97 samples, 0.87%)</title><rect x="238.2" y="227.0" width="10.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="241.2" y="238.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (97 samples, 0.87%)</title><rect x="238.2" y="211.0" width="10.3" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="241.2" y="222.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.findElement (7,947 samples, 71.63%)</title><rect x="248.5" y="227.0" width="845.2" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="251.5" y="238.0">ru/mail/polis/dao/nik27090/SSTable.findElement</text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.duplicate (92 samples, 0.83%)</title><rect x="248.5" y="211.0" width="9.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="251.5" y="222.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (92 samples, 0.83%)</title><rect x="248.5" y="195.0" width="9.8" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="251.5" y="206.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder (7,855 samples, 70.80%)</title><rect x="258.3" y="211.0" width="835.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="261.3" y="222.0">ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder</text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (7,855 samples, 70.80%)</title><rect x="258.3" y="195.0" width="835.4" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="261.3" y="206.0">java/nio/ByteBuffer.allocate</text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (4,785 samples, 43.13%)</title><rect x="258.3" y="179.0" width="508.9" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="261.3" y="190.0">java.nio.HeapByteBuffer</text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (3,070 samples, 27.67%)</title><rect x="767.2" y="179.0" width="326.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="770.2" y="190.0">java/nio/HeapByteBuffer.&lt;init&gt;</text>
+</g>
+<g>
+<title>byte[] (3,070 samples, 27.67%)</title><rect x="767.2" y="163.0" width="326.5" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<text x="770.2" y="174.0">byte[]</text>
+</g>
+<g>
+<title>java/lang/invoke/Invokers$Holder.linkToTargetMethod (13 samples, 0.12%)</title><rect x="1093.7" y="307.0" width="1.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="1096.7" y="318.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/DirectMethodHandle$Holder.invokeStatic (13 samples, 0.12%)</title><rect x="1093.7" y="291.0" width="1.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="1096.7" y="302.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/DAOImpl$$Lambda$72/1013792596.get$Lambda (13 samples, 0.12%)</title><rect x="1093.7" y="275.0" width="1.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="1096.7" y="286.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.DAOImpl$$Lambda$72 (13 samples, 0.12%)</title><rect x="1093.7" y="259.0" width="1.4" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="1096.7" y="270.0"></text>
+</g>
+<g>
+<title>java/util/ArrayList.&lt;init&gt; (20 samples, 0.18%)</title><rect x="1095.1" y="307.0" width="2.2" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="1098.1" y="318.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (20 samples, 0.18%)</title><rect x="1095.1" y="291.0" width="2.2" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="1098.1" y="302.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/Iters.collapseEquals (359 samples, 3.24%)</title><rect x="1097.3" y="307.0" width="38.1" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="1100.3" y="318.0">ru/..</text>
+</g>
+<g>
+<title>ru.mail.polis.dao.Iters$CollapseEqualsIterator (14 samples, 0.13%)</title><rect x="1097.3" y="291.0" width="1.4" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="1100.3" y="302.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/Iters$CollapseEqualsIterator.&lt;init&gt; (345 samples, 3.11%)</title><rect x="1098.7" y="291.0" width="36.7" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="1101.7" y="302.0">ru/..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator.next (345 samples, 3.11%)</title><rect x="1098.7" y="275.0" width="36.7" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1101.7" y="286.0">com..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.next (44 samples, 0.40%)</title><rect x="1098.7" y="259.0" width="4.7" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="1101.7" y="270.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (44 samples, 0.40%)</title><rect x="1098.7" y="243.0" width="4.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1101.7" y="254.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (44 samples, 0.40%)</title><rect x="1098.7" y="227.0" width="4.7" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1101.7" y="238.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getNext (44 samples, 0.40%)</title><rect x="1098.7" y="211.0" width="4.7" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1101.7" y="222.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getCell (27 samples, 0.24%)</title><rect x="1098.7" y="195.0" width="2.9" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="1101.7" y="206.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (23 samples, 0.21%)</title><rect x="1098.7" y="179.0" width="2.5" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="1101.7" y="190.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (14 samples, 0.13%)</title><rect x="1098.7" y="163.0" width="1.5" height="15" fill="#60cece" rx="2" ry="2"/>
+<text x="1101.7" y="174.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (9 samples, 0.08%)</title><rect x="1100.2" y="163.0" width="1.0" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1103.2" y="174.0"></text>
+</g>
+<g>
+<title>byte[] (9 samples, 0.08%)</title><rect x="1100.2" y="147.0" width="1.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="1103.2" y="158.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Cell (3 samples, 0.03%)</title><rect x="1101.2" y="179.0" width="0.3" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="1104.2" y="190.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder (17 samples, 0.15%)</title><rect x="1101.6" y="195.0" width="1.8" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="1104.6" y="206.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (17 samples, 0.15%)</title><rect x="1101.6" y="179.0" width="1.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="1104.6" y="190.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (10 samples, 0.09%)</title><rect x="1101.6" y="163.0" width="1.1" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="1104.6" y="174.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (7 samples, 0.06%)</title><rect x="1102.7" y="163.0" width="0.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="1105.7" y="174.0"></text>
+</g>
+<g>
+<title>byte[] (7 samples, 0.06%)</title><rect x="1102.7" y="147.0" width="0.7" height="15" fill="#52c0c0" rx="2" ry="2"/>
+<text x="1105.7" y="158.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.add (301 samples, 2.71%)</title><rect x="1103.4" y="259.0" width="32.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="1106.4" y="270.0">ja..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.offer (301 samples, 2.71%)</title><rect x="1103.4" y="243.0" width="32.0" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="1106.4" y="254.0">ja..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUp (301 samples, 2.71%)</title><rect x="1103.4" y="227.0" width="32.0" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="1106.4" y="238.0">ja..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUpUsingComparator (301 samples, 2.71%)</title><rect x="1103.4" y="211.0" width="32.0" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="1106.4" y="222.0">ja..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (301 samples, 2.71%)</title><rect x="1103.4" y="195.0" width="32.0" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1106.4" y="206.0">co..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (301 samples, 2.71%)</title><rect x="1103.4" y="179.0" width="32.0" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1106.4" y="190.0">co..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.peek (301 samples, 2.71%)</title><rect x="1103.4" y="163.0" width="32.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="1106.4" y="174.0">co..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (301 samples, 2.71%)</title><rect x="1103.4" y="147.0" width="32.0" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="1106.4" y="158.0">ru..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable$1.next (301 samples, 2.71%)</title><rect x="1103.4" y="131.0" width="32.0" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="1106.4" y="142.0">ru..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getNext (301 samples, 2.71%)</title><rect x="1103.4" y="115.0" width="32.0" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="1106.4" y="126.0">ru..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getCell (155 samples, 1.40%)</title><rect x="1103.4" y="99.0" width="16.5" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1106.4" y="110.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (138 samples, 1.24%)</title><rect x="1103.4" y="83.0" width="14.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1106.4" y="94.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (83 samples, 0.75%)</title><rect x="1103.4" y="67.0" width="8.8" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="1106.4" y="78.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (55 samples, 0.50%)</title><rect x="1112.2" y="67.0" width="5.9" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="1115.2" y="78.0"></text>
+</g>
+<g>
+<title>byte[] (55 samples, 0.50%)</title><rect x="1112.2" y="51.0" width="5.9" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="1115.2" y="62.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Cell (11 samples, 0.10%)</title><rect x="1118.1" y="83.0" width="1.2" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="1121.1" y="94.0"></text>
+</g>
+<g>
+<title>ru.mail.polis.dao.nik27090.Value (6 samples, 0.05%)</title><rect x="1119.3" y="83.0" width="0.6" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="1122.3" y="94.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/SSTable.getKeyByOrder (146 samples, 1.32%)</title><rect x="1119.9" y="99.0" width="15.5" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="1122.9" y="110.0"></text>
+</g>
+<g>
+<title>java/nio/ByteBuffer.allocate (146 samples, 1.32%)</title><rect x="1119.9" y="83.0" width="15.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1122.9" y="94.0"></text>
+</g>
+<g>
+<title>java.nio.HeapByteBuffer (99 samples, 0.89%)</title><rect x="1119.9" y="67.0" width="10.5" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="1122.9" y="78.0"></text>
+</g>
+<g>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (47 samples, 0.42%)</title><rect x="1130.4" y="67.0" width="5.0" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1133.4" y="78.0"></text>
+</g>
+<g>
+<title>byte[] (47 samples, 0.42%)</title><rect x="1130.4" y="51.0" width="5.0" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1133.4" y="62.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/nik27090/MemTable.iterator (220 samples, 1.98%)</title><rect x="1135.4" y="307.0" width="23.4" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="1138.4" y="318.0">r..</text>
+</g>
+<g>
+<title>java/util/Collection.stream (70 samples, 0.63%)</title><rect x="1135.4" y="291.0" width="7.5" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="1138.4" y="302.0"></text>
+</g>
+<g>
+<title>java/util/Set.spliterator (28 samples, 0.25%)</title><rect x="1135.4" y="275.0" width="3.0" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="1138.4" y="286.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators.spliterator (28 samples, 0.25%)</title><rect x="1135.4" y="259.0" width="3.0" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="1138.4" y="270.0"></text>
+</g>
+<g>
+<title>java.util.Spliterators$IteratorSpliterator (28 samples, 0.25%)</title><rect x="1135.4" y="243.0" width="3.0" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="1138.4" y="254.0"></text>
+</g>
+<g>
+<title>java/util/stream/StreamSupport.stream (42 samples, 0.38%)</title><rect x="1138.4" y="275.0" width="4.5" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="1141.4" y="286.0"></text>
+</g>
+<g>
+<title>java.util.stream.ReferencePipeline$Head (42 samples, 0.38%)</title><rect x="1138.4" y="259.0" width="4.5" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="1141.4" y="270.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$AscendingSubMap.entrySet (15 samples, 0.14%)</title><rect x="1142.9" y="291.0" width="1.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="1145.9" y="302.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$AscendingSubMap$AscendingEntrySetView (15 samples, 0.14%)</title><rect x="1142.9" y="275.0" width="1.6" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1145.9" y="286.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.tailMap (38 samples, 0.34%)</title><rect x="1144.5" y="291.0" width="4.0" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="1147.5" y="302.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.tailMap (38 samples, 0.34%)</title><rect x="1144.5" y="275.0" width="4.0" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="1147.5" y="286.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$AscendingSubMap (38 samples, 0.34%)</title><rect x="1144.5" y="259.0" width="4.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="1147.5" y="270.0"></text>
+</g>
+<g>
+<title>java/util/stream/ReferencePipeline.iterator (53 samples, 0.48%)</title><rect x="1148.5" y="291.0" width="5.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1151.5" y="302.0"></text>
+</g>
+<g>
+<title>java/util/Spliterators.iterator (15 samples, 0.14%)</title><rect x="1148.5" y="275.0" width="1.6" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="1151.5" y="286.0"></text>
+</g>
+<g>
+<title>java.util.Spliterators$1Adapter (15 samples, 0.14%)</title><rect x="1148.5" y="259.0" width="1.6" height="15" fill="#63d1d1" rx="2" ry="2"/>
+<text x="1151.5" y="270.0"></text>
+</g>
+<g>
+<title>java/util/stream/AbstractPipeline.spliterator (38 samples, 0.34%)</title><rect x="1150.1" y="275.0" width="4.1" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="1153.1" y="286.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/Invokers$Holder.linkToTargetMethod (10 samples, 0.09%)</title><rect x="1150.1" y="259.0" width="1.1" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="1153.1" y="270.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/DirectMethodHandle$Holder.invokeStatic (10 samples, 0.09%)</title><rect x="1150.1" y="243.0" width="1.1" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="1153.1" y="254.0"></text>
+</g>
+<g>
+<title>java/util/stream/AbstractPipeline$$Lambda$67/11551564.get$Lambda (10 samples, 0.09%)</title><rect x="1150.1" y="227.0" width="1.1" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1153.1" y="238.0"></text>
+</g>
+<g>
+<title>java.util.stream.AbstractPipeline$$Lambda$67 (10 samples, 0.09%)</title><rect x="1150.1" y="211.0" width="1.1" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="1153.1" y="222.0"></text>
+</g>
+<g>
+<title>java/util/stream/ReferencePipeline.wrap (28 samples, 0.25%)</title><rect x="1151.2" y="259.0" width="3.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="1154.2" y="270.0"></text>
+</g>
+<g>
+<title>java.util.stream.StreamSpliterators$WrappingSpliterator (28 samples, 0.25%)</title><rect x="1151.2" y="243.0" width="3.0" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="1154.2" y="254.0"></text>
+</g>
+<g>
+<title>java/util/stream/ReferencePipeline.map (44 samples, 0.40%)</title><rect x="1154.2" y="291.0" width="4.6" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1157.2" y="302.0"></text>
+</g>
+<g>
+<title>java.util.stream.ReferencePipeline$3 (44 samples, 0.40%)</title><rect x="1154.2" y="275.0" width="4.6" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1157.2" y="286.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.getPath (27 samples, 0.24%)</title><rect x="1158.8" y="387.0" width="2.9" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="1161.8" y="398.0"></text>
+</g>
+<g>
+<title>java/lang/String.substring (27 samples, 0.24%)</title><rect x="1158.8" y="371.0" width="2.9" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="1161.8" y="382.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (27 samples, 0.24%)</title><rect x="1158.8" y="355.0" width="2.9" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="1161.8" y="366.0"></text>
+</g>
+<g>
+<title>java.lang.String (7 samples, 0.06%)</title><rect x="1158.8" y="339.0" width="0.8" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="1161.8" y="350.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOfRange (20 samples, 0.18%)</title><rect x="1159.6" y="339.0" width="2.1" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="1162.6" y="350.0"></text>
+</g>
+<g>
+<title>byte[] (20 samples, 0.18%)</title><rect x="1159.6" y="323.0" width="2.1" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="1162.6" y="334.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.parseRequest (178 samples, 1.60%)</title><rect x="1161.7" y="419.0" width="18.9" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1164.7" y="430.0"></text>
+</g>
+<g>
+<title>one.nio.http.Request (23 samples, 0.21%)</title><rect x="1161.7" y="403.0" width="2.5" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="1164.7" y="414.0"></text>
+</g>
+<g>
+<title>one/nio/http/Request.&lt;init&gt; (63 samples, 0.57%)</title><rect x="1164.2" y="403.0" width="6.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1167.2" y="414.0"></text>
+</g>
+<g>
+<title>java.lang.String[] (63 samples, 0.57%)</title><rect x="1164.2" y="387.0" width="6.7" height="15" fill="#5bc9c9" rx="2" ry="2"/>
+<text x="1167.2" y="398.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (92 samples, 0.83%)</title><rect x="1170.9" y="403.0" width="9.7" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="1173.9" y="414.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (92 samples, 0.83%)</title><rect x="1170.9" y="387.0" width="9.7" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="1173.9" y="398.0"></text>
+</g>
+<g>
+<title>char[] (53 samples, 0.48%)</title><rect x="1170.9" y="371.0" width="5.6" height="15" fill="#5ecccc" rx="2" ry="2"/>
+<text x="1173.9" y="382.0"></text>
+</g>
+<g>
+<title>java.lang.String (9 samples, 0.08%)</title><rect x="1176.5" y="371.0" width="0.9" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="1179.5" y="382.0"></text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (30 samples, 0.27%)</title><rect x="1177.4" y="371.0" width="3.2" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="1180.4" y="382.0"></text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (30 samples, 0.27%)</title><rect x="1177.4" y="355.0" width="3.2" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="1180.4" y="366.0"></text>
+</g>
+<g>
+<title>java/lang/StringUTF16.compress (30 samples, 0.27%)</title><rect x="1177.4" y="339.0" width="3.2" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="1180.4" y="350.0"></text>
+</g>
+<g>
+<title>byte[] (30 samples, 0.27%)</title><rect x="1177.4" y="323.0" width="3.2" height="15" fill="#60cece" rx="2" ry="2"/>
+<text x="1180.4" y="334.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (88 samples, 0.79%)</title><rect x="1180.6" y="419.0" width="9.4" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="1183.6" y="430.0"></text>
+</g>
+<g>
+<title>one/nio/util/Utf8.read (88 samples, 0.79%)</title><rect x="1180.6" y="403.0" width="9.4" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="1183.6" y="414.0"></text>
+</g>
+<g>
+<title>char[] (39 samples, 0.35%)</title><rect x="1180.6" y="387.0" width="4.2" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="1183.6" y="398.0"></text>
+</g>
+<g>
+<title>java.lang.String (14 samples, 0.13%)</title><rect x="1184.8" y="387.0" width="1.5" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1187.8" y="398.0"></text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (35 samples, 0.32%)</title><rect x="1186.3" y="387.0" width="3.7" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="1189.3" y="398.0"></text>
+</g>
+<g>
+<title>java/lang/String.&lt;init&gt; (35 samples, 0.32%)</title><rect x="1186.3" y="371.0" width="3.7" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="1189.3" y="382.0"></text>
+</g>
+<g>
+<title>java/lang/StringUTF16.compress (35 samples, 0.32%)</title><rect x="1186.3" y="355.0" width="3.7" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="1189.3" y="366.0"></text>
+</g>
+<g>
+<title>byte[] (35 samples, 0.32%)</title><rect x="1186.3" y="339.0" width="3.7" height="15" fill="#60cece" rx="2" ry="2"/>
+<text x="1189.3" y="350.0"></text>
+</g>
+</g>
+</svg>
