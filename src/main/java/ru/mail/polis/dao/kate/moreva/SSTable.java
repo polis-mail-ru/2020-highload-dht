@@ -136,7 +136,7 @@ final class SSTable implements Table {
 
             final ByteBuffer timestampBuffer = allocateLongBuffer.rewind();
             fileChannel.read(timestampBuffer.duplicate(), offset);
-            final long timestamp = timestampBuffer.rewind().getLong();
+            final long timestamp = timestampBuffer.duplicate().rewind().getLong();
 
             if (timestamp < 0) {
                 return new Cell(keyByteBuffer.rewind(), new Value(-timestamp));
