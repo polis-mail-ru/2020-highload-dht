@@ -409,11 +409,11 @@ Running 3m test @ http://127.0.0.1:8080
 
 ###Профилирование CPU под нагрузкой 
 **Команда** /profiler.sh -d 60 -f cpu_get.svg -e cpu  3689
-![async-profiler put cpu](withOpt/cpu_get_opt.svg)
+![async-profiler put cpu](withOpt/cpu_put_opt.svg)
 
 ### Профилирование ALLOC под нагрузкой 
 **Команда** /profiler.sh -d 60 -f alloc_get.svg -e alloc  3689
-![async-profiler put alloc](withOpt/alloc_get_opt.svg)
+![async-profiler put alloc](withOpt/alloc_put_opt.svg)
 
 ### Анализ
 Стоит уточнить, что с оптимизацией я тестировал не 5 минут, 
@@ -556,11 +556,11 @@ Transfer/sec:    143.87KB
 
 ###Профилирование CPU под нагрузкой 
 **Команда** /profiler.sh -d 60 -f cpu_get.svg -e cpu  3689
-![async-profiler get cpu](withOpt/cpu_put_opt.svg)
+![async-profiler get cpu](withOpt/cpu_get_opt.svg)
 
 ### Профилирование ALLOC под нагрузкой 
 **Команда** /profiler.sh -d 60 -f alloc_get.svg -e alloc  3689
-![async-profiler get alloc](withOpt/alloc_put_opt.svg)
+![async-profiler get alloc](withOpt/alloc_get_opt.svg)
 
 ### Анализ
 Сравнивая по нагрузочному тестированию видно, что время в разы уменьшилось

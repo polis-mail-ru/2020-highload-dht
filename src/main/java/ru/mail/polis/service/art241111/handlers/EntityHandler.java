@@ -41,7 +41,7 @@ public final class EntityHandler {
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, "Key not founded".getBytes(Charsets.UTF_8));
         } catch (IOException e) {
-            logger.error("IOException in getting {} from dao", key);
+            logger.error("IOException in getting {} from dao", key, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -57,7 +57,7 @@ public final class EntityHandler {
             logger.debug("Handler PUT {}", key);
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException e) {
-            logger.error("IOException in putting {} from dao", key);
+            logger.error("IOException in putting {} from dao", key, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -73,7 +73,7 @@ public final class EntityHandler {
             logger.debug("Handler DELETE {}", key);
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException e) {
-            logger.error("IOException in deleting {} from dao", key);
+            logger.error("IOException in deleting {} from dao", key, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
