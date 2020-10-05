@@ -32,7 +32,7 @@ final class SSTable implements Table {
             this.fileChannel = FileChannel.open(path, StandardOpenOption.READ);
             final int fileSize = (int) (fileChannel.size() - Integer.BYTES);
             final ByteBuffer cellByteBuffer = allocateIntBuffer.rewind();
-            this.fileChannel.read(cellByteBuffer, fileSize);
+            this.fileChannel.read(cellByteBuffer.duplicate(), fileSize);
             this.count = cellByteBuffer.rewind().getInt();
             this.byteSize = fileSize - count * Integer.BYTES;
         } catch (IOException e) {
@@ -64,7 +64,10 @@ final class SSTable implements Table {
                             .putLong(cell.getValue().getTimestamp())
                             .rewind());
 
-                    final ByteBuffer data = cell.getValue().getData();
+                   ByteBuffer data = cell.getValue().getData();
+                   if(data != null) {
+                       data = data.duplicate();
+                   }
                     offset += data.remaining();
                     file.write(data);
                 }
@@ -123,7 +126,7 @@ final class SSTable implements Table {
         try {
             int offset = getOffset(rowPosition);
             final ByteBuffer keyByteBufferSize = allocateIntBuffer.rewind();
-            fileChannel.read(keyByteBufferSize, offset);
+            fileChannel.read(keyByteBufferSize.duplicate(), offset);
             offset += Integer.BYTES;
 
             final int keySize = keyByteBufferSize.rewind().getInt();
@@ -132,7 +135,7 @@ final class SSTable implements Table {
             offset += keySize;
 
             final ByteBuffer timestampBuffer = allocateLongBuffer.rewind();
-            fileChannel.read(timestampBuffer, offset);
+            fileChannel.read(timestampBuffer.duplicate(), offset);
             final long timestamp = timestampBuffer.rewind().getLong();
 
             if (timestamp < 0) {
@@ -179,16 +182,16 @@ final class SSTable implements Table {
         final ByteBuffer byteBuffer = allocateIntBuffer.rewind();
         final int offset = getOffset(rowPosition);
 
-        fileChannel.read(byteBuffer, offset);
-        final int size = byteBuffer.rewind().getInt();
+        fileChannel.read(byteBuffer.duplicate(), offset);
+        final int size = byteBuffer.duplicate().rewind().getInt();
         final ByteBuffer keyBuffer = ByteBuffer.allocate(size);
-        fileChannel.read(keyBuffer, offset + Integer.BYTES);
+        fileChannel.read(keyBuffer.duplicate(), offset + Integer.BYTES);
         return keyBuffer.rewind();
     }
 
     private int getOffset(final int rowPosition) throws IOException {
         final ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.BYTES);
-        fileChannel.read(byteBuffer, byteSize + rowPosition * Integer.BYTES);
+        fileChannel.read(byteBuffer.duplicate(), byteSize + rowPosition * Integer.BYTES);
         return byteBuffer.rewind().getInt();
     }
 

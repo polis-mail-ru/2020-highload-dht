@@ -7,21 +7,22 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MemTable implements Table {
     @NotNull
     private final SortedMap<ByteBuffer, Value> map;
-    private long size;
+    private final AtomicLong size = new AtomicLong();
 
     MemTable() {
         map = new ConcurrentSkipListMap<>();
-        size = 0;
+        size.set(0);
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         @Nullable final Value removedValue = map.put(key, new Value(value));
-        size += value.remaining();
+        size.addAndGet(value.remaining());
         changeSize(removedValue, key);
     }
 
@@ -33,9 +34,9 @@ public class MemTable implements Table {
 
     private void changeSize(final Value removedValue, @NotNull final ByteBuffer key) {
         if (removedValue == null) {
-            size += key.remaining() + Long.BYTES;
+            size.addAndGet(key.remaining() + Long.BYTES);
         } else if (!removedValue.isTombstone()) {
-            size -= removedValue.getData().remaining();
+            size.addAndGet(-removedValue.getData().duplicate().remaining());
         }
     }
 
@@ -51,12 +52,12 @@ public class MemTable implements Table {
 
     @Override
     public long sizeInBytes() {
-        return size;
+        return size.get();
     }
 
     @Override
     public void close() {
         map.clear();
-        size = 0;
+        size.set(0);
     }
 }
