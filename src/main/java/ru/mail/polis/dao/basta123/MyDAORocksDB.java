@@ -30,7 +30,7 @@ public class MyDAORocksDB implements DAO {
         final Options options = new Options().setCreateIfMissing(true);
         options.setComparator(new MyComparator(comOptions));
         try {
-            rocksDBInstance = RocksDB.open(options, path.getPath());
+            rocksDBInstance = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException e) {
             throw new RuntimeException("rocksDBInstance can't open : ", e);
         }
