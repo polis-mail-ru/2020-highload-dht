@@ -14,8 +14,8 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import static ru.mail.polis.util.Util.toShiftedArray;
 import static ru.mail.polis.util.Util.toByteArray;
+import static ru.mail.polis.util.Util.toShiftedArray;
 
 public final class DAOImpl implements DAO {
 
