@@ -8,7 +8,8 @@ public class FlushTable {
     private final Table table;
     private final boolean poisonPill;
 
-    public FlushTable(int generation, Table table) {
+    public FlushTable(final int generation,
+                      @NotNull final Table table) {
         this(generation, table, false);
     }
 
