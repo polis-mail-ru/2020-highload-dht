@@ -10,6 +10,7 @@ import ru.mail.polis.Record;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public final class RocksDAO implements DAO {
@@ -34,7 +35,7 @@ public final class RocksDAO implements DAO {
         try {
             final byte[] result = db.get(ByteBufferConverter.toArrayShifted(key));
             if (result == null) {
-                throw new NoSuchElementLiteException("cant find element " + key.toString());
+                throw new NoSuchElementLiteException("cant find element " + StandardCharsets.UTF_8.decode(key).toString());
             }
             return ByteBuffer.wrap(result);
         } catch (RocksDBException exception) {
