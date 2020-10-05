@@ -106,12 +106,11 @@ public class LsmDAOImpl implements LsmDAO {
         return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
     }
 
-    @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        boolean isReadyToFlush;
+    private void execute(final Runnable task) {
+        final boolean isReadyToFlush;
         readLock.lock();
         try {
-            tableSet.memTable.upsert(key, value);
+            task.run();
             isReadyToFlush = tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush;
         } finally {
             readLock.unlock();
@@ -122,46 +121,18 @@ public class LsmDAOImpl implements LsmDAO {
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) throws IOException {
-        boolean isReadyToFlush;
-        readLock.lock();
-        try {
-            tableSet.memTable.remove(key);
-            isReadyToFlush = tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush;
-        } finally {
-            readLock.unlock();
-        }
-        if (isReadyToFlush) {
-            flush();
-        }
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+        execute(() -> tableSet.memTable.upsert(key, value));
     }
 
     @Override
-    public void close() throws IOException {
-        boolean isReadyToFlush;
-        readLock.lock();
-        try {
-            isReadyToFlush = tableSet.memTable.size() > 0;
-        } finally {
-            readLock.unlock();
-        }
-
-        if (isReadyToFlush) {
-            flush();
-        }
-        service.shutdown();
-        while (!service.isTerminated()) ;
-        readLock.lock();
-        try {
-            tableSet.ssTables.values().forEach(Table::close);
-        } finally {
-            readLock.unlock();
-        }
+    public void remove(@NotNull final ByteBuffer key) {
+        execute(() -> tableSet.memTable.remove(key));
     }
 
     @Override
     public synchronized void compact() throws IOException {
-        boolean isEmptyListOfFiles;
+        final boolean isEmptyListOfFiles;
         readLock.lock();
         try {
             isEmptyListOfFiles = tableSet.ssTables.isEmpty();
@@ -205,7 +176,7 @@ public class LsmDAOImpl implements LsmDAO {
         }
     }
 
-    private void flush() throws IOException {
+    private void flush() {
         final TableSet snapshot;
         writeLock.lock();
         try {
@@ -233,7 +204,6 @@ public class LsmDAOImpl implements LsmDAO {
             }
         });
 
-
     }
 
     List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters, TableSet snapshot) {
@@ -248,6 +218,28 @@ public class LsmDAOImpl implements LsmDAO {
         return iters;
     }
 
+    @Override
+    public void close() {
+        final boolean isReadyToFlush;
+        readLock.lock();
+        try {
+            isReadyToFlush = tableSet.memTable.size() > 0;
+        } finally {
+            readLock.unlock();
+        }
+
+        if (isReadyToFlush) {
+            flush();
+        }
+        service.shutdown();
+        while (!service.isTerminated());
+        readLock.lock();
+        try {
+            tableSet.ssTables.values().forEach(Table::close);
+        } finally {
+            readLock.unlock();
+        }
+    }
 
     private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList, TableSet snapshot) {
         final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList, snapshot);
