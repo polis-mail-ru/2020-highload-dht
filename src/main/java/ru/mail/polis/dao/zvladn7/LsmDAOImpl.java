@@ -189,7 +189,7 @@ public class LsmDAOImpl implements LsmDAO {
             writeLock.unlock();
         }
 
-        service.submit(() -> {
+        service.execute(() -> {
             try {
                 final File dst = serialize(snapshot.generation, snapshot.memTable.iterator(EMPTY_BUFFER));
                 writeLock.lock();
@@ -203,10 +203,9 @@ public class LsmDAOImpl implements LsmDAO {
                 Runtime.getRuntime().halt(-1);
             }
         });
-
     }
 
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters, TableSet snapshot) {
+    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters, final TableSet snapshot) {
         snapshot.ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iters.add(ssTable.iterator(from));
@@ -241,7 +240,7 @@ public class LsmDAOImpl implements LsmDAO {
         }
     }
 
-    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList, TableSet snapshot) {
+    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList, final TableSet snapshot) {
         final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList, snapshot);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
