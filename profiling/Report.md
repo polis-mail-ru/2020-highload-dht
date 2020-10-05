@@ -5,7 +5,7 @@
 Выполним запрос, используя следующую команду: wrk -t1 -c1 -d10m -s wrk/put.lua -R2000 --latency http://127.0.0.1:8080. Для формирования запроса мы используем скрипт на языке Lua.
 ![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/CPUPut.svg)
 
-![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/CPUPut.svg | width=100)
+![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/CPUPut.svg|width=100)
 
 Running 10m test @ http://127.0.0.1:8080
   1 threads and 1 connections
