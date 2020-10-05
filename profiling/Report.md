@@ -10,12 +10,19 @@ Running 10m test @ http://127.0.0.1:8080
 
   
  50.000%    2.02ms
+ 
  75.000%    3.26ms
+ 
  90.000%    5.54ms
+ 
  99.000%   18.70ms
+ 
  99.900%   39.26ms
+ 
  99.990%   58.85ms
+ 
  99.999%   66.05ms
+ 
 100.000%   68.10ms
 
   Detailed Percentile spectrum:
@@ -158,13 +165,13 @@ Latency Distribution (HdrHistogram - Recorded Latency)
 
 Как видно 1% запросов занимает существенно больше времени, чем все остальные запросы, что может быть связано с записью данных из памяти на жесткий диск после пересечения порога.
 
-
+CPU Put
 ![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/CPUPut.svg)
 
 Видно, что вся нагрузка идет на SelectorThread, 32,33% уходит на отправку ответа (HttpSession.sendResponse), а на операцию putValueByKey 36,09%.
 
 
-
+CPU Alloc
 ![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/AllocPut.svg)
 
 
@@ -176,21 +183,21 @@ Latency Distribution (HdrHistogram - Recorded Latency)
 Для этого в командной строке используем команду wrk -t1 -c1 -d3m -s wrk/get.lua -R2000 —latency http://127.0.0.1:8080
 
 
-wrk -t1 -c1 -d3m -s wrk/get.lua -R2000 --latency http://127.0.0.1:8080
-Running 3m test @ http://127.0.0.1:8080
-  1 threads and 1 connections
-  Thread calibration: mean lat.: 7.840ms, rate sampling interval: 10ms
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.23ms    6.61ms 143.10ms   95.76%
-    Req/Sec     2.16k   667.64     9.44k    80.14%
-  Latency Distribution (HdrHistogram - Recorded Latency)
+
  50.000%    1.87ms
+ 
  75.000%    3.10ms
+ 
  90.000%    5.46ms
+ 
  99.000%   30.78ms
+ 
  99.900%   88.13ms
+ 
  99.990%  136.06ms
+ 
  99.999%  142.98ms
+ 
 100.000%  143.23ms
 
   Detailed Percentile spectrum:
@@ -296,7 +303,7 @@ Running 3m test @ http://127.0.0.1:8080
 Mean    =        3.234, StdDeviation   =        6.610
 Max     =      143.104, Total count    =       339984
 Buckets =           27, SubBuckets     =         2048
-----------------------------------------------------------
+
   359995 requests in 3.00m, 34.22MB read
 Requests/sec:   1999.95
 Transfer/sec:    194.65KB
