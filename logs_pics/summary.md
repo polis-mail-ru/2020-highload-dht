@@ -49,7 +49,7 @@ ALLOC put
 
 rm wrkLogsGet.txt
 
-./wrk2/wrk -t1 -c1 -d15s -R2000 -s ./wrk2/scripts/get.lua --u_latency http://localhost:8080/v0/entity?id=100 > wrkLogsGet.txt &
+./wrk2/wrk -t1 -c1 -d15s -R2000 -s ./wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet.txt &
 
 rm flameGetCpu.svg 
 
