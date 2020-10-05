@@ -6,16 +6,16 @@
 1,2 GHz 4‑ядерный процессор Intel Core i7
 
 ## VisualVM
-Вкладка Threads:
+#### Вкладка Threads:
 ![Screen from visual vm threads](visual-vm-threads.png?raw=true "Screen from visual vm threads")
 Тут ничего с прошлого этапа не поменялось. 8 selector-ов, acceptor, RMI.
 
-Вкладка Monitor:
+#### Вкладка Monitor:
 ![Screen from visual vm monitor](visual-vm-monitor.jpeg?raw=true "Screen from visual vm monitor")
 Тут можно посмотреть как растет потребление CPU при увеличении постоянной пропускной способности:
 
 
-PUT-ы:
+##### PUT-ы:
 
 | цвет       | нагрузка | CPU |
 | ------------- |:------------------:| -----:|
@@ -23,7 +23,7 @@ PUT-ы:
 | фиолетовый     | 10000 |   19%|
 | синий | 48993         |    55% |
 
-GET-ы:
+##### GET-ы:
 
 | цвет       | нагрузка | CPU |
 | ------------- |:------------------:| -----:|
@@ -381,7 +381,6 @@ Running 30s test @ http://127.0.0.1:8080
  99.990%   65.98ms
  99.999%   67.52ms
 100.000%   67.97ms
-
   Detailed Percentile spectrum:
        Value   Percentile   TotalCount 1/(1-Percentile)
        0.069     0.000000            1         1.00
@@ -492,7 +491,7 @@ Transfer/sec:    673.65KB
 * за 67.967 миллисекунд  обработали 199794 запросов
 * сервер обрабатывал 9997.33 запросов в секунду 
 
-### 1
+### 2
 Запускаю wrk c такими параметрами:
 + 4 threads (worker) send requests
 + keeping 16 HTTP connections open
@@ -519,7 +518,6 @@ Running 1m test @ http://127.0.0.1:8080
  99.990%   14.01s 
  99.999%   14.02s 
 100.000%   14.02s 
-
   Detailed Percentile spectrum:
        Value   Percentile   TotalCount 1/(1-Percentile)
      419.071     0.000000            1         1.00

@@ -54,10 +54,10 @@ public final class ByteBufferConverter {
     }
 
     private static byte toUnsignedByte(final byte b) {
-        return (byte) (Byte.toUnsignedInt(b) - Byte.MIN_VALUE);
+        return (byte) (b - Byte.MIN_VALUE);
     }
 
     private static byte fromUnsignedByte(final byte b) {
-        return (byte) (Byte.toUnsignedInt(b) + Byte.MIN_VALUE);
+        return (byte) (b + Byte.MIN_VALUE);
     }
 }
