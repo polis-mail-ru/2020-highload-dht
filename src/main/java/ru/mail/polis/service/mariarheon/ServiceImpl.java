@@ -9,6 +9,8 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
@@ -23,6 +25,8 @@ import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
 
 public class ServiceImpl extends HttpServer implements Service {
+    final Logger logger = LoggerFactory.getLogger(ServiceImpl.class);
+
     @NotNull
     private final DAO dao;
 
@@ -41,8 +45,9 @@ public class ServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public Response get(final @Param("id") String key) {
-        if (key == null || key.isEmpty()) {
+    public Response get(final @Param(value = "id", required = true) String key) {
+        if (key.isEmpty()) {
+            logger.error("Error in ServiceImpl.get() method: key is empty");
             return new ZeroResponse(Response.BAD_REQUEST);
         }
         try {
@@ -51,6 +56,7 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (NoSuchElementException ex) {
             return new ZeroResponse(Response.NOT_FOUND);
         } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.get() method; internal error: " + ex.getMessage());
             return new ZeroResponse(Response.INTERNAL_ERROR);
         }
     }
@@ -64,15 +70,17 @@ public class ServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public Response put(final @Param("id") String key,
+    public Response put(final @Param(value = "id", required = true) String key,
                         final @Param("request") Request request) {
-        if (key == null || key.isEmpty()) {
+        if (key.isEmpty()) {
+            logger.error("Error in ServiceImpl.put() method: key is empty");
             return new ZeroResponse(Response.BAD_REQUEST);
         }
         try {
             dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
                     ByteBufferUtils.toByteBuffer(request.getBody()));
         } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.put() method; internal error: " + ex.getMessage());
             return new ZeroResponse(Response.INTERNAL_ERROR);
         }
         return new ZeroResponse(Response.CREATED);
@@ -87,8 +95,9 @@ public class ServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public Response delete(final @Param("id") String key) {
-        if (key == null || key.isEmpty()) {
+    public Response delete(final @Param(value = "id", required = true) String key) {
+        if (key.isEmpty()) {
+            logger.error("Error in ServiceImpl.delete() method: key is empty");
             return new ZeroResponse(Response.BAD_REQUEST);
         }
         try {
@@ -96,6 +105,7 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (NoSuchElementException ex) {
             return new ZeroResponse(Response.NOT_FOUND);
         } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.delete() method; internal error: " + ex.getMessage());
             return new ZeroResponse(Response.INTERNAL_ERROR);
         }
         return new ZeroResponse(Response.ACCEPTED);
