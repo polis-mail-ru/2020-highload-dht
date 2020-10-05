@@ -139,6 +139,9 @@ Requests/sec:  13603.24
 Transfer/sec:      0.87MB
 
 ```
+![basic_put_cpu](https://user-images.githubusercontent.com/55311053/95130981-0b258900-0766-11eb-9d61-fe3578f961bf.jpg)
+![basic_put_alloc](https://user-images.githubusercontent.com/55311053/95130978-09f45c00-0766-11eb-8492-cf0bae70a540.jpg)
+![basic_put_lock](https://user-images.githubusercontent.com/55311053/95130987-0bbe1f80-0766-11eb-9349-4d02bbfacc30.jpg)
 
 **GET basic stress test results**
 ```
@@ -269,7 +272,9 @@ Transfer/sec:    530.13KB
 
 
 ```
-
+![basic_get_cpu](https://user-images.githubusercontent.com/55311053/95130974-08c32f00-0766-11eb-9946-c2f8200ad02f.jpg)
+![basic_get_alloc](https://user-images.githubusercontent.com/55311053/95130969-07920200-0766-11eb-8227-e1384a6b136b.jpg)
+![basic_get_lock](https://user-images.githubusercontent.com/55311053/95130975-095bc580-0766-11eb-87ef-65f12f906b06.jpg)
 
 **PUT summary for extended DB config test**
 ```
@@ -374,6 +379,10 @@ Transfer/sec:      0.93MB
 
 
 ```
+![revised_put_cpu](https://user-images.githubusercontent.com/55311053/95130998-0f51a680-0766-11eb-9049-ed30dad77d58.jpg)
+![revised_put_alloc](https://user-images.githubusercontent.com/55311053/95130996-0eb91000-0766-11eb-9ca8-4598b4c7f0c2.jpg)
+![revised_put_lock](https://user-images.githubusercontent.com/55311053/95131001-0fea3d00-0766-11eb-9f2e-b4ad148c948c.jpg)
+
 
 **GET summary for extended DB config test**
 ```
@@ -495,3 +504,7 @@ Requests/sec:   4227.53
 Transfer/sec:    280.21KB
 
 ```
+![revised_get_cpu](https://user-images.githubusercontent.com/55311053/95130991-0d87e300-0766-11eb-9a6b-792989c0b0ed.jpg)
+![revised_get_alloc](https://user-images.githubusercontent.com/55311053/95130988-0c56b600-0766-11eb-95a0-4644eb4dcd36.jpg)
+![revised_get_lock](https://user-images.githubusercontent.com/55311053/95130994-0e207980-0766-11eb-9f1e-8d680efb9368.jpg)
+
