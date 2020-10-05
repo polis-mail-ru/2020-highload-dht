@@ -7,12 +7,8 @@
 #[Put-запросы]
 
 Running 10m test @ http://127.0.0.1:8080
-  1 threads and 1 connections
-  Thread calibration: mean lat.: 8.657ms, rate sampling interval: 11ms
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     2.89ms    3.55ms  68.03ms   92.50%
-    Req/Sec     2.14k   640.02    12.90k    79.91%
-  Latency Distribution (HdrHistogram - Recorded Latency)
+
+  
  50.000%    2.02ms
  75.000%    3.26ms
  90.000%    5.54ms
@@ -143,13 +139,21 @@ Transfer/sec:    181.64KB
 
 
 Latency Distribution (HdrHistogram - Recorded Latency)
+
  50.000%    2.02ms
+ 
  75.000%    3.26ms
+ 
  90.000%    5.54ms
+ 
  99.000%   18.70ms
+ 
  99.900%   39.26ms
+ 
  99.990%   58.85ms
+ 
  99.999%   66.05ms
+ 
 100.000%   68.10ms
 
 Как видно 1% запросов занимает существенно больше времени, чем все остальные запросы, что может быть связано с записью данных из памяти на жесткий диск после пересечения порога.
