@@ -1,6 +1,10 @@
-PUT
+### PUT
 
-wrk2 -t1 -c1 -d50s -s wrk/put.lua -R5000 --latency http://127.0.0.1:8080
+![CPU PUT](async/cpu-put.svg)
+
+![ALLOC PUT](async/alloc-put.svg)
+
+``` wrk2 -t1 -c1 -d50s -s wrk/put.lua -R5000 --latency http://127.0.0.1:8080
 Running 50s test @ http://127.0.0.1:8080
   1 threads and 1 connections
   Thread calibration: mean lat.: 7.578ms, rate sampling interval: 42ms
@@ -15,7 +19,7 @@ Running 50s test @ http://127.0.0.1:8080
  99.900%   46.43ms
  99.990%   50.49ms
  99.999%   51.04ms
-100.000%   51.04ms
+100.000%   51.04ms  </code>
 
   Detailed Percentile spectrum:
        Value   Percentile   TotalCount 1/(1-Percentile)
@@ -110,10 +114,15 @@ Running 50s test @ http://127.0.0.1:8080
   249993 requests in 50.00s, 15.97MB read
 Requests/sec:   4999.92
 Transfer/sec:    327.14KB
+```
 
+### GET
 
-GET
+![CPU GET](async/cpu-get.svg)
 
+![ALLOC GET](async/alloc-get.svg)
+
+```
 wrk2 -t1 -c1 -d50s -s wrk/get.lua -R5000 --latency http://127.0.0.1:8080
 Running 50s test @ http://127.0.0.1:8080
   1 threads and 1 connections
@@ -129,7 +138,7 @@ Running 50s test @ http://127.0.0.1:8080
  99.900%  250.88ms
  99.990%  257.41ms
  99.999%  257.66ms
-100.000%  257.66ms
+100.000%  257.66ms  </code>
 
   Detailed Percentile spectrum:
        Value   Percentile   TotalCount 1/(1-Percentile)
@@ -217,9 +226,15 @@ Running 50s test @ http://127.0.0.1:8080
   249901 requests in 50.00s, 16.10MB read
 Requests/sec:   4998.02
 Transfer/sec:    329.73KB
+```
 
-DELETE
+### DELETE
 
+![CPU DELETE](async/cpu-delete.svg)
+
+![ALLOC DELETE](async/alloc-delete.svg)
+
+```
 wrk2 -t1 -c1 -d50s -s wrk/delete.lua -R5000 --latency http://127.0.0.1:8080
 Running 50s test @ http://127.0.0.1:8080
   1 threads and 1 connections
@@ -333,3 +348,4 @@ Running 50s test @ http://127.0.0.1:8080
   249966 requests in 50.00s, 16.21MB read
 Requests/sec:   4999.33
 Transfer/sec:    331.99KB
+```
