@@ -7,13 +7,8 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.Iters;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.ConcurrentModificationException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 final class TransactionalDAOImpl implements TransactionalDAO {
 
@@ -26,6 +21,7 @@ final class TransactionalDAOImpl implements TransactionalDAO {
 
     /**
      * TransactionalDAO implementation.
+     *
      * @param dao - DAO which has started transaction
      */
     TransactionalDAOImpl(@NotNull final LsmDAOImpl dao) {
@@ -37,15 +33,11 @@ final class TransactionalDAOImpl implements TransactionalDAO {
     @Override
     public void commit() {
         memoryTable.iterator(ByteBuffer.allocate(0)).forEachRemaining(cell -> {
-            try {
-                if (cell.getValue().isTombstone()) {
-                    dao.remove(cell.getKey());
-                } else {
-                    dao.upsert(cell.getKey(), cell.getValue().getData());
+            if (cell.getValue().isTombstone()) {
+                dao.remove(cell.getKey());
+            } else {
+                dao.upsert(cell.getKey(), cell.getValue().getData());
 
-                }
-            } catch (IOException e) {
-                logger.error("The error occurred while transaction was trying to commit, id: " + id, e);
             }
         });
     }
