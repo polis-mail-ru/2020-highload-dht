@@ -4,6 +4,7 @@
 
 Выполним запрос, используя следующую команду: wrk -t1 -c1 -d10m -s wrk/put.lua -R2000 --latency http://127.0.0.1:8080. Для формирования запроса мы используем скрипт на языке Lua.
 
+#[Put-запросы]
 
 Running 10m test @ http://127.0.0.1:8080
   1 threads and 1 connections
@@ -129,7 +130,9 @@ Running 10m test @ http://127.0.0.1:8080
       68.095     0.999999      1179992   1310720.00
       68.095     1.000000      1179992          inf
 
-
+Mean    =        2.888, StdDeviation   =        3.550
+Max     =       68.032, Total count    =      1179992
+Buckets =           27, SubBuckets     =         2048
 
 1199997 requests in 10.00m, 106.43MB read
 Requests/sec:   1999.99
@@ -163,6 +166,7 @@ Latency Distribution (HdrHistogram - Recorded Latency)
 
 Основываясь на результатах мы можем сделать выводы о том что  100% занимает SelectorThread, 35.3% уходит на операцию put (MyHttpServiceImpl.put).
 
+#[Get-запросы]
 
 Проведем тестирование get запросов.
 Для этого в командной строке используем команду wrk -t1 -c1 -d3m -s wrk/get.lua -R2000 —latency http://127.0.0.1:8080
@@ -283,9 +287,11 @@ Running 3m test @ http://127.0.0.1:8080
      143.103     0.999997       339983    327680.00
      143.231     0.999997       339984    374491.43
      143.231     1.000000       339984          inf
-#[Mean    =        3.234, StdDeviation   =        6.610]
-#[Max     =      143.104, Total count    =       339984]
-#[Buckets =           27, SubBuckets     =         2048]
+     
+     
+Mean    =        3.234, StdDeviation   =        6.610
+Max     =      143.104, Total count    =       339984
+Buckets =           27, SubBuckets     =         2048
 ----------------------------------------------------------
   359995 requests in 3.00m, 34.22MB read
 Requests/sec:   1999.95
