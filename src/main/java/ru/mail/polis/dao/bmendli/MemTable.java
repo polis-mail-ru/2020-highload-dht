@@ -31,7 +31,7 @@ public final class MemTable implements Table {
         if (removedValue == null) {
             size.addAndGet(key.remaining() + Long.BYTES + Long.BYTES);
         } else if (!removedValue.isTombstone()) {
-            size.addAndGet(-removedValue.getData().remaining());
+            size.addAndGet(-removedValue.getData().duplicate().remaining());
         }
     }
 
@@ -41,7 +41,7 @@ public final class MemTable implements Table {
         if (removedValue == null) {
             size.addAndGet(key.remaining() + Long.BYTES + Long.BYTES);
         } else if (!removedValue.isTombstone()) {
-            size.addAndGet(-removedValue.getData().remaining());
+            size.addAndGet(-removedValue.getData().duplicate().remaining());
         }
     }
 
@@ -52,7 +52,7 @@ public final class MemTable implements Table {
                 .tailMap(from)
                 .entrySet()
                 .stream()
-                .map(entry -> new Cell(entry.getKey(), entry.getValue().isExpired()
+                .map(entry -> new Cell(entry.getKey().duplicate(), entry.getValue().isExpired()
                         ? Value.newInstance()
                         : entry.getValue()))
                 .iterator();

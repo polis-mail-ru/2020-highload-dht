@@ -84,12 +84,12 @@ public class DAOImpl implements DAO {
                             generation.set(Math.max(generation.get(), fileGeneration));
                             ssTables.put(fileGeneration, new SSTable(path));
                         } catch (IOException e) {
-                            logger.error(e.getMessage());
+                            logger.error("error create SSTable", e);
                             throw new UncheckedIOException(e);
                         }
                     });
         } catch (IOException e) {
-            logger.error(e.getMessage());
+            logger.error("error open file stream", e);
             throw new UncheckedIOException(e);
         }
 
@@ -105,10 +105,10 @@ public class DAOImpl implements DAO {
                     flush(flushTable);
                     memTablePool.flushed(flushTable.getGeneration());
                 } catch (InterruptedException e) {
-                    logger.error(e.getMessage());
+                    logger.error("error take table to flush", e);
                     Thread.currentThread().interrupt();
                 } catch (IOException e) {
-                    logger.error(e.getMessage());
+                    logger.error("error flushing table from flushing queue", e);
                 }
             }
         });
@@ -120,13 +120,13 @@ public class DAOImpl implements DAO {
         final List<Iterator<Cell>> iterators;
         readWriteLock.readLock().lock();
         try {
-            iterators = listCellIterator(from);
+            iterators = listCellIterator(from.duplicate());
         } finally {
             readWriteLock.readLock().unlock();
         }
         final Iterator<Cell> filteredIterator = Iterators.filter(mergeIterator(iterators),
                 cell -> !cell.getValue().isTombstone() && !cell.getValue().isExpired());
-        return Iterators.transform(filteredIterator, cell -> Record.of(cell.getKey(), cell.getValue().getData()));
+        return Iterators.transform(filteredIterator, cell -> Record.of(cell.getKey(), cell.getValue().getData().duplicate()));
     }
 
     @Override
@@ -166,11 +166,17 @@ public class DAOImpl implements DAO {
         try {
             for (int i = 0; i < generation; i++) {
                 final File dest = new File(storage, i + "_old" + SSTABLE_FILE_END);
+                if (!dest.exists()) {
+                    dest.createNewFile();
+                }
                 new File(storage, i + SSTABLE_FILE_END).renameTo(dest);
                 oldFiles.add(dest);
             }
             generation = 0;
             final File fileTmp = new File(storage, generation + SSTABLE_TMP_FILE_END);
+            if (!fileTmp.exists()) {
+                fileTmp.createNewFile();
+            }
             SSTable.serialize(fileTmp, cellIterator);
             final File fileDst = new File(storage, generation + SSTABLE_FILE_END);
             final Path targetPath = fileDst.toPath();
@@ -178,7 +184,6 @@ public class DAOImpl implements DAO {
             for (final File oldFile : oldFiles) {
                 Files.delete(oldFile.toPath());
             }
-            memTablePool.close();
             ssTables.clear();
             ssTables.put(generation, new SSTable(targetPath));
         } finally {
@@ -190,14 +195,21 @@ public class DAOImpl implements DAO {
      * Saving data on the disk.
      */
     public void flush(@NotNull final FlushTable flushTable) throws IOException {
-        final Iterator<Cell> iterator = flushTable.getTable().iterator(ByteBuffer.allocate(0));
-        final File file = new File(storage, flushTable.getGeneration() + SSTABLE_TMP_FILE_END);
-        SSTable.serialize(file, iterator);
+        readWriteLock.writeLock().lock();
+        try {
+            final Iterator<Cell> iterator = flushTable.getTable().iterator(ByteBuffer.allocate(0));
+            while (iterator.hasNext()) {
+                final File file = new File(storage, flushTable.getGeneration() + SSTABLE_TMP_FILE_END);
+                SSTable.serialize(file, iterator);
 
-        final File dst = new File(storage, flushTable.getGeneration() + SSTABLE_FILE_END);
-        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                final File dst = new File(storage, flushTable.getGeneration() + SSTABLE_FILE_END);
+                Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        ssTables.put(flushTable.getGeneration(), new SSTable(dst.toPath()));
+                ssTables.put(flushTable.getGeneration(), new SSTable(dst.toPath()));
+            }
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
     }
 
     private List<Iterator<Cell>> listCellIterator(@NotNull final ByteBuffer from) {
@@ -205,14 +217,14 @@ public class DAOImpl implements DAO {
         try {
             iterators.add(memTablePool.iterator(from));
         } catch (IOException e) {
-            logger.error(e.getMessage());
+            logger.error("error get mem table pool iterator", e);
             throw new UncheckedIOException(e);
         }
         ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iterators.add(ssTable.iterator(from));
             } catch (IOException e) {
-                logger.error(e.getMessage());
+                logger.error("error get SSTable iterator", e);
                 throw new UncheckedIOException(e);
             }
         });

@@ -47,7 +47,7 @@ public final class SSTable implements Table {
             int offset = 0;
             while (iterator.hasNext()) {
                 final Cell cell = iterator.next();
-                final ByteBuffer key = cell.getKey();
+                final ByteBuffer key = cell.getKey().duplicate();
                 offsets.add(offset);
                 offset += key.remaining() + Long.BYTES + Integer.BYTES;
                 file.write(ByteBuffer.allocate(Integer.BYTES).putInt(key.remaining()).rewind());
@@ -66,7 +66,10 @@ public final class SSTable implements Table {
                     file.write(ByteBuffer.allocate(Long.BYTES)
                             .putLong(cell.getValue().getExpireTime())
                             .rewind());
-                    final ByteBuffer data = cell.getValue().getData();
+                    ByteBuffer data = cell.getValue().getData();
+                    if (data != null) {
+                        data = data.duplicate();
+                    }
                     offset += data.remaining() + Long.BYTES;
                     file.write(data);
                 }
