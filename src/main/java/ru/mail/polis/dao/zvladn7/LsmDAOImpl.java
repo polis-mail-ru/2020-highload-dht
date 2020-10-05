@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -43,33 +43,17 @@ public class LsmDAOImpl implements LsmDAO {
     private int generation;
     TableSet tableSet;
 
-
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     final ReentrantReadWriteLock.ReadLock readLock = lock.readLock();
     private final ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
 
     @NotNull
-    private final BlockingQueue<FlushTask> tasks;
-    @NotNull
-    private final Thread flusher;
-
-    private static final class FlushTask {
-
-        final MemoryTable memTable;
-        final int generation;
-
-        public FlushTask(MemoryTable memTable, int generation) {
-            this.memTable = memTable;
-            this.generation = generation;
-        }
-
-    }
-
-    private static final FlushTask POISON_PILL = new FlushTask(null, -1);
+    private final ExecutorService service;
 
     /**
      * LSM DAO implementation.
-     * @param storage - the directory where SSTables stored.
+     *
+     * @param storage              - the directory where SSTables stored.
      * @param amountOfBytesToFlush - amount of bytes that need to flush current memory table.
      */
     public LsmDAOImpl(
@@ -100,32 +84,7 @@ public class LsmDAOImpl implements LsmDAO {
         }
 
         this.tableSet = TableSet.provideTableSet(ssTables, generation);
-        this.tasks = new ArrayBlockingQueue<>(flushQueueSize);
-        this.flusher = new Thread(provideFlusherRunnable());
-        flusher.start();
-    }
-
-    private Runnable provideFlusherRunnable() {
-        return () -> {
-            try {
-                while (true) {
-                    final FlushTask task = tasks.take();
-                    if (task.memTable == null) {
-                        break;
-                    }
-                    final File dst = serialize(task.generation, task.memTable.iterator(EMPTY_BUFFER));
-                    writeLock.lock();
-                    try {
-                        tableSet = tableSet.finishFlushingOnDisk(task.memTable, dst, task.generation);
-                    } finally {
-                        writeLock.unlock();
-                    }
-                }
-            } catch (InterruptedException | IOException e) {
-                logger.error("Cannot flush memory table on disk", e);
-                Runtime.getRuntime().halt(-1);
-            }
-        };
+        this.service = Executors.newFixedThreadPool(flushQueueSize);
     }
 
     @NotNull
@@ -186,17 +145,18 @@ public class LsmDAOImpl implements LsmDAO {
         } finally {
             readLock.unlock();
         }
+
         if (isReadyToFlush) {
             flush();
-            try {
-                tasks.put(POISON_PILL);
-                flusher.join();
-            } catch (InterruptedException e) {
-                logger.error("Unable to stop flusher thread on dao close.", e);
-                throw new RuntimeException("Cannot stop flusher", e);
-            }
         }
-        tableSet.ssTables.values().forEach(Table::close);
+        service.shutdown();
+        while (!service.isTerminated()) ;
+        readLock.lock();
+        try {
+            tableSet.ssTables.values().forEach(Table::close);
+        } finally {
+            readLock.unlock();
+        }
     }
 
     @Override
@@ -225,14 +185,16 @@ public class LsmDAOImpl implements LsmDAO {
         final File dst = serialize(snapshot.generation, freshElements);
 
         try (Stream<Path> files = Files.list(storage.toPath())) {
-            files.filter(f -> !f.getFileName().toFile().toString().equals(dst.getName()))
-                .forEach(f -> {
-                    try {
-                        Files.delete(f);
-                    } catch (IOException e) {
-                        logger.warn("Unable to delete file: " + f.getFileName().toFile().toString(), e);
-                    }
-                });
+            files.filter(f -> {
+                String name = f.getFileName().toFile().toString();
+                return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation;
+            }).forEach(f -> {
+                try {
+                    Files.delete(f);
+                } catch (IOException e) {
+                    logger.warn("Unable to delete file: " + f.getFileName().toFile().toString(), e);
+                }
+            });
         }
 
         writeLock.lock();
@@ -256,12 +218,21 @@ public class LsmDAOImpl implements LsmDAO {
             writeLock.unlock();
         }
 
-        try {
-            tasks.put(new FlushTask(snapshot.memTable, snapshot.generation));
-        } catch (InterruptedException e) {
-            logger.error("Cannot add memory table to flushing tasks", e);
-            throw new IOException(e);
-        }
+        service.submit(() -> {
+            try {
+                final File dst = serialize(snapshot.generation, snapshot.memTable.iterator(EMPTY_BUFFER));
+                writeLock.lock();
+                try {
+                    tableSet = tableSet.finishFlushingOnDisk(snapshot.memTable, dst, snapshot.generation);
+                } finally {
+                    writeLock.unlock();
+                }
+            } catch (IOException e) {
+                logger.error("Cannot flush memory table on disk", e);
+                Runtime.getRuntime().halt(-1);
+            }
+        });
+
 
     }
 
@@ -276,7 +247,6 @@ public class LsmDAOImpl implements LsmDAO {
 
         return iters;
     }
-
 
 
     private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList, TableSet snapshot) {
