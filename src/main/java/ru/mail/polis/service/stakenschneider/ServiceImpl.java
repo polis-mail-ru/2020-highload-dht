@@ -8,9 +8,10 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.ByteBufferConverter;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
@@ -20,7 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public class ServiceImpl extends HttpServer implements Service {
-    private static final Logger logger = LogManager.getLogger(ServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
 
     public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
@@ -49,7 +50,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public Response entity(@Param("id") final String id, @NotNull final Request request) {
         try {
             if (id == null || id.isEmpty()) {
-                logger.info("id is null or empty");
+                log.info("id is null or empty");
                 return new Response(Response.BAD_REQUEST, "Id must be not null".getBytes(StandardCharsets.UTF_8));
             }
             final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -67,24 +68,19 @@ public class ServiceImpl extends HttpServer implements Service {
                     return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         } catch (IOException ex) {
-            logger.error(ex.getMessage());
+            log.error("Internal error", ex);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
-    private Response get(final ByteBuffer key) {
+    private Response get(final ByteBuffer key) throws IOException {
         try {
-            final ByteBuffer value = dao.get(key);
-            final ByteBuffer duplicate = value.duplicate();
-            final byte[] body = new byte[duplicate.remaining()];
-            duplicate.get(body);
-            return new Response(Response.OK, body);
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] valueArray = ByteBufferConverter.toArray(value);
+            return Response.ok(valueArray);
         } catch (NoSuchElementLiteException ex) {
-            logger.error("Empty value: ", ex);
+            log.info("Empty value: ", ex);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException ex) {
-            logger.error("IOException: ", ex);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -101,7 +97,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        logger.warn("Can't find handler for ".concat(request.getPath()));
+        log.warn("Can't find handler for {}", request.getPath());
         session.sendResponse(response);
     }
 
