@@ -80,10 +80,9 @@ public class LsmDAOImpl implements LsmDAO {
                             logger.info("Unexpected name of SSTable file: " + fileName, e);
                         }
                     });
-            ++generation;
         }
 
-        this.tableSet = TableSet.provideTableSet(ssTables, generation);
+        this.tableSet = TableSet.provideTableSet(ssTables, generation + 1);
         this.service = Executors.newFixedThreadPool(flushQueueSize);
     }
 
@@ -151,14 +150,17 @@ public class LsmDAOImpl implements LsmDAO {
             writeLock.unlock();
         }
 
+        logger.debug("Compacting byte(s) to {}", snapshot.generation);
+
         final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size());
         final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER, iters, snapshot);
         final File dst = serialize(snapshot.generation, freshElements);
 
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(f -> {
-                String name = f.getFileName().toFile().toString();
-                return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation;
+                final String name = f.getFileName().toFile().toString();
+                final boolean correctPostfix = name.endsWith(SSTABLE_FILE_POSTFIX);
+                return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation && correctPostfix;
             }).forEach(f -> {
                 try {
                     Files.delete(f);
@@ -167,6 +169,8 @@ public class LsmDAOImpl implements LsmDAO {
                 }
             });
         }
+
+        logger.debug("Compacted byte(s) to {}", snapshot.generation);
 
         writeLock.lock();
         try {
@@ -191,6 +195,9 @@ public class LsmDAOImpl implements LsmDAO {
 
         service.execute(() -> {
             try {
+
+                logger.debug("Flushing {} bytes(s) to {}", snapshot.memTable.getAmountOfBytes(), snapshot.generation);
+
                 final File dst = serialize(snapshot.generation, snapshot.memTable.iterator(EMPTY_BUFFER));
                 writeLock.lock();
                 try {
@@ -198,6 +205,9 @@ public class LsmDAOImpl implements LsmDAO {
                 } finally {
                     writeLock.unlock();
                 }
+
+                logger.debug("Flushed {} bytes(s) to {}", snapshot.memTable.getAmountOfBytes(), snapshot.generation);
+
             } catch (IOException e) {
                 logger.error("Cannot flush memory table on disk", e);
                 Runtime.getRuntime().halt(-1);
@@ -253,7 +263,6 @@ public class LsmDAOImpl implements LsmDAO {
 
     private File serialize(final int generation, final Iterator<Cell> iterator) throws IOException {
         final File file = new File(storage, generation + SSTABLE_TEMPORARY_FILE_POSTFIX);
-        file.createNewFile();
         SSTable.serialize(file, iterator);
         final String newFileName = generation + SSTABLE_FILE_POSTFIX;
         final File dst = new File(storage, newFileName);
