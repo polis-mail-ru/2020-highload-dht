@@ -12,4 +12,20 @@ public class Util {
         bufCopy.clear();
         return bytes;
     }
+
+    public static byte[] pack(@NotNull final ByteBuffer buffer){
+        byte[] bytes = byteBufferToBytes(buffer);
+        for (int i = 0; i<bytes.length; i++){
+            bytes[i] ^= Byte.MIN_VALUE;
+        }
+        return bytes;
+    }
+
+    public static ByteBuffer unpack(@NotNull final byte[] bytes){
+        byte[] bytesCopy = bytes.clone();
+        for (int i = 0; i<bytesCopy.length; i++){
+            bytesCopy[i] ^= Byte.MIN_VALUE;
+        }
+        return ByteBuffer.wrap(bytesCopy);
+    }
 }
