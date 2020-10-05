@@ -20,7 +20,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class LsmDAOImpl implements LsmDAO {
@@ -38,17 +41,44 @@ public class LsmDAOImpl implements LsmDAO {
     Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
     private int generation;
-    private TableSet tableSet;
+    TableSet tableSet;
+
+
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    final ReentrantReadWriteLock.ReadLock readLock = lock.readLock();
+    private final ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
+
+    @NotNull
+    private final BlockingQueue<FlushTask> tasks;
+    @NotNull
+    private final Thread flusher;
+
+    private static final class FlushTask {
+
+        final MemoryTable memTable;
+        final int generation;
+
+        public FlushTask(MemoryTable memTable, int generation) {
+            this.memTable = memTable;
+            this.generation = generation;
+        }
+
+    }
+
+    private static final FlushTask POISON_PILL = new FlushTask(null, -1);
 
     /**
      * LSM DAO implementation.
      * @param storage - the directory where SSTables stored.
      * @param amountOfBytesToFlush - amount of bytes that need to flush current memory table.
      */
-    public LsmDAOImpl(@NotNull final File storage, final int amountOfBytesToFlush) throws IOException {
+    public LsmDAOImpl(
+            @NotNull final File storage,
+            final int amountOfBytesToFlush,
+            final int flushQueueSize) throws IOException {
         this.storage = storage;
         this.amountOfBytesToFlush = amountOfBytesToFlush;
-        NavigableMap<Integer, Table> ssTables = new ConcurrentSkipListMap<>();
+        NavigableMap<Integer, Table> ssTables = new TreeMap<>();
         generation = 0;
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(file -> !file.toFile().isDirectory() && file.toString().endsWith(SSTABLE_FILE_POSTFIX))
@@ -70,14 +100,48 @@ public class LsmDAOImpl implements LsmDAO {
         }
 
         this.tableSet = TableSet.provideTableSet(ssTables, generation);
+        this.tasks = new ArrayBlockingQueue<>(flushQueueSize);
+        this.flusher = new Thread(provideFlusherRunnable());
+        flusher.start();
+    }
+
+    private Runnable provideFlusherRunnable() {
+        return () -> {
+            try {
+                while (true) {
+                    final FlushTask task = tasks.take();
+                    if (task.memTable == null) {
+                        break;
+                    }
+                    final File dst = serialize(task.generation, task.memTable.iterator(EMPTY_BUFFER));
+                    writeLock.lock();
+                    try {
+                        tableSet = tableSet.finishFlushingOnDisk(task.memTable, dst, task.generation);
+                    } finally {
+                        writeLock.unlock();
+                    }
+                }
+            } catch (InterruptedException | IOException e) {
+                logger.error("Cannot flush memory table on disk", e);
+                Runtime.getRuntime().halt(-1);
+            }
+        };
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final List<Iterator<Cell>> iters = new ArrayList<>(tableSet.ssTables.size() + 2);
-        iters.add(tableSet.memTable.iterator(from));
-        final Iterator<Cell> freshElements = freshCellIterator(from, iters);
+        final TableSet snapshot;
+        readLock.lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            readLock.unlock();
+        }
+        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size() + snapshot.memToFlush.size() + 2);
+        iters.add(snapshot.memTable.iterator(from));
+        snapshot.memToFlush.forEach(mem -> iters.add(mem.iterator(from)));
+        final Iterator<Cell> freshElements = freshCellIterator(from, iters, snapshot);
         final Iterator<Cell> aliveElements = Iterators.filter(freshElements, el -> !el.getValue().isTombstone());
 
         return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
@@ -85,35 +149,80 @@ public class LsmDAOImpl implements LsmDAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        tableSet.memTable.upsert(key, value);
-        if (tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush) {
+        boolean isReadyToFlush;
+        readLock.lock();
+        try {
+            tableSet.memTable.upsert(key, value);
+            isReadyToFlush = tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush;
+        } finally {
+            readLock.unlock();
+        }
+        if (isReadyToFlush) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        tableSet.memTable.remove(key);
-        if (tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush) {
+        boolean isReadyToFlush;
+        readLock.lock();
+        try {
+            tableSet.memTable.remove(key);
+            isReadyToFlush = tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush;
+        } finally {
+            readLock.unlock();
+        }
+        if (isReadyToFlush) {
             flush();
         }
     }
 
     @Override
     public void close() throws IOException {
-        if (tableSet.memTable.size() > 0) {
+        boolean isReadyToFlush;
+        readLock.lock();
+        try {
+            isReadyToFlush = tableSet.memTable.size() > 0;
+        } finally {
+            readLock.unlock();
+        }
+        if (isReadyToFlush) {
             flush();
+            try {
+                tasks.put(POISON_PILL);
+                flusher.join();
+            } catch (InterruptedException e) {
+                logger.error("Unable to stop flusher thread on dao close.", e);
+                throw new RuntimeException("Cannot stop flusher", e);
+            }
         }
         tableSet.ssTables.values().forEach(Table::close);
     }
 
     @Override
-    public void compact() throws IOException {
-        final List<Iterator<Cell>> iters = new ArrayList<>(tableSet.ssTables.size());
-        final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER, iters);
-        final TableSet snapsnot = tableSet;
-        tableSet = tableSet.startCompact();
-        final File dst = serialize(snapsnot, freshElements);
+    public synchronized void compact() throws IOException {
+        boolean isEmptyListOfFiles;
+        readLock.lock();
+        try {
+            isEmptyListOfFiles = tableSet.ssTables.isEmpty();
+        } finally {
+            readLock.unlock();
+        }
+        if (isEmptyListOfFiles) {
+            return;
+        }
+        final TableSet snapshot;
+        writeLock.lock();
+        try {
+            snapshot = tableSet;
+            tableSet = tableSet.startCompact();
+        } finally {
+            writeLock.unlock();
+        }
+
+        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size());
+        final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER, iters, snapshot);
+        final File dst = serialize(snapshot.generation, freshElements);
 
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(f -> !f.getFileName().toFile().toString().equals(dst.getName()))
@@ -125,19 +234,39 @@ public class LsmDAOImpl implements LsmDAO {
                     }
                 });
         }
-        tableSet = tableSet.finishCompact(snapsnot.ssTables, dst);
+
+        writeLock.lock();
+        try {
+            tableSet = tableSet.finishCompact(snapshot.ssTables, dst, snapshot.generation);
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     private void flush() throws IOException {
-        final TableSet snapshot = tableSet;
-        tableSet = tableSet.startFlushingOnDisk();
-        final File dst = serialize(snapshot, snapshot.memTable.iterator(EMPTY_BUFFER));
-        tableSet = tableSet.finishFlushingOnDisk(snapshot.memTable, dst);
+        final TableSet snapshot;
+        writeLock.lock();
+        try {
+            snapshot = tableSet;
+            if (snapshot.memTable.size() == 0) {
+                return;
+            }
+            tableSet = tableSet.startFlushingOnDisk();
+        } finally {
+            writeLock.unlock();
+        }
+
+        try {
+            tasks.put(new FlushTask(snapshot.memTable, snapshot.generation));
+        } catch (InterruptedException e) {
+            logger.error("Cannot add memory table to flushing tasks", e);
+            throw new IOException(e);
+        }
 
     }
 
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters) {
-        tableSet.ssTables.descendingMap().values().forEach(ssTable -> {
+    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters, TableSet snapshot) {
+        snapshot.ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iters.add(ssTable.iterator(from));
             } catch (IOException e) {
@@ -150,8 +279,8 @@ public class LsmDAOImpl implements LsmDAO {
 
 
 
-    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList) {
-        final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList);
+    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList, TableSet snapshot) {
+        final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList, snapshot);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
                 iters,
@@ -161,11 +290,11 @@ public class LsmDAOImpl implements LsmDAO {
         return Iters.collapseEquals(mergedElements, Cell::getKey);
     }
 
-    private File serialize(final TableSet snapshot, final Iterator<Cell> iterator) throws IOException {
-        final File file = new File(storage, snapshot.generation + SSTABLE_TEMPORARY_FILE_POSTFIX);
+    private File serialize(final int generation, final Iterator<Cell> iterator) throws IOException {
+        final File file = new File(storage, generation + SSTABLE_TEMPORARY_FILE_POSTFIX);
         file.createNewFile();
         SSTable.serialize(file, iterator);
-        final String newFileName = snapshot.generation + SSTABLE_FILE_POSTFIX;
+        final String newFileName = generation + SSTABLE_FILE_POSTFIX;
         final File dst = new File(storage, newFileName);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 

@@ -59,9 +59,16 @@ final class TransactionalDAOImpl implements TransactionalDAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+        final TableSet snapshot;
+        dao.readLock.lock();
+        try {
+            snapshot = dao.tableSet;
+        } finally {
+            dao.readLock.unlock();
+        }
         final List<Iterator<Cell>> iters = new ArrayList<>();
         iters.add(memoryTable.iterator(from));
-        dao.getAllCellItersList(from, iters);
+        dao.getAllCellItersList(from, iters, snapshot);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
                 iters,

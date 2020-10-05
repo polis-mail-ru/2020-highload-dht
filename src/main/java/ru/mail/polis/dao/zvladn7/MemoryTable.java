@@ -3,12 +3,14 @@ package ru.mail.polis.dao.zvladn7;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@ThreadSafe
 public class MemoryTable implements Table {
 
     private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
