@@ -9,8 +9,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
@@ -21,7 +19,7 @@ import java.util.NoSuchElementException;
 
 public class ServiceImpl extends HttpServer implements Service {
 
-    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    //private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private static final Response ERROR = new Response(Response.BAD_REQUEST, Response.EMPTY);
     private final DAO dao;
 
@@ -38,7 +36,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     public Response response(@Param(value = "id", required = true) final String id,
                              final Request request) {
-        log.debug("Request handling : {}", id);
+        //log.debug("Request handling : {}", id);
         if (id.isEmpty()) {
             return ERROR;
         }
@@ -52,7 +50,7 @@ public class ServiceImpl extends HttpServer implements Service {
             case Request.METHOD_DELETE:
                 return delete(key);
             default:
-                log.warn("Non-supported request : {}", id);
+                //log.warn("Non-supported request : {}", id);
                 return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
         }
     }
@@ -64,7 +62,7 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
-            log.error("GET error : {}", toByteArray(key));
+            //log.error("GET error : {}", toByteArray(key));
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
         return Response.ok(toByteArray(value));
@@ -76,7 +74,7 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             dao.upsert(key, value);
         } catch (IOException e) {
-            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
+            //log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
@@ -87,7 +85,7 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             dao.remove(key);
         } catch (IOException e) {
-            log.error("DELETE error : {}", toByteArray(key));
+            //log.error("DELETE error : {}", toByteArray(key));
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
@@ -102,7 +100,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) throws IOException {
-        log.error("Invalid request : {}", request);
+        //log.error("Invalid request : {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 

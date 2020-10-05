@@ -1,36 +1,5 @@
 ## Requests
 
-### STATUS
-
-![CPU STATUS](async-svg/cpu-status.svg)
-
-![ALLOC STATUS](async-svg/alloc-status.svg)
-
-<code>[mrsandman5@simon-gl552vx 2020-highload-dht]$wrk2 -t1 -c1 -d40s -R2000 --latency http://127.0.0.1:8080/v0/status \
-Running 40s test @ http://127.0.0.1:8080/v0/status \
-  1 threads and 1 connections \
-  Thread calibration: mean lat.: 1.085ms, rate sampling interval: 10ms \
-  Thread Stats   Avg      Stdev     Max   +/- Stdev \
-    Latency     1.06ms  491.10us   5.71ms   63.72% \
-    Req/Sec     2.11k   168.27     2.80k    65.93% \
-     Latency Distribution (HdrHistogram - Recorded Latency) \
-     50.000%    1.04ms \
-     75.000%    1.40ms \
-     90.000%    1.75ms \
-     99.000%    2.09ms \
-     99.900%    2.25ms \
-     99.990%    3.83ms \
-     99.999%    4.82ms \
-    100.000%    5.18ms \
-\
-[Mean    =        1.046, StdDeviation   =        0.498] \
-[Max     =        5.180, Total count    =        59989] \
-[Buckets =           27, SubBuckets     =         2048] \
-\
-  79998 requests in 40.00s, 8.01MB read \
-Requests/sec:   1999.95 \
-Transfer/sec:    205.07KB </code>
-
 ### PUT
 
 ![CPU PUT](async-svg/cpu-put.svg)
@@ -51,6 +20,12 @@ Transfer/sec:    205.07KB </code>
 <li>Логгирование занимает 40% памяти</li>
 <li>Работа DAO занимает 15% памяти</li>
 </ol>
+
+Результаты при отсутствии логгирования
+
+![CPU PUT NO LOG](async-svg/cpu-put-no-log.svg)
+
+![ALLOC PUT NO LOG](async-svg/alloc-put-no-log.svg)
 
 <code>[mrsandman5@simon-gl552vx 2020-highload-dht]$ wrk2 -t1 -c1 -d40s -R2000 -s wrk/put.lua --latency http://127.0.0.1:8080 \
 Running 40s test @ http://127.0.0.1:8080 \
@@ -98,6 +73,12 @@ Transfer/sec:    130.86KB </code>
 <li>Работа DAO занимает 35% памяти</li>
 </ol>
 
+Результаты при отсутствии логгирования
+
+![CPU GET NO LOG](async-svg/cpu-get-no-log.svg)
+
+![ALLOC GET NO LOG](async-svg/alloc-get-no-log.svg)
+
 <code>[mrsandman5@simon-gl552vx 2020-highload-dht]$ wrk2 -t1 -c1 -d40s -R2000 -s wrk/get.lua --latency http://127.0.0.1:8080 \
 Running 40s test @ http://127.0.0.1:8080 \
 1 threads and 1 connections \
@@ -127,21 +108,8 @@ Transfer/sec:    130.58KB</code>
 
 ![CPU DELETE](async-svg/cpu-delete.svg)
 
-Выводы:
-<ol>
-<li>Удаление записей из полного хранилища</li>
-<li>Handler сервиса потребляет 40% ресурсов процессора</li>
-<li>Логгирование потребляет 20% ресурсов процессора</li>
-<li>Работа DAO потребляет 15% ресурсов процессора</li>
-</ol>
-
 ![ALLOC DELETE](async-svg/alloc-delete.svg)
 
-Выводы:
-<ol>
-<li>Логгирование занимает 55% памяти</li>
-<li>Работа DAO занимает 10% памяти</li>
-</ol>
 
 <code>[mrsandman5@simon-gl552vx 2020-highload-dht]$ wrk2 -t1 -c1 -d40s -R2000 -s wrk/delete.lua --latency http://127.0.0.1:8080 \
 Running 40s test @ http://127.0.0.1:8080 \
