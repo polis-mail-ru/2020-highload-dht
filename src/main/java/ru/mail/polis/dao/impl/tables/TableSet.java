@@ -44,7 +44,7 @@ public final class TableSet {
         return new TableSet(new MemTable(), flushingFiles, ssTables, this.generation + 1);
     }
 
-    /** Move flushed memTable to flushed files
+    /** Move flushed memTable to flushed files.
      * @param memTable - flushed memTable
      * @param ssTable - current file table
      * @param generation - current generation
@@ -70,7 +70,7 @@ public final class TableSet {
         return new TableSet(memTable, flushing, ssTables, this.generation + 1);
     }
 
-    /** Move flushed memTable to flushed files
+    /** Move flushed memTable to flushed files.
      * @param source - compacted file tables
      * @param dest - memTable to replace compacted files
      * @param generation - current generation
