@@ -10,7 +10,6 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.Converter;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
@@ -68,7 +67,7 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        return Response.ok(Converter.fromByteBufferToByteArray(val));
+        return Response.ok(fromByteBufferToByteArray(val));
     }
 
     /** Put/update data by key method.
@@ -132,5 +131,16 @@ public class ServiceImpl extends HttpServer implements Service {
 
     public static ByteBuffer strToByteBuffer(final String msg, final Charset charset) {
         return ByteBuffer.wrap(msg.getBytes(charset));
+    }
+
+    /** Convert from ByteBuffer to Byte massive.
+     *
+     * @param buffer - ByteBuffer variable to convert
+     */
+    public static byte[] fromByteBufferToByteArray(@NotNull final ByteBuffer buffer) {
+        final ByteBuffer bufferCopy = buffer.duplicate();
+        final byte[] array = new byte[bufferCopy.remaining()];
+        bufferCopy.get(array);
+        return array;
     }
 }
