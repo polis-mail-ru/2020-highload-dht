@@ -61,6 +61,8 @@ public final class ServiceFactory {
 
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+        httpServerConfig.selectors = 3;
+        httpServerConfig.maxWorkers = 10;
 
         return new ServiceImpl(new CustomServer(dao, httpServerConfig));
     }
