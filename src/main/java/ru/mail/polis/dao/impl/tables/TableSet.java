@@ -1,8 +1,6 @@
-package ru.mail.polis.dao.impl.async;
+package ru.mail.polis.dao.impl.tables;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.impl.tables.MemTable;
-import ru.mail.polis.dao.impl.tables.Table;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -36,26 +34,35 @@ public final class TableSet {
         return new TableSet(new MemTable(), Collections.emptySet(), ssTables, generation);
     }
 
+    /** Mark current memTable as "to be flushed".
+     * @return TableSet of flushing memTables
+     * */
     @NotNull
     public TableSet markAsFlushing() {
-        final Set<Table> flushing = new HashSet<>(this.flushing);
-        flushing.add(memTable);
-        return new TableSet(new MemTable(), flushing, ssTables, this.generation + 1);
+        final Set<Table> flushingFiles = new HashSet<>(this.flushing);
+        flushingFiles.add(memTable);
+        return new TableSet(new MemTable(), flushingFiles, ssTables, this.generation + 1);
     }
 
+    /** Move flushed memTable to flushed files
+     * @param memTable - flushed memTable
+     * @param ssTable - current file table
+     * @param generation - current generation
+     * @return TableSet of flushed memTables and file tables
+     * */
     @NotNull
     public TableSet moveToFlushedFiles(@NotNull final Table memTable,
                                        @NotNull final Table ssTable,
                                        final long generation) {
-        final Set<Table> flushing = new HashSet<>(this.flushing);
-        if (!flushing.remove(memTable)) {
+        final Set<Table> flushingFiles = new HashSet<>(this.flushing);
+        if (!flushingFiles.remove(memTable)) {
             throw new IllegalStateException();
         }
-        final NavigableMap<Long, Table> ssTables = new TreeMap<>(this.ssTables);
-        if (ssTables.put(generation, ssTable) != null) {
+        final NavigableMap<Long, Table> files = new TreeMap<>(this.ssTables);
+        if (files.put(generation, ssTable) != null) {
             throw new IllegalStateException();
         }
-        return new TableSet(this.memTable, flushing, ssTables, this.generation);
+        return new TableSet(this.memTable, flushingFiles, files, this.generation);
     }
 
     @NotNull
@@ -63,20 +70,26 @@ public final class TableSet {
         return new TableSet(memTable, flushing, ssTables, this.generation + 1);
     }
 
+    /** Move flushed memTable to flushed files
+     * @param source - compacted file tables
+     * @param dest - memTable to replace compacted files
+     * @param generation - current generation
+     * @return TableSet of replaced compacted files
+     * */
     @NotNull
     public TableSet replaceCompactedFiles(@NotNull final NavigableMap<Long, Table> source,
                                                  @NotNull final Table dest,
                                                  final long generation) {
-        final NavigableMap<Long, Table> ssTables = new TreeMap<>(this.ssTables);
+        final NavigableMap<Long, Table> files = new TreeMap<>(this.ssTables);
         for (final var entry : source.entrySet()) {
-            if (!ssTables.remove(entry.getKey(), entry.getValue())) {
+            if (!files.remove(entry.getKey(), entry.getValue())) {
                 throw new IllegalStateException();
             }
         }
-        if (ssTables.put(generation, dest) != null) {
+        if (files.put(generation, dest) != null) {
             throw new IllegalStateException();
         }
-        return new TableSet(this.memTable, this.flushing, ssTables, this.generation);
+        return new TableSet(this.memTable, this.flushing, files, this.generation);
     }
 
 }

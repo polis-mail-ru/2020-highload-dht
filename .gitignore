@@ -14,8 +14,8 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
-!wrk/
-!async-svg/
+!wrk/*.lua
+!async-svg/*.lua
 !highload-analysis
 
 # ...even if they are in subdirectories

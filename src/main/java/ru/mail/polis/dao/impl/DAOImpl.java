@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.dao.impl.async.TableSet;
+import ru.mail.polis.dao.impl.tables.TableSet;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.tables.SSTable;
 import ru.mail.polis.dao.impl.tables.Table;
@@ -219,9 +219,7 @@ public class DAOImpl implements DAO {
 
         for (final long generation : snapshot.ssTables.keySet()) {
             final File deleteFile = new File(storage, generation + SUFFIX);
-            if (!deleteFile.delete()) {
-                throw new IOException();
-            }
+            Files.delete(deleteFile.toPath());
         }
     }
 }
