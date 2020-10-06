@@ -51,11 +51,11 @@ public class TableSnapshot {
         );
     }
 
-    public TableSnapshot loadTableIntent(final int generation, final File file) {
+    public TableSnapshot loadTableIntent(final int oldGeneration, final File file) {
         final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
         final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
-        newFlushingTables.remove(generation);
-        newStorageTables.put(generation, new SSTable(file));
+        newFlushingTables.remove(oldGeneration);
+        newStorageTables.put(oldGeneration, new SSTable(file));
         return new TableSnapshot(
                 memTable,
                 generation,

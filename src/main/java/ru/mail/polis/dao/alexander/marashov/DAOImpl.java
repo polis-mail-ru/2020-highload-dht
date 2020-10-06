@@ -48,7 +48,7 @@ public class DAOImpl implements DAO {
     private final long flushThreshold;
 
     @GuardedBy("lock")
-    private static TableSnapshot tableSnapshot;
+    private static volatile TableSnapshot tableSnapshot;
     private final Flusher flusher;
 
     /**
@@ -115,7 +115,7 @@ public class DAOImpl implements DAO {
         final boolean needFlush;
         lock.readLock().lock();
         try {
-            tableSnapshot.memTable.upsert(key.asReadOnlyBuffer().duplicate(), value.asReadOnlyBuffer().duplicate());
+            tableSnapshot.memTable.upsert(key.duplicate(), value.duplicate());
             needFlush = tableSnapshot.memTable.sizeInBytes() > flushThreshold;
         } finally {
             lock.readLock().unlock();
@@ -130,7 +130,7 @@ public class DAOImpl implements DAO {
         final boolean needFlush;
         lock.readLock().lock();
         try {
-            tableSnapshot.memTable.remove(key.asReadOnlyBuffer().duplicate());
+            tableSnapshot.memTable.remove(key.duplicate());
             needFlush = tableSnapshot.memTable.sizeInBytes() > flushThreshold;
         } finally {
             lock.readLock().unlock();
@@ -148,21 +148,15 @@ public class DAOImpl implements DAO {
         lock.writeLock().lock();
         try {
             snapshot = tableSnapshot;
-            System.out.println("WRITE LOCKED: flush intent to " + snapshot.memTable.size() + " with gen " + snapshot.generation);
             if (snapshot.memTable.sizeInBytes() == 0L) {
-                System.out.println("WRITE LOCKED: flush intent to " + snapshot.memTable.size() + " with gen " + snapshot.generation + " CANCELED");
                 return;
             }
-
             tableSnapshot = snapshot.flushIntent();
         } finally {
-            System.out.println("WRITE LOCK UNLOCKED");
             lock.writeLock().unlock();
         }
         try {
-            System.out.println("TABLE QUEUE PUT: " + snapshot.memTable.size() + " with gen " + snapshot.generation);
             flusher.tablesQueue.put(new NumberedTable(snapshot.memTable, snapshot.generation));
-            System.out.println("TABLE QUEUE PUT: " + snapshot.memTable.size() + " with gen " + snapshot.generation + " ENDED");
         } catch (InterruptedException e) {
             log.info("Flush waiting interrupted", e);
         }
@@ -192,21 +186,13 @@ public class DAOImpl implements DAO {
                         log.info("Flusher stopped");
                         return;
                     }
-                    log.info(String.format("Flushing table %d, gen %d", numberedTable.table.size(), numberedTable.generation));
                     final int generation = numberedTable.generation;
                     final Iterator<Cell> cellIterator = numberedTable.table.iterator(ByteBuffer.allocate(0));
                     final File file = new File(this.storage, generation + TEMP);
                     SSTable.serialize(cellIterator, file);
                     final File dst = new File(this.storage, generation + SUFFIX);
                     Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
-//                    this.tableFlashedCallback.accept(numberedTable.generation, dst);
-                    log.info(String.format("FlushED table %d, gen %d", numberedTable.table.size(), numberedTable.generation));
-                    lock.writeLock().lock();
-                    try {
-                        tableSnapshot = tableSnapshot.loadTableIntent(generation, dst);
-                    } finally {
-                        lock.writeLock().unlock();
-                    }
+                    this.tableFlashedCallback.accept(numberedTable.generation, dst);
                 }
             } catch (final InterruptedException e) {
                 log.error("Flusher interrupted. The program stops.", e);

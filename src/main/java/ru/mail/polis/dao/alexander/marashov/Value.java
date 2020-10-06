@@ -30,7 +30,7 @@ final class Value implements Comparable<Value> {
 
     public ByteBuffer getData() {
         assert !isTombstone();
-        return data;
+        return data.duplicate();
     }
 
     public long getTimestamp() {

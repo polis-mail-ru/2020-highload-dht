@@ -25,14 +25,14 @@ public class MemTable implements Table {
         return map.tailMap(from)
                 .entrySet()
                 .stream()
-                .map((entry) -> new Cell(entry.getKey(), entry.getValue()))
+                .map((entry) -> new Cell(entry.getKey().duplicate(), entry.getValue()))
                 .iterator();
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         sizeInBytes.addAndGet(value.capacity());
-        final Value prev = map.put(key, new Value(System.currentTimeMillis(), value));
+        final Value prev = map.put(key.duplicate(), new Value(System.currentTimeMillis(), value.duplicate()));
         if (prev == null) {
             // + key and timestamp
             sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
@@ -44,10 +44,10 @@ public class MemTable implements Table {
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        final Value prev = map.put(key, new Value(System.currentTimeMillis(), null));
+        final Value prev = map.put(key.duplicate(), new Value(System.currentTimeMillis(), null));
         if (prev == null) {
             // + key and timestamp
-            sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
+            sizeInBytes.addAndGet(key.duplicate().capacity() + Long.BYTES);
         } else if (!prev.isTombstone()) {
             // - old value
             sizeInBytes.addAndGet(-prev.getData().capacity());

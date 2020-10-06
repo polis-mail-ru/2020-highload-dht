@@ -181,7 +181,7 @@ public class SSTable implements Table {
             @Override
             public Cell next() {
                 try {
-                    final Cell cell = new Cell(key(rowIndex), value(rowIndex));
+                    final Cell cell = new Cell(key(rowIndex).duplicate(), value(rowIndex));
                     ++rowIndex;
                     return cell;
                 } catch (IOException e) {
