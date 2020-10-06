@@ -1,17 +1,72 @@
-# Оценка времени отклика сервера при установлении соединений с множеством клиентов (wrk + async-profiler)   
+# Мониторинг работы сервера с поддержкой параллельных соединений (wrk + async-profiler)
 
-Сведения о системе:<br/>
-ОС Ubuntu 18.04 LTS x64-bit <br/>
-Процессор Intel(R) Celeron(R) N4000 CPU @ 1.10GHz<br/>
-Объём RAM: 8 ГБ<br/>
-Количество ядер ЦПУ: 2<br/>  
-Версия wrk 
-Версия async-profiler
+**Система и программные средства** 
+| | |
+|-|-|
+| ОС Ubuntu | 18.04 LTS x64-bit |
+| ЦПУ | Intel(R) Celeron(R) N4000 CPU @ 1.10GHz |
+| Объём RAM | 8 ГБ |
+| Количество ядер ЦПУ | 2 |
+| [wrk](https://github.com/giltene/wrk2) | v. 4.0.0 |
+| [async-profiler](https://github.com/jvm-profiling-tools/async-profiler) | 1.8.1 |
+| [VisualVM](https://visualvm.github.io/) | 2.0.4 |
 
-## Этап 1. HTTP + storage (deadline 2020-09-30)
-### Fork
+В исследовании производительности, предпринятом на отчётном этапе, рассмотрены показатели работы HTTP-сервера в различных программных конфигурациях RocksDB: базовой и расширенной, включающей ряд опций с потенциальным улучшением параллелизма.<br/> 
+Нагрузочные испытания, проведённые с использованием <em>wrk</em>, организованы в виде серий PUT- и GET-запросов (длительность каждой - 7 минут) в условиях симулирования обмена данными с множеством клиентов (число клиентов установлено равным 16, количество параллельных потоков - 2 по числу ядер ЦПУ). Интенсивность генерации / отправки запросов каждого вида задана равной 15000 запросов/с.
 
-**PUT basic stress test summary** 
+**Команды <em>wrk</em>**<br/>
+<ins><em>wrk</em> | PUT</ins>
+```
+wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R15000 --latency http://127.0.0.1:8080
+```
+
+<ins><em>wrk</em> | GET</ins>
+```
+wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R8000 --latency http://127.0.0.1:8080
+```
+
+**Команды <em>async-profiler</em>**<br/>
+<ins><em>async-profiler</em> | cpu</ins>
+```
+./profiler.sh -d 60 -e cpu -f /path/to/output/folder/flame_output_cpu.svg <server_process_pid>
+```
+
+<ins><em>async-profiler</em> | alloc</ins>
+```
+./profiler.sh -d 60 -e alloc -f /path/to/output/folder/flame_output_alloc.svg <server_process_pid>
+```
+
+<ins><em>async-profiler</em> | cpu</ins>
+```
+./profiler.sh -d 60 -e lock -f /path/to/output/folder/flame_output_lock.svg <server_process_pid>
+```
+
+Результаты мониторинга для различных конфигураций хранилища приведены далее.  
+
+## 1. RocksDB - базовая конфигурация (без оптимизации параллелизма)
+
+<ins>Код в TaskDAO.java</ins>
+```
+public TaskDAO(@NotNull final File data) throws IOException {
+            final Options opts = new Options();
+            opts.setCreateIfMissing(true); // create db instance if one does not exist
+            opts.setParanoidChecks(false); // drops strict data quality control while performing search for corrupt / erroneous elements
+            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run           
+
+            dbLocalDir = data;
+            try {
+                Files.createDirectories(dbLocalDir.getParentFile().toPath());
+                Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
+                db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
+            } catch (IOException | RocksDBException exc) {
+                logger.log(Level.SEVERE, "Storage initialization failed", exc);
+            }
+        }
+```
+
+### 1.1. PUT
+
+<ins>Вывод <em>wrk</em></ins>  
 ```
 max@max-Inspiron-15-3573:~/hackdht$ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R15000 --latency http://127.0.0.1:8080
 Running 7m test @ http://127.0.0.1:8080
@@ -139,11 +194,21 @@ Requests/sec:  13603.24
 Transfer/sec:      0.87MB
 
 ```
-![basic_put_cpu](https://user-images.githubusercontent.com/55311053/95130981-0b258900-0766-11eb-9d61-fe3578f961bf.jpg)
-![basic_put_alloc](https://user-images.githubusercontent.com/55311053/95130978-09f45c00-0766-11eb-8492-cf0bae70a540.jpg)
-![basic_put_lock](https://user-images.githubusercontent.com/55311053/95130987-0bbe1f80-0766-11eb-9349-4d02bbfacc30.jpg)
+В соответствии с приведённым выводом средняя задержка при обработке запросов на добавление записей превысила 10с при стандартном отклонении на уровне 80%. Каждую секунду сервер выполнял свыше 6500 запросов, в то время как интенсивность их подачи достигла 13600 запросов/с. В структуре квантильного распределения времён отклика максимальная длительность ответа установлена равной 0.88 минутам (приблизительно 53 с), получение отклика на 90% запросов уложилось в 40.5 с.<br/>            
+<ins>Flamegraph-анализ</ins><br/>  
 
-**GET basic stress test results**
+![basic_put_cpu](https://user-images.githubusercontent.com/55311053/95130981-0b258900-0766-11eb-9d61-fe3578f961bf.jpg)
+<p align="center">Рис.1. Выделение ресурса CPU при симулировании PUT-запросов</p>
+
+![basic_put_alloc](https://user-images.githubusercontent.com/55311053/95130978-09f45c00-0766-11eb-8492-cf0bae70a540.jpg)
+<p align="center">Рис.2. Выделение ресурса RAM при симулировании PUT-запросов</p>
+
+![basic_put_lock](https://user-images.githubusercontent.com/55311053/95130987-0bbe1f80-0766-11eb-9349-4d02bbfacc30.jpg)
+<p align="center">Рис.3. Структура фреймов lock/monitor при симулировании PUT-запросов</p>
+
+### 1.2. GET
+
+<ins>Вывод <em>wrk</em></ins>
 ```
 
 max@max-Inspiron-15-3573:~/hackdht$ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://127.0.0.1:8080
@@ -273,8 +338,13 @@ Transfer/sec:    530.13KB
 
 ```
 ![basic_get_cpu](https://user-images.githubusercontent.com/55311053/95130974-08c32f00-0766-11eb-9946-c2f8200ad02f.jpg)
+<p align="center">Рис.4. Выделение ресурса CPU при симулировании GET-запросов</p>
+
 ![basic_get_alloc](https://user-images.githubusercontent.com/55311053/95130969-07920200-0766-11eb-8227-e1384a6b136b.jpg)
+<p align="center">Рис.4. Выделение ресурса RAM при симулировании GET-запросов</p>
+
 ![basic_get_lock](https://user-images.githubusercontent.com/55311053/95130975-095bc580-0766-11eb-87ef-65f12f906b06.jpg)
+<p align="center">Рис.4. Структура фреймов lock/monitor при симулировании GET-запросов</p>
 
 **PUT summary for extended DB config test**
 ```
