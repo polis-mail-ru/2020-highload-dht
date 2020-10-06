@@ -15,4 +15,7 @@
 !.codeclimate.yml
 
 # ...even if they are in subdirectories
-!*/
+!*/*
+!test-results/
+!test-results/lua/wrk2-scripts/
+!*.lua

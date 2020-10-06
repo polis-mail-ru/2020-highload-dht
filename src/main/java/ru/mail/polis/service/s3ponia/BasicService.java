@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.logging.Level;
 
 public final class BasicService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(BasicService.class);
@@ -27,6 +28,7 @@ public final class BasicService extends HttpServer implements Service {
     
     private BasicService(final int port, @NotNull final DAO dao) throws IOException {
         super(configFrom(port));
+        logger.setLevel(Level.ERROR);
         this.dao = dao;
     }
     

@@ -102,14 +102,16 @@ public final class PersistenceDAO implements DAO {
         if (currTable.size() > 0) {
             flush();
         }
+        manager.close();
     }
 
     @Override
     public void compact() throws IOException {
-        close();
+        if (currTable.size() > 0) {
+            flush();
+        }
         final var it = iterator();
         final var diskTables = manager.diskTables();
-        manager.clear();
         while (it.hasNext()) {
             final var record = it.next();
             upsert(record.getKey(), record.getValue());
@@ -117,5 +119,6 @@ public final class PersistenceDAO implements DAO {
         for (final var disk : diskTables) {
             disk.erase();
         }
+        manager.clear();
     }
 }

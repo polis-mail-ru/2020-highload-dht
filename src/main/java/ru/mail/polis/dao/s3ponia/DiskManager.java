@@ -1,5 +1,6 @@
 package ru.mail.polis.dao.s3ponia;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -11,15 +12,16 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class DiskManager {
+public class DiskManager implements Closeable {
     static final String META_EXTENSION = ".mdb";
     static final String META_PREFIX = "fzxyGZ9LDM";
     private final Path metaFile;
     private static final String TABLE_EXTENSION = ".db";
     private static final char MAGICK_NUMBER = 0xabc3;
     private List<String> fileNames;
+    private List<DiskTable> diskTables;
     private int generation;
-
+    
     private void saveTo(final Table dao, final Path file) throws IOException {
         Files.createFile(file);
         try (FileChannel writer = FileChannel.open(file, StandardOpenOption.WRITE)) {
@@ -32,27 +34,27 @@ public class DiskManager {
                 var nextShift = shifts[index];
                 final var key = cell.getKey();
                 final var value = cell.getValue();
-
+                
                 nextShift += key.remaining() + value.getValue().remaining() + Long.BYTES /* Meta size */
-                        + Integer.BYTES /* Shift size */;
-
+                                     + Integer.BYTES /* Shift size */;
+                
                 writer.write(ByteBuffer.allocate(Long.BYTES).putLong(value.getDeadFlagTimeStamp()).flip());
                 writer.write(ByteBuffer.allocate(Integer.BYTES).putInt(key.remaining()).flip());
                 writer.write(key);
                 writer.write(value.getValue());
-
+                
                 if (index < dao.size() - 1) {
                     shifts[++index] = nextShift;
                 }
             }
-
+            
             final var buffer = ByteBuffer.allocate(shifts.length * Integer.BYTES);
             buffer.asIntBuffer().put(shifts).flip();
             writer.write(buffer);
             writer.write(ByteBuffer.allocate(Integer.BYTES).putInt(dao.size()).flip());
         }
     }
-
+    
     private void setSeed() {
         if (fileNames.size() <= 1) {
             return;
@@ -61,16 +63,16 @@ public class DiskManager {
         final var fileGen = fileName.substring(0, fileName.length() - 3);
         generation = Integer.parseInt(fileGen);
     }
-
+    
     private char getMagickNumber() {
         return MAGICK_NUMBER;
     }
-
+    
     private String getName() {
         ++generation;
         return Integer.toString(generation);
     }
-
+    
     DiskManager(final Path file) throws IOException {
         if (Files.exists(file)) {
             boolean isMetaFile = true;
@@ -93,21 +95,21 @@ public class DiskManager {
                 writer.write('\n');
             }
         }
-
+        
         fileNames = Files.readAllLines(metaFile);
-
+        diskTables = fileNames.stream()
+                             .skip(1)
+                             .map(Paths::get)
+                             .map(DiskTable::of)
+                             .collect(Collectors.toList());
         setSeed();
-
+        
     }
-
+    
     List<DiskTable> diskTables() {
-        return fileNames.stream()
-                .skip(1)
-                .map(Paths::get)
-                .map(DiskTable::of)
-                .collect(Collectors.toList());
+        return diskTables;
     }
-
+    
     void clear() throws IOException {
         Files.delete(metaFile);
         Files.createFile(metaFile);
@@ -117,8 +119,16 @@ public class DiskManager {
         }
         generation = 0;
         fileNames = Files.readAllLines(metaFile);
+        for (var diskTable : diskTables) {
+            diskTable.close();
+        }
+        diskTables = fileNames.stream()
+                             .skip(1)
+                             .map(Paths::get)
+                             .map(DiskTable::of)
+                             .collect(Collectors.toList());
     }
-
+    
     void save(final Table dao) throws IOException {
         try (var writer = Files.newBufferedWriter(this.metaFile, Charset.defaultCharset(), StandardOpenOption.APPEND)) {
             var filePath = Paths.get(metaFile.getParent().toString(), getName() + TABLE_EXTENSION);
@@ -129,10 +139,18 @@ public class DiskManager {
             fileNames.add(fileName);
             writer.write(fileName + "\n");
             saveTo(dao, filePath);
+            diskTables.add(DiskTable.of(Paths.get(fileName)));
         }
     }
-
+    
     int getGeneration() {
         return generation;
+    }
+    
+    @Override
+    public void close() throws IOException {
+        for (var diskTable : diskTables) {
+            diskTable.close();
+        }
     }
 }
