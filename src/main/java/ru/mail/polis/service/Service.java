@@ -16,6 +16,8 @@
 
 package ru.mail.polis.service;
 
+import java.io.IOException;
+
 /**
  * A persistent storage with HTTP API.
  * <p>
@@ -43,7 +45,7 @@ public interface Service {
      * <p>
      * May be called only once.
      */
-    void start();
+    void start() throws IOException;
 
     /**
      * Stop listening and free all the resources.
