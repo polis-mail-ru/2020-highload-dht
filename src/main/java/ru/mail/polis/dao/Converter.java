@@ -27,13 +27,11 @@ public final class Converter {
      * @param buffer - ByteBuffer to extract from
      */
     public static byte[] toArrayShifted(@NotNull final ByteBuffer buffer) {
-        final ByteBuffer copyBuffer = buffer.duplicate();
-        final byte[] arr = new byte[copyBuffer.remaining()];
-        copyBuffer.get(arr);
-        for (int i = 0; i < arr.length; i++) {
-            arr[i] = toUnsignedByte(arr[i]);
+        var res = fromByteBufferToByteArray(buffer);
+        for (int i = 0; i < res.length; i++) {
+            res[i] = (byte)(Byte.toUnsignedInt(res[i]) - Byte.MIN_VALUE);
         }
-        return arr;
+        return res;
     }
 
     /**
@@ -42,18 +40,10 @@ public final class Converter {
      * @param arr - byte array
      */
     public static ByteBuffer fromArrayShifted(@NotNull final byte[] arr) {
-        final byte[] copyArray = Arrays.copyOf(arr, arr.length);
-        for (int i = 0; i < copyArray.length; i++) {
-            copyArray[i] = fromUnsignedByte(copyArray[i]);
+        final byte[] cpy = Arrays.copyOf(arr, arr.length);
+        for (int i = 0; i < cpy.length; i++) {
+            cpy[i] = (byte) (Byte.toUnsignedInt(cpy[i]) + Byte.MIN_VALUE);
         }
-        return ByteBuffer.wrap(copyArray);
-    }
-
-    private static byte toUnsignedByte(final byte b) {
-        return (byte) (Byte.toUnsignedInt(b) - Byte.MIN_VALUE);
-    }
-
-    private static byte fromUnsignedByte(final byte b) {
-        return (byte) (Byte.toUnsignedInt(b) + Byte.MIN_VALUE);
+        return ByteBuffer.wrap(cpy);
     }
 }
