@@ -100,7 +100,7 @@ public class TaskService extends HttpServer implements Service {
     private Response get(final ByteBuffer key) {
         ByteBuffer copy = null;
         try {
-            copy = copyKeySearched(key);
+            copy = duplicateValue(key);
             assert copy != null;
             final byte[] vals = new byte[copy.remaining()];
             copy.get(vals);

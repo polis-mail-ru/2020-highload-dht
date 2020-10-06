@@ -50,8 +50,7 @@ public final class ServiceFactory {
             final int port,
             @NotNull final DAO dao) throws IOException {
 
-        final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime()
-                .availableProcessors(), new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
+        final Executor exec;
 
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
@@ -60,6 +59,9 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
+
+        exec = Executors.newFixedThreadPool(Runtime.getRuntime()
+                .availableProcessors(), new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
 
         return new TaskService(port, dao, exec);
     }
