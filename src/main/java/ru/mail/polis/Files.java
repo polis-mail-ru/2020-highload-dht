@@ -38,8 +38,7 @@ public final class Files {
     private static final String TEMP_PREFIX = "highload-dht";
 
     private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
-
+    
     private Files() {
         // Don't instantiate
     }
