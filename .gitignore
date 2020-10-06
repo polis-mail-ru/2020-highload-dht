@@ -6,6 +6,8 @@
 !*.java
 !README.md
 !LICENSE
+!*.svg
+!*.md
 !gradlew.bat
 !gradlew
 !build.gradle.kts
