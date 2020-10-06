@@ -131,7 +131,7 @@ public class MemTablePool implements Table {
     }
 
     /**
-     * @return generation of {@code currentMemTable}
+     * Return generation of {@code currentMemTable}.
      */
     public int getGeneration() {
         readWriteLock.readLock().lock();
@@ -143,7 +143,7 @@ public class MemTablePool implements Table {
     }
 
     /**
-     * remove table which is flushed
+     * Remove table which is flushed.
      */
     public void flushed(final int generation) {
         readWriteLock.writeLock().lock();
