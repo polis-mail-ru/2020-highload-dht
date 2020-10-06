@@ -59,6 +59,8 @@ public final class ServiceFactory {
         final var acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
+        config.selectors = 8;
+        config.maxWorkers = 8;
 
         return new ServiceImpl(config, dao);
     }
