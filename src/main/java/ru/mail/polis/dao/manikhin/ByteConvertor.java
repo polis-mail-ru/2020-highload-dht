@@ -23,7 +23,6 @@ public final class ByteConvertor {
         return array;
     }
 
-
     /**
      * Extract byte array from a Unsigned ByteBuffer.
      *
@@ -43,7 +42,7 @@ public final class ByteConvertor {
     }
 
     /**
-     * Convert byte array into ByteBuffer
+     * Convert byte array into ByteBuffer.
      *
      * @param arr byte array
      * @return ByteBuffer with unsigned bytes

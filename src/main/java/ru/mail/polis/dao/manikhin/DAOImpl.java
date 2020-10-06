@@ -1,8 +1,8 @@
 package ru.mail.polis.dao.manikhin;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.Options;
 import org.rocksdb.BuiltinComparator;
+import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -11,8 +11,8 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -21,8 +21,7 @@ public final class DAOImpl implements DAO {
     final Options options;
 
     /**
-     *
-     * DAO implementation over RocksDB
+     * DAO implementation over RocksDB.
      *
      * @param data input data for init DAO
      * @throws IOException DAO init exception
