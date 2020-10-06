@@ -23,8 +23,8 @@ public class SSTable implements Table {
     private int rowsCount;
     private int fileSize;
 
-    private static final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
-    private static final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
+    private final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
+    private final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
 
     /**
      * Creates SSTable from file.
@@ -52,6 +52,8 @@ public class SSTable implements Table {
             final List<Integer> indexesList = new ArrayList<>();
             final AtomicInteger position = new AtomicInteger(0);
             final AtomicInteger currentRowIndex = new AtomicInteger(0);
+            final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
+            final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
 
             iterator.forEachRemaining(it -> {
                 indexesList.add(position.get());

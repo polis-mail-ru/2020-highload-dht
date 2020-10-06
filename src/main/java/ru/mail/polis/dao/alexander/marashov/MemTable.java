@@ -6,16 +6,17 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MemTable implements Table {
 
     private final SortedMap<ByteBuffer, Value> map;
-    private long sizeInBytes;
+    private final AtomicLong sizeInBytes;
 
     public MemTable() {
-        map = new TreeMap<>();
-        sizeInBytes = 0;
+        map = new ConcurrentSkipListMap<>();
+        sizeInBytes = new AtomicLong(0);
     }
 
     @NotNull
@@ -30,14 +31,14 @@ public class MemTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        sizeInBytes += value.capacity();
+        sizeInBytes.addAndGet(value.capacity());
         final Value prev = map.put(key, new Value(System.currentTimeMillis(), value));
         if (prev == null) {
             // + key and timestamp
-            sizeInBytes += key.capacity() + Long.BYTES;
+            sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
         } else if (!prev.isTombstone()) {
             // - old value
-            sizeInBytes -= prev.getData().capacity();
+            sizeInBytes.addAndGet(-prev.getData().capacity());
         }
     }
 
@@ -46,16 +47,16 @@ public class MemTable implements Table {
         final Value prev = map.put(key, new Value(System.currentTimeMillis(), null));
         if (prev == null) {
             // + key and timestamp
-            sizeInBytes += key.capacity() + Long.BYTES;
+            sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
         } else if (!prev.isTombstone()) {
             // - old value
-            sizeInBytes -= prev.getData().capacity();
+            sizeInBytes.addAndGet(-prev.getData().capacity());
         }
     }
 
     @Override
     public long sizeInBytes() {
-        return sizeInBytes;
+        return sizeInBytes.get();
     }
 
     @Override
@@ -66,6 +67,6 @@ public class MemTable implements Table {
     @Override
     public void close() throws IOException {
         map.clear();
-        sizeInBytes = 0;
+        sizeInBytes.set(0);
     }
 }
