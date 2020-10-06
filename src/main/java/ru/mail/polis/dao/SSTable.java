@@ -13,7 +13,7 @@ import java.util.List;
 
 final class SSTable implements Table {
     private final FileChannel fileChannel;
-    private final int rows;
+    private final long rows;
     private final long fileSize;
 
     /**
@@ -22,9 +22,9 @@ final class SSTable implements Table {
     public SSTable(@NotNull final File file) throws IOException {
         this.fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
         this.fileSize = fileChannel.size();
-        final ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
-        fileChannel.read(buf, this.fileSize - Integer.BYTES);
-        this.rows = buf.rewind().getInt();
+        final ByteBuffer buf = ByteBuffer.allocate(Long.BYTES);
+        fileChannel.read(buf, this.fileSize - Long.BYTES);
+        this.rows = buf.rewind().getLong();
     }
 
     /**
@@ -61,18 +61,18 @@ final class SSTable implements Table {
                 fc.write(ByteBuffer.allocate(Long.BYTES).putLong(offset).rewind());
             }
             // at the end of the file we write the number of rows
-            fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(offsets.size()).rewind());
+            fc.write(ByteBuffer.allocate(Long.BYTES).putLong(offsets.size()).rewind());
         }
     }
 
-    private long getOffset(final int row) throws IOException {
+    private long getOffset(final long row) throws IOException {
         final ByteBuffer offset = ByteBuffer.allocate(Long.BYTES);
-        fileChannel.read(offset, this.fileSize - Integer.BYTES - Long.BYTES * (rows - row));
+        fileChannel.read(offset, this.fileSize - Long.BYTES - Long.BYTES * (rows - row));
         return offset.rewind().getLong();
     }
 
     @NotNull
-    private ByteBuffer keyAt(final int row) throws IOException {
+    private ByteBuffer keyAt(final long row) throws IOException {
         assert 0 <= row && row <= rows;
         final long offset = getOffset(row);
 
@@ -85,7 +85,7 @@ final class SSTable implements Table {
     }
 
     @NotNull
-    private Value valueAt(final int row) throws IOException {
+    private Value valueAt(final long row) throws IOException {
         assert 0 <= row && row <= rows;
         final long offset = getOffset(row);
 
@@ -111,12 +111,12 @@ final class SSTable implements Table {
         }
     }
 
-    private int binarySearch(final ByteBuffer from) throws IOException {
-        int left = 0;
-        int right = rows - 1;
+    private long binarySearch(final ByteBuffer from) throws IOException {
+        long left = 0;
+        long right = rows - 1;
         while (left <= right) {
-            final int mid = (right + left) / 2;
-            final int cmp = from.compareTo(keyAt(mid));
+            final long mid = (right + left) / 2;
+            final long cmp = from.compareTo(keyAt(mid));
             if (cmp < 0) {
                 right = mid - 1;
             } else if (cmp > 0) {
@@ -132,7 +132,7 @@ final class SSTable implements Table {
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
         return new Iterator<>() {
-            private int next = binarySearch(from);
+            private long next = binarySearch(from);
 
             @Override
             public boolean hasNext() {
@@ -167,7 +167,7 @@ final class SSTable implements Table {
     }
 
     @Override
-    public int size() {
+    public long size() {
         return rows;
     }
 

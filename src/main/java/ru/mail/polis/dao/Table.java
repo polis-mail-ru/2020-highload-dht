@@ -17,5 +17,5 @@ public interface Table extends Closeable {
 
     long sizeInBytes();
 
-    int size();
+    long size();
 }

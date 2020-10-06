@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -17,6 +19,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class LsmDao implements DAO {
@@ -29,12 +34,15 @@ public class LsmDao implements DAO {
     private final File storage;
     private final long flushThreshold;
 
-    // Data
-    private Table memTable;
-    private final NavigableMap<Integer, Table> ssTables;
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    @GuardedBy("lock")
+    private TableSet tableSet;
+    int maxGeneration;
 
-    // State
-    private int generation;
+    @NotNull
+    private final BlockingQueue<FlushTask> flushTasks;
+    @NotNull
+    private final Thread flusher;
 
     /**
      * Creates LsmDao.
@@ -42,19 +50,19 @@ public class LsmDao implements DAO {
      * @param flushThreshold maximum size in bytes, data will be written to a file if size in bytes > flushThreshold
      * @throws IOException if an I/O error occurs
      */
-    public LsmDao(@NotNull final File storage, final long flushThreshold) throws IOException {
+    public LsmDao(@NotNull final File storage, final long flushThreshold, final int flushQueueSize) throws IOException {
         assert flushThreshold > 0L;
+        assert flushQueueSize > 0L;
         this.storage = storage;
         this.flushThreshold = flushThreshold;
-        this.memTable = new MemTable();
-        this.ssTables = new TreeMap<>();
+        final NavigableMap<Integer, Table> ssTables = new TreeMap<>();
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(path -> path.toString().endsWith(SUFFIX)).forEach(f -> {
                 try {
                     // 3.dat
                     final String name = f.getFileName().toString();
                     final int gen = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
-                    generation = Math.max(generation, gen);
+                    maxGeneration = Math.max(maxGeneration, gen);
                     ssTables.put(gen, new SSTable(f.toFile()));
                 } catch (IOException e) {
                     // Log bad file
@@ -64,15 +72,30 @@ public class LsmDao implements DAO {
                 }
             });
         }
-        generation++;
+        this.tableSet = TableSet.fromFiles(ssTables, maxGeneration + 1);
+
+        // Flusher
+        this.flushTasks = new ArrayBlockingQueue<>(flushQueueSize);
+        this.flusher = new Flusher();
+        flusher.start();
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        final List<Iterator<Cell>> iters = new ArrayList<>(ssTables.size() + 1);
-        iters.add(memTable.iterator(from));
-        for (final Table t : ssTables.descendingMap().values()) {
+        final TableSet snapshot;
+        lock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
+        }
+        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size() + 1);
+        iters.add(snapshot.memTable.iterator(from));
+        for (final Table flushing : snapshot.flushingTables) {
+            iters.add(flushing.iterator(from));
+        }
+        for (final Table t : snapshot.ssTables.descendingMap().values()) {
             iters.add(t.iterator(from));
         }
         // Sorted duplicates and tombstones
@@ -86,51 +109,80 @@ public class LsmDao implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTable.upsert(key.asReadOnlyBuffer(), value.asReadOnlyBuffer());
-        if (memTable.sizeInBytes() > flushThreshold) {
+        final boolean needsFlushing;
+        lock.readLock().lock();
+        try {
+            tableSet.memTable.upsert(key.asReadOnlyBuffer(), value.asReadOnlyBuffer());
+            needsFlushing = tableSet.memTable.sizeInBytes() > flushThreshold;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needsFlushing) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key.asReadOnlyBuffer());
-        if (memTable.sizeInBytes() > flushThreshold) {
+        final boolean needsFlushing;
+        lock.readLock().lock();
+        try {
+            tableSet.memTable.remove(key.asReadOnlyBuffer());
+            needsFlushing = tableSet.memTable.sizeInBytes() > flushThreshold;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needsFlushing) {
             flush();
         }
     }
 
     private void flush() throws IOException {
-        // Dump memTable
-        final File file = new File(storage, generation + TEMP);
-        SSTable.serialize(file, memTable.iterator(ByteBuffer.allocate(0)));
-        final File dst = new File(storage, generation + SUFFIX);
-        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+        final TableSet snapshot;
+        lock.writeLock().lock();
+        try {
+            snapshot = this.tableSet;
+            if (snapshot.memTable.size() == 0L) {
+                // Nothing to flush
+                return;
+            }
 
-        // Switch
-        memTable = new MemTable();
-        ssTables.put(generation, new SSTable(dst));
-        generation++;
+            this.tableSet = snapshot.markMemTableAsFlushing();
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        try {
+            this.flushTasks.put(new FlushTask(snapshot.memTable, snapshot.generation));
+        } catch (Exception e) {
+            throw new IOException("Can't enque flush task", e);
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (memTable.size() > 0) {
-            flush();
+        flush();
+
+        for (final Table t : this.tableSet.ssTables.values()) {
+            t.close();
         }
 
-        for (final Table t : ssTables.values()) {
-            t.close();
+        try {
+            flushTasks.put(new FlushTask(null, 0));
+            flusher.join();
+        } catch (Exception e) {
+            throw new RuntimeException("Can't stop flusher", e);
         }
     }
 
-    private Iterator<Cell> aliveCells(@NotNull final ByteBuffer from) throws IOException {
+    private Iterator<Cell> aliveCells(@NotNull final ByteBuffer from, @NotNull final TableSet snapshot) throws IOException {
         final List<Iterator<Cell>> iterators = new ArrayList<>();
-        for (final Table ssTable : this.ssTables.values()) {
+        for (final Table ssTable : snapshot.ssTables.values()) {
             iterators.add(ssTable.iterator(from));
         }
 
-        iterators.add(memTable.iterator(from));
         final Iterator<Cell> cellIterator = Iters.collapseEquals(
                 Iterators.mergeSorted(iterators, Cell.COMPARATOR),
                 Cell::getKey
@@ -145,21 +197,85 @@ public class LsmDao implements DAO {
     }
 
     @Override
-    public void compact() throws IOException {
-        final File tmp = new File(storage, "compact" + TEMP);
-        SSTable.serialize(tmp, aliveCells(ByteBuffer.allocate(0)));
-
-        for (int i = 1; i < generation; i++) {
-            Files.delete(Path.of(storage.toString() + "/" + i + SUFFIX));
+    public synchronized void compact() throws IOException {
+        final TableSet snapshot;
+        lock.writeLock().lock();
+        try {
+            snapshot = this.tableSet;
+            this.tableSet = this.tableSet.startCompacting();
+        } finally {
+            lock.writeLock().unlock();
         }
 
-        generation = 1;
-        final File dst = new File(storage, generation + SUFFIX);
+
+        final File tmp = new File(storage, "compact" + TEMP);
+        SSTable.serialize(tmp, aliveCells(ByteBuffer.allocate(0), snapshot));
+
+        final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(tmp.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        ssTables.clear();
-        ssTables.put(generation, new SSTable(dst));
-        memTable = new MemTable();
-        generation++;
+        // Replace old files
+
+        for (int gen : snapshot.ssTables.keySet()) {
+            Files.delete(Path.of(storage.toString() + "/" + gen + SUFFIX));
+        }
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    private final static class FlushTask {
+        @Nullable
+        private final Table mem; // null if poison pill
+        private final int generation;
+
+        public FlushTask(Table mem, int generation) {
+            this.mem = mem;
+            this.generation = generation;
+        }
+
+        private boolean isPoisonPill() {
+            return mem == null;
+        }
+    }
+
+    private final class Flusher extends Thread {
+        public Flusher() {
+            super("flusher");
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (true) {
+                    final FlushTask task = flushTasks.take();
+
+                    if (task.isPoisonPill()) {
+                        return;
+                    }
+
+                    // Dump memTable
+                    final File file = new File(storage, task.generation + TEMP);
+                    SSTable.serialize(file, task.mem.iterator(ByteBuffer.allocate(0)));
+                    final File dst = new File(storage, task.generation + SUFFIX);
+                    Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+                    lock.writeLock().lock();
+                    try {
+                        tableSet = tableSet.moveFlushingMemTableToFlushedFiles(
+                            task.mem,
+                            new SSTable(dst),
+                            task.generation);
+                    } finally {
+                        lock.writeLock().unlock();
+                    }
+                }
+            } catch (Exception e) {
+
+            }
+        }
     }
 }
