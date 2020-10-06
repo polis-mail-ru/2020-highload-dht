@@ -11,8 +11,10 @@ import ru.mail.polis.service.stasyanoi.CustomServer;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class DAOImpl implements DAO {
 
@@ -62,8 +64,23 @@ public class DAOImpl implements DAO {
         }
     }
 
+    @NotNull
+    public synchronized ByteBuffer get(@NotNull ByteBuffer key) throws NoSuchElementException {
+        final Iterator<Record> iter = iterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        final Record next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next.getValue();
+        } else {
+            throw new NoSuchElementException("Not found");
+        }
+    }
+
     @Override
-    public void remove(final @NotNull ByteBuffer key) {
+    public synchronized void remove(final @NotNull ByteBuffer key) {
         try {
             storageInstance.delete(CustomServer.toBytes(key));
         } catch (RocksDBException e) {
