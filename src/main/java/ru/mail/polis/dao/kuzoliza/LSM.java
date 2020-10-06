@@ -146,11 +146,9 @@ public class LSM implements DAO {
             lock.writeLock().unlock();
         }
 
-        for (int k : snapshot.files.keySet()){
+        for (final int k : snapshot.files.keySet()) {
             final File removeFile = new File(storage, k + SUFFIX);
-            if (!removeFile.delete()) {
-                throw new IOException("Can't remove file");
-            }
+            Files.delete(removeFile.toPath());
         }
 
         snapshot.generation = 0;
@@ -197,7 +195,7 @@ public class LSM implements DAO {
         lock.writeLock().lock();
         try {
             snapshot = this.tables;
-            if (snapshot.mem.size() == 0){
+            if (snapshot.mem.size() == 0) {
                 return;
             }
             this.tables = snapshot.markedAsFlushing();

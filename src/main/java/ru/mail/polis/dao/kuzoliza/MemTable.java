@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MemTable implements Table {
 
     private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
-    private AtomicLong sizeInBytes = new AtomicLong();
+    private final AtomicLong sizeInBytes = new AtomicLong();
     private final AtomicInteger size = new AtomicInteger();
 
     @NotNull
