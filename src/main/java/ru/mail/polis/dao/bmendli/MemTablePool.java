@@ -35,7 +35,7 @@ public class MemTablePool implements Table {
     private int generation;
 
     /**
-     * Pool of flushing tables and current memory table
+     * Pool of flushing tables and current memory table.
      */
     public MemTablePool(final long flushThreshold,
                         final int firstGeneration,

@@ -14,7 +14,7 @@ public class FlushTable {
     }
 
     /**
-     * Table which waiting a flush
+     * Table which waiting a flush.
      */
     public FlushTable(final int generation,
                       @NotNull final Table table,
