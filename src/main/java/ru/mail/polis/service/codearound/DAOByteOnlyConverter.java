@@ -11,7 +11,7 @@ public final class DAOByteOnlyConverter {
     }
 
     /**
-     * implement size manipulation to ensure proper conversion from ByteBuffer object to plain byte array.
+     * applies size manipulation to ensure proper conversion from ByteBuffer object to plain byte array.
      *
      * @param buf ByteBuffer object to be arithmetically tuned to byte array
      * @return a byte array object
@@ -26,7 +26,7 @@ public final class DAOByteOnlyConverter {
     }
 
     /**
-     * implement size manipulation to ensure proper conversion from byte array to ByteBuffer instance.
+     * applies size manipulation to ensure proper conversion from byte array to ByteBuffer instance.
      *
      * @param byteArray byte array to be arithmetically tuned to ByteBuffer instance
      * @return a ByteBuffer object
@@ -40,7 +40,7 @@ public final class DAOByteOnlyConverter {
     }
 
     /**
-     * read data from ByteByffer to enforce return as a byte array.
+     * converts value to byte array object while reading ByteBuffer from data storage.
      *
      * @param buf ByteBuffer object to be handled  to return byte array.
      * @return a byte array object

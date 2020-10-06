@@ -3,7 +3,6 @@
 
 # But not Java files...
 !.gitignore
-!*.java
 !README.md
 !LICENSE
 !gradlew.bat

@@ -5,6 +5,7 @@ import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RocksRecordIterator implements Iterator<Record> {
 
@@ -15,7 +16,7 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * define iterator move to next element of stuff within file content.
+     * enables iterator move to next element of stuff within file content.
      */
     @Override
     public boolean hasNext() {
@@ -23,7 +24,7 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * define evaluation of an element (record) at next step of file reading by iterator.
+     * serves to evaluation of an element (record) at next step of file reading by iterator.
      */
     @Override
     public Record next() {
@@ -33,12 +34,12 @@ public class RocksRecordIterator implements Iterator<Record> {
             rocksIt.next();
             return rec;
         } else {
-            throw new IllegalStateException("End of file content reached. Iterator stopped\n");
+            throw new NoSuchElementException("Further record isn't found. Iterator stopped\n");
         }
     }
 
     /**
-     * define termination of iterator call.
+     * stops iterator running, closes file also.
      */
     public void close() {
         rocksIt.close();

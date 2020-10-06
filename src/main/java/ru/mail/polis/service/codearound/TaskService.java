@@ -16,22 +16,27 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.Executor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;
+    private final Executor exec;
+    private ByteBuffer copy;
+    Logger logger = Logger.getLogger(TaskService.class.getName());
 
-    public TaskService(final int port, @NotNull final DAO dao) throws IOException {
+    public TaskService(final int port, @NotNull final DAO dao, final Executor exec) throws IOException {
         super(getConfig(port));
         this.dao = dao;
+        this.exec = exec;
     }
-
     /**
-     * define HTTP server configuration parameters initially.
+     * set HTTP server initial configuration.
      * @param port - server listening port
      * @return HTTP server configuration object
      */
-
     private static HttpServerConfig getConfig(final int port) {
         if (port <= 1024 || port >= 65536) {
             throw new IllegalArgumentException("Invalid port");
@@ -44,7 +49,6 @@ public class TaskService extends HttpServer implements Service {
         config.acceptors = new AcceptorConfig[]{acc};
         return config;
     }
-
     /**
      * try formation request to secure OK as response.
      */
@@ -52,47 +56,43 @@ public class TaskService extends HttpServer implements Service {
     public Response status() {
         return new Response(Response.OK, Response.EMPTY);
     }
-
     /**
-     * determine what request and how to be handled if receiving one.
+     * returns server status info, feed to respective requests as well.
      *
      * @param id String object to be processed as a key in terms of data storage design
      * @param req client host request
-     * @return a byte array object
      */
     @Path("/v0/entity")
-    public Response entity(@Param(value = "id", required = true) final String id, @NotNull final Request req) {
-
+    public void entity(@Param(value = "id", required = true) final String id, @NotNull final Request req, final HttpSession session) throws IOException {
         if (id == null || id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
+            session.sendError(Response.BAD_REQUEST, "Argument 'Id' was not provided. Error handling request\n");
+            return;
         }
-
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-
-        try {
-            switch (req.getMethod()) {
-                case Request.METHOD_GET:
-                    return get(buf);
-                case Request.METHOD_PUT:
-                    return insert(buf, req);
-                case Request.METHOD_DELETE:
-                    return delete(buf);
-                default:
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } catch (IOException exception) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        switch (req.getMethod()) {
+            case Request.METHOD_GET:
+                pushAsyncRun(session, get(buf));
+                break;
+            case Request.METHOD_PUT:
+                pushAsyncRun(session, upsert(buf, req));
+                break;
+            case Request.METHOD_DELETE:
+                pushAsyncRun(session, delete(buf));
+                break;
         }
     }
     /**
-     * handle GET request.
+     * handles GET request.
      * @param key - key that should match for sending a value in server response
      * @return Response object
      */
-
-    private Response get(final ByteBuffer key) throws IOException {
+    private Response get(final ByteBuffer key) {
         try {
-            final ByteBuffer copy = dao.get(key).duplicate();
+            try {
+                copy = dao.get(key).duplicate();
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "Storage doesn't contain match key\n");
+            }
             final byte[] vals = new byte[copy.remaining()];
             copy.get(vals);
             return new Response(Response.OK, vals);
@@ -101,20 +101,22 @@ public class TaskService extends HttpServer implements Service {
             return new Response(Response.NOT_FOUND, faultMessage.getBytes(Charsets.UTF_8));
         }
     }
-
     /**
-     * handle PUT request.
+     * handles PUT request.
      * @param key - key to either initiate a new record or to modify an existing one
      * @param req client host request
      * @return server response object
      */
-    private Response insert(final ByteBuffer key, final Request req) throws IOException {
-        dao.upsert(key, ByteBuffer.wrap(req.getBody()));
+    private Response upsert(final ByteBuffer key, final Request req) {
+        try {
+            dao.upsert(key, ByteBuffer.wrap(req.getBody()));
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Insertion / update operation failed\n", e);
+        }
         return new Response(Response.CREATED, Response.EMPTY);
     }
-
     /**
-     * handle DELETE request.
+     * handles DELETE request.
      * @param key - specific key to remove a record from storage unless match is missing there
      * @return server response object
      */
@@ -129,14 +131,31 @@ public class TaskService extends HttpServer implements Service {
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
-
     /**
-     * set default handler.
+     * default request handler.
      * @param req client host request
      * @param session ongoing client-server session instance
      */
     @Override
     public void handleDefault(final Request req, final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+    /**
+     * resolves asynchronous request evaluation and handling.
+     * @param session ongoing client-server session instance
+     * @param response server response
+     */
+    public void pushAsyncRun(final HttpSession session, Response response) {
+        exec.execute(() -> {
+            try {
+                session.sendResponse(response);
+            } catch (IOException exc) {
+                try {
+                    session.sendError(Response.INTERNAL_ERROR, exc.getMessage());
+                } catch (IOException e) {
+                    logger.log(Level.SEVERE, "Asynchronous execution error\n", e);
+                }
+            }
+        });
     }
 }

@@ -30,20 +30,26 @@ public class TaskDAO implements DAO {
             this.db = db;
         }
 
+
         /**
         * class instance const.
         * @param data - file to store key-value records
         */
         public TaskDAO(@NotNull final File data) throws IOException {
             final Options opts = new Options();
-            opts.setCreateIfMissing(true);
+            opts.setCreateIfMissing(true); // create db instance if one does not exist
+            opts.setParanoidChecks(false); // drops strict data quality control while performing search for corrupt / erroneous elements
+            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
+            opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
+            opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+
             dbLocalDir = data;
             try {
                 Files.createDirectories(dbLocalDir.getParentFile().toPath());
                 Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
                 db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
             } catch (IOException | RocksDBException exc) {
-                logger.log(Level.SEVERE, "Storage initialization failed");
+                logger.log(Level.SEVERE, "Storage initialization failed", exc);
             }
         }
 
@@ -57,7 +63,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * define insert/update dual method.
+     * executes insertion/update on record specified.
      * @param key - key that should match for attaching a value to server response
      * @param value - key-bound value
      */
@@ -73,7 +79,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * define remove method.
+     * removes record from storage.
      * @param key - target key
      */
     @Override
@@ -87,7 +93,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * define get method.
+     * returns value by key searched.
      * @param key - target key
      */
     @NotNull
@@ -106,7 +112,7 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * stop and close connection to key-value storage.
+     * shuts up connection to data storage.
      */
     @Override
     public void close() {
