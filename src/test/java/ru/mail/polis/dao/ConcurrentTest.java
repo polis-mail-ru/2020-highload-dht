@@ -30,7 +30,6 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import ru.mail.polis.Record;
 import ru.mail.polis.TestBase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -139,7 +138,7 @@ class ConcurrentTest extends TestBase {
                             Thread.currentThread().interrupt();
                         }
                     });
-            final AtomicInteger matches = new AtomicInteger(); 
+            final AtomicInteger matches = new AtomicInteger();
             while (records.hasNext()) {
                 final Record record = records.next();
                 executor.submit(() -> {

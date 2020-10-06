@@ -43,14 +43,14 @@ public class MoribundService extends HttpServer implements Service {
     public Response get(@Param(value = "id", required = true) final String id) {
         try {
             if (id.isEmpty()) {
-                logger.debug("FAIL GET! Id is empty!");
+                logger.warn("FAIL GET! Id is empty!");
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             return new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id))));
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException e) {
-            logger.debug("FAIL GET! id: {}, error: {}", id, e.getMessage());
+            logger.error("FAIL GET! id: {}, error: {}", id, e.getMessage());
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -67,13 +67,13 @@ public class MoribundService extends HttpServer implements Service {
     public Response put(@Param(value = "id", required = true) final String id, final Request request) {
         try {
             if (id.isEmpty()) {
-                logger.debug("FAIL PUT! Id is empty!");
+                logger.warn("FAIL PUT! Id is empty!");
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException e) {
-            logger.debug("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
+            logger.error("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -90,13 +90,13 @@ public class MoribundService extends HttpServer implements Service {
     public Response delete(@Param(value = "id", required = true) final String id) {
         try {
             if (id.isEmpty()) {
-                logger.debug("FAIL DELETE! Id is empty!");
+                logger.warn("FAIL DELETE! Id is empty!");
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             dao.remove(toByteBuffer(id));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException e) {
-            logger.debug("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
+            logger.error("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }

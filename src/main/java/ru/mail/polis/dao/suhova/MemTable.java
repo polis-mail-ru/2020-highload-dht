@@ -3,15 +3,18 @@ package ru.mail.polis.dao.suhova;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class MemTable implements Table {
-    private final NavigableMap<ByteBuffer, Value> map = new TreeMap<>();
-    private long size;
+    private final NavigableMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
+    private AtomicLong size = new AtomicLong();
 
     public int getEntryCount() {
         return map.size();
@@ -29,9 +32,9 @@ public class MemTable implements Table {
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         final Value prev = map.put(key.duplicate(), new Value(value.duplicate(), System.currentTimeMillis()));
         if (prev == null) {
-            size += key.remaining() + value.remaining() + Long.BYTES;
+            size.getAndAdd(key.remaining() + value.remaining() + Long.BYTES);
         } else {
-            size += value.remaining() - prev.getData().remaining();
+            size.getAndAdd(value.remaining() - prev.getData().remaining());
         }
     }
 
@@ -39,17 +42,17 @@ public class MemTable implements Table {
     public void remove(@NotNull final ByteBuffer key) {
         final Value prev = map.put(key, Value.tombstone(System.currentTimeMillis()));
         if (prev == null) {
-            size += key.remaining() + Long.BYTES;
+            size.getAndAdd(key.remaining() + Long.BYTES);
         } else {
             if (!prev.isTombstone()) {
-                size = size - prev.getData().remaining();
+                size.getAndAdd(-prev.getData().remaining());
             }
         }
     }
 
     @Override
     public long sizeInBytes() {
-        return size;
+        return size.get();
     }
 
     @Override
