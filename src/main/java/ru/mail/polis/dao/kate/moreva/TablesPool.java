@@ -22,6 +22,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+/**
+ * Pool of tables.
+ *
+* */
 public class TablesPool implements Table, Closeable {
 
     private volatile MemTable current;
@@ -33,7 +37,7 @@ public class TablesPool implements Table, Closeable {
     private int generation;
     private final AtomicBoolean stopFlag = new AtomicBoolean();
 
-    public TablesPool(long memFlushThreshold, final int startGeneration, final int flushTablePool) {
+    public TablesPool(final long memFlushThreshold, final int startGeneration, final int flushTablePool) {
         this.memFlushThreshold = memFlushThreshold;
         this.current = new MemTable();
         this.size = new AtomicLong(0);
@@ -44,7 +48,7 @@ public class TablesPool implements Table, Closeable {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull ByteBuffer from) throws IOException {
+    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> iterators;
         readWriteLock.readLock().lock();
         try {
@@ -57,7 +61,7 @@ public class TablesPool implements Table, Closeable {
             readWriteLock.readLock().unlock();
         }
         final UnmodifiableIterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
-        Iterator<Cell> withoutEquals =  Iters.collapseEquals(merged, Cell::getKey);
+        final Iterator<Cell> withoutEquals = Iters.collapseEquals(merged, Cell::getKey);
 
         final Iterator<Cell> filteredIterator = Iterators.filter(withoutEquals,
                 cell -> {
@@ -73,8 +77,8 @@ public class TablesPool implements Table, Closeable {
         readWriteLock.readLock().lock();
         try {
             size.set(current.sizeInBytes());
-            for (Map.Entry<Integer, Table> table : writingFlushTables.entrySet()) {
-               size.addAndGet(table.getValue().sizeInBytes());
+            for (final Map.Entry<Integer, Table> table : writingFlushTables.entrySet()) {
+                size.addAndGet(table.getValue().sizeInBytes());
             }
             return size.get();
         } finally {
@@ -97,7 +101,7 @@ public class TablesPool implements Table, Closeable {
     }
 
     @Override
-    public void remove(ByteBuffer key) {
+    public void remove(final ByteBuffer key) {
         if (stopFlag.get()) {
             throw new IllegalStateException("Already stopped");
         }
@@ -127,9 +131,9 @@ public class TablesPool implements Table, Closeable {
         if (current.sizeInBytes() > memFlushThreshold) {
             FlushingTable tableToFlush = null;
             readWriteLock.writeLock().lock();
-            try{
+            try {
                 if (current.sizeInBytes() > memFlushThreshold) {
-                   tableToFlush = new FlushingTable(current, generation);
+                    tableToFlush = new FlushingTable(current, generation);
                     writingFlushTables.put(generation, current);
                     generation++;
                     current = new MemTable();
@@ -148,7 +152,7 @@ public class TablesPool implements Table, Closeable {
     }
 
     @Override
-    public void close(){
+    public void close() {
         if (!stopFlag.compareAndSet(false, true)) {
             return;
         }
@@ -160,10 +164,10 @@ public class TablesPool implements Table, Closeable {
         } finally {
             readWriteLock.writeLock().unlock();
         }
-            try {
-                flushQueue.put(flushingTable);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+        try {
+            flushQueue.put(flushingTable);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

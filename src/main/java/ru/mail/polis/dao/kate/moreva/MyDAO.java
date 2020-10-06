@@ -68,8 +68,7 @@ public class MyDAO implements DAO {
         this.generation = -1;
 
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
-            stream
-                    .filter(path -> {
+            stream.filter(path -> {
                         final String name = path.getFileName().toString();
                         return name.endsWith(SUFFIX)
                                 && !name.substring(0, name.indexOf(SUFFIX)).matches(LETTERS)
@@ -107,8 +106,7 @@ public class MyDAO implements DAO {
     private void storeData(@NotNull final Path path) {
         try {
             final String fileName = path.getFileName().toString();
-            final int generationCounter = Integer.parseInt(
-                    fileName.substring(0, fileName.indexOf(SUFFIX)));
+            final int generationCounter = Integer.parseInt(fileName.substring(0, fileName.indexOf(SUFFIX)));
             generation = Math.max(generation, generationCounter);
             ssTables.put(generationCounter, new SSTable(path));
         } catch (NumberFormatException e) {
@@ -116,6 +114,9 @@ public class MyDAO implements DAO {
         }
     }
 
+    /**
+     *
+     */
     public void flush(@NotNull final FlushingTable flushTable) throws IOException {
         readWriteLock.writeLock().lock();
         try {
@@ -129,7 +130,7 @@ public class MyDAO implements DAO {
 
                 ssTables.put(flushTable.getGeneration(), new SSTable(dst.toPath()));
             }
-        }finally {
+        } finally {
             readWriteLock.writeLock().unlock();
         }
     }
@@ -156,24 +157,24 @@ public class MyDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final List<Iterator<Cell>> iterators ;
+        final List<Iterator<Cell>> iterators;
         readWriteLock.readLock().lock();
         try {
             iterators = cellIterator(from);
 
-        final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
-                Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
+            final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
+                    Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
 
-        final Iterator<Cell> lastCellIterator = Iters.collapseEquals(mergedCellIterator, Cell::getKey);
+            final Iterator<Cell> lastCellIterator = Iters.collapseEquals(mergedCellIterator, Cell::getKey);
 
-        final Iterator<Cell> filteredIterator = Iterators.filter(lastCellIterator,
-                cell -> {
-                    assert cell != null;
-                    return !cell.getValue().isTombstone();
-                });
+            final Iterator<Cell> filteredIterator = Iterators.filter(lastCellIterator,
+                    cell -> {
+                        assert cell != null;
+                        return !cell.getValue().isTombstone();
+                    });
 
-        return Iterators.transform(filteredIterator,
-                cell -> Record.of(Objects.requireNonNull(cell).getKey(), cell.getValue().getData()));
+            return Iterators.transform(filteredIterator,
+                    cell -> Record.of(Objects.requireNonNull(cell).getKey(), cell.getValue().getData()));
         } finally {
             readWriteLock.readLock().unlock();
         }
@@ -211,18 +212,18 @@ public class MyDAO implements DAO {
         try {
             final List<Iterator<Cell>> iterators = cellIterator(ByteBuffer.allocate(0));
             final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
-            Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
+            final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
             final File tmpFile = new File(storage, generation + TMP);
-                SSTable.serialize(tmpFile, iterator);
-                for (int i = 0; i < generation; i++) {
-                    Files.delete(new File(storage, i + SUFFIX).toPath());
-                }
+            SSTable.serialize(tmpFile, iterator);
+            for (int i = 0; i < generation; i++) {
+                Files.delete(new File(storage, i + SUFFIX).toPath());
+            }
             generation = 0;
-                final File datFile = new File(storage, generation + SUFFIX);
-                Files.move(tmpFile.toPath(), datFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
-                ssTables.clear();
-                ssTables.put(generation, new SSTable(datFile.toPath()));
-                generation++;
+            final File datFile = new File(storage, generation + SUFFIX);
+            Files.move(tmpFile.toPath(), datFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            ssTables.clear();
+            ssTables.put(generation, new SSTable(datFile.toPath()));
+            generation++;
         } finally {
             readWriteLock.writeLock().unlock();
         }
