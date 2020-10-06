@@ -141,7 +141,7 @@ public class TurboDAO implements DAO {
             if (snapshot.memTable.sizeInBytes() == 0L) {
                 return;
             }
-            tables = tables.fromMemTableToFlushing(snapshot.flushing, snapshot.generation);
+            tables = tables.fromMemTableToFlushing(snapshot.flushing);
         } finally {
             lock.writeLock().unlock();
         }
