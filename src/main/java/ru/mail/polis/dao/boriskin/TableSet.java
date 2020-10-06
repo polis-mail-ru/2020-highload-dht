@@ -18,6 +18,14 @@ public final class TableSet {
 
     public final long gen;
 
+    /**
+     * Конструктор {link TableSet}
+     *
+     * @param currMemTable текущая таблица
+     * @param tablesReadyToFlush таблицы, помеченные как готовые к записи на диск
+     * @param ssTableCollection набор sorted string Tables
+     * @param gen идентификатор
+     */
     public TableSet(
             @NotNull final Table currMemTable,
             @NotNull final Set<Table> tablesReadyToFlush,
@@ -112,6 +120,11 @@ public final class TableSet {
                         this.gen);
     }
 
+    /**
+     * Вызов операции compact
+     *
+     * @return сет таблиц, определенных к проведению операции compact
+     */
     @NotNull
     public TableSet compactSSTables() {
         return

@@ -142,7 +142,7 @@ public class NewDAO implements DAO {
      *
      * @param point где определен интератор
      * @return итератор по "живым" ячейкам таблицы
-     * @throws IOException
+     * @throws IOException в случае ошибки в доступе к итератору таблицы
      */
     @NotNull
     public Iterator<TableCell> iterateThroughTableCells(
@@ -156,7 +156,11 @@ public class NewDAO implements DAO {
         }
         final List<Iterator<TableCell>> iteratorList = new ArrayList<>(
                 snapshot.ssTableCollection.size() + 1);
-        iteratorList.add(snapshot.currMemTable.iterator(point));
+        iteratorList.add(
+                snapshot
+                        .currMemTable
+                        .iterator(point));
+
         snapshot.tablesReadyToFlush.forEach(v -> {
             try {
                 iteratorList.add(v.iterator(point));
@@ -316,7 +320,7 @@ public class NewDAO implements DAO {
             try {
                 Files.delete(f.toPath());
             } catch (IOException ioException) {
-                throw new IOException("Не удалось удалить!");
+                throw new IOException("Не удалось удалить: {}", ioException);
             }
         }
     }
@@ -324,14 +328,10 @@ public class NewDAO implements DAO {
     private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(
             final TableSet snapshot,
             final ByteBuffer point,
-            final List<Iterator<TableCell>> iteratorList) {
-        snapshot.ssTableCollection.descendingMap().values().forEach(v -> {
-            try {
-                iteratorList.add(v.iterator(point));
-            } catch (IOException ioException) {
-                throw new UncheckedIOException(ioException);
-            }
-        });
+            final List<Iterator<TableCell>> iteratorList) throws IOException {
+        for (Table table : snapshot.ssTableCollection.descendingMap().values()) {
+            iteratorList.add(table.iterator(point));
+        }
 
         final Iterator<TableCell> merged =
                 Iterators.mergeSorted(iteratorList, Comparator.naturalOrder());
