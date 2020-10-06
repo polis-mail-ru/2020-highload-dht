@@ -19,6 +19,27 @@ Running 15s test @ http://localhost:8080
      99.990%    2.90ms
      99.999%    2.91ms
     100.000%    2.91ms
+    
+Скрипт PUT
+----------------------------------------------------------------
+
+rm wrkLogsPut.txt
+
+../wrk2/wrk -t1 -c17 -d15s -R2000 -s ../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut.txt &
+
+rm flamePutCpu.svg 
+
+rm flamePutAlloc.svg 
+
+rm flamePutLock.svg 
+
+../async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e cpu -f flamePutCpu.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
+../async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e alloc -f flamePutAlloc.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
+../async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e lock -f flamePutLock.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
+
 
 ----------------------------------------------------------------
 CPU put
@@ -61,6 +82,25 @@ Running 15s test @ http://localhost:8080
      99.999%    5.05ms
     100.000%    5.05ms
 
+Скрипт GET
+----------------------------------------------------------------
+
+rm wrkLogsGet.txt
+
+../wrk2/wrk -t1 -c17 -d15s -R2000 -s ../wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet.txt &
+
+rm flameGetCpu.svg 
+
+rm flameGetAlloc.svg  
+
+rm flameGetLock.svg 
+
+../async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e cpu -f flameGetCpu.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
+../async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e alloc -f flameGetAlloc.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
+../async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e lock -f flameGetLock.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
 ----------------------------------------------------------------
 CPU get
 ----------------------------------------------------
@@ -75,6 +115,16 @@ LOCK get
 ![alt text](flameGetLock.svg "get lock")
 
 Вывод:
+
+В рамках нагрузочного тестирования для PUT/GET
+
+№1 Потоков - 1 
+
+№2 Соединений - 17
+
+№3 Продолжительность - 15 секунд
+
+№4 Количество запросов (Rate) - 2000
 
 1) Put
  Latency -> Avg. 1.12ms | Max. 2.91ms

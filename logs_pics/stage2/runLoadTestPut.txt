@@ -1,5 +1,5 @@
 rm wrkLogsPut.txt
-../wrk2/wrk -t1 -c17 -d20s -R2000 -s ../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut.txt &
+../wrk2/wrk -t1 -c17 -d15s -R2000 -s ../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut.txt &
 rm flamePutCpu.svg 
 rm flamePutAlloc.svg 
 rm flamePutLock.svg 
