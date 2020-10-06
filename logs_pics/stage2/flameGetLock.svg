@@ -334,80 +334,48 @@
 <text id="matched" x="1090" y="229"> </text>
 <g id="frames">
 <g>
-<title>all (6,065 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#fb7d7d" rx="2" ry="2"/>
+<title>all (4,845 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#f67676" rx="2" ry="2"/>
 <text x="13.0" y="206.0">all</text>
 </g>
 <g>
-<title>java/lang/ref/Finalizer$FinalizerThread.run (675 samples, 11.13%)</title><rect x="10.0" y="179.0" width="131.3" height="15" fill="#69fa69" rx="2" ry="2"/>
-<text x="13.0" y="190.0">java/lang/ref/Fi..</text>
+<title>one/nio/server/SelectorThread.run (4,845 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="13.0" y="190.0">one/nio/server/SelectorThread.run</text>
 </g>
 <g>
-<title>java/lang/ref/ReferenceQueue.remove (675 samples, 11.13%)</title><rect x="10.0" y="163.0" width="131.3" height="15" fill="#57e857" rx="2" ry="2"/>
-<text x="13.0" y="174.0">java/lang/ref/Re..</text>
+<title>one/nio/net/Session.process (4,845 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="13.0" y="174.0">one/nio/net/Session.process</text>
 </g>
 <g>
-<title>java/lang/ref/ReferenceQueue.remove (675 samples, 11.13%)</title><rect x="10.0" y="147.0" width="131.3" height="15" fill="#5ced5c" rx="2" ry="2"/>
-<text x="13.0" y="158.0">java/lang/ref/Re..</text>
+<title>one/nio/http/HttpSession.processRead (4,845 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="13.0" y="158.0">one/nio/http/HttpSession.processRead</text>
 </g>
 <g>
-<title>java.lang.ref.ReferenceQueue$Lock (675 samples, 11.13%)</title><rect x="10.0" y="131.0" width="131.3" height="15" fill="#66d4d4" rx="2" ry="2"/>
-<text x="13.0" y="142.0">java.lang.ref.Re..</text>
+<title>one/nio/http/HttpSession.processHttpBuffer (4,845 samples, 100.00%)</title><rect x="10.0" y="131.0" width="1180.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="13.0" y="142.0">one/nio/http/HttpSession.processHttpBuffer</text>
 </g>
 <g>
-<title>java/lang/ref/Reference$ReferenceHandler.run (673 samples, 11.10%)</title><rect x="141.3" y="179.0" width="131.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="144.3" y="190.0">java/lang/ref/Re..</text>
+<title>one/nio/http/HttpSession.handleParsedRequest (4,845 samples, 100.00%)</title><rect x="10.0" y="115.0" width="1180.0" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="13.0" y="126.0">one/nio/http/HttpSession.handleParsedRequest</text>
 </g>
 <g>
-<title>java/lang/ref/Reference.processPendingReferences (673 samples, 11.10%)</title><rect x="141.3" y="163.0" width="131.0" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="144.3" y="174.0">java/lang/ref/Re..</text>
+<title>one/nio/http/HttpServer.handleRequest (4,845 samples, 100.00%)</title><rect x="10.0" y="99.0" width="1180.0" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="13.0" y="110.0">one/nio/http/HttpServer.handleRequest</text>
 </g>
 <g>
-<title>java/lang/ref/ReferenceQueue.enqueue (673 samples, 11.10%)</title><rect x="141.3" y="147.0" width="131.0" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="144.3" y="158.0">java/lang/ref/Re..</text>
+<title>RequestHandler0_get.handleRequest (4,845 samples, 100.00%)</title><rect x="10.0" y="83.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="13.0" y="94.0">RequestHandler0_get.handleRequest</text>
 </g>
 <g>
-<title>java.lang.ref.ReferenceQueue$Lock (673 samples, 11.10%)</title><rect x="141.3" y="131.0" width="131.0" height="15" fill="#6cdada" rx="2" ry="2"/>
-<text x="144.3" y="142.0">java.lang.ref.Re..</text>
+<title>ru/mail/polis/service/stasyanoi/CustomServer.get (4,845 samples, 100.00%)</title><rect x="10.0" y="67.0" width="1180.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="13.0" y="78.0">ru/mail/polis/service/stasyanoi/CustomServer.get</text>
 </g>
 <g>
-<title>one/nio/server/SelectorThread.run (4,717 samples, 77.77%)</title><rect x="272.3" y="179.0" width="917.7" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="275.3" y="190.0">one/nio/server/SelectorThread.run</text>
+<title>ru/mail/polis/dao/stasyanoi/DAOImpl.get (4,845 samples, 100.00%)</title><rect x="10.0" y="51.0" width="1180.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="13.0" y="62.0">ru/mail/polis/dao/stasyanoi/DAOImpl.get</text>
 </g>
 <g>
-<title>one/nio/net/Session.process (4,717 samples, 77.77%)</title><rect x="272.3" y="163.0" width="917.7" height="15" fill="#63f463" rx="2" ry="2"/>
-<text x="275.3" y="174.0">one/nio/net/Session.process</text>
-</g>
-<g>
-<title>one/nio/http/HttpSession.processRead (4,717 samples, 77.77%)</title><rect x="272.3" y="147.0" width="917.7" height="15" fill="#57e857" rx="2" ry="2"/>
-<text x="275.3" y="158.0">one/nio/http/HttpSession.processRead</text>
-</g>
-<g>
-<title>one/nio/http/HttpSession.processHttpBuffer (4,717 samples, 77.77%)</title><rect x="272.3" y="131.0" width="917.7" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="275.3" y="142.0">one/nio/http/HttpSession.processHttpBuffer</text>
-</g>
-<g>
-<title>one/nio/http/HttpSession.handleParsedRequest (4,717 samples, 77.77%)</title><rect x="272.3" y="115.0" width="917.7" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="275.3" y="126.0">one/nio/http/HttpSession.handleParsedRequest</text>
-</g>
-<g>
-<title>one/nio/http/HttpServer.handleRequest (4,717 samples, 77.77%)</title><rect x="272.3" y="99.0" width="917.7" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="275.3" y="110.0">one/nio/http/HttpServer.handleRequest</text>
-</g>
-<g>
-<title>RequestHandler0_get.handleRequest (4,717 samples, 77.77%)</title><rect x="272.3" y="83.0" width="917.7" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="275.3" y="94.0">RequestHandler0_get.handleRequest</text>
-</g>
-<g>
-<title>ru/mail/polis/service/stasyanoi/CustomServer.get (4,717 samples, 77.77%)</title><rect x="272.3" y="67.0" width="917.7" height="15" fill="#59ea59" rx="2" ry="2"/>
-<text x="275.3" y="78.0">ru/mail/polis/service/stasyanoi/CustomServer.get</text>
-</g>
-<g>
-<title>ru/mail/polis/dao/stasyanoi/DAOImpl.get (4,717 samples, 77.77%)</title><rect x="272.3" y="51.0" width="917.7" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="275.3" y="62.0">ru/mail/polis/dao/stasyanoi/DAOImpl.get</text>
-</g>
-<g>
-<title>ru.mail.polis.dao.stasyanoi.DAOImpl (4,717 samples, 77.77%)</title><rect x="272.3" y="35.0" width="917.7" height="15" fill="#6ad8d8" rx="2" ry="2"/>
-<text x="275.3" y="46.0">ru.mail.polis.dao.stasyanoi.DAOImpl</text>
+<title>ru.mail.polis.dao.stasyanoi.DAOImpl (4,845 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#59c7c7" rx="2" ry="2"/>
+<text x="13.0" y="46.0">ru.mail.polis.dao.stasyanoi.DAOImpl</text>
 </g>
 </g>
 </svg>
