@@ -92,7 +92,6 @@ public class TurboDAO implements DAO {
         } finally {
             lock.readLock().unlock();
         }
-
     }
 
     @Override
@@ -152,7 +151,7 @@ public class TurboDAO implements DAO {
             Files.move(tmp.toPath(), dat.toPath(), StandardCopyOption.ATOMIC_MOVE);
             lock.writeLock().lock();
             try {
-                tables = tables.fromFlushingToSSTable(snapshot.memTable, snapshot.flushing, new SSTable(dat));
+                tables = tables.fromFlushingToSSTable(snapshot.memTable, tables.flushing, new SSTable(dat));
             } finally {
                 lock.writeLock().unlock();
             }
