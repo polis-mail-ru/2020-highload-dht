@@ -212,15 +212,7 @@ public class LsmDao implements DAO {
 
     @Override
     public synchronized void compact() throws IOException {
-        final TableSet snapshot;
-        lock.readLock().lock();
-
-        try {
-            snapshot = this.tableSet;
-        } finally {
-            lock.readLock().unlock();
-        }
-
+        final TableSet snapshot = this.tableSet;
         final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size());
         final ByteBuffer empty = ByteBuffer.allocate(0);
 
@@ -235,29 +227,15 @@ public class LsmDao implements DAO {
         final Iterator<Cell> merged = Iterators.mergeSorted(iters, Cell.COMPARATOR);
         final Iterator<Cell> unique = Iters.collapseEquals(merged, Cell::getKey);
 
-        if (!unique.hasNext()) {
-            return;
-        }
-
-        lock.writeLock().lock();
-        try {
-            this.tableSet = snapshot.startCompaction();
-        } finally {
-            lock.writeLock().unlock();
-        }
+        this.tableSet = snapshot.startCompaction();
 
         final File temp = new File(storage, snapshot.generation + 1 + TEMP);
         SSTable.serialize(temp, unique);
         final File dst = new File(storage, snapshot.generation + 1 + SUFFIX);
         Files.move(temp.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        lock.writeLock().lock();
-        try {
-            this.tableSet = this.tableSet
-                    .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation + 1);
-        } finally {
-            lock.writeLock().unlock();
-        }
+        this.tableSet = this.tableSet
+                .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation + 1);
 
         for (int gen : snapshot.ssTables.keySet()) {
             final Path path = new File(storage, gen + SUFFIX).toPath();
@@ -267,8 +245,6 @@ public class LsmDao implements DAO {
                 log.warn("file {} already has been deleted", path, e);
             }
         }
-
-        log.debug("compact finished");
     }
 }
 
