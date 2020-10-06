@@ -24,14 +24,20 @@ public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;
     private final Executor exec;
-    private ByteBuffer copy;
     Logger logger = Logger.getLogger(TaskService.class.getName());
 
+    /**
+     * async service impl const.
+     * @param port request listening port
+     * @param dao DAO instance
+     * @param exec thread pool executor
+     */
     public TaskService(final int port, @NotNull final DAO dao, final Executor exec) throws IOException {
         super(getConfig(port));
         this.dao = dao;
         this.exec = exec;
     }
+
     /**
      * set HTTP server initial configuration.
      * @param port - server listening port
@@ -49,6 +55,7 @@ public class TaskService extends HttpServer implements Service {
         config.acceptors = new AcceptorConfig[]{acc};
         return config;
     }
+
     /**
      * try formation request to secure OK as response.
      */
@@ -56,6 +63,7 @@ public class TaskService extends HttpServer implements Service {
     public Response status() {
         return new Response(Response.OK, Response.EMPTY);
     }
+
     /**
      * returns server status info, feed to respective requests as well.
      *
@@ -63,7 +71,7 @@ public class TaskService extends HttpServer implements Service {
      * @param req client host request
      */
     @Path("/v0/entity")
-    public void entity(@Param(value = "id", required = true) final String id, @NotNull final Request req, final HttpSession session) throws IOException {
+    public void entity(@Param(value = "id", required = true) final String id, @NotNull final Request req, final HttpSession session) throws IOException, NoSuchMethodException {
         if (id == null || id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST, "Argument 'Id' was not provided. Error handling request\n");
             return;
@@ -79,20 +87,21 @@ public class TaskService extends HttpServer implements Service {
             case Request.METHOD_DELETE:
                 pushAsyncRun(session, delete(buf));
                 break;
+            default:
+                throw new NoSuchMethodException("No handler provided for request method\n");
         }
     }
+
     /**
      * handles GET request.
      * @param key - key that should match for sending a value in server response
      * @return Response object
      */
     private Response get(final ByteBuffer key) {
+        ByteBuffer copy = null;
         try {
-            try {
-                copy = dao.get(key).duplicate();
-            } catch (IOException e) {
-                logger.log(Level.SEVERE, "Storage doesn't contain match key\n");
-            }
+            copy = copyKeySearched(key);
+            assert copy != null;
             final byte[] vals = new byte[copy.remaining()];
             copy.get(vals);
             return new Response(Response.OK, vals);
@@ -101,6 +110,7 @@ public class TaskService extends HttpServer implements Service {
             return new Response(Response.NOT_FOUND, faultMessage.getBytes(Charsets.UTF_8));
         }
     }
+
     /**
      * handles PUT request.
      * @param key - key to either initiate a new record or to modify an existing one
@@ -115,6 +125,7 @@ public class TaskService extends HttpServer implements Service {
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
+
     /**
      * handles DELETE request.
      * @param key - specific key to remove a record from storage unless match is missing there
@@ -131,6 +142,7 @@ public class TaskService extends HttpServer implements Service {
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
+
     /**
      * default request handler.
      * @param req client host request
@@ -140,12 +152,13 @@ public class TaskService extends HttpServer implements Service {
     public void handleDefault(final Request req, final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
+
     /**
      * resolves asynchronous request evaluation and handling.
      * @param session ongoing client-server session instance
      * @param response server response
      */
-    public void pushAsyncRun(final HttpSession session, Response response) {
+    public void pushAsyncRun(final HttpSession session, final Response response) {
         exec.execute(() -> {
             try {
                 session.sendResponse(response);
@@ -157,5 +170,22 @@ public class TaskService extends HttpServer implements Service {
                 }
             }
         });
+    }
+
+    /**
+     * creates duplicate of key searched.
+     * @param key key searched
+     * @return key duplicate as a ByteBuffer object
+     */
+    public ByteBuffer duplicateValue(final ByteBuffer key) {
+
+        ByteBuffer copy = null;
+
+        try {
+            copy = dao.get(key).duplicate();
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Copying process denied as match key is missing\n", e);
+        }
+        return copy;
     }
 }

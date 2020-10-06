@@ -30,7 +30,6 @@ public class TaskDAO implements DAO {
             this.db = db;
         }
 
-
         /**
         * class instance const.
         * @param data - file to store key-value records
@@ -38,7 +37,7 @@ public class TaskDAO implements DAO {
         public TaskDAO(@NotNull final File data) throws IOException {
             final Options opts = new Options();
             opts.setCreateIfMissing(true); // create db instance if one does not exist
-            opts.setParanoidChecks(false); // drops strict data quality control while performing search for corrupt / erroneous elements
+            opts.setParanoidChecks(false); // drops strict data quality control while searching for corrupt items
             opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
             opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
             opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout

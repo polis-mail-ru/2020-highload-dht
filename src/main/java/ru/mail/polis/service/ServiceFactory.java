@@ -50,7 +50,8 @@ public final class ServiceFactory {
             final int port,
             @NotNull final DAO dao) throws IOException {
 
-        final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
+        final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime()
+                .availableProcessors(), new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
 
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
