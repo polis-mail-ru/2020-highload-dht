@@ -76,7 +76,8 @@ public class TaskService extends HttpServer implements Service {
             throws IOException, NoSuchMethodException {
 
         if (id == null || id.isEmpty()) {
-            session.sendError(Response.BAD_REQUEST, "Identifier is required as parameter. Error handling request\n");
+            session.sendError(Response.BAD_REQUEST, "Identifier is required as parameter. " +
+                    "Error handling request\n");
             return;
         }
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
