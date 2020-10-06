@@ -49,7 +49,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     return get(key);
                 }
                 case Request.METHOD_PUT: {
-                   return put(key, request);
+                    return put(key, request);
                 }
                 case Request.METHOD_DELETE: {
                     return delete(key);
@@ -71,8 +71,7 @@ public class ServiceImpl extends HttpServer implements Service {
             return new Response(Response.OK, body);
         } catch (NoSuchElementException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -93,7 +92,7 @@ public class ServiceImpl extends HttpServer implements Service {
         session.sendResponse(response);
     }
 
-    private static HttpServerConfig getServerConfig(final int port) throws IllegalArgumentException{
+    private static HttpServerConfig getServerConfig(final int port) throws IllegalArgumentException {
         if (port <= 1024 || 65536 <= port) {
             throw new IllegalArgumentException("invalid port");
         }

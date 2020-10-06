@@ -1,4 +1,4 @@
-package ru.mail.polis.dao;
+package ru.mail.polis.dao.igor_manikhin;
 import ru.mail.polis.Record;
 
 import org.jetbrains.annotations.NotNull;
@@ -9,6 +9,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.Options;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.util.BytewiseComparator;
+import ru.mail.polis.dao.DAO;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,7 +22,7 @@ public class RocksImplDAO implements DAO {
 
     private final RocksDB db;
 
-    RocksImplDAO(@NotNull final File data) throws IOException {
+    public RocksImplDAO(@NotNull final File data) throws IOException {
         final BytewiseComparator comparator;
         final Options options;
 
@@ -39,7 +40,7 @@ public class RocksImplDAO implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final RocksIterator iterator = db.newIterator();
-        iterator.seek(toArray(from));
+        iterator.seek(ByteConvertor.toUnsignedArray(from));
         return new RecordIterator(iterator);
     }
 
@@ -47,7 +48,7 @@ public class RocksImplDAO implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final byte[] result = db.get(toArray(key));
+            final byte[] result = db.get(ByteConvertor.toUnsignedArray(key));
 
             if (result == null) {
                 throw new NoSuchElementException("cant find element " + key.toString());
@@ -62,7 +63,7 @@ public class RocksImplDAO implements DAO {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
-            db.put(toArray(key), toArray(value));
+            db.put(ByteConvertor.toUnsignedArray(key), ByteConvertor.toArray(value));
         } catch (RocksDBException except){
             throw new IOException("", except);
         }
@@ -80,7 +81,7 @@ public class RocksImplDAO implements DAO {
     @Override
     public void remove(@NotNull ByteBuffer key) throws IOException {
         try {
-            db.delete(toArray(key));
+            db.delete(ByteConvertor.toUnsignedArray(key));
         } catch (RocksDBException except) {
             throw new IOException("", except);
         }
@@ -96,10 +97,4 @@ public class RocksImplDAO implements DAO {
         }
     }
 
-    public static byte[] toArray(@NotNull final ByteBuffer buffer){
-        final ByteBuffer bufferCopy = buffer.duplicate();
-        final byte[] array = new byte[bufferCopy.remaining()];
-        bufferCopy.get(array);
-        return array;
-    }
 }

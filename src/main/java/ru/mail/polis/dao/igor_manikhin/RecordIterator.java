@@ -1,4 +1,4 @@
-package ru.mail.polis.dao;
+package ru.mail.polis.dao.igor_manikhin;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
@@ -29,7 +29,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable{
         final byte[] key = iterator.key();
         final byte[] value = iterator.value();
         iterator.next();
-        return Record.of(ByteBuffer.wrap(key), ByteBuffer.wrap(value));
+        return Record.of(ByteConvertor.fromUnsignedArray(key), ByteBuffer.wrap(value));
     }
 
     @Override
