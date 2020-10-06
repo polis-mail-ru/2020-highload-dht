@@ -27,7 +27,7 @@ dependencies {
     compile("ch.qos.logback:logback-classic:1.2.3")
 
     // https://mvnrepository.com/artifact/org.rocksdb/rocksdbjni
-    compile( "org.rocksdb:rocksdbjni:6.11.4")
+    compile( "org.rocksdb:rocksdbjni:6.7.3")
 
     // Annotations for better code documentation
     compile("com.intellij:annotations:12.0")

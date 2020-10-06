@@ -30,7 +30,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
         final var key = iterator.key();
         final var value = iterator.value();
         iterator.next();
-        return Record.of(Converter.fromArrayShifted(key), ByteBuffer.wrap(value));
+        return Record.of(ByteBuffer.wrap(key), ByteBuffer.wrap(value));
     }
 
     @Override
