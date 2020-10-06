@@ -58,3 +58,9 @@ Running 1m test @ http://127.0.0.1:8080 \
 
 PROFILING: \
 ![PUT](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/profiler-get.svg)
+
+4. ALLOC PROFILING WITH PUT: \
+~/async-profiler/profiler.sh -d 60 -i 500us -e alloc -f profiler-alloc.svg 24035 \
+![PUT](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/profiler-alloc.svg)
+
+
