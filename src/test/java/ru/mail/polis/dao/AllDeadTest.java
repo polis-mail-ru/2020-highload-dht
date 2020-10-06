@@ -16,6 +16,7 @@
 
 package ru.mail.polis.dao;
 
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.opentest4j.AssertionFailedError;
@@ -40,7 +41,7 @@ class AllDeadTest extends TestBase {
 
     private static final int TOMBSTONES_COUNT = 1000000;
 
-    @Test
+    @RepeatedTest(20)
     void deadAll(@TempDir File data) throws IOException {
         // Create, fill, read and remove
         try (DAO dao = DAOFactory.create(data)) {
