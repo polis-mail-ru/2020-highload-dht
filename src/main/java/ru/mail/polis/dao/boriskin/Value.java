@@ -23,6 +23,12 @@ public class Value {
         this.data = null;
     }
 
+    /**
+     * Метод доступа к данным в ячейке Value: значение+timestamp.
+     *
+     * @param data данные
+     * @return Возвращает из ячейки значения версию и значение
+     */
     public static Value get(
             final ByteBuffer data) {
         // по рекомендации из лекции в качестве значения версии

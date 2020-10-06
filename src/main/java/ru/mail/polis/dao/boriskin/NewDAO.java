@@ -31,8 +31,6 @@ import java.util.stream.Stream;
  * @author Makary Boriskin
  */
 public class NewDAO implements DAO {
-//    private static final Logger log = LoggerFactory.getLogger(NewDAO.class);
-
     @NotNull
     private final File base;
     private final long maxHeapThreshold;
@@ -139,6 +137,13 @@ public class NewDAO implements DAO {
                 cell -> Record.of(cell.getKey(), cell.getVal().getData()));
     }
 
+    /**
+     * Определяет итератор по "живым" ячейкам таблицы.
+     *
+     * @param point где определен интератор
+     * @return итератор по "живым" ячейкам таблицы
+     * @throws IOException
+     */
     @NotNull
     public Iterator<TableCell> iterateThroughTableCells(
             @NotNull final ByteBuffer point) throws IOException {
@@ -162,7 +167,7 @@ public class NewDAO implements DAO {
         });
 
         // итератор мерджит разные потоки и выбирает самое актуальное значение
-        Iterator<TableCell> alive =
+        final Iterator<TableCell> alive =
                 returnIteratorOverMergedCollapsedFiltered(
                         snapshot,
                         point,
@@ -253,7 +258,7 @@ public class NewDAO implements DAO {
         try {
             this.memTable =
                     this.memTable
-                            .flush(
+                            .flushTable(
                                     snapshot.currMemTable,
                                     new SortedStringTable(dest),
                                     snapshot.gen);
@@ -277,8 +282,8 @@ public class NewDAO implements DAO {
         final List<Iterator<TableCell>> fileIterators =
                 new ArrayList<>(
                         snapshot.ssTableCollection.size());
-        Iterator<TableCell> cells =
-                returnIteratorOverMergedCollapsedFiltered(snapshot, point, fileIterators);;
+        final Iterator<TableCell> cells =
+                returnIteratorOverMergedCollapsedFiltered(snapshot, point, fileIterators);
 
         readWriteLock.writeLock().lock();
         try {
@@ -308,16 +313,18 @@ public class NewDAO implements DAO {
 
         for (final long gen : snapshot.ssTableCollection.keySet()) {
             final File f = new File(base, gen + DB);
-            if (!f.delete()) {
+            try {
+                Files.delete(f.toPath());
+            } catch (IOException ioException) {
                 throw new IOException("Не удалось удалить!");
             }
         }
     }
 
     private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(
-            TableSet snapshot,
-            ByteBuffer point,
-            List<Iterator<TableCell>> iteratorList) {
+            final TableSet snapshot,
+            final ByteBuffer point,
+            final List<Iterator<TableCell>> iteratorList) {
         snapshot.ssTableCollection.descendingMap().values().forEach(v -> {
             try {
                 iteratorList.add(v.iterator(point));

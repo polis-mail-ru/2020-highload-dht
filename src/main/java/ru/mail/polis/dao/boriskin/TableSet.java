@@ -31,6 +31,11 @@ public final class TableSet {
         this.gen = gen;
     }
 
+    /**
+     * Маркирует таблицу как готовую к записи на диск.
+     *
+     * @return сет таблиц, готовых к записи на диск
+     */
     @NotNull
     public TableSet setToFlush() {
         final Set<Table> tablesToFlush =
@@ -45,8 +50,16 @@ public final class TableSet {
                         this.gen + 1);
     }
 
+    /**
+     * Переопределяет таблицу к записанным ssTables.
+     *
+     * @param memTable текущая memTable
+     * @param ssTable текущая ssTable
+     * @param gen идентификатор
+     * @return сет ssTables и записанных таблиц
+     */
     @NotNull
-    public TableSet flush(
+    public TableSet flushTable(
             @NotNull final Table memTable,
             @NotNull final Table ssTable,
             final long gen) {
@@ -55,39 +68,47 @@ public final class TableSet {
         if (!tablesToFlush.remove(memTable)) {
             throw new IllegalStateException("memTable закрыта!");
         }
-        final NavigableMap<Long, Table> ssTableCollection =
+        final NavigableMap<Long, Table> ssTables =
                 new TreeMap<>(this.ssTableCollection);
-        if (ssTableCollection.put(gen, ssTable) != null) {
+        if (ssTables.put(gen, ssTable) != null) {
             throw new IllegalStateException("memTable закрыта!");
         }
         return
                 new TableSet(
                         this.currMemTable,
                         tablesToFlush,
-                        ssTableCollection,
+                        ssTables,
                         this.gen);
     }
 
+    /**
+     * Переопределяет таблицу к записанным ssTables.
+     *
+     * @param base compacted таблицы
+     * @param dest memTable для переопределения compacted
+     * @param gen идентификатор
+     * @return сет таблиц переопределенных compacted
+     */
     @NotNull
     public TableSet flushCompactTable(
             @NotNull final NavigableMap<Long, Table> base,
             @NotNull final Table dest,
             final long gen) {
-        final NavigableMap<Long, Table> ssTableCollection =
+        final NavigableMap<Long, Table> ssTables =
                 new TreeMap<>(this.ssTableCollection);
         for (final var entry : base.entrySet()) {
-            if (!ssTableCollection.remove(entry.getKey(), entry.getValue())) {
+            if (!ssTables.remove(entry.getKey(), entry.getValue())) {
                 throw new IllegalStateException("Ошибка compact");
             }
         }
-        if (ssTableCollection.put(gen, dest) != null) {
+        if (ssTables.put(gen, dest) != null) {
             throw new IllegalStateException("Ошибка compact");
         }
         return
                 new TableSet(
                         this.currMemTable,
                         this.tablesReadyToFlush,
-                        ssTableCollection,
+                        ssTables,
                         this.gen);
     }
 

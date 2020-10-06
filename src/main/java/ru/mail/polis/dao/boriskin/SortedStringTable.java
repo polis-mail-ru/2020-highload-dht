@@ -62,7 +62,7 @@ public final class SortedStringTable implements Table {
         try {
             offset = findOffset(index);
         } catch (IOException ioException) {
-            throw new UncheckedIOException("Ex in getting offset: {}", ioException);
+            throw new UncheckedIOException("Ex in getting offset 1: {}", ioException);
         }
         final ByteBuffer keySize =
                 ByteBuffer.allocate(Integer.BYTES);
@@ -70,7 +70,7 @@ public final class SortedStringTable implements Table {
         try {
             fileChannel.read(keySize, offset);
         } catch (IOException ioException) {
-            throw new UncheckedIOException("Ex in read file channel: {}", ioException);
+            throw new UncheckedIOException("Ex in read file channel 1: {}", ioException);
         }
 
         offset += Integer.BYTES;
@@ -81,7 +81,7 @@ public final class SortedStringTable implements Table {
         try {
             fileChannel.read(keyBuf, offset);
         } catch (IOException ioException) {
-            throw new UncheckedIOException("Ex in read file channel: {}", ioException);
+            throw new UncheckedIOException("Ex in read file channel 2: {}", ioException);
         }
 
         offset += key;
@@ -91,7 +91,7 @@ public final class SortedStringTable implements Table {
         try {
             fileChannel.read(timeStampBuf, offset);
         } catch (IOException ioException) {
-            throw new UncheckedIOException("Ex in read file channel: {}", ioException);
+            throw new UncheckedIOException("Ex in read file channel 3: {}", ioException);
         }
 
         final long timeStamp = timeStampBuf.rewind().getLong();
@@ -108,7 +108,7 @@ public final class SortedStringTable implements Table {
                 try {
                     fullSize = findOffset(index + 1) - offset;
                 } catch (IOException ioException) {
-                    throw new UncheckedIOException("Ex in getting offset: {}", ioException);
+                    throw new UncheckedIOException("Ex in getting offset 2: {}", ioException);
                 }
             }
 
@@ -118,7 +118,7 @@ public final class SortedStringTable implements Table {
             try {
                 fileChannel.read(data, offset);
             } catch (IOException ioException) {
-                throw new UncheckedIOException("Ex in read file channel: {}", ioException);
+                throw new UncheckedIOException("Ex in read file channel 4: {}", ioException);
             }
 
             return new TableCell(keyBuf.rewind(), new Value(
@@ -191,8 +191,13 @@ public final class SortedStringTable implements Table {
                 .getInt();
     }
 
-    // Отсортированная таблица на диске.
-    // После записи на диск поддерживает только операции чтения.
+    /**
+     * Отсортированная таблица на диске.
+     * После записи на диск поддерживает только операции чтения.
+     *
+     * @param f файл
+     * @throws IOException если ошибка при работе с файлом
+     */
     public SortedStringTable(
             @NotNull final File f) throws IOException {
         fileChannel =
@@ -228,6 +233,13 @@ public final class SortedStringTable implements Table {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Запись таблицы на диск.
+     *
+     * @param cells итератор по ячейкам таблицы
+     * @param target файл, куда пишем
+     * @throws IOException если ошибка при работе с файлом
+     */
     public static void writeData(
             final Iterator<TableCell> cells,
             final File target) throws IOException {
