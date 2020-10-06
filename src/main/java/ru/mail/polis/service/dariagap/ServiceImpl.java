@@ -1,6 +1,13 @@
 package ru.mail.polis.service.dariagap;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
@@ -12,12 +19,14 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static one.nio.http.Request.*;
+import static one.nio.http.Request.METHOD_DELETE;
+import static one.nio.http.Request.METHOD_GET;
+import static one.nio.http.Request.METHOD_PUT;
 
 public class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
-    final private DAO dao;
+    private final DAO dao;
 
     public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
         super(formConfig(port));
@@ -49,15 +58,13 @@ public class ServiceImpl extends HttpServer implements Service {
         if(id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
+
         try {
-            ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(UTF_8)));
+            final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(UTF_8)));
             return new Response(Response.OK, Util.byteBufferToBytes(value));
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-        catch (NoSuchElementException ex)
-        {
+        } catch (NoSuchElementException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
@@ -76,12 +83,12 @@ public class ServiceImpl extends HttpServer implements Service {
         if(id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
+
         try {
             dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)),
                     ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -98,18 +105,18 @@ public class ServiceImpl extends HttpServer implements Service {
         if(id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
+
         try {
             dao.remove(ByteBuffer.wrap(id.getBytes(UTF_8)));
             return new Response(Response.ACCEPTED, Response.EMPTY);
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
-        Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
     }
 }

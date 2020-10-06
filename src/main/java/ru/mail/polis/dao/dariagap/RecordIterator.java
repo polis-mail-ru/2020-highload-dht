@@ -23,9 +23,10 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
 
     @Override
     public Record next() {
-        if(!hasNext()){
+        if(!hasNext()) {
             throw new NoSuchElementException("Next on empty iterator");
         }
+
         final byte[] key = iterator.key();
         final byte[] value = iterator.value();
         iterator.next();

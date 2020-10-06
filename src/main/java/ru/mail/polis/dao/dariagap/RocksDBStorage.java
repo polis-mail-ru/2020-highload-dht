@@ -1,7 +1,11 @@
 package ru.mail.polis.dao.dariagap;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.BuiltinComparator;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.util.Util;
@@ -19,42 +23,44 @@ public class RocksDBStorage implements DAO {
         RocksDB.loadLibrary();
     }
 
+    /**
+     * Open database
+     *
+     * @param path to database
+     */
     public RocksDBStorage(@NotNull final File path) throws IOException {
         try {
             final Options options = new Options()
                     .setCreateIfMissing(true)
                     .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             db = RocksDB.open(options, path.getAbsolutePath());
-        }
-        catch (RocksDBException ex) {
+        } catch (RocksDBException ex) {
             throw new IOException(ex);
         }
     }
 
     @Override
     @NotNull
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException{
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         final RocksIterator iter = db.newIterator();
         iter.seek(Util.pack(from));
         return new RecordIterator(iter);
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             db.put(Util.pack(key),Util.byteBufferToBytes(value));
-        }
-        catch (RocksDBException ex) {
+        } catch (RocksDBException ex) {
             throw new IOException(ex);
         }
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(Util.pack(key));
-        }
-        catch (RocksDBException ex) {
+        } catch (RocksDBException ex) {
             throw new IOException(ex);
         }
     }
@@ -63,8 +69,7 @@ public class RocksDBStorage implements DAO {
     public void compact() throws IOException {
         try {
             db.compactRange();
-        }
-        catch (RocksDBException ex) {
+        } catch (RocksDBException ex) {
             throw new IOException(ex);
         }
     }
