@@ -2,6 +2,7 @@ package ru.mail.polis.dao.jhoysbou;
 
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+@ThreadSafe
 public class SSTable implements Table {
 
     private final FileChannel channel;
