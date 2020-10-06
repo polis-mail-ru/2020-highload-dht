@@ -36,6 +36,12 @@ public class TablesPool implements Table, Closeable {
     private int generation;
     private final AtomicBoolean stopFlag = new AtomicBoolean();
 
+    /**
+     * Creates pool of tables.
+     * @param memFlushThreshold (max size)
+     * @param startGeneration (generation number)
+     * @param flushTablePool (to make the flushQueue).
+     * */
     public TablesPool(final long memFlushThreshold, final int startGeneration, final int flushTablePool) {
         this.memFlushThreshold = memFlushThreshold;
         this.current = new MemTable();

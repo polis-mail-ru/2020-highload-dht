@@ -64,7 +64,7 @@ final class SSTable implements Table {
                             .putLong(cell.getValue().getTimestamp())
                             .rewind());
 
-                    ByteBuffer data = cell.getValue().getData().duplicate();
+                    final ByteBuffer data = cell.getValue().getData().duplicate();
                     offset += data.remaining();
                     file.write(data);
                 }
