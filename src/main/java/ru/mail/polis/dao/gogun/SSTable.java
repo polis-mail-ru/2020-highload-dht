@@ -161,10 +161,6 @@ final class SSTable implements Table {
         throw new UnsupportedOperationException("Immutable");
     }
 
-    public void deleteFile() throws IOException {
-        Files.delete(file.toPath());
-    }
-
     @Override
     public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException("Immutable");
