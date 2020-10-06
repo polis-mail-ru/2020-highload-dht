@@ -337,6 +337,8 @@ Transfer/sec:    530.13KB
 
 
 ```
+<ins>Flamegraph-анализ</ins><br/>  
+
 ![basic_get_cpu](https://user-images.githubusercontent.com/55311053/95130974-08c32f00-0766-11eb-9946-c2f8200ad02f.jpg)
 <p align="center">Рис.4. Выделение ресурса CPU при симулировании GET-запросов</p>
 
@@ -346,7 +348,30 @@ Transfer/sec:    530.13KB
 ![basic_get_lock](https://user-images.githubusercontent.com/55311053/95130975-095bc580-0766-11eb-87ef-65f12f906b06.jpg)
 <p align="center">Рис.4. Структура фреймов lock/monitor при симулировании GET-запросов</p>
 
-**PUT summary for extended DB config test**
+## 1. RocksDB - расширенная конфигурация (с эффектом оптимизации)
+
+<ins>Код в TaskDAO.java</ins>
+```
+public TaskDAO(@NotNull final File data) throws IOException {
+            final Options opts = new Options();
+            opts.setCreateIfMissing(true); // create db instance if one does not exist
+            opts.setParanoidChecks(false); // drops strict data quality control while performing search for corrupt / erroneous elements
+            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
+            opts.optimizeForPointLookup(256); // calls optimization for existing point lookups
+            opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
+            opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+
+            dbLocalDir = data;
+            try {
+                Files.createDirectories(dbLocalDir.getParentFile().toPath());
+                Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
+                db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
+            } catch (IOException | RocksDBException exc) {
+                logger.log(Level.SEVERE, "Storage initialization failed", exc);
+            }
+        }
+```
+### 1.1. PUT
 ```
 max@max-Inspiron-15-3573:~/hackdht$ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R15000 --latency http://127.0.0.1:8080
 Running 7m test @ http://127.0.0.1:8080
@@ -446,15 +471,9 @@ Running 7m test @ http://127.0.0.1:8080
   6141739 requests in 7.00m, 392.43MB read
 Requests/sec:  14623.20
 Transfer/sec:      0.93MB
-
-
 ```
-![revised_put_cpu](https://user-images.githubusercontent.com/55311053/95130998-0f51a680-0766-11eb-9049-ed30dad77d58.jpg)
-![revised_put_alloc](https://user-images.githubusercontent.com/55311053/95130996-0eb91000-0766-11eb-9ca8-4598b4c7f0c2.jpg)
-![revised_put_lock](https://user-images.githubusercontent.com/55311053/95131001-0fea3d00-0766-11eb-9f2e-b4ad148c948c.jpg)
 
-
-**GET summary for extended DB config test**
+### 1.2. GET
 ```
 max@max-Inspiron-15-3573:~/hackdht$ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://127.0.0.1:8080
 Running 7m test @ http://127.0.0.1:8080
@@ -574,7 +593,3 @@ Requests/sec:   4227.53
 Transfer/sec:    280.21KB
 
 ```
-![revised_get_cpu](https://user-images.githubusercontent.com/55311053/95130991-0d87e300-0766-11eb-9a6b-792989c0b0ed.jpg)
-![revised_get_alloc](https://user-images.githubusercontent.com/55311053/95130988-0c56b600-0766-11eb-95a0-4644eb4dcd36.jpg)
-![revised_get_lock](https://user-images.githubusercontent.com/55311053/95130994-0e207980-0766-11eb-9f1e-8d680efb9368.jpg)
-
