@@ -55,7 +55,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public synchronized void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
             storageInstance.put(CustomServer.toBytes(key), CustomServer.toBytes(value));
         } catch (RocksDBException e) {
@@ -80,7 +80,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public synchronized void remove(final @NotNull ByteBuffer key) {
+    public void remove(final @NotNull ByteBuffer key) {
         try {
             storageInstance.delete(CustomServer.toBytes(key));
         } catch (RocksDBException e) {
