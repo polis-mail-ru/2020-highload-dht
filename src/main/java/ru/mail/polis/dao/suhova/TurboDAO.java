@@ -83,15 +83,15 @@ public class TurboDAO implements DAO {
         lock.readLock().lock();
         try {
             snapshot = this.tables;
+            final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size() + snapshot.flushing.size() + 1);
+            iters.add(snapshot.memTable.iterator(from));
+            snapshot.ssTables.descendingMap().values().forEach(table -> iters.add(table.iterator(from)));
+            snapshot.flushing.forEach(table -> iters.add(table.iterator(from)));
+            final Iterator<Cell> merged = Iterators.mergeSorted(iters, Comparator.naturalOrder());
+            return Iters.collapseEquals(merged, Cell::getKey);
         } finally {
             lock.readLock().unlock();
         }
-        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size() + snapshot.flushing.size() + 1);
-        iters.add(snapshot.memTable.iterator(from));
-        snapshot.ssTables.descendingMap().values().forEach(table -> iters.add(table.iterator(from)));
-        snapshot.flushing.forEach(table -> iters.add(table.iterator(from)));
-        final Iterator<Cell> merged = Iterators.mergeSorted(iters, Comparator.naturalOrder());
-        return Iters.collapseEquals(merged, Cell::getKey);
 
     }
 
