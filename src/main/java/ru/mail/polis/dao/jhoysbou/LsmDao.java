@@ -9,6 +9,7 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
+import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class LsmDao implements DAO {
@@ -33,6 +35,9 @@ public class LsmDao implements DAO {
     private final File storage;
     private final long flushThreshold;
 
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
+    @GuardedBy("lock")
     private TableSet tableSet;
 
     /**
@@ -104,24 +109,54 @@ public class LsmDao implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        this.tableSet.memTable.upsert(key, value);
-        if (this.tableSet.memTable.sizeInBytes() > flushThreshold) {
+        final boolean needsFlushing;
+
+        lock.readLock().lock();
+        try {
+            this.tableSet.memTable.upsert(key, value);
+            needsFlushing = this.tableSet.memTable.sizeInBytes() > flushThreshold;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needsFlushing) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        this.tableSet.memTable.remove(key);
-        if (this.tableSet.memTable.sizeInBytes() > flushThreshold) {
+        final boolean needsFlushing;
+
+        lock.readLock().lock();
+        try {
+            this.tableSet.memTable.remove(key);
+            needsFlushing = this.tableSet.memTable.sizeInBytes() > flushThreshold;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needsFlushing) {
             flush();
         }
     }
 
     private void flush() throws IOException {
-        final File file = new File(storage, this.tableSet.generation + TEMP);
-        final TableSet snapshot = this.tableSet;
-        this.tableSet = snapshot.flushing();
+        final TableSet snapshot;
+        lock.writeLock().lock();
+        try {
+            snapshot = this.tableSet;
+            if (snapshot.memTable.size() == 0) {
+                // Already flushed
+                return;
+            }
+
+            this.tableSet = snapshot.flushing();
+        } finally {
+            lock.writeLock().lock();
+        }
+
+        final File file = new File(storage, snapshot.generation + TEMP);
 
         SSTable.serialize(
                 file,
@@ -130,24 +165,49 @@ public class LsmDao implements DAO {
         final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        this.tableSet = this.tableSet
-                .flushed(snapshot.memTable, this.tableSet.generation, new SSTable(dst));
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.flushed(snapshot.memTable, snapshot.generation + 1, new SSTable(dst));
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (this.tableSet.memTable.size() > 0) {
+        final boolean needsFlushing;
+        lock.readLock().lock();
+        try {
+            needsFlushing = this.tableSet.memTable.size() > 0;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needsFlushing) {
             flush();
         }
 
-        for (final Table t : this.tableSet.ssTables.values()) {
-            t.close();
+        lock.readLock().lock();
+        try {
+            for (final Table t : this.tableSet.ssTables.values()) {
+                t.close();
+            }
+        } finally {
+            lock.readLock().unlock();
         }
     }
 
     @Override
     public synchronized void compact() throws IOException {
-        final TableSet snapshot = this.tableSet;
+        final TableSet snapshot;
+        lock.readLock().lock();
+
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
+        }
+
         final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size());
         final ByteBuffer empty = ByteBuffer.allocate(0);
 
@@ -162,15 +222,29 @@ public class LsmDao implements DAO {
         final Iterator<Cell> merged = Iterators.mergeSorted(iters, Cell.COMPARATOR);
         final Iterator<Cell> unique = Iters.collapseEquals(merged, Cell::getKey);
 
-        this.tableSet = snapshot.startCompaction();
+        if (!unique.hasNext()) {
+            return;
+        }
+
+        lock.writeLock().lock();
+        try {
+            this.tableSet = snapshot.startCompaction();
+        } finally {
+            lock.writeLock().unlock();
+        }
 
         final File temp = new File(storage, snapshot.generation + 1 + TEMP);
         SSTable.serialize(temp, unique);
         final File dst = new File(storage, snapshot.generation + 1 + SUFFIX);
         Files.move(temp.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        this.tableSet = this.tableSet
-                .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation + 1);
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet
+                    .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation + 1);
+        } finally {
+            lock.writeLock().unlock();
+        }
 
         for (int gen : snapshot.ssTables.keySet()) {
             final Path path = new File(storage, gen + SUFFIX).toPath();
