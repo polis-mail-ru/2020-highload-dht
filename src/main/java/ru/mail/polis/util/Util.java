@@ -4,11 +4,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public class Util {
-    private Util() {}
+public final class Util {
+    private Util() {
+
+    }
 
     /**
-     * Convert data from ByteBuffer to byte[]
+     * Convert data from ByteBuffer to byte[].
      *
      * @param buffer data to convert
      * @return byte array
@@ -22,7 +24,7 @@ public class Util {
     }
 
     /**
-     * Convert data from ByteBuffer to unsigned byte[]
+     * Convert data from ByteBuffer to unsigned byte[].
      *
      * @param buffer data to convert
      * @return unsigned byte array
@@ -36,7 +38,7 @@ public class Util {
     }
 
     /**
-     * Convert data from unsigned byte[] to signed ByteBuffer
+     * Convert data from unsigned byte[] to signed ByteBuffer.
      *
      * @param bytes data to convert
      * @return signed ByteBuffer

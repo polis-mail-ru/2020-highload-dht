@@ -55,7 +55,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(@Param(value = "id", required = true) final String id) {
-        if(id.isEmpty()) {
+        if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
@@ -80,7 +80,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_PUT)
     public Response put(@Param("id") final String id,
                         @Param("request") final Request request) {
-        if(id.isEmpty()) {
+        if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
@@ -102,7 +102,7 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(@Param("id") final String id) {
-        if(id.isEmpty()) {
+        if (id.isEmpty()) {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 

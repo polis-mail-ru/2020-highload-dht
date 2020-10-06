@@ -24,7 +24,7 @@ public class RocksDBStorage implements DAO {
     }
 
     /**
-     * Open database
+     * Open database.
      *
      * @param path to database
      */
