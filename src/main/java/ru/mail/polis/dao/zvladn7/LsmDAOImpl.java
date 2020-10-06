@@ -40,7 +40,7 @@ public class LsmDAOImpl implements LsmDAO {
     private final int amountOfBytesToFlush;
     Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
-    private int generation;
+    private static int generation;
     TableSet tableSet;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -62,7 +62,7 @@ public class LsmDAOImpl implements LsmDAO {
             final int flushQueueSize) throws IOException {
         this.storage = storage;
         this.amountOfBytesToFlush = amountOfBytesToFlush;
-        NavigableMap<Integer, Table> ssTables = new TreeMap<>();
+        final NavigableMap<Integer, Table> ssTables = new TreeMap<>();
         generation = 0;
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(file -> !file.toFile().isDirectory() && file.toString().endsWith(SSTABLE_FILE_POSTFIX))
@@ -215,7 +215,9 @@ public class LsmDAOImpl implements LsmDAO {
         });
     }
 
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> iters, final TableSet snapshot) {
+    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
+                                             @NotNull final List<Iterator<Cell>> iters,
+                                             final TableSet snapshot) {
         snapshot.ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iters.add(ssTable.iterator(from));
@@ -241,7 +243,11 @@ public class LsmDAOImpl implements LsmDAO {
             flush();
         }
         service.shutdown();
-        while (!service.isTerminated());
+        while (true) {
+            if (service.isTerminated()) {
+                break;
+            }
+        }
         readLock.lock();
         try {
             tableSet.ssTables.values().forEach(Table::close);
@@ -250,7 +256,9 @@ public class LsmDAOImpl implements LsmDAO {
         }
     }
 
-    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from, @NotNull final List<Iterator<Cell>> itersList, final TableSet snapshot) {
+    private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from,
+                                             @NotNull final List<Iterator<Cell>> itersList,
+                                             final TableSet snapshot) {
         final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList, snapshot);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(

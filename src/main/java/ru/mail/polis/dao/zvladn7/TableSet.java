@@ -10,7 +10,7 @@ import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 
-class TableSet {
+final class TableSet {
 
     private static final Logger log = LoggerFactory.getLogger(TableSet.class);
 
@@ -35,30 +35,34 @@ class TableSet {
     }
 
     TableSet startFlushingOnDisk() {
-        final Set<MemoryTable> memToFlush = new HashSet<>(this.memToFlush);
-        memToFlush.add(this.memTable);
-        return new TableSet(new MemoryTable(), memToFlush, ssTables, generation + 1);
+        final Set<MemoryTable> newMemToFlush = new HashSet<>(this.memToFlush);
+        newMemToFlush.add(this.memTable);
+        return new TableSet(new MemoryTable(), newMemToFlush, ssTables, generation + 1);
     }
 
-    TableSet finishFlushingOnDisk(final MemoryTable flushedMemTable, final File dst, int generation) throws IOException {
-        final Set<MemoryTable> memToFlush = new HashSet<>(this.memToFlush);
-        boolean isRemoved = memToFlush.remove(flushedMemTable);
+    TableSet finishFlushingOnDisk(final MemoryTable flushedMemTable,
+                                  final File dst,
+                                  final int generation) throws IOException {
+        final Set<MemoryTable> newMemToFlush = new HashSet<>(this.memToFlush);
+        final boolean isRemoved = newMemToFlush.remove(flushedMemTable);
         if (!isRemoved) {
             throw new IOException("Failed to flush memory table on disk!");
         }
         final NavigableMap<Integer, Table> newSsTables = new TreeMap<>(this.ssTables);
         newSsTables.put(generation, new SSTable(dst));
         log.debug("File " + dst.getName() + " was flushed");
-        return new TableSet(memTable, memToFlush, newSsTables, this.generation);
+        return new TableSet(memTable, newMemToFlush, newSsTables, this.generation);
     }
 
     TableSet startCompact() {
         return new TableSet(memTable, memToFlush, ssTables, generation + 1);
     }
 
-    TableSet finishCompact(final NavigableMap<Integer, Table> compactedSSTables, final File dst, int generation) throws IOException {
+    TableSet finishCompact(final NavigableMap<Integer, Table> compactedSSTables,
+                           final File dst,
+                           final int generation) throws IOException {
         final NavigableMap<Integer, Table> newSSTables = new TreeMap<>(ssTables);
-        boolean containsAll = ssTables.entrySet().containsAll(compactedSSTables.entrySet());
+        final boolean containsAll = ssTables.entrySet().containsAll(compactedSSTables.entrySet());
         if (containsAll) {
             newSSTables.entrySet().removeAll(compactedSSTables.entrySet());
         } else {

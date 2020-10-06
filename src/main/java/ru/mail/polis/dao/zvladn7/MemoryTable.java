@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MemoryTable implements Table {
 
     private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
-    private AtomicInteger currentAmountOfBytes = new AtomicInteger();
+    private final AtomicInteger currentAmountOfBytes = new AtomicInteger();
 
     public int getAmountOfBytes() {
         return currentAmountOfBytes.get();
