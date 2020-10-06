@@ -9,8 +9,10 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 
@@ -47,7 +49,23 @@ public class MyDAORocksDB implements DAO {
     }
 
     @Override
-    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    @NotNull
+    public synchronized ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Record> iter = iterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        final Record next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next.getValue();
+        } else {
+            throw new NoSuchElementException("Not found");
+        }
+    }
+
+    @Override
+    public synchronized void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
             final byte [] keyByte = getByteArrayFromByteBuffer(key);
             final byte [] valueByte = getByteArrayFromByteBuffer(value);

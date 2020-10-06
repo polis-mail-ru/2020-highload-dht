@@ -37,6 +37,7 @@ public final class Utils {
         acceptorConfig.port = port;
 
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.selectors = 4;
         httpServerConfig.acceptors = new AcceptorConfig[1];
         httpServerConfig.acceptors[0] = acceptorConfig;
         return httpServerConfig;
