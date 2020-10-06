@@ -1,7 +1,7 @@
 package ru.mail.polis.dao.kate.moreva;
 
 /**
- *
+ * Table for flushing.
  * */
 public class FlushingTable {
 

@@ -20,9 +20,9 @@ final class SSTable implements Table {
 
     private static final Logger log = LoggerFactory.getLogger(SSTable.class);
 
-    private int byteSize;
-    private int count;
-    private FileChannel fileChannel;
+    private final int byteSize;
+    private final int count;
+    private final FileChannel fileChannel;
 
     private static final ByteBuffer allocateIntBuffer = ByteBuffer.allocate(Integer.BYTES);
     private static final ByteBuffer allocateLongBuffer = ByteBuffer.allocate(Long.BYTES);

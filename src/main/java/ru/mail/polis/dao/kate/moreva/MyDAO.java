@@ -115,7 +115,7 @@ public class MyDAO implements DAO {
     }
 
     /**
-     *
+     * Flushes the table when it is too long.
      */
     public void flush(@NotNull final FlushingTable flushTable) throws IOException {
         readWriteLock.writeLock().lock();

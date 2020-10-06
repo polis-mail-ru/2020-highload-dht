@@ -23,8 +23,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Pool of tables.
- *
+ * Pool of tables used for threadsafe flushing.
 * */
 public class TablesPool implements Table, Closeable {
 
@@ -63,13 +62,11 @@ public class TablesPool implements Table, Closeable {
         final UnmodifiableIterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
         final Iterator<Cell> withoutEquals = Iters.collapseEquals(merged, Cell::getKey);
 
-        final Iterator<Cell> filteredIterator = Iterators.filter(withoutEquals,
+        return Iterators.filter(withoutEquals,
                 cell -> {
                     assert cell != null;
                     return !cell.getValue().isTombstone();
                 });
-
-        return filteredIterator;
     }
 
     @Override
