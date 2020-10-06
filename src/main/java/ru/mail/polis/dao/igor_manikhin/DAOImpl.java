@@ -72,6 +72,15 @@ public final class DAOImpl implements DAO {
     }
 
     @Override
+    public void compact() throws IOException {
+        try {
+            db.compactRange();
+        } catch (RocksDBException except) {
+            throw new IOException("Compact error", except);
+        }
+    }
+
+    @Override
     public void close() throws IOException {
         try {
             db.syncWal();
