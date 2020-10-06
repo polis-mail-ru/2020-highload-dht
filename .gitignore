@@ -13,6 +13,6 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
-!logs_pics/**/*
+!reports/**/*
 # ...even if they are in subdirectories
 !*/
