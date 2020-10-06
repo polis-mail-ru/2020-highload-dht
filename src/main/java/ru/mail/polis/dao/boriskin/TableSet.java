@@ -19,7 +19,7 @@ public final class TableSet {
     public final long gen;
 
     /**
-     * Конструктор {link TableSet}
+     * Конструктор {link TableSet}.
      *
      * @param currMemTable текущая таблица
      * @param tablesReadyToFlush таблицы, помеченные как готовые к записи на диск
@@ -121,7 +121,7 @@ public final class TableSet {
     }
 
     /**
-     * Вызов операции compact
+     * Вызов операции compact.
      *
      * @return сет таблиц, определенных к проведению операции compact
      */

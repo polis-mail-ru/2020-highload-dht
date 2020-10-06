@@ -96,7 +96,6 @@ public class NewDAO implements DAO {
                         && !path.toFile().isDirectory()
                         && fName.substring(0, fName.indexOf(DB)).matches("^[0-9]+$"); })
                     .forEach(path -> {
-                        try {
                             final String fName =
                                     path.getFileName().toString();
                             final long gen =
@@ -107,12 +106,12 @@ public class NewDAO implements DAO {
                                     Math.max(
                                             identifierThreshold.get(),
                                             gen));
-
+                        try {
                             ssTableCollection.put(
                                     gen,
                                     new SortedStringTable(path.toFile()));
                         } catch (IOException ioException) {
-                            throw new UncheckedIOException("Ex in files walk: {}", ioException);
+                            throw new UncheckedIOException("Ex while put in ssTableCollection: {}", ioException);
                         }
                     });
         }
@@ -161,14 +160,9 @@ public class NewDAO implements DAO {
                         .currMemTable
                         .iterator(point));
 
-        snapshot.tablesReadyToFlush.forEach(v -> {
-            try {
-                iteratorList.add(v.iterator(point));
-            } catch (IOException ioException) {
-                throw new UncheckedIOException(
-                        "Ex in iterating through table cells: {}", ioException);
-            }
-        });
+        for (final Table table : snapshot.tablesReadyToFlush) {
+            iteratorList.add(table.iterator(point));
+        }
 
         // итератор мерджит разные потоки и выбирает самое актуальное значение
         final Iterator<TableCell> alive =
@@ -317,11 +311,7 @@ public class NewDAO implements DAO {
 
         for (final long gen : snapshot.ssTableCollection.keySet()) {
             final File f = new File(base, gen + DB);
-            try {
-                Files.delete(f.toPath());
-            } catch (IOException ioException) {
-                throw new IOException("Не удалось удалить: {}", ioException);
-            }
+            Files.delete(f.toPath());
         }
     }
 
@@ -329,7 +319,7 @@ public class NewDAO implements DAO {
             final TableSet snapshot,
             final ByteBuffer point,
             final List<Iterator<TableCell>> iteratorList) throws IOException {
-        for (Table table : snapshot.ssTableCollection.descendingMap().values()) {
+        for (final Table table : snapshot.ssTableCollection.descendingMap().values()) {
             iteratorList.add(table.iterator(point));
         }
 
