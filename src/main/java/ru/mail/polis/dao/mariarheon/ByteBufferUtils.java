@@ -3,6 +3,7 @@ package ru.mail.polis.dao.mariarheon;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public final class ByteBufferUtils {
     private ByteBufferUtils() {
@@ -35,4 +36,21 @@ public final class ByteBufferUtils {
         return ByteBuffer.wrap(array);
     }
 
+    @NotNull
+    public static byte[] toArraySpecial(@NotNull ByteBuffer buffer) {
+        var res = toArray(buffer);
+        for (int i = 0; i < res.length; i++) {
+            res[i] = (byte)(Byte.toUnsignedInt(res[i]) - Byte.MIN_VALUE);
+        }
+        return res;
+    }
+
+    @NotNull
+    public static ByteBuffer toByteBufferSpecial(final byte[] array) {
+        final byte[] cpy = Arrays.copyOf(array, array.length);
+        for (int i = 0; i < cpy.length; i++) {
+            cpy[i] = (byte) (Byte.toUnsignedInt(cpy[i]) + Byte.MIN_VALUE);
+        }
+        return toByteBuffer(cpy);
+    }
 }

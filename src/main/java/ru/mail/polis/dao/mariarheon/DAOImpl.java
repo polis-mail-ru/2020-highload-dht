@@ -1,10 +1,7 @@
 package ru.mail.polis.dao.mariarheon;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ComparatorOptions;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
+import org.rocksdb.*;
 import org.rocksdb.util.BytewiseComparator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
@@ -29,7 +26,7 @@ public class DAOImpl implements DAO {
     public DAOImpl(@NotNull final File path) throws DAOException {
         final Options options = new Options()
                 .setCreateIfMissing(true)
-                .setComparator(new BytewiseComparator(new ComparatorOptions()));
+                .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR); //new BytewiseComparator(new ComparatorOptions()));
         try {
             db = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException ex) {
@@ -41,14 +38,14 @@ public class DAOImpl implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final var iter = db.newIterator();
-        iter.seek(ByteBufferUtils.toArray(from));
+        iter.seek(ByteBufferUtils.toArraySpecial(from));
         return new RocksIteratorAdapter(iter);
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws DAOException {
         try {
-            db.put(ByteBufferUtils.toArray(key), ByteBufferUtils.toArray(value));
+            db.put(ByteBufferUtils.toArraySpecial(key), ByteBufferUtils.toArray(value));
         } catch (RocksDBException ex) {
             throw new DAOException("Error: can't upsert record", ex);
         }
@@ -57,7 +54,7 @@ public class DAOImpl implements DAO {
     @Override
     public void remove(@NotNull final ByteBuffer key) throws DAOException {
         try {
-            db.delete(ByteBufferUtils.toArray(key));
+            db.delete(ByteBufferUtils.toArraySpecial(key));
         } catch (RocksDBException ex) {
             throw new DAOException("Error: can't remove record", ex);
         }
@@ -67,7 +64,7 @@ public class DAOImpl implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
         try {
-            final var record = db.get(ByteBufferUtils.toArray(key));
+            final var record = db.get(ByteBufferUtils.toArraySpecial(key));
             if (record == null) {
                 throw new NoSuchElementException("Error finding record with key" + key.toString());
             }

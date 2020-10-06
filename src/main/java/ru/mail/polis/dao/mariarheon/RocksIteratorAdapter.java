@@ -26,7 +26,7 @@ public class RocksIteratorAdapter implements Iterator<Record>, AutoCloseable {
             throw new NoSuchElementException("Iterator is not valid!");
         }
 
-        final Record record = Record.of(ByteBufferUtils.toByteBuffer(iter.key()),
+        final Record record = Record.of(ByteBufferUtils.toByteBufferSpecial(iter.key()),
                                         ByteBufferUtils.toByteBuffer(iter.value()));
         iter.next();
 
