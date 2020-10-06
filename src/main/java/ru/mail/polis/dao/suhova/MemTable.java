@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @ThreadSafe
 public class MemTable implements Table {
     private final NavigableMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
-    private AtomicLong size = new AtomicLong();
+    private final AtomicLong size = new AtomicLong();
 
     public int getEntryCount() {
         return map.size();
@@ -24,8 +24,8 @@ public class MemTable implements Table {
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
-                map.tailMap(from).entrySet().iterator(),
-                e -> new Cell(Objects.requireNonNull(e).getKey(), e.getValue()));
+            map.tailMap(from).entrySet().iterator(),
+            e -> new Cell(Objects.requireNonNull(e).getKey(), e.getValue()));
     }
 
     @Override

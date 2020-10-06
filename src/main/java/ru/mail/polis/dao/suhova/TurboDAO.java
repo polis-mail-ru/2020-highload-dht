@@ -2,8 +2,6 @@ package ru.mail.polis.dao.suhova;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 import ru.mail.polis.dao.Record;
@@ -35,7 +33,6 @@ public class TurboDAO implements DAO {
     private final File dir;
     private TableSet tables;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
-    private static final Logger logger = LoggerFactory.getLogger(TurboDAO.class);
 
     /**
      * Implementation {@link DAO}.
@@ -43,11 +40,11 @@ public class TurboDAO implements DAO {
      * @param dir            - directory
      * @param flushThreshold - when the table reaches this size, it flushes
      */
-    public TurboDAO(@NotNull final File dir, final long flushThreshold, final int flushingPoolSize) {
+    public TurboDAO(@NotNull final File dir, final long flushThreshold) {
         this.flushThreshold = flushThreshold;
         this.dir = dir;
-        AtomicInteger generation = new AtomicInteger();
-        NavigableMap<Integer, Table> ssTables = new ConcurrentSkipListMap<>();
+        final AtomicInteger generation = new AtomicInteger();
+        final NavigableMap<Integer, Table> ssTables = new ConcurrentSkipListMap<>();
         final File[] list = dir.listFiles((dir1, name) -> name.endsWith(SUFFIX));
         assert list != null;
         Arrays.stream(list)
@@ -74,7 +71,8 @@ public class TurboDAO implements DAO {
         try {
             final Iterator<Cell> alive = Iterators.filter(cellIterator(from),
                 cell -> !requireNonNull(cell).getValue().isTombstone());
-            return Iterators.transform(alive, cell -> Record.of(requireNonNull(cell).getKey(), cell.getValue().getData()));
+            return Iterators.transform(alive, cell ->
+                Record.of(requireNonNull(cell).getKey(), cell.getValue().getData()));
         } finally {
             lock.readLock().unlock();
         }
@@ -135,9 +133,8 @@ public class TurboDAO implements DAO {
         tables.ssTables.values().forEach(Table::close);
     }
 
-    private void flush(){
+    private void flush() {
         final Iterator<Cell> iterator = tables.memTable.iterator(ByteBuffer.allocate(0));
-        logger.debug("Flush gen: {}, flushingSize: {}, ssTablessize: {}, hasNext {} ", tables.generation, tables.flushing.size(), tables.ssTables.size(), iterator.hasNext());
         if (iterator.hasNext()) {
             final TableSet snapshot;
             lock.writeLock().lock();
@@ -186,7 +183,7 @@ public class TurboDAO implements DAO {
             final File tmp = new File(dir, tables.generation + TEMP);
             SSTable.write(tmp, iterator);
             for (int i = 0; i < snapshot.generation; i++) {
-                File file = new File(dir, i + SUFFIX);
+                final File file = new File(dir, i + SUFFIX);
                 if (file.exists()) {
                     Files.delete(file.toPath());
                 }

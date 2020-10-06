@@ -16,6 +16,14 @@ public class TableSet {
     public int generation;
     private static final Logger logger = LoggerFactory.getLogger(TurboDAO.class);
 
+    /**
+     * Set of all tables DAO (MemTable + Flushing tables + Files on disk).
+     *
+     * @param memTable   - memory table
+     * @param flushing   - tables to be flushed to disk
+     * @param ssTables   - files on disk
+     * @param generation - generation this Memory Table
+     */
     public TableSet(@NotNull final MemTable memTable,
                     @NotNull final Set<Table> flushing,
                     @NotNull final NavigableMap<Integer, Table> ssTables,
@@ -27,6 +35,12 @@ public class TableSet {
         this.generation = generation;
     }
 
+    /**
+     * Set of all tables DAO (MemTable + Flushing tables + Files on disk).
+     *
+     * @param ssTables   - files on disk
+     * @param generation - generation this Memory Table
+     */
     public TableSet(@NotNull final NavigableMap<Integer, Table> ssTables,
                     final int generation) {
         assert generation >= 0;
@@ -43,15 +57,15 @@ public class TableSet {
     }
 
     @NotNull
-    TableSet fromFlushingToSSTable(@NotNull MemTable memTable, @NotNull final SSTable ssTable) {
-        final NavigableMap<Integer, Table> ssTables = new TreeMap<>(this.ssTables);
+    TableSet fromFlushingToSSTable(@NotNull final MemTable memTable, @NotNull final SSTable ssTable) {
+        final NavigableMap<Integer, Table> files = new TreeMap<>(this.ssTables);
         if (ssTables.put(generation, ssTable) != null) {
             logger.error("Rewrite table with generation {}", generation);
         }
         if (!flushing.remove(memTable)) {
             logger.debug("Can't remove this table");
         }
-        return new TableSet(this.memTable, flushing, ssTables, generation);
+        return new TableSet(this.memTable, flushing, files, generation);
     }
 
 }
