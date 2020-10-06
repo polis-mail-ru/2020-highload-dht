@@ -14,13 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -40,7 +34,6 @@ public class LsmDAOImpl implements LsmDAO {
     private final int amountOfBytesToFlush;
     Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
-    private static int generation;
     TableSet tableSet;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -63,7 +56,6 @@ public class LsmDAOImpl implements LsmDAO {
         this.storage = storage;
         this.amountOfBytesToFlush = amountOfBytesToFlush;
         final NavigableMap<Integer, Table> ssTables = new TreeMap<>();
-        generation = 0;
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(file -> !file.toFile().isDirectory() && file.toString().endsWith(SSTABLE_FILE_POSTFIX))
                     .forEach(file -> {
@@ -71,7 +63,6 @@ public class LsmDAOImpl implements LsmDAO {
                         try {
                             final String stringGen = fileName.substring(0, fileName.indexOf(SSTABLE_FILE_POSTFIX));
                             final int gen = Integer.parseInt(stringGen);
-                            generation = Math.max(gen, generation);
                             ssTables.put(gen, new SSTable(file.toFile()));
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -80,6 +71,15 @@ public class LsmDAOImpl implements LsmDAO {
                             logger.info("Unexpected name of SSTable file: " + fileName, e);
                         }
                     });
+        }
+
+        final Map.Entry<Integer, Table> genEntry = ssTables.entrySet()
+                .stream()
+                .max(Comparator.comparing(Map.Entry::getKey))
+                .orElse(null);
+        int generation = 0;
+        if (genEntry != null) {
+            generation = genEntry.getKey();
         }
 
         this.tableSet = TableSet.provideTableSet(ssTables, generation + 1);
