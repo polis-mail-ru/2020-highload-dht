@@ -114,3 +114,9 @@ Running 30s test @ http://localhost:8080
 Requests/sec:   2000.23
 Transfer/sec:    138.33KB
 
+Для каждого из селекторов (0-7)
+Http буфер не более 19.02%
+Обработчик не более 15.43%
+Response не более 1.06% 
+DAO get не более 12.10%
+
