@@ -103,7 +103,8 @@ public final class DAOImpl implements DAO {
             final var options = new Options()
                     .setCreateIfMissing(true)
                     .setCompressionType(CompressionType.NO_COMPRESSION)
-                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
+                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
+                    .setEnableWriteThreadAdaptiveYield(true);
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {
