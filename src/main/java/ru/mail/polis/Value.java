@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 
 import static ru.mail.polis.Time.getCurrentTime;
 
-public final class Value implements Comparable<Value> {
+public class Value {
 
     public static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
     private final long timestamp;
@@ -46,11 +46,6 @@ public final class Value implements Comparable<Value> {
 
     public boolean isRemoved() {
         return data == null;
-    }
-
-    @Override
-    public int compareTo(@NotNull final Value o) {
-        return -Long.compare(timestamp, o.timestamp);
     }
 
     public long getTimeStamp() {

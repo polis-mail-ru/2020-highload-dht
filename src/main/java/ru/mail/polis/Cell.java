@@ -3,12 +3,8 @@ package ru.mail.polis;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 
-public final class Cell {
-
-    public static final Comparator<Cell> COMPARATOR =
-            Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue);
+public final class Cell implements Comparable<Cell> {
 
     @NotNull
     private final ByteBuffer key;
@@ -28,5 +24,18 @@ public final class Cell {
     @NotNull
     public Value getValue() {
         return value;
+    }
+
+    @Override
+    public int compareTo(@NotNull Cell cell) {
+        final int cmp = key.compareTo(cell.getKey());
+
+        final int result;
+        if (cmp == 0) {
+            result = Long.compare(cell.getValue().getTimeStamp(), value.getTimeStamp());
+        } else {
+            result = cmp;
+        }
+        return result;
     }
 }

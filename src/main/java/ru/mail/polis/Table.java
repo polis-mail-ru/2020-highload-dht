@@ -8,7 +8,7 @@ import java.util.Iterator;
 
 public interface Table {
     @NotNull
-    Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException;
+    Iterator<Cell> iterator(@NotNull final ByteBuffer from);
 
     void upsert(
             @NotNull final ByteBuffer key,

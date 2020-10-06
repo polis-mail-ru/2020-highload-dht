@@ -3,48 +3,57 @@ package ru.mail.polis;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
+import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.NavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class MemTable implements Table {
 
-    private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
-    private long size;
+    private final NavigableMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
+    private final AtomicLong size = new AtomicLong();
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
+    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
                 map.tailMap(from).entrySet().iterator(),
                 e -> new Cell(e.getKey(), e.getValue()));
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        map.put(key.duplicate(), new Value(Time.getCurrentTime(), value.duplicate()));
-        size += key.remaining() + value.remaining() + Long.BYTES;
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+        map.put(key.duplicate(), new Value(System.currentTimeMillis(), value.duplicate()));
+        size.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
+
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) throws IOException {
-        final Value previous = map.put(key, Value.tombstone());
-        if (previous == null) {
-            size += key.remaining();
-        } else if (!previous.isRemoved()) {
-            size -= previous.getData().remaining();
+    public void remove(@NotNull final ByteBuffer key) {
+        if (map.containsKey(key)) {
+            if (!map.get(key).isRemoved()) {
+                size.addAndGet(-map.get(key).getData().remaining());
+            }
+        } else {
+            size.addAndGet(key.remaining() + Long.BYTES);
         }
+        map.put(key, new Value(System.currentTimeMillis()));
     }
 
     @Override
     public long size() {
-        return size;
+        return size.get();
     }
 
     @Override
     public void close() {
         throw new UnsupportedOperationException();
+    }
+
+    public int getMapSize() {
+        return map.size();
     }
 }
