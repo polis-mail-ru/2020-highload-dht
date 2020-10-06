@@ -2,11 +2,9 @@ package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.BuiltinComparator;
-import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.util.BytewiseComparator;
 import ru.mail.polis.Record;
 
 import java.io.File;
