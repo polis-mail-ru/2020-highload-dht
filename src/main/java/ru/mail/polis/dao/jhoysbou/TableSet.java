@@ -88,5 +88,4 @@ public class TableSet {
 
         return new TableSet(this.memTable, this.flushingTables, files, this.generation);
     }
-
 }

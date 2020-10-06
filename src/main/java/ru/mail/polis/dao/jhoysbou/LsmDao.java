@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -161,18 +162,23 @@ public class LsmDao implements DAO {
         final Iterator<Cell> merged = Iterators.mergeSorted(iters, Cell.COMPARATOR);
         final Iterator<Cell> unique = Iters.collapseEquals(merged, Cell::getKey);
 
-        this.tableSet = this.tableSet.startCompaction();
+        this.tableSet = snapshot.startCompaction();
 
-        final File temp = new File(storage, snapshot.generation + TEMP);
+        final File temp = new File(storage, snapshot.generation + 1 + TEMP);
         SSTable.serialize(temp, unique);
-        final File dst = new File(storage, snapshot.generation + SUFFIX);
+        final File dst = new File(storage, snapshot.generation + 1 + SUFFIX);
         Files.move(temp.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         this.tableSet = this.tableSet
-                .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation);
+                .replaceCompactedFiles(snapshot.ssTables, new SSTable(dst), snapshot.generation + 1);
 
         for (int gen : snapshot.ssTables.keySet()) {
-            Files.delete(new File(storage, gen + SUFFIX).toPath());
+            final Path path = new File(storage, gen + SUFFIX).toPath();
+            try {
+                Files.delete(path);
+            } catch (NoSuchFileException e) {
+                log.warn("file {} already has been deleted", path, e);
+            }
         }
     }
 }
