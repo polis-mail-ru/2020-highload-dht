@@ -53,7 +53,7 @@ public class TableSet {
 
     @NotNull
     TableSet fromMemTableToFlushing(@NotNull final Set<Table> flushing, final int generation) {
-        Set<Table> flush = new HashSet<>(Set.copyOf(flushing));
+        final Set<Table> flush = new HashSet<>(Set.copyOf(flushing));
         flush.add(memTable);
         return new TableSet(new MemTable(), flush, ssTables, generation + 1);
     }
@@ -61,9 +61,8 @@ public class TableSet {
     @NotNull
     TableSet fromFlushingToSSTable(@NotNull final MemTable deleteMem,
                                    @NotNull final Set<Table> flushing,
-                                   @NotNull final SSTable ssTable,
-                                   final int generation) {
-        Set<Table> flush = new HashSet<>(Set.copyOf(flushing));
+                                   @NotNull final SSTable ssTable) {
+        final Set<Table> flush = new HashSet<>(Set.copyOf(flushing));
         final NavigableMap<Integer, Table> files = new TreeMap<>(this.ssTables);
         if (files.put(generation, ssTable) != null) {
             logger.error("Rewrite table with gen");
