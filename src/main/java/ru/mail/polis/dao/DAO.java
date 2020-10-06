@@ -75,8 +75,7 @@ public interface DAO extends Closeable {
     /**
      * Inserts or updates value by given key.
      */
-    void upsert(
-            @NotNull ByteBuffer key,
+    void upsert(@NotNull ByteBuffer key,
             @NotNull ByteBuffer value) throws IOException;
 
     /**
