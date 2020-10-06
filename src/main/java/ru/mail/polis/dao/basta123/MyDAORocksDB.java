@@ -50,7 +50,7 @@ public class MyDAORocksDB implements DAO {
 
     @Override
     @NotNull
-    public synchronized ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+    public synchronized ByteBuffer get(final @NotNull ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Not found");
