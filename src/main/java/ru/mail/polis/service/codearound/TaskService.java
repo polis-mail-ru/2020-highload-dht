@@ -71,9 +71,12 @@ public class TaskService extends HttpServer implements Service {
      * @param req client host request
      */
     @Path("/v0/entity")
-    public void entity(@Param(value = "id", required = true) final String id, @NotNull final Request req, final HttpSession session) throws IOException, NoSuchMethodException {
+    public void entity(
+            @Param(value = "id", required = true) final String id, @NotNull final Request req, final HttpSession session)
+            throws IOException, NoSuchMethodException {
+
         if (id == null || id.isEmpty()) {
-            session.sendError(Response.BAD_REQUEST, "Argument 'Id' was not provided. Error handling request\n");
+            session.sendError(Response.BAD_REQUEST, "Identifier is required as parameter. Error handling request\n");
             return;
         }
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
