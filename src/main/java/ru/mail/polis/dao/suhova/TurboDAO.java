@@ -141,7 +141,7 @@ public class TurboDAO implements DAO {
             if (snapshot.memTable.sizeInBytes() == 0L) {
                 return;
             }
-            tables = snapshot.fromMemTableToFlushing();
+            tables = tables.fromMemTableToFlushing(snapshot.flushing, snapshot.generation);
         } finally {
             lock.writeLock().unlock();
         }
@@ -152,7 +152,7 @@ public class TurboDAO implements DAO {
             Files.move(tmp.toPath(), dat.toPath(), StandardCopyOption.ATOMIC_MOVE);
             lock.writeLock().lock();
             try {
-                tables = tables.fromFlushingToSSTable(snapshot.memTable, new SSTable(dat));
+                tables = tables.fromFlushingToSSTable(snapshot.memTable, snapshot.flushing, new SSTable(dat), tables.generation);
             } finally {
                 lock.writeLock().unlock();
             }

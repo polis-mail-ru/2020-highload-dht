@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.NavigableMap;
 import java.util.Set;
@@ -30,7 +31,7 @@ public class TableSet {
                     final int generation) {
         assert generation >= 0;
         this.ssTables = ssTables;
-        this.flushing = flushing;
+        this.flushing = Collections.unmodifiableSet(flushing);
         this.memTable = memTable;
         this.generation = generation;
     }
@@ -51,21 +52,26 @@ public class TableSet {
     }
 
     @NotNull
-    TableSet fromMemTableToFlushing() {
-        flushing.add(memTable);
-        return new TableSet(new MemTable(), flushing, ssTables, ++generation);
+    TableSet fromMemTableToFlushing(@NotNull final Set<Table> flushing, final int generation) {
+        Set<Table> flush = new HashSet<>(Set.copyOf(flushing));
+        flush.add(memTable);
+        return new TableSet(new MemTable(), flush, ssTables, generation + 1);
     }
 
     @NotNull
-    TableSet fromFlushingToSSTable(@NotNull MemTable memTable, @NotNull final SSTable ssTable) {
-        final NavigableMap<Integer, Table> ssTables = new TreeMap<>(this.ssTables);
-        if (ssTables.put(generation, ssTable) != null) {
+    TableSet fromFlushingToSSTable(@NotNull final MemTable deleteMem,
+                                   @NotNull final Set<Table> flushing,
+                                   @NotNull final SSTable ssTable,
+                                   final int generation) {
+        Set<Table> flush = new HashSet<>(Set.copyOf(flushing));
+        final NavigableMap<Integer, Table> files = new TreeMap<>(this.ssTables);
+        if (files.put(generation, ssTable) != null) {
             logger.error("Rewrite table with gen");
         }
-        if (!flushing.remove(memTable)) {
+        if (!flush.remove(deleteMem)) {
             logger.debug("Can't remove this table");
         }
-        return new TableSet(this.memTable, flushing, ssTables, generation);
+        return new TableSet(memTable, flush, files, generation);
     }
 
 }
