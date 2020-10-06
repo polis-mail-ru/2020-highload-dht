@@ -36,6 +36,8 @@ public class MemTablePool implements Table {
 
     /**
      * Pool of flushing tables and current memory table.
+     *
+     * @param flushTablePool - size of flushing table queue
      */
     public MemTablePool(final long flushThreshold,
                         final int firstGeneration,
@@ -142,6 +144,9 @@ public class MemTablePool implements Table {
         }
     }
 
+    /**
+     * remove table which is flushed
+     */
     public void flushed(final int generation) {
         readWriteLock.writeLock().lock();
         try {
