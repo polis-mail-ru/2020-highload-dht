@@ -28,7 +28,6 @@ public final class BasicService extends HttpServer implements Service {
     
     private BasicService(final int port, @NotNull final DAO dao) throws IOException {
         super(configFrom(port));
-        logger.setLevel(Level.ERROR);
         this.dao = dao;
     }
     
@@ -69,8 +68,6 @@ public final class BasicService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public Response handleGet(@Param(value = "id", required = true) final String id) {
-        logger.debug("Handling getting {}...", id);
-        
         if (id.isEmpty()) {
             logger.error("Empty key in getting");
             return new Response(Response.BAD_REQUEST, EMPTY);
@@ -99,8 +96,6 @@ public final class BasicService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public Response handlePut(@Param(value = "id", required = true) final String id, final Request request) {
-        logger.debug("Handling putting {}...", id);
-        
         if (id.isEmpty()) {
             logger.error("Empty key in putting");
             return new Response(Response.BAD_REQUEST, EMPTY);
@@ -125,8 +120,6 @@ public final class BasicService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public Response handleDelete(@Param(value = "id", required = true) final String id) {
-        logger.debug("Handling deleting {}...", id);
-        
         if (id.isEmpty()) {
             logger.error("Empty key in deleting");
             return new Response(Response.BAD_REQUEST, EMPTY);
