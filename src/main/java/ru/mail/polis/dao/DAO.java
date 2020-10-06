@@ -72,11 +72,11 @@ public interface DAO extends Closeable {
      */
     @NotNull
     ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException;
+
     /**
      * Inserts or updates value by given key.
      */
-    void upsert(@NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) throws IOException;
+    void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException;
 
     /**
      * Removes value by given key.
