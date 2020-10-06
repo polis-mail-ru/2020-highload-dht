@@ -139,12 +139,12 @@ Transfer/sec:    194.65KB
 
 CPU Get
 
-![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/CPUGet.svg)
+![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/Stage1/CPUGet.svg)
 
 
 Alloc Get
 
-![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/AllocGet.svg)
+![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/Stage1/AllocGet.svg)
 
 Мы можем сделать вывод о том что 100%  занимает SelectorThread, также
 73% уходита на Dao.get
@@ -312,13 +312,13 @@ Latency Distribution (HdrHistogram - Recorded Latency)
 Как видно 1% запросов занимает существенно больше времени, чем все остальные запросы, что может быть связано с записью данных из памяти на жесткий диск после пересечения порога.
 
 CPU Put
-![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/CPUPut.svg)
+![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/Stage1/CPUPut.svg)
 
 Видно, что вся нагрузка идет на SelectorThread, 32,33% уходит на отправку ответа (HttpSession.sendResponse), а на операцию putValueByKey 36,09%.
 
 
 Alloc Put
-![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/AllocPut.svg)
+![](https://github.com/Basta123/2020-highload-dht/blob/master/profiling/Stage1/AllocPut.svg)
 
 
 Основываясь на результатах мы можем сделать выводы о том что  100% занимает SelectorThread, 35.3% уходит на операцию put (MyHttpServiceImpl.put).
