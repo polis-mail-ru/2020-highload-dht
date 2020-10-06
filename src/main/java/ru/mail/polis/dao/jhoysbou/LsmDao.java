@@ -34,7 +34,9 @@ public class LsmDao implements DAO {
     @NotNull
     private final File storage;
     private final long flushThreshold;
+
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
     @GuardedBy("lock")
     private TableSet tableSet;
 
@@ -117,20 +119,14 @@ public class LsmDao implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        log.debug("started upsert key={}, value={}", key, value);
         final boolean needsFlushing;
 
         lock.readLock().lock();
         try {
-            log.debug("read lock locked");
             this.tableSet.memTable.upsert(key, value);
-            final long size = this.tableSet.memTable.sizeInBytes();
-            needsFlushing = size > flushThreshold;
-            log.debug("size in bytes = {}", size);
-            log.debug("needsFlushing = {}", needsFlushing);
+            needsFlushing = this.tableSet.memTable.sizeInBytes() > flushThreshold;
         } finally {
             lock.readLock().unlock();
-            log.debug("read lock unlocked");
         }
 
         if (needsFlushing) {
@@ -141,20 +137,14 @@ public class LsmDao implements DAO {
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        log.debug("started remove key={}", key);
-
         final boolean needsFlushing;
+
         lock.readLock().lock();
         try {
-            log.debug("read lock locked");
             this.tableSet.memTable.remove(key);
-            final long size = this.tableSet.memTable.sizeInBytes();
-            needsFlushing = size > flushThreshold;
-            log.debug("size in bytes = {}", size);
-            log.debug("needsFlushing = {}", needsFlushing);
+            needsFlushing = this.tableSet.memTable.sizeInBytes() > flushThreshold;
         } finally {
             lock.readLock().unlock();
-            log.debug("read lock unlocked");
         }
 
         if (needsFlushing) {
@@ -164,7 +154,6 @@ public class LsmDao implements DAO {
     }
 
     private void flush() throws IOException {
-        log.debug("flush started");
         final TableSet snapshot;
         lock.writeLock().lock();
         try {
@@ -190,16 +179,14 @@ public class LsmDao implements DAO {
 
         lock.writeLock().lock();
         try {
-            this.tableSet = this.tableSet.flushed(snapshot.memTable, snapshot.generation, new SSTable(dst));
+            this.tableSet = this.tableSet.flushed(snapshot.memTable, snapshot.generation + 1, new SSTable(dst));
         } finally {
             lock.writeLock().unlock();
         }
-        log.debug("flush finished");
     }
 
     @Override
     public void close() throws IOException {
-        log.debug("close started");
         final boolean needsFlushing;
         lock.readLock().lock();
         try {
@@ -225,7 +212,6 @@ public class LsmDao implements DAO {
 
     @Override
     public synchronized void compact() throws IOException {
-        log.debug("compact started");
         final TableSet snapshot;
         lock.readLock().lock();
 
