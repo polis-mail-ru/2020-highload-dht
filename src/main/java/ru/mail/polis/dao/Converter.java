@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public class Converter {
+public abstract class Converter {
     /** Convert from ByteBuffer to Byte massive.
      *
      * @param buffer - ByteBuffer to convert
