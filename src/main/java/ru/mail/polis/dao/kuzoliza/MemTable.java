@@ -3,17 +3,21 @@ package ru.mail.polis.dao.kuzoliza;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class MemTable implements Table {
 
-    private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
-    private long sizeInBytes;
-    private int size;
+    private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
+    private AtomicLong sizeInBytes = new AtomicLong();
+    private final AtomicInteger size = new AtomicInteger();
 
     @NotNull
     @Override
@@ -32,10 +36,10 @@ public class MemTable implements Table {
         final Value previous = map.put(key.duplicate(), newValue);
 
         if (previous == null) {
-            sizeInBytes += countSize(key, newValue);
-            size++;
+            sizeInBytes.addAndGet(countSize(key, newValue));
+            size.incrementAndGet();
         } else {
-            sizeInBytes += countSize(key, newValue) - countSize(key, previous);
+            sizeInBytes.addAndGet(countSize(key, newValue) - countSize(key, previous));
         }
     }
 
@@ -45,15 +49,15 @@ public class MemTable implements Table {
         final Value previous = map.put(key.duplicate(), new Value(System.currentTimeMillis()));
 
         if (previous == null) {
-            sizeInBytes += countSize(key, value);
-            size++;
+            sizeInBytes.addAndGet(countSize(key, value));
+            size.incrementAndGet();
         } else {
-            sizeInBytes += countSize(key, value) - countSize(key, previous);
+            sizeInBytes.addAndGet(countSize(key, value) - countSize(key, previous));
         }
     }
 
     long sizeInBytes() {
-        return sizeInBytes;
+        return sizeInBytes.get();
     }
 
     private static long countSize(final ByteBuffer key, final Value value) {
@@ -64,8 +68,8 @@ public class MemTable implements Table {
         return 128L + key.remaining();
     }
 
-    public int size() {
-        return size;
+    int size() {
+        return size.get();
     }
 
 }

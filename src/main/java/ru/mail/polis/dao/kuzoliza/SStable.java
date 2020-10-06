@@ -15,7 +15,7 @@ import java.util.List;
 
 public class SStable implements Table, Closeable {
     private final FileChannel channel;
-    private final int rows;
+    private final long rows;
     private long iterPosition;
     private final long indexStart;
 
@@ -23,17 +23,17 @@ public class SStable implements Table, Closeable {
         // index : rows x long
         this.channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
         final long size = channel.size();
-        final ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.BYTES);
-        channel.read(byteBuffer, size - Integer.BYTES);
-        this.rows = byteBuffer.getInt(0);
-        this.indexStart = size - Integer.BYTES - Long.BYTES * rows;
+        final ByteBuffer byteBuffer = ByteBuffer.allocate(Long.BYTES);
+        channel.read(byteBuffer, size - Long.BYTES);
+        this.rows = byteBuffer.getLong(0);
+        this.indexStart = size - Long.BYTES - Long.BYTES * rows;
     }
 
     @NotNull
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return new Iterator<>() {
-            int next = binarySearch(from);
+            long next = binarySearch(from);
             @Override
             public boolean hasNext() {
                 return rows > next;
@@ -47,7 +47,7 @@ public class SStable implements Table, Closeable {
         };
     }
 
-    private Cell getNextCell(final int next) {
+    private Cell getNextCell(final long next) {
         try {
             return getCell(getKeyByOrder(next));
         } catch (IOException e) {
@@ -55,11 +55,11 @@ public class SStable implements Table, Closeable {
         }
     }
 
-    private int binarySearch(final ByteBuffer from) {
+    private long binarySearch(final ByteBuffer from) {
         final ByteBuffer key = from.rewind().duplicate();
-        int left = 0;
-        int right = rows - 1;
-        int pivot;
+        long left = 0;
+        long right = rows - 1;
+        long pivot;
         while (left <= right) {
             pivot = left + (right - left) / 2;
             final ByteBuffer pivotKey;
@@ -69,7 +69,7 @@ public class SStable implements Table, Closeable {
                 throw new UncheckedIOException(e);
             }
 
-            final int cmp = pivotKey.compareTo(key);
+            final long cmp = pivotKey.compareTo(key);
             if (cmp < 0) {
                 left = pivot + 1;
             } else if (cmp > 0) {
@@ -81,7 +81,7 @@ public class SStable implements Table, Closeable {
         return left;
     }
 
-    private ByteBuffer getKeyByOrder(final int order) throws IOException {
+    private ByteBuffer getKeyByOrder(final long order) throws IOException {
 
         final ByteBuffer index = ByteBuffer.allocate(Long.BYTES);
         channel.read(index, indexStart + order * Long.BYTES);
@@ -122,7 +122,7 @@ public class SStable implements Table, Closeable {
     }
 
     static void serialize(final File file, final Iterator<Cell> iterator) throws IOException {
-        int size = 0;
+        long size = 0;
         try (FileChannel fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.CREATE,
                 StandardOpenOption.WRITE)) {
 
@@ -146,7 +146,7 @@ public class SStable implements Table, Closeable {
                 }
             }
 
-            offsetArray.add(putInt(size));
+            offsetArray.add(putLong(size));
             for (final ByteBuffer buffer : offsetArray) {
                 fileChannel.write(buffer);
             }

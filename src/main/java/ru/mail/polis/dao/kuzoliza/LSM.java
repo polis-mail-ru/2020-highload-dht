@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -18,6 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class LSM implements DAO {
@@ -25,8 +25,8 @@ public class LSM implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
 
-    private MemTable memTable;
-    private final NavigableMap<Integer, SStable> ssTables;
+    private TableSet tables;
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     // Data
     private final File storage;
@@ -45,9 +45,8 @@ public class LSM implements DAO {
         this.storage = storage;
         this.flushThreshold = flushThreshold;
         assert flushThreshold > 0L;
-        this.memTable = new MemTable();
-        this.ssTables = new TreeMap<>();
-        this.generation = -1;
+        generation = -1;
+        final NavigableMap<Integer, SStable> ssTables = new TreeMap<>();
 
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(path -> {
@@ -58,14 +57,14 @@ public class LSM implements DAO {
                 try {
                     final String name = f.getFileName().toString();
                     final int gen = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
-                    this.generation = Math.max(this.generation, gen);
+                    generation = Math.max(generation, gen);
                     ssTables.put(gen, new SStable(f.toFile()));
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
             });
         }
-        generation++;
+        this.tables = TableSet.fromFiles(ssTables, generation + 1);
     }
 
     @NotNull
@@ -80,11 +79,24 @@ public class LSM implements DAO {
     }
 
     private Iterator<Cell> noTombstones(@NotNull final ByteBuffer from) throws IOException {
-        final List<Iterator<Cell>> iters = new ArrayList<>(ssTables.size() + 1);
-        iters.add(memTable.iterator(from));
-        ssTables.descendingMap().values().forEach(t -> {
+
+        final TableSet snapshot;
+
+        lock.readLock().lock();
+        try {
+            snapshot = this.tables;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.files.size() + 1);
+        iters.add(snapshot.mem.iterator(from));
+        snapshot.files.descendingMap().values().forEach(t -> {
             iters.add(t.iterator(from));
         });
+        for (final Table flushing : snapshot.flushing) {
+            iters.add(flushing.iterator(from));
+        }
         // Sorted duplicates and tombstones
         final Iterator<Cell> merged = Iterators.mergeSorted(iters, Cell.COMPARATOR);
         // One cell per key
@@ -100,65 +112,132 @@ public class LSM implements DAO {
     public void compact() throws IOException {
         final Iterator<Cell> alive = noTombstones(ByteBuffer.allocate(0));
 
-        final File file = new File(storage, generation + TEMP);
+        final TableSet snapshot;
+        final File file;
+
+        final File dst;
+
+        lock.readLock().lock();
+        try {
+            snapshot = this.tables;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        // switch generation
+        lock.writeLock().lock();
+        try {
+            this.tables = this.tables.startCompacting();
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        file = new File(storage, snapshot.generation + TEMP);
         SStable.serialize(file, alive);
 
-        for (int i = generation - 1; i >= 0; i--) {
-            final File removeFile = new File(storage, i + SUFFIX);
-            final SStable ssTable = ssTables.remove(i);
-            if (ssTable == null) {
-                break;
-            }
-            ssTable.close();
-            try {
-                Files.delete(removeFile.toPath());
-            } catch (NoSuchFileException e) {
-                break;
+        dst = new File(storage, snapshot.generation + SUFFIX);
+        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        //Switch
+        lock.writeLock().lock();
+        try {
+            this.tables = this.tables.replaceCompactedFiles(snapshot.files, new SStable(dst), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        for (int k : snapshot.files.keySet()){
+            final File removeFile = new File(storage, k + SUFFIX);
+            if (!removeFile.delete()) {
+                throw new IOException("Can't remove file");
             }
         }
 
-        generation = 0;
-        moveAndSwitch(file);
+        snapshot.generation = 0;
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTable.upsert(key, value);
-        if (memTable.sizeInBytes() > flushThreshold) {
+
+        final boolean needFlushing;
+        lock.readLock().lock();
+        try {
+            tables.mem.upsert(key, value);
+            needFlushing = tables.mem.sizeInBytes() > flushThreshold;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needFlushing) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key);
-        if (memTable.sizeInBytes() > flushThreshold) {
+
+        final boolean needFlushing;
+        lock.readLock().lock();
+        try {
+            tables.mem.remove(key);
+            needFlushing = tables.mem.sizeInBytes() > flushThreshold;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needFlushing) {
             flush();
         }
     }
 
     private void flush() throws IOException {
         // Dump memTable
-        final File file = new File(storage, generation + TEMP);
-        SStable.serialize(file, memTable.iterator(ByteBuffer.allocate(0)));
-        moveAndSwitch(file);
+        final TableSet snapshot;
+        final File file;
+        lock.writeLock().lock();
+        try {
+            snapshot = this.tables;
+            if (snapshot.mem.size() == 0){
+                return;
+            }
+            this.tables = snapshot.markedAsFlushing();
+            file = new File(storage, snapshot.generation + TEMP);
+            SStable.serialize(file, snapshot.mem.iterator(ByteBuffer.allocate(0)));
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        moveAndSwitch(file, snapshot);
     }
 
-    private void moveAndSwitch(final File file) throws IOException {
-        final File dst = new File(storage, generation + SUFFIX);
+    private void moveAndSwitch(final File file, final TableSet snapshot) throws IOException {
+        final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         //Switch
-        memTable = new MemTable();
-        ssTables.put(generation, new SStable(dst));
-        generation++;
+        lock.writeLock().lock();
+        try {
+            this.tables = this.tables.flushed(snapshot.mem, new SStable(dst), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (memTable.size() > 0) {
+
+        final boolean needFlushing;
+        lock.readLock().lock();
+        try {
+            needFlushing = tables.mem.size() > 0;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (needFlushing) {
             flush();
         }
-        ssTables.values().forEach(SStable::close);
+
+        tables.files.values().forEach(SStable::close);
     }
 }
