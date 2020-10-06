@@ -1,6 +1,11 @@
 package ru.mail.polis.dao.bmendli;
 
 import com.google.common.collect.Iterators;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.Iters;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -15,10 +20,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import ru.mail.polis.dao.Iters;
 
 public class MemTablePool implements Table {
 
@@ -33,6 +34,9 @@ public class MemTablePool implements Table {
     private volatile MemTable currentMemTable;
     private int generation;
 
+    /**
+     * Pool of flushing tables and current memory table
+     */
     public MemTablePool(final long flushThreshold,
                         final int firstGeneration,
                         final int flushTablePool) {
@@ -87,7 +91,6 @@ public class MemTablePool implements Table {
             readWriteLock.readLock().unlock();
         }
 
-
         final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
                 Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
         final Iterator<Cell> withoutEqualsIterator = Iters.collapseEquals(mergedCellIterator, Cell::getKey);
@@ -127,6 +130,9 @@ public class MemTablePool implements Table {
         }
     }
 
+    /**
+     * @return generation of {@code currentMemTable}
+     */
     public int getGeneration() {
         readWriteLock.readLock().lock();
         try {

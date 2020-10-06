@@ -75,19 +75,7 @@ public class DAOImpl implements DAO {
                         return name.endsWith(SSTABLE_FILE_END)
                                 && !path.toFile().isDirectory()
                                 && name.substring(0, name.indexOf(SSTABLE_FILE_END)).matches(FILE_NAME_REGEX);
-                    })
-                    .forEach(path -> {
-                        try {
-                            final String fileName = path.getFileName().toString();
-                            final String fileGenerationStr = fileName.substring(0, fileName.indexOf(SSTABLE_FILE_END));
-                            final int fileGeneration = Integer.parseInt(fileGenerationStr);
-                            generation.set(Math.max(generation.get(), fileGeneration));
-                            ssTables.put(fileGeneration, new SSTable(path));
-                        } catch (IOException e) {
-                            logger.error("error create SSTable", e);
-                            throw new UncheckedIOException(e);
-                        }
-                    });
+                    }).forEach(path -> storeDataFromFile(generation, path));
         } catch (IOException e) {
             logger.error("error open file stream", e);
             throw new UncheckedIOException(e);
@@ -126,7 +114,8 @@ public class DAOImpl implements DAO {
         }
         final Iterator<Cell> filteredIterator = Iterators.filter(mergeIterator(iterators),
                 cell -> !cell.getValue().isTombstone() && !cell.getValue().isExpired());
-        return Iterators.transform(filteredIterator, cell -> Record.of(cell.getKey(), cell.getValue().getData().duplicate()));
+        return Iterators.transform(filteredIterator,
+                cell -> Record.of(cell.getKey(), cell.getValue().getData().duplicate()));
     }
 
     @Override
@@ -212,6 +201,19 @@ public class DAOImpl implements DAO {
         }
     }
 
+    private void storeDataFromFile(@NotNull final AtomicInteger generation, @NotNull final Path path) {
+        try {
+            final String fileName = path.getFileName().toString();
+            final String fileGenerationStr = fileName.substring(0, fileName.indexOf(SSTABLE_FILE_END));
+            final int fileGeneration = Integer.parseInt(fileGenerationStr);
+            generation.set(Math.max(generation.get(), fileGeneration));
+            ssTables.put(fileGeneration, new SSTable(path));
+        } catch (IOException e) {
+            logger.error("error create SSTable", e);
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private List<Iterator<Cell>> listCellIterator(@NotNull final ByteBuffer from) {
         final List<Iterator<Cell>> iterators = new ArrayList<>(ssTables.size() + 1);
         try {
@@ -233,7 +235,7 @@ public class DAOImpl implements DAO {
     }
 
     @NotNull
-    private Iterator<Cell> mergeIterator(List<Iterator<Cell>> iterators) {
+    private Iterator<Cell> mergeIterator(@NotNull final List<Iterator<Cell>> iterators) {
         final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
                 Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
         return Iters.collapseEquals(mergedCellIterator, Cell::getKey);

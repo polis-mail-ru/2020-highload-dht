@@ -69,9 +69,9 @@ public final class SSTable implements Table {
                     ByteBuffer data = cell.getValue().getData();
                     if (data != null) {
                         data = data.duplicate();
+                        offset += data.remaining() + Long.BYTES;
+                        file.write(data);
                     }
-                    offset += data.remaining() + Long.BYTES;
-                    file.write(data);
                 }
             }
 

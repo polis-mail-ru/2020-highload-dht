@@ -5,7 +5,7 @@ import java.util.NoSuchElementException;
 public class NoSuchElementExceptionLightWeight extends NoSuchElementException {
     private static final long serialVersionUID = 6769829250639411880L;
 
-    public NoSuchElementExceptionLightWeight(String s) {
+    public NoSuchElementExceptionLightWeight(final String s) {
         super(s);
     }
 

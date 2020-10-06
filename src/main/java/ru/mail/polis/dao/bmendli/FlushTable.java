@@ -13,6 +13,9 @@ public class FlushTable {
         this(generation, table, false);
     }
 
+    /**
+     * Table which waiting a flush
+     */
     public FlushTable(final int generation,
                       @NotNull final Table table,
                       final boolean poisonPill) {

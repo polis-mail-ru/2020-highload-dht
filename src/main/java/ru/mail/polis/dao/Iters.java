@@ -18,10 +18,10 @@ package ru.mail.polis.dao;
 
 import com.google.common.base.Functions;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
 
 import java.util.Iterator;
 import java.util.function.Function;
-import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
 
 /**
  * Utility methods for iterators.
