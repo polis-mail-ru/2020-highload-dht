@@ -1,19 +1,16 @@
-package ru.mail.polis.service.igor_manikhin;
+package ru.mail.polis.service.IgorManikhin;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
-
 import one.nio.http.Request;
-import one.nio.http.Response;
 import one.nio.http.Path;
 import one.nio.http.Param;
-
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.igor_manikhin.ByteConvertor;
+import ru.mail.polis.dao.IgorManikhin.ByteConvertor;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -30,11 +27,25 @@ public class ServiceImpl extends HttpServer implements Service {
         this.dao = dao;
     }
 
+
+    /**
+     * Http status getter path.
+     *
+     * @return HTTP status code 200 (OK)
+     */
     @Path("/v0/status")
     public Response status() {
         return Response.ok("OK");
     }
 
+
+    /**
+     * Provide access to entities.
+     *
+     * @param id      key of entity
+     * @param request HTTP request
+     * @return response or error
+     */
     @Path("/v0/entity")
     public Response entity(@Param(value = "id", required = true) final String id, @NotNull final Request request) {
         try {

@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.igor_manikhin;
+package ru.mail.polis.dao.IgorManikhin;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -7,13 +7,28 @@ import java.util.Arrays;
 
 public final class ByteConvertor {
 
-    public static byte[] toArray(@NotNull final ByteBuffer buffer)  {
+    private ByteConvertor() {}
+
+    /**
+     * Converter ByteBuffer from java.nio to byte array.
+     *
+     * @param buffer byte buffer
+     * @return array bytes
+     */
+    public static byte[] toArray(@NotNull final ByteBuffer buffer) {
         final ByteBuffer bufferCopy = buffer.duplicate();
         final byte[] array = new byte[bufferCopy.remaining()];
         bufferCopy.get(array);
         return array;
     }
 
+
+    /**
+     * Extract byte array from a Unsigned ByteBuffer.
+     *
+     * @param buffer ByteBuffer to extract from
+     * @return array with unsigned bytes
+     */
     public static byte[] toUnsignedArray(@NotNull final ByteBuffer buffer) {
         final ByteBuffer copyBuffer = buffer.duplicate();
         final byte[] arr = new byte[copyBuffer.remaining()];
@@ -26,6 +41,12 @@ public final class ByteConvertor {
         return arr;
     }
 
+    /**
+     * Convert byte array into ByteBuffer
+     *
+     * @param arr byte array
+     * @return ByteBuffer with unsigned bytes
+     */
     public static ByteBuffer fromUnsignedArray(@NotNull final byte[] arr) {
         final byte[] copyArray = Arrays.copyOf(arr, arr.length);
 
@@ -36,11 +57,11 @@ public final class ByteConvertor {
         return ByteBuffer.wrap(copyArray);
     }
 
-    private static byte toUnsignedByte(final byte b) {
+    public static byte toUnsignedByte(final byte b) {
         return (byte) (b - Byte.MIN_VALUE);
     }
 
-    private static byte fromUnsignedByte(final byte b) {
+    public static byte fromUnsignedByte(final byte b) {
         return (byte) (b + Byte.MIN_VALUE);
     }
 

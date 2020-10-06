@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.igor_manikhin;
+package ru.mail.polis.dao.IgorManikhin;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;

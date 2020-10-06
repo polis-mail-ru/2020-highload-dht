@@ -1,7 +1,11 @@
-package ru.mail.polis.dao.igor_manikhin;
+package ru.mail.polis.dao.IgorManikhin;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.BuiltinComparator;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
@@ -9,7 +13,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
-
 import java.io.File;
 import java.util.NoSuchElementException;
 
@@ -17,6 +20,10 @@ public final class DAOImpl implements DAO {
     private final RocksDB db;
     final Options options;
 
+    /**
+     * @param data
+     * @throws IOException
+     */
     public DAOImpl(final File data) throws IOException {
         RocksDB.loadLibrary();
         try {
@@ -30,7 +37,7 @@ public final class DAOImpl implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final RocksIterator iterator = db.newIterator();
         iterator.seek(ByteConvertor.toUnsignedArray(from));
         return new RecordIterator(iterator);
@@ -54,7 +61,7 @@ public final class DAOImpl implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
         try {
             db.put(ByteConvertor.toUnsignedArray(key), ByteConvertor.toArray(value));
         } catch (RocksDBException exception) {
@@ -63,7 +70,7 @@ public final class DAOImpl implements DAO {
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(ByteConvertor.toUnsignedArray(key));
         } catch (RocksDBException except) {

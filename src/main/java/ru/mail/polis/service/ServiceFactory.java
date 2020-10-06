@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.igor_manikhin.ServiceImpl;
+import ru.mail.polis.service.IgorManikhin.ServiceImpl;
 
 import java.io.IOException;
 
