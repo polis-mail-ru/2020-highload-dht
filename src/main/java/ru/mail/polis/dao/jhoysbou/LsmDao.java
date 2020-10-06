@@ -55,6 +55,7 @@ public class LsmDao implements DAO {
         AtomicInteger generation = new AtomicInteger();
 
         assert flushThreshold > 0L;
+        log.info("flushThreshold = {}", flushThreshold);
         this.flushThreshold = flushThreshold;
         this.storage = storage;
         final NavigableMap<Integer, Table> ssTables = new TreeMap<>();
@@ -74,23 +75,32 @@ public class LsmDao implements DAO {
             });
         }
         this.tableSet = TableSet.fromFiles(ssTables, generation.get());
+        log.debug("LsmDao created successfully");
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        final TableSet snapshot = this.tableSet;
-        final List<Iterator<Cell>> iters = new ArrayList<>(this.tableSet.ssTables.size()
-                + this.tableSet.flushingTables.size()
+        final TableSet snapshot;
+
+        lock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size()
+                + snapshot.flushingTables.size()
                 + 1);
 
-        iters.add(this.tableSet.memTable.iterator(from));
+        iters.add(snapshot.memTable.iterator(from));
 
         for (final Table flushing : snapshot.flushingTables) {
             iters.add(flushing.iterator(from));
         }
 
-        this.tableSet.ssTables.descendingMap().values().forEach(t -> {
+        snapshot.ssTables.descendingMap().values().forEach(t -> {
             try {
                 iters.add(t.iterator(from));
             } catch (IOException e) {
@@ -122,6 +132,7 @@ public class LsmDao implements DAO {
         if (needsFlushing) {
             flush();
         }
+        log.debug("finished upsert key={}, value={}", key, value);
     }
 
     @Override
@@ -139,6 +150,7 @@ public class LsmDao implements DAO {
         if (needsFlushing) {
             flush();
         }
+        log.debug("started remove key={}", key);
     }
 
     private void flush() throws IOException {
@@ -195,6 +207,7 @@ public class LsmDao implements DAO {
         } finally {
             lock.readLock().unlock();
         }
+        log.debug("LsmDao successfully closed");
     }
 
     @Override
@@ -254,6 +267,8 @@ public class LsmDao implements DAO {
                 log.warn("file {} already has been deleted", path, e);
             }
         }
+
+        log.debug("compact finished");
     }
 }
 

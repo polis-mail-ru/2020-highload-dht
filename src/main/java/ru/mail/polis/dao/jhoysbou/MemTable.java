@@ -2,14 +2,15 @@ package ru.mail.polis.dao.jhoysbou;
 
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class MemTable implements Table {
     private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
     private AtomicLong sizeInBytes = new AtomicLong();
