@@ -65,6 +65,7 @@ public class DAOImpl implements DAO {
     }
 
     @NotNull
+    @Override
     public synchronized ByteBuffer get(@NotNull ByteBuffer key) throws NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
