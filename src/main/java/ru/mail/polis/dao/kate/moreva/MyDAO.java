@@ -16,7 +16,12 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,7 +40,6 @@ public class MyDAO implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TMP = ".tmp";
     private static final String LETTERS = "[a-zA-Z]+";
-    private static final int MAX_THREADS = 2;
 
     private final Logger log = LoggerFactory.getLogger(MyDAO.class);
     @NonNull
@@ -80,7 +84,7 @@ public class MyDAO implements DAO {
 
         this.readWriteLock = new ReentrantReadWriteLock();
         this.memTablePool = new TablesPool(flushThreshold, generation, 2);
-        this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
+        this.executorService = Executors.newFixedThreadPool(2);
         this.executorService.execute(() -> {
             boolean poisonReceived = false;
             while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
