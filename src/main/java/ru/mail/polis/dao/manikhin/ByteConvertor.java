@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.IgorManikhin;
+package ru.mail.polis.dao.manikhin;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -7,7 +7,8 @@ import java.util.Arrays;
 
 public final class ByteConvertor {
 
-    private ByteConvertor() {}
+    private ByteConvertor() {
+    }
 
     /**
      * Converter ByteBuffer from java.nio to byte array.

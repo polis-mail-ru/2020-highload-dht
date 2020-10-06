@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.IgorManikhin;
+package ru.mail.polis.dao.manikhin;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
@@ -7,7 +7,7 @@ import ru.mail.polis.Record;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-public class RecordIterator implements Iterator<Record>, AutoCloseable{
+public class RecordIterator implements Iterator<Record>, AutoCloseable {
 
     private final RocksIterator iterator;
 

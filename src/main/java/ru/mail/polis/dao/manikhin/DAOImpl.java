@@ -1,9 +1,9 @@
-package ru.mail.polis.dao.IgorManikhin;
+package ru.mail.polis.dao.manikhin;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
 import org.rocksdb.BuiltinComparator;
+import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
@@ -12,8 +12,8 @@ import ru.mail.polis.dao.DAO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
 import java.io.File;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 public final class DAOImpl implements DAO {
@@ -21,8 +21,11 @@ public final class DAOImpl implements DAO {
     final Options options;
 
     /**
-     * @param data
-     * @throws IOException
+     *
+     * DAO implementation over RocksDB
+     *
+     * @param data input data for init DAO
+     * @throws IOException DAO init exception
      */
     public DAOImpl(final File data) throws IOException {
         RocksDB.loadLibrary();
@@ -31,7 +34,7 @@ public final class DAOImpl implements DAO {
                     .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             db = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException except) {
-            throw new IOException("Create error", except);
+            throw new IOException("Init error", except);
         }
     }
 
@@ -61,7 +64,7 @@ public final class DAOImpl implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             db.put(ByteConvertor.toUnsignedArray(key), ByteConvertor.toArray(value));
         } catch (RocksDBException exception) {
