@@ -5,10 +5,10 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.dao.impl.tables.TableSet;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.tables.SSTable;
 import ru.mail.polis.dao.impl.tables.Table;
+import ru.mail.polis.dao.impl.tables.TableSet;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
@@ -18,7 +18,13 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.Objects;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -212,7 +218,9 @@ public class DAOImpl implements DAO {
 
         lock.writeLock().lock();
         try {
-            this.tableSet = this.tableSet.replaceCompactedFiles(snapshot.ssTables, new SSTable(file), snapshot.generation);
+            this.tableSet = this.tableSet.replaceCompactedFiles(snapshot.ssTables,
+                    new SSTable(file),
+                    snapshot.generation);
         } finally {
             lock.writeLock().unlock();
         }
