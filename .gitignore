@@ -13,9 +13,6 @@
 !settings.gradle
 !checkstyle.xml
 !.codeclimate.yml
-!Stage1
-!Stage2
-!profiling/*
-
+!*.profiling
 # ...even if they are in subdirectories
 !*/
