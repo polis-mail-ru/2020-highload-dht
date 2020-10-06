@@ -1,12 +1,7 @@
 package ru.mail.polis.dao.kovalkov;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.BuiltinComparator;
-import org.rocksdb.CompressionType;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
+import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
@@ -104,7 +99,11 @@ public final class DAOImpl implements DAO {
                     .setCreateIfMissing(true)
                     .setCompressionType(CompressionType.NO_COMPRESSION)
                     .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
-                    .setEnableWriteThreadAdaptiveYield(true);
+                    .setEnableWriteThreadAdaptiveYield(true)
+                    .setLevelCompactionDynamicLevelBytes(true)
+                    .setAllowConcurrentMemtableWrite(true)
+                    .setBytesPerSync(1048576)
+                    .setCompactionPriority(CompactionPriority.MinOverlappingRatio);
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {
