@@ -54,7 +54,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    public synchronized void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
             storageInstance.put(CustomServer.toBytes(key), CustomServer.toBytes(value));
         } catch (RocksDBException e) {
