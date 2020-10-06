@@ -36,11 +36,12 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     @Path("/v0/entity")
-    public Response entity(@Param("id") final String id, @NotNull final Request request) {
+    public Response entity(@Param(value = "id", required = true) final String id, @NotNull final Request request) {
         try {
             if (id.isEmpty()) {
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
+
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
             switch (request.getMethod()) {
