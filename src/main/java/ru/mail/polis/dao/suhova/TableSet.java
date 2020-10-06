@@ -57,15 +57,15 @@ public class TableSet {
     }
 
     @NotNull
-    TableSet fromFlushingToSSTable(@NotNull final MemTable memTable, @NotNull final SSTable ssTable) {
-        final NavigableMap<Integer, Table> files = new TreeMap<>(this.ssTables);
+    TableSet fromFlushingToSSTable(@NotNull MemTable memTable, @NotNull final SSTable ssTable) {
+        final NavigableMap<Integer, Table> ssTables = new TreeMap<>(this.ssTables);
         if (ssTables.put(generation, ssTable) != null) {
-            logger.error("Rewrite table with generation {}", generation);
+            logger.error("Rewrite table with gen");
         }
         if (!flushing.remove(memTable)) {
             logger.debug("Can't remove this table");
         }
-        return new TableSet(this.memTable, flushing, files, generation);
+        return new TableSet(this.memTable, flushing, ssTables, generation);
     }
 
 }

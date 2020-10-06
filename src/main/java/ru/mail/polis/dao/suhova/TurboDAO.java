@@ -134,33 +134,30 @@ public class TurboDAO implements DAO {
     }
 
     private void flush() {
-        final Iterator<Cell> iterator = tables.memTable.iterator(ByteBuffer.allocate(0));
-        if (iterator.hasNext()) {
-            final TableSet snapshot;
+        final TableSet snapshot;
+        lock.writeLock().lock();
+        try {
+            snapshot = tables;
+            if (snapshot.memTable.sizeInBytes() == 0L) {
+                return;
+            }
+            tables = snapshot.fromMemTableToFlushing();
+        } finally {
+            lock.writeLock().unlock();
+        }
+        try {
+            final File tmp = new File(dir, snapshot.generation + TEMP);
+            SSTable.write(tmp, snapshot.memTable.iterator(ByteBuffer.allocate(0)));
+            final File dat = new File(dir, snapshot.generation + SUFFIX);
+            Files.move(tmp.toPath(), dat.toPath(), StandardCopyOption.ATOMIC_MOVE);
             lock.writeLock().lock();
             try {
-                snapshot = tables;
-                if (snapshot.memTable.sizeInBytes() == 0L) {
-                    return;
-                }
-                tables = snapshot.fromMemTableToFlushing();
+                tables = tables.fromFlushingToSSTable(snapshot.memTable, new SSTable(dat));
             } finally {
                 lock.writeLock().unlock();
             }
-            try {
-                final File tmp = new File(dir, snapshot.generation + TEMP);
-                SSTable.write(tmp, snapshot.memTable.iterator(ByteBuffer.allocate(0)));
-                final File dat = new File(dir, snapshot.generation + SUFFIX);
-                Files.move(tmp.toPath(), dat.toPath(), StandardCopyOption.ATOMIC_MOVE);
-                lock.writeLock().lock();
-                try {
-                    tables = tables.fromFlushingToSSTable(snapshot.memTable, new SSTable(dat));
-                } finally {
-                    lock.writeLock().unlock();
-                }
-            } catch (IOException e) {
-                Runtime.getRuntime().halt(-1);
-            }
+        } catch (IOException e) {
+            Runtime.getRuntime().halt(-1);
         }
     }
 
