@@ -36,8 +36,14 @@ public final class ByteBufferUtils {
         return ByteBuffer.wrap(array);
     }
 
+    /**
+     * Make byte[] from ByteBuffer unsigned <-> signed.
+     *
+     * @param buffer - ByteBuffer.
+     * @return byte[] from buffer.
+     */
     @NotNull
-    public static byte[] toArraySpecial(@NotNull ByteBuffer buffer) {
+    public static byte[] toArraySpecial(@NotNull final ByteBuffer buffer) {
         var res = toArray(buffer);
         for (int i = 0; i < res.length; i++) {
             res[i] = (byte)(Byte.toUnsignedInt(res[i]) - Byte.MIN_VALUE);
@@ -45,6 +51,12 @@ public final class ByteBufferUtils {
         return res;
     }
 
+    /**
+     * Make ByteBuffer from byte[] unsigned <-> signed.
+     *
+     * @param array - byte array.
+     * @return buffer from byte[].
+     */
     @NotNull
     public static ByteBuffer toByteBufferSpecial(final byte[] array) {
         final byte[] cpy = Arrays.copyOf(array, array.length);

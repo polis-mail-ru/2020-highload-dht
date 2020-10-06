@@ -1,8 +1,10 @@
 package ru.mail.polis.dao.mariarheon;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
-import org.rocksdb.util.BytewiseComparator;
+import org.rocksdb.BuiltinComparator;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
@@ -26,7 +28,7 @@ public class DAOImpl implements DAO {
     public DAOImpl(@NotNull final File path) throws DAOException {
         final Options options = new Options()
                 .setCreateIfMissing(true)
-                .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR); //new BytewiseComparator(new ComparatorOptions()));
+                .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
         try {
             db = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException ex) {
