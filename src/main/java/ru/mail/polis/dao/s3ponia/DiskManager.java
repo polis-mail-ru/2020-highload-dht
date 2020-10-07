@@ -119,7 +119,7 @@ public class DiskManager implements Closeable {
         }
         generation = 0;
         fileNames = Files.readAllLines(metaFile);
-        for (var diskTable : diskTables) {
+        for (final var diskTable : diskTables) {
             diskTable.close();
         }
         diskTables = fileNames.stream()
@@ -149,7 +149,7 @@ public class DiskManager implements Closeable {
     
     @Override
     public void close() throws IOException {
-        for (var diskTable : diskTables) {
+        for (final var diskTable : diskTables) {
             diskTable.close();
         }
     }

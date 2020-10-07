@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.logging.Level;
 
 public final class BasicService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(BasicService.class);
@@ -97,7 +96,7 @@ public final class BasicService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_PUT)
     public Response handlePut(@Param(value = "id", required = true) final String id, final Request request) {
         if (id.isEmpty()) {
-//            logger.error("Empty key in putting");
+            logger.error("Empty key in putting");
             return new Response(Response.BAD_REQUEST, EMPTY);
         }
         
@@ -106,7 +105,7 @@ public final class BasicService extends HttpServer implements Service {
             dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, EMPTY);
         } catch (IOException e) {
-//            logger.error("IOException in putting key(size: {}) from dao", id.length());
+            logger.error("IOException in putting key(size: {}) from dao", id.length());
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
