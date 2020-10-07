@@ -238,10 +238,10 @@ public class DAOImpl implements DAO {
             lock.writeLock().unlock();
         }
 
-        File file = serialize(snapshot.generation, fresh);
+        final File file = serialize(snapshot.generation, fresh);
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(f -> {
-                String name = f.getFileName().toFile().toString();
+                final String name = f.getFileName().toFile().toString();
                 return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation;
             }).forEach(f -> {
                 try {
