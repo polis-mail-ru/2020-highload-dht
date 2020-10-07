@@ -18,7 +18,7 @@ public final class PersistenceDAO implements DAO {
     private final Table currTable;
     private final long maxMemory;
     private long currMemory;
-    private static final long MIN_FREE_MEMORY = 128 * 1024 * 1024 / 32;
+    private static final long MIN_FREE_MEMORY = 64 * 1024;
 
     private PersistenceDAO(final File data, final long maxMemory) throws IOException {
         this.manager = new DiskManager(Paths.get(data.getAbsolutePath(),

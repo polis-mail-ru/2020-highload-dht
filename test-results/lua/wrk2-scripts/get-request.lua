@@ -9,7 +9,7 @@ end
 
 request = function() 
   math.randomseed(os.time())
-  path = "/v0/entity?id=" .. RandomVariable(1024)
+  path = "/v0/entity?id=" .. RandomVariable(512)
   wrk.method = "GET"
   return wrk.format(nil, path)
 end

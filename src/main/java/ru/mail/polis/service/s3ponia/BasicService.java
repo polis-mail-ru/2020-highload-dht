@@ -78,10 +78,10 @@ public final class BasicService extends HttpServer implements Service {
             final ByteBuffer value = dao.get(buffer);
             return Response.ok(fromByteBuffer(value));
         } catch (NoSuchElementException e) {
-            logger.error("No such element {} in dao", id);
+            logger.error("No such element key(size: {}) in dao", id.length());
             return new Response(Response.NOT_FOUND, EMPTY);
         } catch (IOException e) {
-            logger.error("IOException in getting {} from dao", id);
+            logger.error("IOException in getting key(size: {}) from dao", id.length());
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
@@ -97,7 +97,7 @@ public final class BasicService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_PUT)
     public Response handlePut(@Param(value = "id", required = true) final String id, final Request request) {
         if (id.isEmpty()) {
-            logger.error("Empty key in putting");
+//            logger.error("Empty key in putting");
             return new Response(Response.BAD_REQUEST, EMPTY);
         }
         
@@ -106,7 +106,7 @@ public final class BasicService extends HttpServer implements Service {
             dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, EMPTY);
         } catch (IOException e) {
-            logger.error("IOException in putting {} from dao", id);
+//            logger.error("IOException in putting key(size: {}) from dao", id.length());
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
@@ -130,7 +130,7 @@ public final class BasicService extends HttpServer implements Service {
             dao.remove(buffer);
             return new Response(Response.ACCEPTED, EMPTY);
         } catch (IOException e) {
-            logger.error("IOException in removing {} from dao", id);
+            logger.error("IOException in removing key(size: {}) from dao", id.length());
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
