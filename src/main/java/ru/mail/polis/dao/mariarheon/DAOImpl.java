@@ -80,14 +80,19 @@ public class DAOImpl implements DAO {
     public void compact() throws DAOException {
         try {
             db.compactRange();
-        } catch (RocksDBException e) {
-            throw new DAOException("Error: can't compact", e);
+        } catch (RocksDBException ex) {
+            throw new DAOException("Error: can't compact", ex);
         }
     }
 
     @Override
-    public void close() {
-        db.close();
+    public void close() throws DAOException{
+        try {
+            db.syncWal();
+            db.closeE();
+        } catch (RocksDBException ex) {
+            throw new DAOException("Error: can't close", ex);
+        }
     }
 
 }
