@@ -51,6 +51,8 @@ public class DAOImpl implements DAO {
      * Creates persistent DAO.
      *
      * @param storage folder to save and read data from
+     * @param flushThreshold count of flushing tables
+     * @param pools count of async threads
      * @throws IOException if cannot open or read SSTables
      */
     public DAOImpl(@NotNull final File storage,
@@ -113,16 +115,7 @@ public class DAOImpl implements DAO {
                 throw new UncheckedIOException(ex);
             }
         });
-        snapshot.ssTables.descendingMap().values().forEach(v -> {
-            try {
-                fileIterators.add(v.iterator(from));
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-
-        final Iterator<Cell> cells = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
-        final Iterator<Cell> fresh = Iters.collapseEquals(cells, Cell::getKey);
+        final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
         return Iterators.filter(
                 fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone());
     }
@@ -160,7 +153,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         boolean isReadyToFlush;
         lock.readLock().lock();
         try {
@@ -185,7 +178,7 @@ public class DAOImpl implements DAO {
         }
     }
 
-    private void flush() throws IOException {
+    private void flush() {
         final TableSet snapshot;
         lock.writeLock().lock();
         try {
@@ -200,10 +193,7 @@ public class DAOImpl implements DAO {
 
         executor.execute(() -> {
             try {
-                final File temp = new File(storage, snapshot.generation + TEMP);
-                SSTable.write(snapshot.memTable.iterator(ByteBuffer.allocate(0)), temp);
-                final File file = new File(storage, snapshot.generation + SUFFIX);
-                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                final File file = serialize(snapshot.generation, snapshot.memTable.iterator(ByteBuffer.allocate(0)));
                 lock.writeLock().lock();
                 try {
                     tableSet = tableSet.moveToFlushedFiles(snapshot.memTable, new SSTable(file), snapshot.generation);
@@ -239,16 +229,7 @@ public class DAOImpl implements DAO {
 
         final ByteBuffer from = ByteBuffer.allocate(0);
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size());
-        snapshot.ssTables.descendingMap().values().forEach(v -> {
-            try {
-                fileIterators.add(v.iterator(from));
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-
-        final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
-        final Iterator<Cell> cells = Iters.collapseEquals(merged, Cell::getKey);
+        final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
 
         lock.writeLock().lock();
         try {
@@ -256,10 +237,20 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-        final File temp = new File(storage, snapshot.generation + TEMP);
-        SSTable.write(cells, temp);
-        final File file = new File(storage, snapshot.generation + SUFFIX);
-        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        File file = serialize(snapshot.generation, fresh);
+        try (Stream<Path> files = Files.list(storage.toPath())) {
+            files.filter(f -> {
+                String name = f.getFileName().toFile().toString();
+                return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation;
+            }).forEach(f -> {
+                try {
+                    Files.delete(f);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        }
 
         lock.writeLock().lock();
         try {
@@ -269,10 +260,29 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
+    }
 
-        for (final long generation : snapshot.ssTables.keySet()) {
-            final File deleteFile = new File(storage, generation + SUFFIX);
-            Files.delete(deleteFile.toPath());
-        }
+    private Iterator<Cell> freshCellIterators(@NotNull final TableSet snapshot,
+                                              @NotNull final ByteBuffer from,
+                                              @NotNull final List<Iterator<Cell>> fileIterators) {
+        snapshot.ssTables.descendingMap().values().forEach(v -> {
+            try {
+                fileIterators.add(v.iterator(from));
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        });
+
+        final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
+        return Iters.collapseEquals(merged, Cell::getKey);
+    }
+
+    private File serialize(final long generation,
+                           final Iterator<Cell> iterator) throws IOException {
+        final File temp = new File(storage, generation + TEMP);
+        SSTable.write(iterator, temp);
+        final File file = new File(storage, generation + SUFFIX);
+        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+        return file;
     }
 }
