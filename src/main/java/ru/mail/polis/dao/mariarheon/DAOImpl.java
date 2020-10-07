@@ -86,7 +86,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void close() throws DAOException{
+    public void close() throws DAOException {
         try {
             db.syncWal();
             db.closeE();
