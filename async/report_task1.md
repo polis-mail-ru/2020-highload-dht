@@ -251,7 +251,7 @@ Requests/sec:   1999.97
 Transfer/sec:    130.59KB
 ```
 ### Async-profiler 
-![alt text](https://raw.githubusercontent.com/IvanovAndrey/2020-highload-dht/a6f0772b3633074a3d336bb97f0fee62294f4034/async/put_cpu.svg)
+![alt text](https://raw.githubusercontent.com/IvanovAndrey/2020-highload-dht/1ac275987145b5d79f4fc9e83939f61bda8261f9/async/get_cpu.svg)
 
 ### Allocation
 ![alt text](https://raw.githubusercontent.com/IvanovAndrey/2020-highload-dht/a6f0772b3633074a3d336bb97f0fee62294f4034/async/alloc-get.svg)
