@@ -139,7 +139,7 @@ public class TurboDAO implements DAO {
         try {
             service.awaitTermination(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e.getCause());
+            Thread.currentThread().interrupt();
         }
         tables.ssTables.values().forEach(Table::close);
     }
