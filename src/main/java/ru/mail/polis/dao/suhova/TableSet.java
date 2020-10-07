@@ -76,4 +76,11 @@ public class TableSet {
         return new TableSet(memTable, flush, files, generation);
     }
 
+    @NotNull
+    TableSet compact(@NotNull final SSTable sstable) {
+        final NavigableMap<Integer, Table> files = new TreeMap<>();
+        files.put(generation, sstable);
+        generation = 1;
+        return new TableSet(new MemTable(), flushing, files, generation);
+    }
 }

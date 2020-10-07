@@ -20,6 +20,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -33,6 +36,8 @@ public class TurboDAO implements DAO {
     private final File dir;
     private TableSet tables;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    @NotNull
+    private final ExecutorService service;
 
     /**
      * Implementation {@link DAO}.
@@ -62,19 +67,20 @@ public class TurboDAO implements DAO {
                 }
             );
         tables = new TableSet(ssTables, generation.get());
+        this.service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        lock.readLock().lock();
+        lock.writeLock().lock();
         try {
             final Iterator<Cell> alive = Iterators.filter(cellIterator(from),
                 cell -> !requireNonNull(cell).getValue().isTombstone());
             return Iterators.transform(alive, cell ->
                 Record.of(requireNonNull(cell).getKey(), cell.getValue().getData()));
         } finally {
-            lock.readLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
@@ -129,6 +135,12 @@ public class TurboDAO implements DAO {
         if (tables.memTable.getEntryCount() > 0) {
             flush();
         }
+        service.shutdown();
+        try {
+            service.awaitTermination(20, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e.getCause());
+        }
         tables.ssTables.values().forEach(Table::close);
     }
 
@@ -144,20 +156,23 @@ public class TurboDAO implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-        try {
-            final File tmp = new File(dir, snapshot.generation + TEMP);
-            SSTable.write(tmp, snapshot.memTable.iterator(ByteBuffer.allocate(0)));
-            final File dat = new File(dir, snapshot.generation + SUFFIX);
-            Files.move(tmp.toPath(), dat.toPath(), StandardCopyOption.ATOMIC_MOVE);
-            lock.writeLock().lock();
+        service.execute(() -> {
             try {
-                tables = tables.fromFlushingToSSTable(snapshot.memTable, tables.flushing, new SSTable(dat));
-            } finally {
-                lock.writeLock().unlock();
+                lock.writeLock().lock();
+                try {
+                    final File tmp = new File(dir, snapshot.generation + TEMP);
+                    SSTable.write(tmp, snapshot.memTable.iterator(ByteBuffer.allocate(0)));
+                    final File dat = new File(dir, snapshot.generation + SUFFIX);
+                    Files.move(tmp.toPath(), dat.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+                    tables = tables.fromFlushingToSSTable(snapshot.memTable, tables.flushing, new SSTable(dat));
+                } finally {
+                    lock.writeLock().unlock();
+                }
+            } catch (IOException e) {
+                Runtime.getRuntime().halt(-1);
             }
-        } catch (IOException e) {
-            Runtime.getRuntime().halt(-1);
-        }
+        });
     }
 
     @Override
@@ -166,30 +181,29 @@ public class TurboDAO implements DAO {
         lock.writeLock().lock();
         try {
             snapshot = this.tables;
+
+            final ByteBuffer from = ByteBuffer.allocate(0);
+            final Collection<Iterator<Cell>> iterators = new ArrayList<>(snapshot.ssTables.size() + 1);
+            iterators.add(snapshot.memTable.iterator(from));
+            snapshot.ssTables.descendingMap().values().forEach(table -> iterators.add(table.iterator(from)));
+            final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
+
+            final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
+            if (iterator.hasNext()) {
+                final File tmp = new File(dir, snapshot.generation + TEMP);
+                SSTable.write(tmp, iterator);
+                for (int i = 0; i < snapshot.generation; i++) {
+                    final File file = new File(dir, i + SUFFIX);
+                    if (file.exists()) {
+                        Files.delete(file.toPath());
+                    }
+                }
+                final File file = new File(dir, 0 + SUFFIX);
+                Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                tables = snapshot.compact(new SSTable(file));
+            }
         } finally {
             lock.writeLock().unlock();
-        }
-        final ByteBuffer from = ByteBuffer.allocate(0);
-        final Collection<Iterator<Cell>> iterators = new ArrayList<>(snapshot.ssTables.size() + 1);
-        iterators.add(snapshot.memTable.iterator(from));
-        snapshot.ssTables.descendingMap().values().forEach(table -> iterators.add(table.iterator(from)));
-        final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
-        final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
-        if (iterator.hasNext()) {
-            final File tmp = new File(dir, tables.generation + TEMP);
-            SSTable.write(tmp, iterator);
-            for (int i = 0; i < snapshot.generation; i++) {
-                final File file = new File(dir, i + SUFFIX);
-                if (file.exists()) {
-                    Files.delete(file.toPath());
-                }
-            }
-            snapshot.generation = 0;
-            final File file = new File(dir, snapshot.generation + SUFFIX);
-            Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
-            snapshot.ssTables.clear();
-            snapshot.ssTables.put(snapshot.generation, new SSTable(file));
-            tables = new TableSet(new MemTable(), snapshot.flushing, snapshot.ssTables, snapshot.generation + 1);
         }
     }
 }
