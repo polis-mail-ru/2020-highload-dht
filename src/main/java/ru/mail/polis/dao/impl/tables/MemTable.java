@@ -49,4 +49,9 @@ public class MemTable implements Table {
         map.put(key, new Value(System.currentTimeMillis()));
     }
 
+    @Override
+    public void close() {
+        throw new UnsupportedOperationException();
+    }
+
 }

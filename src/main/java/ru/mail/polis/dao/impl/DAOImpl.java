@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -42,6 +44,8 @@ public class DAOImpl implements DAO {
     @NotNull
     @GuardedBy("lock")
     private TableSet tableSet;
+    @NotNull
+    private final ExecutorService executor;
 
     /**
      * Creates persistent DAO.
@@ -49,7 +53,9 @@ public class DAOImpl implements DAO {
      * @param storage folder to save and read data from
      * @throws IOException if cannot open or read SSTables
      */
-    public DAOImpl(@NotNull final File storage, final long flushThreshold) throws IOException {
+    public DAOImpl(@NotNull final File storage,
+                   final long flushThreshold,
+                   final int pools) throws IOException {
         this.storage = storage;
         this.flushThreshold = flushThreshold;
         final NavigableMap<Long, Table> ssTables = new TreeMap<>();
@@ -73,6 +79,7 @@ public class DAOImpl implements DAO {
         }
         maxGeneration.set(maxGeneration.get() + 1);
         this.tableSet = TableSet.fromFiles(ssTables, maxGeneration.get());
+        this.executor = Executors.newFixedThreadPool(pools);
     }
 
     @NotNull
@@ -154,7 +161,24 @@ public class DAOImpl implements DAO {
 
     @Override
     public void close() throws IOException {
-        flush();
+        boolean isReadyToFlush;
+        lock.readLock().lock();
+        try {
+            isReadyToFlush = tableSet.memTable.sizeInBytes() > 0;
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (isReadyToFlush) {
+            flush();
+        }
+        executor.shutdown();
+        while (!executor.isTerminated());
+        lock.readLock().lock();
+        try {
+            tableSet.ssTables.values().forEach(Table::close);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     private void flush() throws IOException {
@@ -170,20 +194,37 @@ public class DAOImpl implements DAO {
             lock.writeLock().unlock();
         }
 
-        final File temp = new File(storage, snapshot.generation + TEMP);
-        SSTable.write(snapshot.memTable.iterator(ByteBuffer.allocate(0)), temp);
-        final File file = new File(storage, snapshot.generation + SUFFIX);
-        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        lock.writeLock().lock();
-        try {
-            this.tableSet = this.tableSet.moveToFlushedFiles(snapshot.memTable, new SSTable(file), snapshot.generation);
-        } finally {
-            lock.writeLock().unlock();
-        }
+        executor.execute(() -> {
+            try {
+                final File temp = new File(storage, snapshot.generation + TEMP);
+                SSTable.write(snapshot.memTable.iterator(ByteBuffer.allocate(0)), temp);
+                final File file = new File(storage, snapshot.generation + SUFFIX);
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+                lock.writeLock().lock();
+                try {
+                    tableSet = tableSet.moveToFlushedFiles(snapshot.memTable, new SSTable(file), snapshot.generation);
+                } finally {
+                    lock.writeLock().unlock();
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+
     }
 
     @Override
     public synchronized void compact() throws IOException {
+        boolean isEmptyListOfFiles;
+        lock.readLock().lock();
+        try {
+            isEmptyListOfFiles = tableSet.ssTables.isEmpty();
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (isEmptyListOfFiles) {
+            return;
+        }
         final TableSet snapshot;
         lock.readLock().lock();
         try {

@@ -18,4 +18,6 @@ public interface Table {
 
     void remove(@NotNull final ByteBuffer key) throws IOException;
 
+    void close();
+
 }

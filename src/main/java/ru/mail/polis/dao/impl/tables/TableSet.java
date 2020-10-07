@@ -31,7 +31,7 @@ public final class TableSet {
     @NotNull
     public static TableSet fromFiles(@NotNull final NavigableMap<Long, Table> ssTables,
                             final long generation) {
-        return new TableSet(new MemTable(), Collections.emptySet(), ssTables, generation);
+        return new TableSet(new MemTable(), new HashSet<>(), ssTables, generation);
     }
 
     /** Mark current memTable as "to be flushed".

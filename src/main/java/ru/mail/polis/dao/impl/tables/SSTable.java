@@ -163,6 +163,18 @@ public final class SSTable implements Table {
         };
     }
 
+    /**
+     * Closes table FileChannel.
+     */
+    @Override
+    public void close() {
+        try {
+            fileChannel.close();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException();
