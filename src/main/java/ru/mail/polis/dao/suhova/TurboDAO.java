@@ -45,7 +45,7 @@ public class TurboDAO implements DAO {
      * @param dir            - directory
      * @param flushThreshold - when the table reaches this size, it flushes
      */
-    public TurboDAO(@NotNull final File dir, final long flushThreshold) {
+    public TurboDAO(@NotNull final File dir, final long flushThreshold, final int threads) {
         this.flushThreshold = flushThreshold;
         this.dir = dir;
         final AtomicInteger generation = new AtomicInteger();
@@ -67,7 +67,7 @@ public class TurboDAO implements DAO {
                 }
             );
         tables = new TableSet(ssTables, generation.get());
-        this.service = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        this.service = Executors.newFixedThreadPool(threads);
     }
 
     @NotNull
