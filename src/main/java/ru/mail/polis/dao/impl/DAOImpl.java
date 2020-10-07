@@ -172,7 +172,11 @@ public class DAOImpl implements DAO {
             flush();
         }
         executor.shutdown();
-        while (!executor.isTerminated());
+        while (true) {
+            if (executor.isTerminated()) {
+                break;
+            }
+        }
         lock.readLock().lock();
         try {
             tableSet.ssTables.values().forEach(Table::close);
