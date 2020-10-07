@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" width="1200" height="246" onload="init(evt)" viewBox="0 0 1200 246" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg version="1.1" width="1200" height="86" onload="init(evt)" viewBox="0 0 1200 86" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <style type="text/css">
 	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
 	#search { opacity:0.1; cursor:pointer; }
@@ -328,54 +328,10 @@
 </script>
 <rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
 <text id="title" x="600" y="24">Flame Graph</text>
-<text id="details" x="10" y="229"> </text>
+<text id="details" x="10" y="69"> </text>
 <text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
 <text id="search" x="1090" y="24">Search</text>
-<text id="matched" x="1090" y="229"> </text>
+<text id="matched" x="1090" y="69"> </text>
 <g id="frames">
-<g>
-<title>all (20,869 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#e96565" rx="2" ry="2"/>
-<text x="13.0" y="206.0">all</text>
-</g>
-<g>
-<title>one/nio/server/SelectorThread.run (20,869 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="13.0" y="190.0">one/nio/server/SelectorThread.run</text>
-</g>
-<g>
-<title>one/nio/net/Session.process (20,869 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="13.0" y="174.0">one/nio/net/Session.process</text>
-</g>
-<g>
-<title>one/nio/http/HttpSession.processRead (20,869 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="13.0" y="158.0">one/nio/http/HttpSession.processRead</text>
-</g>
-<g>
-<title>one/nio/http/HttpSession.processHttpBuffer (20,869 samples, 100.00%)</title><rect x="10.0" y="131.0" width="1180.0" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="13.0" y="142.0">one/nio/http/HttpSession.processHttpBuffer</text>
-</g>
-<g>
-<title>one/nio/http/HttpSession.handleParsedRequest (20,869 samples, 100.00%)</title><rect x="10.0" y="115.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="13.0" y="126.0">one/nio/http/HttpSession.handleParsedRequest</text>
-</g>
-<g>
-<title>one/nio/http/HttpServer.handleRequest (20,869 samples, 100.00%)</title><rect x="10.0" y="99.0" width="1180.0" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="13.0" y="110.0">one/nio/http/HttpServer.handleRequest</text>
-</g>
-<g>
-<title>RequestHandler3_putValueByKey.handleRequest (20,869 samples, 100.00%)</title><rect x="10.0" y="83.0" width="1180.0" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="13.0" y="94.0">RequestHandler3_putValueByKey.handleRequest</text>
-</g>
-<g>
-<title>ru/mail/polis/service/basta123/MyHttpServerImpl.putValueByKey (20,869 samples, 100.00%)</title><rect x="10.0" y="67.0" width="1180.0" height="15" fill="#55e655" rx="2" ry="2"/>
-<text x="13.0" y="78.0">ru/mail/polis/service/basta123/MyHttpServerImpl.putValueByKey</text>
-</g>
-<g>
-<title>ru/mail/polis/dao/basta123/MyDAORocksDB.upsert (20,869 samples, 100.00%)</title><rect x="10.0" y="51.0" width="1180.0" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="13.0" y="62.0">ru/mail/polis/dao/basta123/MyDAORocksDB.upsert</text>
-</g>
-<g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (20,869 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#59c7c7" rx="2" ry="2"/>
-<text x="13.0" y="46.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
-</g>
 </g>
 </svg>

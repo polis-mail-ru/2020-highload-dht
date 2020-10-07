@@ -334,47 +334,47 @@
 <text id="matched" x="1090" y="229"> </text>
 <g id="frames">
 <g>
-<title>all (21,090 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#fd7f7f" rx="2" ry="2"/>
+<title>all (6,066 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#f37373" rx="2" ry="2"/>
 <text x="13.0" y="206.0">all</text>
 </g>
 <g>
-<title>one/nio/server/SelectorThread.run (21,090 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<title>one/nio/server/SelectorThread.run (6,066 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
 <text x="13.0" y="190.0">one/nio/server/SelectorThread.run</text>
 </g>
 <g>
-<title>one/nio/net/Session.process (21,090 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<title>one/nio/net/Session.process (6,066 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#5ff05f" rx="2" ry="2"/>
 <text x="13.0" y="174.0">one/nio/net/Session.process</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.processRead (21,090 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#65f665" rx="2" ry="2"/>
+<title>one/nio/http/HttpSession.processRead (6,066 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#5ff05f" rx="2" ry="2"/>
 <text x="13.0" y="158.0">one/nio/http/HttpSession.processRead</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.processHttpBuffer (21,090 samples, 100.00%)</title><rect x="10.0" y="131.0" width="1180.0" height="15" fill="#53e453" rx="2" ry="2"/>
+<title>one/nio/http/HttpSession.processHttpBuffer (6,066 samples, 100.00%)</title><rect x="10.0" y="131.0" width="1180.0" height="15" fill="#51e251" rx="2" ry="2"/>
 <text x="13.0" y="142.0">one/nio/http/HttpSession.processHttpBuffer</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.handleParsedRequest (21,090 samples, 100.00%)</title><rect x="10.0" y="115.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<title>one/nio/http/HttpSession.handleParsedRequest (6,066 samples, 100.00%)</title><rect x="10.0" y="115.0" width="1180.0" height="15" fill="#5ff05f" rx="2" ry="2"/>
 <text x="13.0" y="126.0">one/nio/http/HttpSession.handleParsedRequest</text>
 </g>
 <g>
-<title>one/nio/http/HttpServer.handleRequest (21,090 samples, 100.00%)</title><rect x="10.0" y="99.0" width="1180.0" height="15" fill="#61f261" rx="2" ry="2"/>
+<title>one/nio/http/HttpServer.handleRequest (6,066 samples, 100.00%)</title><rect x="10.0" y="99.0" width="1180.0" height="15" fill="#52e352" rx="2" ry="2"/>
 <text x="13.0" y="110.0">one/nio/http/HttpServer.handleRequest</text>
 </g>
 <g>
-<title>RequestHandler2_getValueByKey.handleRequest (21,090 samples, 100.00%)</title><rect x="10.0" y="83.0" width="1180.0" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="13.0" y="94.0">RequestHandler2_getValueByKey.handleRequest</text>
+<title>RequestHandler3_getValueByKey.handleRequest (6,066 samples, 100.00%)</title><rect x="10.0" y="83.0" width="1180.0" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="13.0" y="94.0">RequestHandler3_getValueByKey.handleRequest</text>
 </g>
 <g>
-<title>ru/mail/polis/service/basta123/MyHttpServerImpl.getValueByKey (21,090 samples, 100.00%)</title><rect x="10.0" y="67.0" width="1180.0" height="15" fill="#65f665" rx="2" ry="2"/>
+<title>ru/mail/polis/service/basta123/MyHttpServerImpl.getValueByKey (6,066 samples, 100.00%)</title><rect x="10.0" y="67.0" width="1180.0" height="15" fill="#61f261" rx="2" ry="2"/>
 <text x="13.0" y="78.0">ru/mail/polis/service/basta123/MyHttpServerImpl.getValueByKey</text>
 </g>
 <g>
-<title>ru/mail/polis/dao/basta123/MyDAORocksDB.get (21,090 samples, 100.00%)</title><rect x="10.0" y="51.0" width="1180.0" height="15" fill="#56e756" rx="2" ry="2"/>
+<title>ru/mail/polis/dao/basta123/MyDAORocksDB.get (6,066 samples, 100.00%)</title><rect x="10.0" y="51.0" width="1180.0" height="15" fill="#56e756" rx="2" ry="2"/>
 <text x="13.0" y="62.0">ru/mail/polis/dao/basta123/MyDAORocksDB.get</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (21,090 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#5ccaca" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.MyDAORocksDB (6,066 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#50bebe" rx="2" ry="2"/>
 <text x="13.0" y="46.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
 </g>
 </g>

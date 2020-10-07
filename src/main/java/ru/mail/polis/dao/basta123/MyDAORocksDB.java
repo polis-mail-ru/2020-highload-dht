@@ -65,7 +65,7 @@ public class MyDAORocksDB implements DAO {
     }
 
     @Override
-    public synchronized void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
             final byte [] keyByte = getByteArrayFromByteBuffer(key);
             final byte [] valueByte = getByteArrayFromByteBuffer(value);
