@@ -15,8 +15,13 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -33,7 +38,6 @@ public class DAOImpl implements DAO {
     private final long flushThreshold;
 
     private static final Logger logger = LoggerFactory.getLogger(DAOImpl.class);
-    private int maxGeneration;
 
     /**
      * implementation of lsm.
@@ -45,7 +49,6 @@ public class DAOImpl implements DAO {
     public DAOImpl(@NotNull final File storage, final long flushThreshold) throws IOException {
         assert flushThreshold > 0L;
         this.storage = storage;
-        this.maxGeneration = 0;
         this.flushThreshold = flushThreshold;
         final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
         try (Stream<Path> files = Files.list(storage.toPath())) {
@@ -53,7 +56,6 @@ public class DAOImpl implements DAO {
                 try {
                     final String name = f.getFileName().toString();
                     final int gen = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
-                    this.maxGeneration = Math.max(maxGeneration, gen);
                     ssTables.put(gen, new SSTable(f.toFile()));
                 } catch (IOException e) {
                     logger.error("ctor bug", e);
@@ -62,7 +64,16 @@ public class DAOImpl implements DAO {
                 }
             });
         }
-        this.tables = TableSet.fromFiles(ssTables, maxGeneration + 1);
+
+
+        ssTables.entrySet()
+                .stream()
+                .max(Entry.comparingByKey())
+                .ifPresentOrElse(
+                        generation -> this.tables = TableSet.fromFiles(ssTables, generation.getKey() + 1),
+                        () -> this.tables = TableSet.fromFiles(ssTables, 1));
+
+
     }
 
     @NotNull

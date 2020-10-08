@@ -2,7 +2,12 @@ package ru.mail.polis.dao.gogun;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.TreeMap;
 
 final class TableSet {
     @NotNull
