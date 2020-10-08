@@ -16,15 +16,11 @@
 
 package ru.mail.polis.service;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.codearound.TaskService;
 
 import java.io.IOException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Constructs {@link Service} instances.

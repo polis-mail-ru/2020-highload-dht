@@ -1,7 +1,12 @@
 package ru.mail.polis.service.codearound;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.*;
+import org.rocksdb.CompactionStyle;
+import org.rocksdb.CompressionType;
+import org.rocksdb.Options;
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import java.io.File;
@@ -33,8 +38,8 @@ public class TaskDAO implements DAO {
         */
         public TaskDAO(@NotNull final File data) throws IOException {
             final Options opts = new Options();
-            opts.setCreateIfMissing(true) // creates db instance if one does not exist
-                .setMaxOpenFiles(-1)  // tunes max number of open files available for DB at the moment
+            opts.setCreateIfMissing(true) //creates db instance if one does not exist
+                .setMaxOpenFiles(-1) // tunes max number of open files available for DB at the moment
                 .setParanoidChecks(false) // drops strict data quality control while searching for corrupt items
                 .setSkipStatsUpdateOnDbOpen(true) // abandons statistics updates every time db is opening to run
                 .setAllowConcurrentMemtableWrite(true) // permits multithread memtable writes
@@ -42,7 +47,7 @@ public class TaskDAO implements DAO {
 
             opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
             opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
-                .setCompressionType(CompressionType.LZ4_COMPRESSION); // involves LZ4 as compression algorithm rather than SNAPPY
+                .setCompressionType(CompressionType.LZ4_COMPRESSION); // replaces compression algorithm by default
 
             dbLocalDir = data;
             try {
