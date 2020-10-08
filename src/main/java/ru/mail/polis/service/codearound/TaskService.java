@@ -16,26 +16,22 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;
-    private final Executor exec;
     Logger logger = Logger.getLogger(TaskService.class.getName());
 
     /**
-     * async service impl const.
+     * service impl const.
      * @param port request listening port
      * @param dao DAO instance
-     * @param exec thread pool executor
      */
-    public TaskService(final int port, @NotNull final DAO dao, final Executor exec) throws IOException {
+    public TaskService(final int port, @NotNull final DAO dao) throws IOException {
         super(getConfig(port));
         this.dao = dao;
-        this.exec = exec;
     }
 
     /**
@@ -57,7 +53,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * try formation request to secure OK as response.
+     * try formation request to secure server OK as response.
      */
     @Path("/v0/status")
     public Response status() {
@@ -66,12 +62,12 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * returns server status info, feed to respective requests as well.
-     *
      * @param id String object to be processed as a key in terms of data storage design
-     * @param req client host request
+     * @param req client request
+     * @return server response object
      */
     @Path("/v0/entity")
-    public void entity(
+    public Response entity(
             @Param(value = "id", required = true) final String id,
             @NotNull final Request req,
             final HttpSession session) throws IOException, NoSuchMethodException {
@@ -79,21 +75,20 @@ public class TaskService extends HttpServer implements Service {
         if (id == null || id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,
                     "Identifier is required as parameter. Error handling request\n");
-            return;
+            return null;
         }
+
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
         switch (req.getMethod()) {
             case Request.METHOD_GET:
-                pushAsyncRun(session, get(buf));
-                break;
+                return get(buf);
             case Request.METHOD_PUT:
-                pushAsyncRun(session, upsert(buf, req));
-                break;
+                return upsert(buf, req);
             case Request.METHOD_DELETE:
-                pushAsyncRun(session, delete(buf));
-                break;
+                return delete(buf);
             default:
-                throw new NoSuchMethodException("No handler provided for request method\n");
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -156,25 +151,6 @@ public class TaskService extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request req, final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    /**
-     * resolves asynchronous request evaluation and handling.
-     * @param session ongoing client-server session instance
-     * @param response server response
-     */
-    public void pushAsyncRun(final HttpSession session, final Response response) {
-        exec.execute(() -> {
-            try {
-                session.sendResponse(response);
-            } catch (IOException exc) {
-                try {
-                    session.sendError(Response.INTERNAL_ERROR, exc.getMessage());
-                } catch (IOException e) {
-                    logger.log(Level.SEVERE, "Asynchronous execution error\n", e);
-                }
-            }
-        });
     }
 
     /**
