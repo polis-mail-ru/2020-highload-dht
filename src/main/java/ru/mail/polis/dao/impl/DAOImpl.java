@@ -208,8 +208,8 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public synchronized void compact() throws IOException {
-        boolean isEmptyListOfFiles;
+    public void compact() throws IOException {
+        /*boolean isEmptyListOfFiles;
         lock.readLock().lock();
         try {
             isEmptyListOfFiles = tableSet.ssTables.isEmpty();
@@ -218,7 +218,7 @@ public class DAOImpl implements DAO {
         }
         if (isEmptyListOfFiles) {
             return;
-        }
+        }*/
         final TableSet snapshot;
         lock.readLock().lock();
         try {
@@ -231,6 +231,10 @@ public class DAOImpl implements DAO {
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size());
         final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
 
+        if (!fresh.hasNext()) {
+            return;
+        }
+
         lock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.compacting();
@@ -239,19 +243,6 @@ public class DAOImpl implements DAO {
         }
 
         final File file = serialize(snapshot.generation, fresh);
-        try (Stream<Path> files = Files.list(storage.toPath())) {
-            files.filter(f -> {
-                final String name = f.getFileName().toFile().toString();
-                return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation;
-            }).forEach(f -> {
-                try {
-                    Files.delete(f);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-        }
-
         lock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.replaceCompactedFiles(snapshot.ssTables,
@@ -260,6 +251,12 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
+
+        for (final long generation : snapshot.ssTables.keySet()) {
+            final File deleted = new File(storage, generation + SUFFIX);
+            Files.delete(deleted.toPath());
+        }
+
     }
 
     private Iterator<Cell> freshCellIterators(@NotNull final TableSet snapshot,
