@@ -65,15 +65,12 @@ public class DAOImpl implements DAO {
             });
         }
 
-
         ssTables.entrySet()
                 .stream()
                 .max(Entry.comparingByKey())
                 .ifPresentOrElse(
                         generation -> this.tables = TableSet.fromFiles(ssTables, generation.getKey() + 1),
                         () -> this.tables = TableSet.fromFiles(ssTables, 1));
-
-
     }
 
     @NotNull
