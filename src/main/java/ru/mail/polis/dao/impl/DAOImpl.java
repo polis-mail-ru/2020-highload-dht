@@ -209,16 +209,6 @@ public class DAOImpl implements DAO {
 
     @Override
     public void compact() throws IOException {
-        /*boolean isEmptyListOfFiles;
-        lock.readLock().lock();
-        try {
-            isEmptyListOfFiles = tableSet.ssTables.isEmpty();
-        } finally {
-            lock.readLock().unlock();
-        }
-        if (isEmptyListOfFiles) {
-            return;
-        }*/
         final TableSet snapshot;
         lock.readLock().lock();
         try {
