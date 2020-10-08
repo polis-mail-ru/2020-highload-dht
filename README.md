@@ -11,8 +11,8 @@
 | [async-profiler](https://github.com/jvm-profiling-tools/async-profiler) | 1.8.1 |
 | [VisualVM](https://visualvm.github.io/) | 2.0.4 |
 
-В исследовании производительности, предпринятом на отчётном этапе, рассмотрены показатели работы HTTP-сервера в различных программных конфигурациях RocksDB: базовой и расширенной, включающей ряд опций с потенциальным улучшением параллелизма.<br/> 
-Нагрузочные испытания, проведённые с использованием <em>wrk</em>, организованы в виде серий PUT- и GET-запросов (длительность каждой - 7 минут) в условиях симулирования обмена данными с множеством клиентов (число клиентов установлено равным 16, количество параллельных потоков - 2 по числу ядер ЦПУ). Интенсивность генерации / отправки запросов каждого вида задана равной 15000 запросов/с.
+В исследовании производительности, предпринятом на отчётном этапе, рассмотрены показатели работы HTTP-сервера в различных программных конфигурациях RocksDB: базовой и расширенной, включающей ряд опций с ожидаемым уменьшением времени отклика за счёт оптимизации параллелизма.<br/> 
+Нагрузочные испытания, проведённые с использованием <em>wrk</em>, организованы в виде серий PUT- и GET-запросов (длительность каждой - 7 минут) в условиях симулирования обмена данными с множеством клиентов (число клиентов установлено равным 16, количество параллельных потоков - 2 по числу ядер ЦПУ). Интенсивность генерации / отправки запросов каждого вида задана равной 15000 запросов/с (значение выбрано исходя из предварительных оценок метрики <em>Requests/sec</em>) инструмента <em>wrk</em> в сравнении с целевым показателем <em>Rate</em>).
 
 **Команды <em>wrk</em>**<br/>
 <ins><em>wrk</em> | PUT</ins>
@@ -22,7 +22,7 @@ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R15000 --latency http://
 
 <ins><em>wrk</em> | GET</ins>
 ```
-wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R8000 --latency http://127.0.0.1:8080
+wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://127.0.0.1:8080
 ```
 
 **Команды <em>async-profiler</em>**<br/>
@@ -206,16 +206,16 @@ Transfer/sec:      0.96MB
 В соответствии с приведённым выводом средняя задержка при обработке запросов на добавление записей достигла 700 мс при отклонении на уровне 87%. Каждую секунду сервер выполнял свыше 7500 запросов, в то время как интенсивность их подачи оказалась близкой целевому значению (15000 запросов/с). В структуре квантильного распределения времён отклика максимальная длительность ответа установлена равной 6.77 с, получение отклика на 90% запросов уложилось в 6.5 с.<br/>            
 <ins>Flamegraph-анализ</ins><br/>  
 
-![basic_put_cpu](https://user-images.githubusercontent.com/55311053/95130981-0b258900-0766-11eb-9d61-fe3578f961bf.jpg)
+![ext_cpu_put](https://user-images.githubusercontent.com/55311053/95475548-fd068100-098e-11eb-8399-7cac4f5f3571.jpg)
 <p align="center">Рис.1. Выделение ресурса CPU при симулировании PUT-запросов</p>
 
-![basic_put_alloc](https://user-images.githubusercontent.com/55311053/95130978-09f45c00-0766-11eb-8492-cf0bae70a540.jpg)
+![ext_alloc_put](https://user-images.githubusercontent.com/55311053/95475537-fb3cbd80-098e-11eb-941d-1c5bf2b90073.jpg)
 <p align="center">Рис.2. Выделение ресурса RAM при симулировании PUT-запросов</p>
 
-![basic_put_lock](https://user-images.githubusercontent.com/55311053/95130987-0bbe1f80-0766-11eb-9349-4d02bbfacc30.jpg)
+![ext_lock_put](https://user-images.githubusercontent.com/55311053/95475557-fe37ae00-098e-11eb-89a7-be050fd86f06.jpg)
 <p align="center">Рис.3. Профиль lock/monitor при симулировании PUT-запросов</p>
 
-Визуализация нагрузки на процессор позволяет сделать вывод о доминировании в общей структуре операций, связанных с выполнением ThreadPoolExecutor. Значительную долю процессорного времени составили чтение, парсинг данных из буфера вкупе с формированием и отправкой результирующих данных. Влияние многопоточности прослеживается и на графе выделения памяти. На нём же следует отметить активное аллоцирование RAM при вызове метода асинхронной обработки запросов (<em>pushAsyncRun</em>). <br/>               
+Визуализация нагрузки на процессор позволяет сделать вывод о доминировании в общей структуре операций чтения, парсинга данных из буфера вкупе с формированием и отправкой результирующих данных через сокет. <br/>               
 
 ### 1.2. GET
 
@@ -366,34 +366,50 @@ Transfer/sec:    446.68KB
 
 <ins>Flamegraph-анализ</ins><br/>  
 
-![basic_get_cpu](https://user-images.githubusercontent.com/55311053/95130974-08c32f00-0766-11eb-9946-c2f8200ad02f.jpg)
+![ext_cpu_get](https://user-images.githubusercontent.com/55311053/95475541-fbd55400-098e-11eb-8529-f1f4476e1bf1.jpg)
 <p align="center">Рис.4. Выделение ресурса CPU при симулировании GET-запросов</p>
 
-![basic_get_alloc](https://user-images.githubusercontent.com/55311053/95130969-07920200-0766-11eb-8227-e1384a6b136b.jpg)
+![ext_alloc_get](https://user-images.githubusercontent.com/55311053/95475533-fa0b9080-098e-11eb-9bf0-8116ad655060.jpg)
 <p align="center">Рис.5. Выделение ресурса RAM при симулировании GET-запросов</p>
 
-![basic_get_lock](https://user-images.githubusercontent.com/55311053/95130975-095bc580-0766-11eb-87ef-65f12f906b06.jpg)
+![ext_lock_get](https://user-images.githubusercontent.com/55311053/95475554-fe37ae00-098e-11eb-9491-9a7737c91617.jpg)
 <p align="center">Рис.6. Профиль lock/monitor при симулировании GET-запросов</p>
 
-Представленные графы в значительной мере воспроизводят профили, полученные для серии с операциями добавления. Как и в случае с последними, в структуре использования процессорного времени превалируют операции с ThreadPoolExecutor, буфером данных и сокетом. Дополнительную нагрузку на ресурс RAM создают операции преобразования типов данных между байтовыми и строковыми объектами.         
+Представленные графы в значительной мере воспроизводят профили, полученные для серии с операциями добавления. Как и в случае с последними, в структуре использования процессорного времени превалируют операции с буфером данных и сокетом. Дополнительную нагрузку на ресурс RAM создают операции преобразования типов данных между байтовыми и строковыми объектами.         
 
 ## 2. RocksDB - расширенная конфигурация (вариант оптимизации)
 
-В качестве варианта улучшения реализации параллелизма в код конструктора экземпляра RocksDB были включены расширения в виде следующих опций:
+В качестве варианта улучшения реализации параллелизма в код конструктора экземпляра RocksDB были включены расширения в виде следующих методов класса Options:
 | | |
 |-|-|
-| setAllowConcurrentMemtableWrite(true) | разрешение параллельных операций записи в memtable |
-| enableWriteThreadAdaptiveYield() | установление предельной длительности групповых записей (вплоть до истечения интервала захвата мьютекса) |
+| setMaxOpenFiles(-1)[4] | устранение ограничений на количество открытых файлов, доступных для обмена данными с БД в один и тот же момент времени |
+| setAllowConcurrentMemtableWrite(true)[4] | разрешение параллельных операций записи в memtable |
+| enableWriteThreadAdaptiveYield()[4] | установление предельной длительности записи в потоке, синхронизированном с <em>write batch group leader</em> (вплоть до момента блокировки мьютекса) |
+| disableAutoCompactions()[4] | отключение автоматических уплотнений БД |
+| setCompactionStyle(CompactionStyle.UNIVERSAL)[3][5] | выбор общего (universal) алгоритма уплотнения (в терминах RocksDB) |
+| setCompactionOptionsUniversal[2] | изменение алгоритма сжатия данных (применение L4Z вместо SNAPPY по умолчанию) |
+
+Справочные ресурсы:<br/>1. [github.com/facebook/rocksdb/wiki/](https://github.com/facebook/rocksdb/wiki)<br/>
+2. [https://github.com/facebook/rocksdb/wiki/](https://github.com/facebook/rocksdb/wiki/Compression)
+3. [github.com/tecbot/gorocksdb/](https://github.com/tecbot/gorocksdb/blob/master/options.go)<br/>
+4. [javadoc.io](https://javadoc.io/doc/org.rocksdb/rocksdbjni/latest/index.html)<br/>
+5. [zhangyuchi.gitbooks.io/rocksdbbook/](https://zhangyuchi.gitbooks.io/rocksdbbook/content/Universal-Compaction.html)<br/>  
 
 <ins>Код в TaskDAO.java</ins>
 ```
 public TaskDAO(@NotNull final File data) throws IOException {
             final Options opts = new Options();
-            opts.setCreateIfMissing(true); // create db instance if one does not exist
-            opts.setParanoidChecks(false); // drops strict data quality control while performing search for corrupt / erroneous elements
-            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
-            opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
-            opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+            opts.setCreateIfMissing(true) // creates db instance if one does not exist
+                .setMaxOpenFiles(-1)  // tunes max number of open files available for DB at the moment
+                .setParanoidChecks(false) // drops strict data quality control while searching for corrupt items
+                .setSkipStatsUpdateOnDbOpen(true) // abandons statistics updates every time db is opening to run
+                .setAllowConcurrentMemtableWrite(true) // permits multithread memtable writes
+                .enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+
+            opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
+            opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
+                .setCompactionOptionsUniversal(new CompactionOptionsUniversal()
+                .setCompressionType(CompressionType.LZ4_COMPRESSION); // involves LZ4 as compression algorithm rather than SNAPPY
 
             dbLocalDir = data;
             try {
