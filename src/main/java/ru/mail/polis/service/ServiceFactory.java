@@ -24,6 +24,7 @@ import ru.mail.polis.service.codearound.TaskService;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * Constructs {@link Service} instances.
@@ -58,9 +59,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
-
-        return new TaskService(port, dao, exec);
+        return new TaskService(port, dao);
     }
 }
