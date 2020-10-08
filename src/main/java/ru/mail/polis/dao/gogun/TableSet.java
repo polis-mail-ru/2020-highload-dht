@@ -45,6 +45,7 @@ final class TableSet {
             throw new IllegalStateException("error");
         }
         final NavigableMap<Integer, SSTable> files = new TreeMap<>(this.ssTables);
+
         if (files.put(generation, ssTable) != null) {
             throw new IllegalStateException("generation collision");
         }
@@ -64,14 +65,13 @@ final class TableSet {
             final int generation) {
         final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>(this.ssTables);
         for (final Map.Entry<Integer, SSTable> entry : source.entrySet()) {
-            if(!ssTables.remove(entry.getKey(), entry.getValue())) {
+            if (!ssTables.remove(entry.getKey(), entry.getValue())) {
                 throw new IllegalStateException("error");
             }
         }
         if (ssTables.put(generation, destination) != null) {
             throw new IllegalStateException("generation collision");
         }
-
 
 
         return new TableSet(this.memTable, flushing, ssTables, this.generation);

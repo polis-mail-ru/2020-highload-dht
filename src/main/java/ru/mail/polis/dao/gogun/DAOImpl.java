@@ -2,6 +2,8 @@ package ru.mail.polis.dao.gogun;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
@@ -21,14 +23,13 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 public class DAOImpl implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
     @GuardedBy("lock")
     private TableSet tables;
 
@@ -36,7 +37,7 @@ public class DAOImpl implements DAO {
     private final File storage;
     private final long flushThreshold;
 
-    private static final Logger logger = Logger.getLogger(DAOImpl.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DAOImpl.class);
     private int maxGeneration = 0;
 
     /**
@@ -50,7 +51,6 @@ public class DAOImpl implements DAO {
         assert flushThreshold > 0L;
         this.storage = storage;
         this.flushThreshold = flushThreshold;
-//        this.memTable = new MemTable();
         final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(path -> path.toString().endsWith(SUFFIX)).forEach(f -> {
@@ -60,9 +60,9 @@ public class DAOImpl implements DAO {
                     this.maxGeneration = Math.max(maxGeneration, gen);
                     ssTables.put(gen, new SSTable(f.toFile()));
                 } catch (IOException e) {
-                    logger.log(Level.SEVERE, "ctor bug", e);
+                    logger.error("ctor bug", e);
                 } catch (NumberFormatException e) {
-                    logger.log(Level.SEVERE, "bad name", e);
+                    logger.error("bad name", e);
                 }
             });
         }
@@ -87,14 +87,15 @@ public class DAOImpl implements DAO {
         } finally {
             lock.readLock().unlock();
         }
-        final List<Iterator<Row>> iters = new ArrayList<>(snapshot.ssTables.size() + 1);
+        final List<Iterator<Row>> iters = new ArrayList<>(snapshot.ssTables.size()
+                + snapshot.flushing.size() + 1);
         iters.add(snapshot.memTable.iterator(from));
 
         snapshot.flushing.forEach(t -> {
             try {
                 iters.add(t.iterator(from));
             } catch (IOException e) {
-                logger.log(Level.SEVERE, "iter fail", e);
+                logger.error("iter fail", e);
             }
         });
 
@@ -102,7 +103,7 @@ public class DAOImpl implements DAO {
             try {
                 iters.add(t.iterator(from));
             } catch (IOException e) {
-                logger.log(Level.SEVERE, "iter fail", e);
+                logger.error("iter fail", e);
             }
         });
 
@@ -221,11 +222,26 @@ public class DAOImpl implements DAO {
 
     @Override
     public void close() throws IOException {
-        if (tables.memTable.getSize() > 0) {
+        boolean isFlushing;
+        lock.readLock().lock();
+        try {
+            isFlushing = tables.memTable.getSize() > 0;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        if (isFlushing) {
             flush();
         }
-        for (final Entry<Integer, SSTable> elem : tables.ssTables.entrySet()) {
-            elem.getValue().close();
+
+        lock.readLock().lock();
+        try {
+            for (final Entry<Integer, SSTable> elem : tables.ssTables.entrySet()) {
+                elem.getValue().close();
+            }
+        } finally {
+            lock.readLock().unlock();
         }
+
     }
 }

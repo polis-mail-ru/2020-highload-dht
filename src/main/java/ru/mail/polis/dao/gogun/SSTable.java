@@ -43,7 +43,7 @@ final class SSTable implements Table {
         //read key
         final ByteBuffer key = ByteBuffer.allocate(keyLength.rewind().getInt());
         fc.read(key, offset);
-        
+
         return key.rewind();
     }
 
@@ -159,6 +159,10 @@ final class SSTable implements Table {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException("Immutable");
+    }
+
+    public void deleteFile() throws IOException {
+        Files.delete(file.toPath());
     }
 
     @Override
