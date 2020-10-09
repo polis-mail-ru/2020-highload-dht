@@ -33,8 +33,6 @@ final class MemTable implements Table {
         } else {
             this.sizeInBytes.addAndGet(value.remaining() - valueToCheck.getData().remaining());
         }
-
-
     }
 
     @Override
@@ -46,8 +44,6 @@ final class MemTable implements Table {
         if (value != null && !value.isTombstone()) {
             this.sizeInBytes.addAndGet(-value.getData().remaining());
         }
-
-
     }
 
     public long getSizeInBytes() {
