@@ -110,7 +110,7 @@ public final class SSTable implements Table {
         final int keySize = keySizeBB.rewind().getInt();
         final ByteBuffer key = ByteBuffer.allocate(keySize);
         fileChannel.read(key, offset + Integer.BYTES);
-        return key.rewind();
+        return key.rewind().duplicate();
     }
 
     private int getOffset(final int num) throws IOException {

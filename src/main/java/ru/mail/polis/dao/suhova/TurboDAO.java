@@ -181,29 +181,27 @@ public class TurboDAO implements DAO {
         lock.writeLock().lock();
         try {
             snapshot = this.tables;
-
-            final ByteBuffer from = ByteBuffer.allocate(0);
-            final Collection<Iterator<Cell>> iterators = new ArrayList<>(snapshot.ssTables.size() + 1);
-            iterators.add(snapshot.memTable.iterator(from));
-            snapshot.ssTables.descendingMap().values().forEach(table -> iterators.add(table.iterator(from)));
-            final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
-
-            final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
-            if (iterator.hasNext()) {
-                final File tmp = new File(dir, snapshot.generation + TEMP);
-                SSTable.write(tmp, iterator);
-                for (int i = 0; i < snapshot.generation; i++) {
-                    final File file = new File(dir, i + SUFFIX);
-                    if (file.exists()) {
-                        Files.delete(file.toPath());
-                    }
-                }
-                final File file = new File(dir, 0 + SUFFIX);
-                Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
-                tables = snapshot.compact(new SSTable(file));
-            }
         } finally {
             lock.writeLock().unlock();
+        }
+        final ByteBuffer from = ByteBuffer.allocate(0);
+        final Collection<Iterator<Cell>> iterators = new ArrayList<>(snapshot.ssTables.size() + 1);
+        iterators.add(snapshot.memTable.iterator(from));
+        snapshot.ssTables.descendingMap().values().forEach(table -> iterators.add(table.iterator(from)));
+        final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
+        final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
+        if (iterator.hasNext()) {
+            final File tmp = new File(dir, snapshot.generation + TEMP);
+            SSTable.write(tmp, iterator);
+            for (int i = 0; i < snapshot.generation; i++) {
+                final File file = new File(dir, i + SUFFIX);
+                if (file.exists()) {
+                    Files.delete(file.toPath());
+                }
+            }
+            final File file = new File(dir, 0 + SUFFIX);
+            Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            tables = snapshot.compact(new SSTable(file));
         }
     }
 }
