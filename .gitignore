@@ -15,7 +15,7 @@
 !checkstyle.xml
 !.codeclimate.yml
 !wrk/*.lua
-!async-svg/*.lua
+!async-svg/*.svg
 !highload-analysis
 
 # ...even if they are in subdirectories
