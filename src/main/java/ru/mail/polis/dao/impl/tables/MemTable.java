@@ -28,12 +28,14 @@ public class MemTable implements Table {
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
                 map.tailMap(from).entrySet().iterator(),
-                e -> new Cell(Objects.requireNonNull(e).getKey().duplicate().asReadOnlyBuffer(), e.getValue()));
+                e -> new Cell(Objects.requireNonNull(e).getKey().duplicate().asReadOnlyBuffer(),
+                        e.getValue()));
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        map.put(key.duplicate().asReadOnlyBuffer(), new Value(System.currentTimeMillis(), value.duplicate().asReadOnlyBuffer()));
+        map.put(key.duplicate().asReadOnlyBuffer(),
+                new Value(System.currentTimeMillis(), value.duplicate().asReadOnlyBuffer()));
         sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
     }
 
@@ -46,7 +48,8 @@ public class MemTable implements Table {
         } else {
             sizeInBytes.addAndGet(key.remaining() + Long.BYTES);
         }
-        map.put(key.duplicate().asReadOnlyBuffer(), new Value(System.currentTimeMillis()));
+        map.put(key.duplicate().asReadOnlyBuffer(),
+                new Value(System.currentTimeMillis()));
     }
 
     @Override
