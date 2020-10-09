@@ -184,11 +184,10 @@ public class TurboDAO implements DAO {
         } finally {
             lock.readLock().unlock();
         }
+        final ByteBuffer from = ByteBuffer.allocate(0);
         lock.writeLock().lock();
         try {
-            final ByteBuffer from = ByteBuffer.allocate(0);
-            final Collection<Iterator<Cell>> iterators = new ArrayList<>(snapshot.ssTables.size() + 1);
-            iterators.add(snapshot.memTable.iterator(from));
+            final Collection<Iterator<Cell>> iterators = new ArrayList<>(snapshot.ssTables.size());
             snapshot.ssTables.descendingMap().values().forEach(table -> iterators.add(table.iterator(from)));
             final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
             final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
@@ -203,7 +202,7 @@ public class TurboDAO implements DAO {
                 }
                 final File file = new File(dir, 0 + SUFFIX);
                 Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
-                tables = snapshot.compact(new SSTable(file));
+                tables = snapshot.compact(tables.memTable, new SSTable(file));
             }
         } finally {
             lock.writeLock().unlock();

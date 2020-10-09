@@ -77,10 +77,10 @@ public class TableSet {
     }
 
     @NotNull
-    TableSet compact(@NotNull final SSTable sstable) {
+    TableSet compact(@NotNull final MemTable memTable, @NotNull final SSTable sstable) {
         final NavigableMap<Integer, Table> files = new TreeMap<>();
         files.put(generation, sstable);
         generation = 1;
-        return new TableSet(new MemTable(), flushing, files, generation);
+        return new TableSet(memTable, flushing, files, generation);
     }
 }
