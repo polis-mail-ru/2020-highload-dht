@@ -8,6 +8,7 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +23,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -32,6 +35,11 @@ public class DAOImpl implements DAO {
 
     @GuardedBy("lock")
     private TableSet tables;
+
+    @NotNull
+    private final BlockingQueue<FlushTask> queue;
+    @NotNull
+    private final Thread flusher;
 
     @NotNull
     private final File storage;
@@ -46,8 +54,7 @@ public class DAOImpl implements DAO {
      * @param flushThreshold threshold to write data
      * @throws IOException io error
      */
-    public DAOImpl(@NotNull final File storage, final long flushThreshold) throws IOException {
-        assert flushThreshold > 0L;
+    public DAOImpl(@NotNull final File storage, final long flushThreshold, final int executorQueueSize) throws IOException {
         this.storage = storage;
         this.flushThreshold = flushThreshold;
         final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
@@ -71,6 +78,10 @@ public class DAOImpl implements DAO {
                 .ifPresentOrElse(
                         generation -> this.tables = TableSet.fromFiles(ssTables, generation.getKey() + 1),
                         () -> this.tables = TableSet.fromFiles(ssTables, 1));
+
+        this.queue = new ArrayBlockingQueue<>(executorQueueSize);
+        this.flusher = new Flusher();
+        this.flusher.start();
     }
 
     @NotNull
@@ -194,7 +205,7 @@ public class DAOImpl implements DAO {
         }
     }
 
-    private void flush() throws IOException {
+    private void flush() {
         final TableSet snapshot;
         lock.writeLock().lock();
         try {
@@ -207,20 +218,76 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-        final File file = new File(storage, snapshot.generation + TEMP);
-        SSTable.serialize(
-                file,
-                snapshot.memTable.iterator(ByteBuffer.allocate(0)));
-        final File dst = new File(storage, snapshot.generation + SUFFIX);
-        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        lock.writeLock().lock();
         try {
-            this.tables = this.tables.flushed(snapshot.memTable, new SSTable(dst), snapshot.generation);
-        } finally {
-            lock.writeLock().unlock();
+            this.queue.put(new FlushTask(snapshot.memTable, snapshot.generation));
+        } catch (InterruptedException e) {
+            logger.error("cant get task", e);
+        }
+
+
+    }
+
+    private final static class FlushTask {
+        private final int generation;
+        @Nullable
+        private final MemTable memTable;
+
+        private FlushTask(final MemTable mem, final int gen) {
+            this.memTable = mem;
+            this.generation = gen;
+        }
+
+        private boolean isPoison() {
+            return memTable == null;
+        }
+
+    }
+
+    private final class Flusher extends Thread {
+        public Flusher() {
+            super("flusher");
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    final FlushTask task = queue.take();
+
+                    if (task.isPoison()) {
+                        return;
+                    }
+
+                    logger.info("Flushing {} bytes(s) to {}", task.memTable.getSizeInBytes(), task.generation);
+
+                    final SSTable table = serialize(task.generation, task.memTable.iterator(ByteBuffer.allocate(0)));
+                    lock.writeLock().lock();
+                    try {
+                        tables = tables.flushed(task.memTable, table, task.generation);
+                    } finally {
+                        lock.writeLock().unlock();
+                    }
+
+                    logger.info("Flushed {} bytes(s) to {}", task.memTable.getSizeInBytes(), task.generation);
+
+                } catch (Exception e) {
+                    logger.debug("Cant get task");
+                    Runtime.getRuntime().halt(-1);
+                }
+            }
         }
     }
+
+    private SSTable serialize(final int generation, final Iterator<Row> iterator) throws IOException {
+        final File file = new File(storage, generation + TEMP);
+        SSTable.serialize(file, iterator);
+        final File dst = new File(storage, generation + SUFFIX);
+        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        return new SSTable(dst);
+    }
+
 
     @Override
     public void close() throws IOException {
@@ -234,6 +301,12 @@ public class DAOImpl implements DAO {
 
         if (isFlushing) {
             flush();
+            try {
+                queue.put(new FlushTask(null, 0));
+                flusher.join();
+            } catch (Exception e) {
+                logger.error("cant stop correctly", e);
+            }
         }
 
         lock.readLock().lock();
@@ -244,6 +317,7 @@ public class DAOImpl implements DAO {
         } finally {
             lock.readLock().unlock();
         }
+
 
     }
 }
