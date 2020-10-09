@@ -7,7 +7,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -16,66 +15,60 @@ import java.util.List;
 final class SSTable implements Table {
     @NotNull
     private final FileChannel fc;
-    private final File file;
     private final int numOffsets;
-    private final long dataSize;
+    private final int dataSize;
 
     public SSTable(@NotNull final File file) throws IOException {
-        this.file = file;
         this.fc = FileChannel.open(file.toPath(), StandardOpenOption.READ);
-        final long fileSize = fc.size();
+        final int fileSize = (int) fc.size();
         final ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
         fc.read(buf, fileSize - Integer.BYTES);
-        this.numOffsets = buf.rewind().getInt();
-        this.dataSize = fileSize - Integer.BYTES - numOffsets * Long.BYTES;
+        this.numOffsets = buf.flip().getInt();
+        this.dataSize = fileSize - Integer.BYTES * (1 + numOffsets);
     }
 
     @NotNull
     private ByteBuffer key(final int row) throws IOException {
         //get pos of row
-        final ByteBuffer startPos = ByteBuffer.allocate(Long.BYTES);
-        fc.read(startPos, dataSize + row * Long.BYTES);
+        final ByteBuffer startPos = ByteBuffer.allocate(Integer.BYTES);
+        fc.read(startPos, dataSize + row * Integer.BYTES);
         final ByteBuffer keyLength = ByteBuffer.allocate(Integer.BYTES);
         //read key length
-        long offset = startPos.rewind().getLong();
+        int offset = startPos.flip().getInt();
         fc.read(keyLength, offset);
         offset += Integer.BYTES;
         //read key
-        final ByteBuffer key = ByteBuffer.allocate(keyLength.rewind().getInt());
+        final ByteBuffer key = ByteBuffer.allocate(keyLength.flip().getInt());
         fc.read(key, offset);
 
-        return key.rewind();
+        return key.flip();
     }
 
     @NotNull
     private Row row(final int row) throws IOException {
-        long offset;
+        int offset;
         final ByteBuffer key = key(row);
-        final ByteBuffer startPos = ByteBuffer.allocate(Long.BYTES);
-        fc.read(startPos, dataSize + row * Long.BYTES);
+        final ByteBuffer startPos = ByteBuffer.allocate(Integer.BYTES);
+        fc.read(startPos, dataSize + row * Integer.BYTES);
         //read timestamp
         final ByteBuffer timestamp = ByteBuffer.allocate(Long.BYTES);
-        offset = startPos.rewind().getLong() + key.remaining() + Integer.BYTES;
+        offset = startPos.flip().getInt() + key.remaining() + Integer.BYTES;
         fc.read(timestamp, offset);
-        //read isAlive
         offset += Long.BYTES;
-        final ByteBuffer isAlive = ByteBuffer.allocate(Byte.BYTES);
-        fc.read(isAlive, offset);
-        offset += Byte.BYTES;
-        if (isAlive.rewind().get() == (byte) 1) {
-            final ByteBuffer valueLength = ByteBuffer.allocate(Integer.BYTES);
-            fc.read(valueLength, offset);
-            offset += Integer.BYTES;
-            final ByteBuffer valueBytes = ByteBuffer.allocate(valueLength.rewind().getInt());
+        //read isAlive
+        final ByteBuffer valueLength = ByteBuffer.allocate(Integer.BYTES);
+        fc.read(valueLength, offset);
+        offset += Integer.BYTES;
+        if (valueLength.flip().getInt() != -1) {
+            final ByteBuffer valueBytes = ByteBuffer.allocate(valueLength.flip().getInt());
             fc.read(valueBytes, offset);
 
-            return new Row(key, new Value(timestamp.rewind().getLong(), valueBytes.rewind()));
+            return new Row(key, new Value(timestamp.flip().getLong(), valueBytes.flip()));
         }
 
-        return new Row(key, new Value(timestamp.rewind().getLong()));
+        return new Row(key, new Value(timestamp.flip().getLong()));
     }
 
-    @NotNull
     private int binarySearch(@NotNull final ByteBuffer from) throws IOException {
         int l = 0;
         int r = numOffsets - 1;
@@ -99,7 +92,7 @@ final class SSTable implements Table {
     @Override
     public Iterator<Row> iterator(@NotNull final ByteBuffer from) throws IOException {
         return new Iterator<>() {
-            int pos = binarySearch(from);
+            int pos = binarySearch(from.rewind());
 
             @Override
             public boolean hasNext() {
@@ -118,51 +111,50 @@ final class SSTable implements Table {
     }
 
     public static void serialize(@NotNull final File file, final Iterator<Row> iterator) throws IOException {
-        final List<ByteBuffer> offsets = new ArrayList<>();
+        final List<Integer> offsets = new ArrayList<>();
+        int offset = 0;
         try (FileChannel fc = new FileOutputStream(file).getChannel()) {
             while (iterator.hasNext()) {
-                offsets.add(ByteBuffer.allocate(Long.BYTES).putLong(fc.position()).rewind());
 
                 final Row row = iterator.next();
                 final ByteBuffer key = row.getKey();
                 final Value value = row.getValue();
+                final int keySize = key.remaining();
+
+                offsets.add(offset);
+                offset += keySize + Integer.BYTES * 2 + Long.BYTES;
 
                 //keyLength
-                fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(key.remaining()).rewind());
+                fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(keySize).flip());
                 //keyBytes
                 fc.write(key);
                 //timestamp
-                fc.write(ByteBuffer.allocate(Long.BYTES).putLong(value.getTimestamp()).rewind());
+                fc.write(ByteBuffer.allocate(Long.BYTES).putLong(value.getTimestamp()).flip());
 
                 if (value.isTombstone()) {
-                    //isAlive
-                    fc.write(ByteBuffer.allocate(Byte.BYTES).put((byte) 0).rewind());
+                    fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(-1).flip());
                 } else {
                     final ByteBuffer data = value.getData();
-                    //isAlive
-                    fc.write(ByteBuffer.allocate(Byte.BYTES).put((byte) 1).rewind());
+                    final int valueLength = data.remaining();
                     //valueLength
-                    fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(data.remaining()).rewind());
+                    fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(valueLength).flip());
                     //valueBytes
                     fc.write(data);
+                    offset += valueLength;
                 }
             }
 
-            for (final ByteBuffer offset : offsets) {
-                fc.write(offset);
+            for (final Integer i : offsets) {
+                fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(i).flip());
             }
 
-            fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(offsets.size()).rewind());
+            fc.write(ByteBuffer.allocate(Integer.BYTES).putInt(offsets.size()).flip());
         }
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException("Immutable");
-    }
-
-    public void deleteFile() throws IOException {
-        Files.delete(file.toPath());
     }
 
     @Override
