@@ -387,10 +387,7 @@ Transfer/sec:      0.98MB
 
 <ins>Flamegraph-анализ</ins><br/>  
 
-<div float="left" width="100%"> 
-<img src="https://user-images.githubusercontent.com/55311053/95604083-d6fce180-0a5f-11eb-9b34-e65e16077043.jpg" width="49%" />
-<img src="https://user-images.githubusercontent.com/55311053/95604189-fd228180-0a5f-11eb-97a4-61c48a821654.jpg" width="49%" />
-</div>
+![get_t_cpu](https://user-images.githubusercontent.com/55311053/95604083-d6fce180-0a5f-11eb-9b34-e65e16077043.jpg)
 
 <p align="center">Рис.4. Выделение ресурса CPU при симулировании GET-запросов</p>
 
