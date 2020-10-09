@@ -592,17 +592,17 @@ Transfer/sec:      0.96MB
 ![put_cpu_ext](https://user-images.githubusercontent.com/55311053/95623828-9791bd80-0a7e-11eb-984b-fd61321ec7f1.jpg)
 <p align="center">Рис.5. Выделение процессорного времени при симулировании PUT-запросов (РКХ) </p>
 
-<p float="left" width="100%">
-    <img src="https://user-images.githubusercontent.com/55311053/95623826-96609080-0a7e-11eb-8567-52e2f753fbad.jpg" width="49%" />
-    <img src="https://user-images.githubusercontent.com/55311053/95623828-9791bd80-0a7e-11eb-984b-fd61321ec7f1.jpg" width="49%" />        
+<p float="left">
+    <img src="https://user-images.githubusercontent.com/55311053/95623826-96609080-0a7e-11eb-8567-52e2f753fbad.jpg" width="49%" height="100%" />
+    <img src="https://user-images.githubusercontent.com/55311053/95623828-9791bd80-0a7e-11eb-984b-fd61321ec7f1.jpg" width="49%" height="100%" />        
 </p>   
 
 ![put_alloc_ext](https://user-images.githubusercontent.com/55311053/95623757-7b8e1c00-0a7e-11eb-8e04-d06a5f805681.jpg)
 <p align="center">Рис.6. Выделение RAM при симулировании PUT-запросов (РКХ) </p>
 
 <p float="left" width="100%">
-    <img src="https://user-images.githubusercontent.com/55311053/95623752-7a5cef00-0a7e-11eb-8566-b2fa09da2d88.jpg" width="49%" />
-    <img src="https://user-images.githubusercontent.com/55311053/95623757-7b8e1c00-0a7e-11eb-8e04-d06a5f805681.jpg" width="49%" />    
+    <img src="https://user-images.githubusercontent.com/55311053/95623752-7a5cef00-0a7e-11eb-8566-b2fa09da2d88.jpg" width="49%" height="100%" />
+    <img src="https://user-images.githubusercontent.com/55311053/95623757-7b8e1c00-0a7e-11eb-8e04-d06a5f805681.jpg" width="49%" height="100%" />    
 </p>   
 
 При текущей конфигурации БД зафиксировано снижение времени отклика в верхнем диапазоне квантилей (99,999-100%), в то время как результаты, достигаемые в 99% и 99,9% случаев указывают на определённое превосходство базового варианта настроек. Можно предположить, что сдерживающим фактором, влияющим на потенциал ускорения сервера, является априори низкая производительность системы, использующей двухъядерный ЦПУ.    
@@ -759,17 +759,17 @@ Transfer/sec:      0.98MB
 ![get_cpu_ext](https://user-images.githubusercontent.com/55311053/95623668-60231100-0a7e-11eb-97c3-76c8c4280630.jpg)
 <p align="center">Рис.7. Выделение процессорного времени при симулировании GET-запросов (РКХ) </p>
 
-<p float="left">
-    <img src="https://user-images.githubusercontent.com/55311053/95623646-57323f80-0a7e-11eb-800c-3121d9d5e4d5.jpg" />
-    <img src="https://user-images.githubusercontent.com/55311053/95623668-60231100-0a7e-11eb-97c3-76c8c4280630.jpg" />    
+<p float="left" width="100%">
+    <img src="https://user-images.githubusercontent.com/55311053/95623646-57323f80-0a7e-11eb-800c-3121d9d5e4d5.jpg" width="49%" height="100%" />
+    <img src="https://user-images.githubusercontent.com/55311053/95623668-60231100-0a7e-11eb-97c3-76c8c4280630.jpg" width="49%" height="100%" />    
 </p>
 
 ![get_alloc_ext](https://user-images.githubusercontent.com/55311053/95623573-2fdb7280-0a7e-11eb-99b8-fad5d51d8f5f.jpg)
 <p align="center">Рис.8. Выделение RAM при симулировании GET-запросов (РКХ) </p>
 
-<p float="left">
-    <img src="https://user-images.githubusercontent.com/55311053/95623570-2eaa4580-0a7e-11eb-9f94-9989463368e5.jpg" />
-    <img src="https://user-images.githubusercontent.com/55311053/95623573-2fdb7280-0a7e-11eb-99b8-fad5d51d8f5f.jpg" />    
+<p float="left" width="100%">
+    <img src="https://user-images.githubusercontent.com/55311053/95623570-2eaa4580-0a7e-11eb-9f94-9989463368e5.jpg" width="49%" height="100%" />
+    <img src="https://user-images.githubusercontent.com/55311053/95623573-2fdb7280-0a7e-11eb-99b8-fad5d51d8f5f.jpg" width="49%" height="100%" />    
 </p>
 
 Единственным заметным отличием текущей статистики следует назвать уменьшение максимального времени отклика (приблизительно на 40 мс относительно базовой конфигурации). Как и при анализе итогов предыдущей серии, требуется учитывать вероятность аппаратных ограничений, нивелирующих потенциал оптимизации и определяющих достаточную условность отмеченных изменений.   
