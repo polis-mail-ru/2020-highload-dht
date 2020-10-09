@@ -43,17 +43,17 @@ public final class SSTable implements Table {
                 offsets.add(offset);
                 offset += key.remaining() + Long.BYTES + Integer.BYTES;
                 file.write(ByteBuffer.allocate(Integer.BYTES)
-                        .putInt(key.remaining())
-                        .rewind());
+                    .putInt(key.remaining())
+                    .rewind());
                 file.write(key);
                 if (cell.getValue().isTombstone()) {
                     file.write(ByteBuffer.allocate(Long.BYTES)
-                            .putLong(-cell.getValue().getVersion())
-                            .rewind());
+                        .putLong(-cell.getValue().getVersion())
+                        .rewind());
                 } else {
                     file.write(ByteBuffer.allocate(Long.BYTES)
-                            .putLong(cell.getValue().getVersion())
-                            .rewind());
+                        .putLong(cell.getValue().getVersion())
+                        .rewind());
                     final ByteBuffer data = cell.getValue().getData();
                     offset += data.remaining();
                     file.write(data);
@@ -62,12 +62,12 @@ public final class SSTable implements Table {
             final int count = offsets.size();
             for (final Integer integer : offsets) {
                 file.write(ByteBuffer.allocate(Integer.BYTES)
-                        .putInt(integer)
-                        .rewind());
+                    .putInt(integer)
+                    .rewind());
             }
             file.write(ByteBuffer.allocate(Integer.BYTES)
-                    .putInt(count)
-                    .rewind());
+                .putInt(count)
+                .rewind());
         }
     }
 
@@ -110,7 +110,7 @@ public final class SSTable implements Table {
         final int keySize = keySizeBB.rewind().getInt();
         final ByteBuffer key = ByteBuffer.allocate(keySize);
         fileChannel.read(key, offset + Integer.BYTES);
-        return key.rewind();
+        return key.rewind().duplicate();
     }
 
     private int getOffset(final int num) throws IOException {

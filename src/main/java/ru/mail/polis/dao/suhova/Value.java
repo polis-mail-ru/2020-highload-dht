@@ -13,7 +13,11 @@ public class Value {
      * @param version - timestamp
      */
     public Value(final ByteBuffer data, final long version) {
-        this.data = data;
+        if (data == null) {
+            this.data = null;
+        } else {
+            this.data = data.duplicate();
+        }
         this.version = version;
     }
 
@@ -22,7 +26,7 @@ public class Value {
     }
 
     public ByteBuffer getData() {
-        return data;
+        return data.duplicate();
     }
 
     public boolean isTombstone() {
