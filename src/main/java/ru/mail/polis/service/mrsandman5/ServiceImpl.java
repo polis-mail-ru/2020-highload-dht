@@ -18,85 +18,135 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private static final Response ERROR = new Response(Response.BAD_REQUEST, Response.EMPTY);
+    @NotNull
     private final DAO dao;
+    @NotNull
+    private final ExecutorService executorService;
 
-    public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
+    public ServiceImpl(final int port,
+                       @NotNull final DAO dao,
+                       final int pools) throws IOException {
         super(config(port));
         this.dao = dao;
+        this.executorService = new ThreadPoolExecutor(pools, pools,
+                0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(32));
     }
 
     /** Request method for HTTP server.
      * @param id - id request.
      * @param request - type of request.
-     * @return response to request with id code.
      * */
     @Path("/v0/entity")
-    public Response response(@Param(value = "id", required = true) final String id,
-                             final Request request) {
+    public void response(@Param(value = "id", required = true) final String id,
+                             final Request request,
+                             @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
         if (id.isEmpty()) {
-            return ERROR;
+            try {
+                session.sendResponse(ERROR);
+            } catch (IOException e) {
+                log.error("Can't send response", e);
+            }
         }
 
         final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                return get(key);
+                get(key, session);
+                break;
             case Request.METHOD_PUT:
-                return put(key, request.getBody());
+                put(key, request.getBody(), session);
+                break;
             case Request.METHOD_DELETE:
-                return delete(key);
+                delete(key, session);
+                break;
             default:
                 log.warn("Non-supported request : {}", id);
-                return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
+                try {
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Can't send response", e);
+                }
+                break;
         }
     }
 
-    private Response get(@NotNull final ByteBuffer key) {
-        final ByteBuffer value;
-        try {
-            value = dao.get(key);
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("GET error : {}", toByteArray(key));
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-        return Response.ok(toByteArray(value));
+    private void get(@NotNull final ByteBuffer key,
+                     @NotNull final HttpSession session) {
+        final ByteBuffer[] value = new ByteBuffer[1];
+        executorService.execute(() -> {
+            try {
+                try {
+                    value[0] = dao.get(key);
+                } catch (NoSuchElementException e) {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("GET error : {}", toByteArray(key));
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
+                session.sendResponse(Response.ok(toByteArray(value[0])));
+            } catch (IOException ex) {
+                log.error("Can't send response", ex);
+            }
+        });
     }
 
-    private Response put(@NotNull final ByteBuffer key,
-                          final byte[] body) {
+    private void put(@NotNull final ByteBuffer key,
+                          final byte[] body,
+                     @NotNull final HttpSession session) {
         final ByteBuffer value = ByteBuffer.wrap(body);
-        try {
-            dao.upsert(key, value);
-        } catch (IOException e) {
-            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-
-        return new Response(Response.CREATED, Response.EMPTY);
+        executorService.execute(() -> {
+            try {
+                try {
+                    dao.upsert(key, value);
+                } catch (IOException e) {
+                    log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException ex) {
+                log.error("Can't send response", ex);
+            }
+        });
     }
 
-    private Response delete(@NotNull final ByteBuffer key) {
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            log.error("DELETE error : {}", toByteArray(key));
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    private void delete(@NotNull final ByteBuffer key,
+                        @NotNull final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                try {
+                    dao.remove(key);
+                } catch (IOException e) {
+                    log.error("DELETE error : {}", toByteArray(key));
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
 
-        return new Response(Response.ACCEPTED, Response.EMPTY);
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException ex) {
+                log.error("Can't send response", ex);
+            }
+        });
     }
 
     @Path("/v0/status")
-    public Response status() {
-        return Response.ok("OK");
+    public void status(@NotNull final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(Response.ok("OK"));
+            } catch (IOException e) {
+                log.error("Can't send response", e);
+            }
+        });
     }
 
     @Override
@@ -127,5 +177,16 @@ public class ServiceImpl extends HttpServer implements Service {
         final var bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("Can't shutdown executor", e);
+        }
     }
 }
