@@ -40,8 +40,10 @@ public class MyDAO implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TMP = ".tmp";
     private static final String LETTERS = "[a-zA-Z]+";
+    private static final int POOL_SIZE = 2;
+    private static final int NUMBER_OF_THREADS = 2;
 
-    private final Logger log = LoggerFactory.getLogger(MyDAO.class);
+    private final static Logger log = LoggerFactory.getLogger(MyDAO.class);
     @NonNull
     private final File storage;
     @NotNull
@@ -69,21 +71,21 @@ public class MyDAO implements DAO {
 
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
             stream.filter(path -> {
-                        final String name = path.getFileName().toString();
-                        return name.endsWith(SUFFIX)
-                                && !name.substring(0, name.indexOf(SUFFIX)).matches(LETTERS)
-                                && !path.toFile().isDirectory();
-                    })
+                final String name = path.getFileName().toString();
+                return name.endsWith(SUFFIX)
+                        && !name.substring(0, name.indexOf(SUFFIX)).matches(LETTERS)
+                        && !path.toFile().isDirectory();
+            })
                     .forEach(this::storeData);
         } catch (IOException e) {
-            log.error(e.getMessage());
+            log.error("Error while opening DAO", e);
             throw new UncheckedIOException(e);
         }
         generation++;
 
         this.readWriteLock = new ReentrantReadWriteLock();
-        this.memTablePool = new TablesPool(flushThreshold, generation, 2);
-        this.executorService = Executors.newFixedThreadPool(2);
+        this.memTablePool = new TablesPool(flushThreshold, generation, POOL_SIZE);
+        this.executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
         this.executorService.execute(() -> {
             boolean poisonReceived = false;
             while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
@@ -94,10 +96,10 @@ public class MyDAO implements DAO {
                     flush(flushTable);
                     memTablePool.flushed(flushTable.getGeneration());
                 } catch (InterruptedException e) {
-                    log.error(e.getMessage());
+                    log.error("Interrupt while creating DAO", e);
                     Thread.currentThread().interrupt();
                 } catch (IOException e) {
-                    log.error(e.getMessage());
+                    log.error("Error while creating DAO", e);
                 }
             }
         });
@@ -110,7 +112,7 @@ public class MyDAO implements DAO {
             generation = Math.max(generation, generationCounter);
             ssTables.put(generationCounter, new SSTable(path));
         } catch (NumberFormatException e) {
-            log.error("Wrong name", e);
+            log.error("Error while storing data (Wrong name):", e);
         }
     }
 
@@ -140,14 +142,14 @@ public class MyDAO implements DAO {
         try {
             iterators.add(memTablePool.iterator(from));
         } catch (IOException e) {
-            log.error(e.getMessage());
+            log.error("Error in cell iterator: ", e);
             throw new UncheckedIOException(e);
         }
         ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iterators.add(ssTable.iterator(from));
             } catch (IOException e) {
-                log.error(e.getMessage());
+                log.error("Error in cell iterator: ", e);
                 throw new UncheckedIOException(e);
             }
         });
@@ -201,7 +203,7 @@ public class MyDAO implements DAO {
                 executorService.shutdownNow();
             }
         } catch (InterruptedException e) {
-            log.error("error shut down", e);
+            log.error("Error while shutting down: ", e);
             Thread.currentThread().interrupt();
         }
     }

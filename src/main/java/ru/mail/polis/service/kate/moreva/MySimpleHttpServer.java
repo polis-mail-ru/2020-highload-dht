@@ -20,17 +20,18 @@ import java.util.NoSuchElementException;
 
 /**
  * Simple Http Server Service implementation.
+ *
  * @author Kate Moreva
  */
 
 public class MySimpleHttpServer extends HttpServer implements Service {
 
-    private final DAO dao;
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
+    private final DAO dao;
 
     /**
      * Http Server constructor.
-     * */
+     */
     public MySimpleHttpServer(final int port, final DAO dao) throws IOException {
         super(getConfigPort(port));
         this.dao = dao;
@@ -55,7 +56,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     /**
      * Method to check whether the server is reachable or not.
      * If the server is available @return {@link Response} {@code 200}.
-     * */
+     */
     @Path("/v0/status")
     public Response status() {
         return new Response(Response.OK, Response.EMPTY);
@@ -65,12 +66,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Method for working with value in the DAO by the key.
      *
      * @return {@code 200, data} (data is found).
-     *         {@code 404} (data is not found).
-     *         {@code 201} (new data created).
-     *         {@code 202} (data deleted).
-     *         {@code 405} (unexpected method).
-     *         {@code 500} (internal server error occurred).
-     * */
+     * {@code 404} (data is not found).
+     * {@code 201} (new data created).
+     * {@code 202} (data deleted).
+     * {@code 405} (unexpected method).
+     * {@code 500} (internal server error occurred).
+     */
     @Path("/v0/entity")
     public Response entity(@Param(value = "id", required = true) final String id, final Request request) {
         if (id.isBlank()) {
@@ -95,9 +96,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Subsidiary method to get value.
      *
      * @return {@code 200, data} (data is found).
-     *         {@code 404} (data is not found).
-     *         {@code 500} (internal server error occurred).
-     * */
+     * {@code 404} (data is not found).
+     * {@code 500} (internal server error occurred).
+     */
     private Response getEntity(final ByteBuffer key) {
         try {
             final ByteBuffer value = dao.get(key).duplicate();
@@ -116,8 +117,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Subsidiary method to put new value.
      *
      * @return {@code 201} (new data created).
-     *         {@code 500} (internal server error occurred).
-     * */
+     * {@code 500} (internal server error occurred).
+     */
     private Response putEntity(final ByteBuffer key, final Request request) {
         try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
@@ -132,8 +133,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Subsidiary method to delete value by the key.
      *
      * @return {@code 202} (data deleted).
-     *         {@code 500} (internal server error occurred).
-     * */
+     * {@code 500} (internal server error occurred).
+     */
     private Response deleteEntity(final ByteBuffer key) {
         try {
             dao.remove(key);

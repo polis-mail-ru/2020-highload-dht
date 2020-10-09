@@ -18,7 +18,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -27,25 +26,24 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 * */
 public class TablesPool implements Table, Closeable {
 
-    private volatile MemTable current;
-    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private MemTable current;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final NavigableMap<Integer, Table> writingFlushTables;
     private final BlockingQueue<FlushingTable> flushQueue;
-    private final AtomicLong size;
     private final long memFlushThreshold;
     private int generation;
     private final AtomicBoolean stopFlag = new AtomicBoolean();
 
     /**
      * Creates pool of tables.
+     *
      * @param memFlushThreshold (max size)
-     * @param startGeneration (generation number)
-     * @param flushTablePool (to make the flushQueue).
-     * */
+     * @param startGeneration   (generation number)
+     * @param flushTablePool    (to make the flushQueue).
+     */
     public TablesPool(final long memFlushThreshold, final int startGeneration, final int flushTablePool) {
         this.memFlushThreshold = memFlushThreshold;
         this.current = new MemTable();
-        this.size = new AtomicLong(0);
         this.generation = startGeneration;
         this.writingFlushTables = new ConcurrentSkipListMap<>();
         this.flushQueue = new ArrayBlockingQueue<>(flushTablePool);
@@ -55,15 +53,15 @@ public class TablesPool implements Table, Closeable {
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> iterators;
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
             iterators = new ArrayList<>(writingFlushTables.size() + 1);
             iterators.add(current.iterator(from));
-            for (final Table table : writingFlushTables.descendingMap().values()) {
+            for (final Table table : writingFlushTables.values()) {
                 iterators.add(table.iterator(from));
             }
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
         final UnmodifiableIterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
         final Iterator<Cell> withoutEquals = Iters.collapseEquals(merged, Cell::getKey);
@@ -77,15 +75,15 @@ public class TablesPool implements Table, Closeable {
 
     @Override
     public long sizeInBytes() {
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
-            size.set(current.sizeInBytes());
+            long size = current.sizeInBytes();
             for (final Map.Entry<Integer, Table> table : writingFlushTables.entrySet()) {
-                size.addAndGet(table.getValue().sizeInBytes());
+                size += table.getValue().sizeInBytes();
             }
-            return size.get();
+            return size;
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
     }
 
@@ -94,11 +92,11 @@ public class TablesPool implements Table, Closeable {
         if (stopFlag.get()) {
             throw new IllegalStateException("Already stopped");
         }
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
             current.upsert(key.duplicate(), value.duplicate());
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
         putIntoFlushQueue();
     }
@@ -108,11 +106,11 @@ public class TablesPool implements Table, Closeable {
         if (stopFlag.get()) {
             throw new IllegalStateException("Already stopped");
         }
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
             current.remove(key.duplicate());
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
         putIntoFlushQueue();
     }
@@ -122,18 +120,18 @@ public class TablesPool implements Table, Closeable {
     }
 
     void flushed(final int generation) {
-        readWriteLock.writeLock().lock();
+        lock.writeLock().lock();
         try {
             writingFlushTables.remove(generation);
         } finally {
-            readWriteLock.writeLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
     private void putIntoFlushQueue() {
         if (current.sizeInBytes() > memFlushThreshold) {
             FlushingTable tableToFlush = null;
-            readWriteLock.writeLock().lock();
+            lock.writeLock().lock();
             try {
                 if (current.sizeInBytes() > memFlushThreshold) {
                     tableToFlush = new FlushingTable(current, generation);
@@ -142,7 +140,7 @@ public class TablesPool implements Table, Closeable {
                     current = new MemTable();
                 }
             } finally {
-                readWriteLock.writeLock().unlock();
+                lock.writeLock().unlock();
             }
             if (tableToFlush != null) {
                 try {
@@ -160,12 +158,12 @@ public class TablesPool implements Table, Closeable {
             return;
         }
         FlushingTable flushingTable;
-        readWriteLock.writeLock().lock();
+        lock.writeLock().lock();
         try {
             flushingTable = new FlushingTable(current, generation, true);
             writingFlushTables.put(flushingTable.getGeneration(), flushingTable.getTable());
         } finally {
-            readWriteLock.writeLock().unlock();
+            lock.writeLock().unlock();
         }
         try {
             flushQueue.put(flushingTable);
