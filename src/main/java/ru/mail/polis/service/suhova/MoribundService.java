@@ -33,6 +33,14 @@ public class MoribundService extends HttpServer implements Service {
     private final ExecutorService executor;
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
 
+    /**
+     * Implementation {@link Service}.
+     *
+     * @param port         - port
+     * @param dao          - dao
+     * @param workersCount - count of executor workers
+     * @param queueSize    - ArrayBlockingQueue max size
+     */
     public MoribundService(final int port,
                            @NotNull final DAO dao,
                            final int workersCount,
@@ -57,8 +65,8 @@ public class MoribundService extends HttpServer implements Service {
      * Request to get a value by id.
      * Path /v0/entity
      *
-     * @param id - key
-     * @return 200 OK + value/ 400 / 404 / 500
+     * @param id      - key
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -89,12 +97,14 @@ public class MoribundService extends HttpServer implements Service {
      * Request to put a value by id.
      * Path /v0/entity
      *
-     * @param id - key
-     * @return 201 Created/ 400 / 500
+     * @param id      - key
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id, final HttpSession session, final Request request) {
+    public void put(@Param(value = "id", required = true) final String id,
+                    final HttpSession session,
+                    final Request request) {
         executor.execute(() -> {
             try {
                 if (id.isEmpty()) {
@@ -118,8 +128,8 @@ public class MoribundService extends HttpServer implements Service {
      * Request to delete a value by id.
      * Path /v0/entity
      *
-     * @param id - key
-     * @return 202 Accepted/ 400 Bad request/ 500 Error
+     * @param id      - key
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -146,7 +156,7 @@ public class MoribundService extends HttpServer implements Service {
     /**
      * All requests to /v0/status.
      *
-     * @return 200 OK
+     * @param session - session
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
