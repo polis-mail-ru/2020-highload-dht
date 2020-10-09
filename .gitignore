@@ -16,7 +16,6 @@
 !.codeclimate.yml
 !wrk/*.lua
 !async-svg/*.svg
-!highload-analysis
-
+!highload-analysis.md
 # ...even if they are in subdirectories
 !*/
