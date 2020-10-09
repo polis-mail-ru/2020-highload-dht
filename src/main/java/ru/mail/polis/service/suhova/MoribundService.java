@@ -1,5 +1,6 @@
 package ru.mail.polis.service.suhova;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -19,16 +20,37 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class MoribundService extends HttpServer implements Service {
 
     @NotNull
     private final DAO dao;
+    @NotNull
+    private final ExecutorService executor;
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
 
-    public MoribundService(final int port, @NotNull final DAO dao) throws IOException {
+    public MoribundService(final int port,
+                           @NotNull final DAO dao,
+                           final int workersCount,
+                           final int queueSize) throws IOException {
         super(getConfig(port));
+        assert workersCount > 0;
+        assert queueSize > 0;
         this.dao = dao;
+        executor = new ThreadPoolExecutor(
+            workersCount, queueSize,
+            0L, TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(queueSize),
+            new ThreadFactoryBuilder()
+                .setUncaughtExceptionHandler((t, e) -> logger.error("Exception {} in thread {}", e, t))
+                .setNameFormat("worker_%d")
+                .build(),
+            new ThreadPoolExecutor.AbortPolicy()
+        );
     }
 
     /**
@@ -40,18 +62,26 @@ public class MoribundService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response get(@Param(value = "id", required = true) final String id) {
+    public void get(@Param(value = "id", required = true) final String id, final HttpSession session) {
         try {
             if (id.isEmpty()) {
                 logger.warn("FAIL GET! Id is empty!");
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             }
-            return new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id))));
+            session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
         } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
+            try {
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ioException) {
+                logger.error("FAIL GET! Can't send response.", ioException);
+            }
         } catch (IOException e) {
             logger.error("FAIL GET! id: {}, error: {}", id, e.getMessage());
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            try {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (IOException ioException) {
+                logger.error("FAIL GET! Can't send response.", ioException);
+            }
         }
     }
 
@@ -64,18 +94,24 @@ public class MoribundService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response put(@Param(value = "id", required = true) final String id, final Request request) {
-        try {
-            if (id.isEmpty()) {
-                logger.warn("FAIL PUT! Id is empty!");
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+    public void put(@Param(value = "id", required = true) final String id, final HttpSession session, final Request request) {
+        executor.execute(() -> {
+            try {
+                if (id.isEmpty()) {
+                    logger.warn("FAIL PUT! Id is empty!");
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
+                dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException e) {
+                logger.error("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    logger.error("FAIL PUT! Can't send response.", ioException);
+                }
             }
-            dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException e) {
-            logger.error("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        });
     }
 
     /**
@@ -87,18 +123,24 @@ public class MoribundService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response delete(@Param(value = "id", required = true) final String id) {
-        try {
-            if (id.isEmpty()) {
-                logger.warn("FAIL DELETE! Id is empty!");
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+    public void delete(@Param(value = "id", required = true) final String id, final HttpSession session) {
+        executor.execute(() -> {
+            try {
+                if (id.isEmpty()) {
+                    logger.warn("FAIL DELETE! Id is empty!");
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
+                dao.remove(toByteBuffer(id));
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException e) {
+                logger.error("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    logger.error("FAIL DELETE! Can't send response.", ioException);
+                }
             }
-            dao.remove(toByteBuffer(id));
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (IOException e) {
-            logger.error("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        });
     }
 
     /**
@@ -107,13 +149,25 @@ public class MoribundService extends HttpServer implements Service {
      * @return 200 OK
      */
     @Path("/v0/status")
-    public Response status() {
-        return Response.ok(Response.OK);
+    public void status(final HttpSession session) {
+        executor.execute(() -> {
+            try {
+                session.sendResponse(Response.ok("OK"));
+            } catch (IOException e) {
+                logger.error("FAIL STATUS! Can't send response.", e);
+            }
+        });
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        executor.execute(() -> {
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                logger.error("Can't send response.", e);
+            }
+        });
     }
 
     private static HttpServerConfig getConfig(final int port) {
@@ -137,5 +191,17 @@ public class MoribundService extends HttpServer implements Service {
         final byte[] result = new byte[byteBuffer.remaining()];
         byteBuffer.get(result);
         return result;
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executor.shutdown();
+        try {
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            logger.error("Can't shutdown execution");
+            Thread.currentThread().interrupt();
+        }
     }
 }

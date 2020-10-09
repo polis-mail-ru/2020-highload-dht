@@ -43,8 +43,8 @@ public final class ServiceFactory {
      */
     @NotNull
     public static Service create(
-            final int port,
-            @NotNull final DAO dao) throws IOException {
+        final int port,
+        @NotNull final DAO dao) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -53,6 +53,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new MoribundService(port, dao);
+        return new MoribundService(port, dao, Runtime.getRuntime().availableProcessors(), 16);
     }
 }
