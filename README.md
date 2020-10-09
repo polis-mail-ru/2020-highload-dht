@@ -34,17 +34,17 @@ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://
 
 <ins><em>async-profiler</em> | cpu</ins>
 ```
-./profiler.sh -d 60 -e cpu -f /path/to/output/folder/flame_output_cpu.svg <server_process_pid>
+./profiler.sh -d 60 -e cpu -t -f /path/to/output/folder/flame_output_cpu.svg <server_process_pid>
 ```
 
 <ins><em>async-profiler</em> | alloc</ins>
 ```
-./profiler.sh -d 60 -e alloc -f /path/to/output/folder/flame_output_alloc.svg <server_process_pid>
+./profiler.sh -d 60 -e alloc -t -f /path/to/output/folder/flame_output_alloc.svg <server_process_pid>
 ```
 
 <ins><em>async-profiler</em> | cpu</ins>
 ```
-./profiler.sh -d 60 -e lock -f /path/to/output/folder/flame_output_lock.svg <server_pid>
+./profiler.sh -d 60 -e lock -t -f /path/to/output/folder/flame_output_lock.svg <server_pid>
 ```
 
 Результаты мониторинга для различных конфигураций хранилища приведены далее.  
@@ -387,7 +387,11 @@ Transfer/sec:      0.98MB
 
 <ins>Flamegraph-анализ</ins><br/>  
 
-![ext_cpu_get](https://user-images.githubusercontent.com/55311053/95475541-fbd55400-098e-11eb-8529-f1f4476e1bf1.jpg)
+<div float="left" width="100%"> 
+<img src="https://user-images.githubusercontent.com/55311053/95604083-d6fce180-0a5f-11eb-9b34-e65e16077043.jpg" width="49%" />
+<img src="https://user-images.githubusercontent.com/55311053/95604189-fd228180-0a5f-11eb-97a4-61c48a821654.jpg" width="49%" />
+</div>
+
 <p align="center">Рис.4. Выделение ресурса CPU при симулировании GET-запросов</p>
 
 ![ext_alloc_get](https://user-images.githubusercontent.com/55311053/95475533-fa0b9080-098e-11eb-9bf0-8116ad655060.jpg)
