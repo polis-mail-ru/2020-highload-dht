@@ -32,7 +32,7 @@ public class Value {
     }
 
     public static Value of(final ByteBuffer data) {
-        return new Value(System.currentTimeMillis(), data.duplicate());
+        return new Value(System.currentTimeMillis(), data.duplicate().asReadOnlyBuffer());
     }
 
     public boolean isTombstone() {

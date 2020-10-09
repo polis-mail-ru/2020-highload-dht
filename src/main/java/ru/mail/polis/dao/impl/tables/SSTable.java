@@ -32,8 +32,8 @@ public final class SSTable implements Table {
         fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
         final int fileSize = (int) fileChannel.size() - Integer.BYTES;
         final ByteBuffer cellCount = ByteBuffer.allocate(Integer.BYTES);
-        fileChannel.read(cellCount, fileSize);
-        count = cellCount.rewind().getInt();
+        fileChannel.read(cellCount.duplicate(), fileSize);
+        count = cellCount.duplicate().rewind().getInt();
         rows = fileSize - count * Integer.BYTES;
     }
 
@@ -52,8 +52,8 @@ public final class SSTable implements Table {
                 final Cell cell = cells.next();
                 final ByteBuffer key = cell.getKey();
                 offsets.add(offset);
-                offset += key.remaining() + Long.BYTES + Integer.BYTES;
-                fc.write(fromInt(key.remaining()));
+                offset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
+                fc.write(fromInt(key.duplicate().remaining()));
                 fc.write(key);
 
                 final Value value = cell.getValue();
@@ -61,7 +61,7 @@ public final class SSTable implements Table {
                     fc.write(fromLong(-cell.getValue().getTimestamp()));
                 } else {
                     fc.write(fromLong(cell.getValue().getTimestamp()));
-                    final ByteBuffer data = cell.getValue().getData();
+                    final ByteBuffer data = cell.getValue().getData().duplicate();
                     offset += data.remaining();
                     fc.write(data);
                 }
@@ -78,28 +78,28 @@ public final class SSTable implements Table {
     private ByteBuffer keyAt(final int i) throws IOException {
         final int offset = getOffset(i);
         final ByteBuffer keySize = ByteBuffer.allocate(Integer.BYTES);
-        fileChannel.read(keySize, offset);
-        final int key = keySize.rewind().getInt();
+        fileChannel.read(keySize.duplicate(), offset);
+        final int key = keySize.duplicate().rewind().getInt();
         final ByteBuffer keyBuffer = ByteBuffer.allocate(key);
-        fileChannel.read(keyBuffer, offset + Integer.BYTES);
-        return keyBuffer.rewind();
+        fileChannel.read(keyBuffer.duplicate(), offset + Integer.BYTES);
+        return keyBuffer.duplicate().rewind();
     }
 
     private Cell cellAt(final int i) {
         try {
             int offset = getOffset(i);
             final ByteBuffer keySize = ByteBuffer.allocate(Integer.BYTES);
-            fileChannel.read(keySize, offset);
+            fileChannel.read(keySize.duplicate(), offset);
             offset += Integer.BYTES;
-            final int key = keySize.rewind().getInt();
+            final int key = keySize.duplicate().rewind().getInt();
             final ByteBuffer keyBuffer = ByteBuffer.allocate(key);
-            fileChannel.read(keyBuffer, offset);
+            fileChannel.read(keyBuffer.duplicate(), offset);
             offset += key;
             final ByteBuffer timestampBuffer = ByteBuffer.allocate(Long.BYTES);
-            fileChannel.read(timestampBuffer, offset);
-            final long timestamp = timestampBuffer.rewind().getLong();
+            fileChannel.read(timestampBuffer.duplicate(), offset);
+            final long timestamp = timestampBuffer.duplicate().rewind().getLong();
             if (timestamp < 0) {
-                return new Cell(keyBuffer.rewind(), new Value(-timestamp));
+                return new Cell(keyBuffer.duplicate().rewind(), new Value(-timestamp));
             } else {
                 offset += Long.BYTES;
                 final int dataSize;
@@ -109,8 +109,8 @@ public final class SSTable implements Table {
                     dataSize = getOffset(i + 1) - offset;
                 }
                 final ByteBuffer data = ByteBuffer.allocate(dataSize);
-                fileChannel.read(data, offset);
-                return new Cell(keyBuffer.rewind(), new Value(timestamp, data.rewind()));
+                fileChannel.read(data.duplicate(), offset);
+                return new Cell(keyBuffer.duplicate().rewind(), new Value(timestamp, data.duplicate().rewind()));
             }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
@@ -119,8 +119,8 @@ public final class SSTable implements Table {
 
     private int getOffset(final int num) throws IOException {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Integer.BYTES);
-        fileChannel.read(offsetBB, rows + num * Integer.BYTES);
-        return offsetBB.rewind().getInt();
+        fileChannel.read(offsetBB.duplicate(), rows + num * Integer.BYTES);
+        return offsetBB.duplicate().rewind().getInt();
     }
 
     private int getPosition(final ByteBuffer from) throws IOException {
@@ -186,10 +186,10 @@ public final class SSTable implements Table {
     }
 
     private static ByteBuffer fromInt(final int value) {
-        return ByteBuffer.allocate(Integer.BYTES).putInt(value).rewind();
+        return ByteBuffer.allocate(Integer.BYTES).rewind().putInt(value).rewind();
     }
 
     private static ByteBuffer fromLong(final long value) {
-        return ByteBuffer.allocate(Long.BYTES).putLong(value).rewind();
+        return ByteBuffer.allocate(Long.BYTES).rewind().putLong(value).rewind();
     }
 }
