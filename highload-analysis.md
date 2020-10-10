@@ -5,199 +5,115 @@
 Параметры запуска:
 <ol>
 <li>4 потока</li>
-<li>20 открытых соединений</li>
+<li>64 открытых соединения</li>
 <li>2 минуты работы</li>
 <li>15000 запросов в секунду</li>
 </ol>
 
 ![CPU PUT](/async-svg/cpu-put.svg)
 
-Каждый из 8 селекторов отрабатывают запросы и занимают около 8-12% работы процессора. Остальное пространство ядра занимают системные вызовы и работа основного потока Java (15%).
+В отличие от предыдущих этапов, процессор обрабатывает 8 селекторов в реализации lsm (примерно по 5%) и 8 потоков работы http-сервиса (примерно по 5%). Остальные ресурсы процессора выделены на GC-потоки.
 
 ![ALLOC PUT](/async-svg/alloc-put.svg)
 
-Каждый из 8 селекторов использует около 12% выделяемой памяти. Остальная память идёт непосредственно на пул потоков (9%).
+В отличие от предыдущих этапов, память выделяется на 8 селекторов в реализации lsm (примерно по 5%) и 8 потоков работы http-сервиса. Один из потоков исполняет работу DAOImpl (16.3%), все остальные исполняют работу ServiceImpl (примерно по 5%).
 
 ![LOCK PUT](/async-svg/lock-put.svg)
 
-Каждый селектор исполняет lock операций.
+В отличие от предыдущих этапов, к блокированиям операций DAO добавляются блокировки потоков работы http-сервиса.
 
 ```
 Running 2m test @ http://127.0.0.1:8080
-  4 threads and 20 connections
-  Thread calibration: mean lat.: 3.084ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 3.123ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 2.113ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 4.726ms, rate sampling interval: 10ms
+  4 threads and 64 connections
+  Thread calibration: mean lat.: 1.829ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.901ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.961ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.870ms, rate sampling interval: 10ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.43ms    2.81ms  78.14ms   96.50%
-    Req/Sec     3.95k   628.23    15.78k    90.05%
+    Latency     2.29ms    6.31ms 113.73ms   95.85%
+    Req/Sec     1.99k     0.88k   15.67k    78.99%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    1.01ms
- 75.000%    1.41ms
- 90.000%    1.98ms
- 99.000%   11.38ms
- 99.900%   42.40ms
- 99.990%   68.67ms
- 99.999%   74.62ms
-100.000%   78.21ms
+ 50.000%    0.99ms
+ 75.000%    1.36ms
+ 90.000%    3.73ms
+ 99.000%   36.29ms
+ 99.900%   75.07ms
+ 99.990%   97.98ms
+ 99.999%  109.25ms
+100.000%  113.79ms
 
-#[Mean    =        1.430, StdDeviation   =        2.808]
-#[Max     =       78.144, Total count    =      1649613]
+#[Mean    =        2.294, StdDeviation   =        6.312]
+#[Max     =      113.728, Total count    =       824413]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  1799828 requests in 2.00m, 115.00MB read
-Requests/sec:  14998.79
-Transfer/sec:      0.96MB
+  900134 requests in 2.00m, 57.52MB read
+  Socket errors: connect 0, read 0, write 0, timeout 1856
+Requests/sec:   7501.00
+Transfer/sec:    490.79KB
 ```
 
 Итоги:
 <ol>
-<li>обработано 1799828 запросов</li>
-<li>прочитано 115.00MB данных</li>
-<li>сервер держит заданную нагрузку на уровне 14998.79 запросов в секунду</li>
+<li>обработано 900134 запросов</li>
+<li>прочитано 57.52MB данных</li>
+<li>сервер держит половину заданной нагрузки на уровне 7501 запросов в секунду</li>
 </ol>
-
-Попробуем рассчитать максимально возможную пропускную способность, которую еще будет успевать обрабатывать машина. Гарантированным значением было выбрано 20000 запросов в секунду, так как при нагрузке в 100000 запросов в секунду реальное количество обработанных запросов примерно равно этому числу.
-
-![CPU PUT HIGH](/async-svg/cpu-put-high.svg)
-
-В отличие от предыдущего опыта, в данном случае процессор также обрабатывает пул потоков.
-
-![ALLOC PUT HIGH](/async-svg/alloc-put-high.svg)
-
-В данном случае происходит выделение памяти на RMI вместе с пуллом потоков.
-
-![LOCK PUT HIGH](/async-svg/lock-put-high.svg)
-
-Ситуация аналогична.
-
-```
-Running 2m test @ http://127.0.0.1:8080
-  4 threads and 20 connections
-  Thread calibration: mean lat.: 1.669ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.603ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.637ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.632ms, rate sampling interval: 10ms
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     6.80ms   29.82ms 444.67ms   97.01%
-    Req/Sec     5.28k     1.30k   17.89k    83.52%
-  Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    1.36ms
- 75.000%    2.18ms
- 90.000%    6.26ms
- 99.000%  179.20ms
- 99.900%  352.00ms
- 99.990%  426.49ms
- 99.999%  439.81ms
-100.000%  444.93ms
-
-#[Mean    =        6.796, StdDeviation   =       29.823]
-#[Max     =      444.672, Total count    =      2199478]
-#[Buckets =           27, SubBuckets     =         2048]
-----------------------------------------------------------
-  2399760 requests in 2.00m, 153.34MB read
-Requests/sec:  19998.06
-Transfer/sec:      1.28MB
-```
 
 ### GET
 
 Параметры запуска:
 <ol>
 <li>4 потока</li>
-<li>20 открытых соединений</li>
+<li>64 открытых соединения</li>
 <li>2 минуты работы</li>
-<li>15000 запросов в секунду</li>
+<li>5000 запросов в секунду</li>
 </ol>
 
 ![CPU GET](/async-svg/cpu-get.svg)
 
-Каждый из 8 селекторов отрабатывают запросы и занимают около 12% работы процессора.
+В отличие от предыдущих этапов, процессор обрабатывает 8 селекторов в реализации lsm (примерно по 1%) и 8 потоков работы http-сервиса (примерно по 12%). Остальные ресурсы процессора выделены на GC-потоки.
 
 ![ALLOC GET](/async-svg/alloc-get.svg)
 
-Каждый из 8 селекторов использует около 12% выделяемой памяти. Остальная память идёт непосредственно на RMI (8.5%).
+В отличие от предыдущих этапов, память выделяется на 8 селекторов в реализации lsm (примерно по 6%) и 8 потоков работы http-сервиса (примерно по 6%).
 
 ![LOCK GET](/async-svg/lock-get.svg)
 
-Каждый селектор исполняет lock операций.
+В отличие от предыдущих этапов, к блокированиям операций DAO добавляются блокировки потоков работы http-сервиса (примерно по 12%).
 
 ```
 Running 2m test @ http://127.0.0.1:8080
-  4 threads and 20 connections
-  Thread calibration: mean lat.: 4505.013ms, rate sampling interval: 15630ms
-  Thread calibration: mean lat.: 4426.050ms, rate sampling interval: 15056ms
-  Thread calibration: mean lat.: 4095.986ms, rate sampling interval: 14614ms
-  Thread calibration: mean lat.: 4512.846ms, rate sampling interval: 15704ms
+  4 threads and 64 connections
+  Thread calibration: mean lat.: 11.052ms, rate sampling interval: 56ms
+  Thread calibration: mean lat.: 10.599ms, rate sampling interval: 50ms
+  Thread calibration: mean lat.: 10.451ms, rate sampling interval: 51ms
+  Thread calibration: mean lat.: 11.589ms, rate sampling interval: 54ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     0.92m    29.07s    1.82m    57.27%
-    Req/Sec   470.71     79.89   624.00     57.14%
+    Latency     1.06s     1.19s    4.89s    78.78%
+    Req/Sec   611.75    262.03     1.68k    64.94%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    0.90m 
- 75.000%    1.35m 
- 90.000%    1.59m 
- 99.000%    1.76m 
- 99.900%    1.80m 
- 99.990%    1.82m 
- 99.999%    1.82m 
-100.000%    1.82m 
+ 50.000%  595.97ms
+ 75.000%    2.08s 
+ 90.000%    2.81s 
+ 99.000%    3.89s 
+ 99.900%    4.73s 
+ 99.990%    4.88s 
+ 99.999%    4.89s 
+100.000%    4.89s 
 
-#[Mean    =    55037.652, StdDeviation   =    29068.662]
-#[Max     =   109248.512, Total count    =       207944]
+#[Mean    =     1058.210, StdDeviation   =     1189.449]
+#[Max     =     4886.528, Total count    =       266550]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  229786 requests in 2.00m, 14.64MB read
-Requests/sec:   1914.87
-Transfer/sec:    124.93KB
+  294519 requests in 2.00m, 18.78MB read
+  Socket errors: connect 0, read 0, write 0, timeout 1847
+Requests/sec:   2454.31
+Transfer/sec:    160.23KB
 ```
 
 Итоги:
 <ol>
-<li>обработано 229786 запросов</li>
-<li>прочитано 14.64MB данных</li>
-<li>сервер не выдерживает заданную нагрузку и выставляет её на уровне 1914.87 запросов в секунду</li>
+<li>обработано 294519 запросов</li>
+<li>прочитано 18.78MB данных</li>
+<li>сервер выдерживает половину заданной нагрузки на уровне 2454.31 запросов в секунду</li>
 </ol>
-
-Необходимо уменьшить целевую нагрузку с целью ускорить выполнение операций. Гарантированным значением было выбрано 1500 запросов в секунду.
-
-![CPU PUT LOW](/async-svg/cpu-get-low.svg)
-
-В отличие от предыдущего опыта, в данном случае процессор практически не обрабатывает пулл потоков.
-
-![ALLOC PUT LOW](/async-svg/alloc-get-low.svg)
-
-Ситуация аналогична.
-
-![LOCK PUT LOW](/async-svg/lock-get-low.svg)
-
-Ситуация аналогична.
-
-```
-Running 2m test @ http://127.0.0.1:8080
-  4 threads and 20 connections
-  Thread calibration: mean lat.: 3.490ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 3.661ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 3.017ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 3.221ms, rate sampling interval: 10ms
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    19.60ms  126.10ms   2.29s    97.83%
-    Req/Sec   395.22     80.44     0.89k    68.41%
-  Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    3.43ms
- 75.000%    4.24ms
- 90.000%    6.30ms
- 99.000%  532.48ms
- 99.900%    1.98s 
- 99.990%    2.27s 
- 99.999%    2.29s 
-100.000%    2.29s 
-
-#[Mean    =       19.599, StdDeviation   =      126.098]
-#[Max     =     2289.664, Total count    =       164960]
-#[Buckets =           27, SubBuckets     =         2048]
-----------------------------------------------------------
-  179992 requests in 2.00m, 11.46MB read
-Requests/sec:   1499.92
-Transfer/sec:     97.78KB
-```
