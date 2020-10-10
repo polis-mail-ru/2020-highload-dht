@@ -2,10 +2,10 @@ package ru.mail.polis.dao.bmendli;
 
 import java.util.NoSuchElementException;
 
-public class NoSuchElementExceptionLightWeight extends NoSuchElementException {
+public class NoSuchElementLightException extends NoSuchElementException {
     private static final long serialVersionUID = 6769829250639411880L;
 
-    public NoSuchElementExceptionLightWeight(final String s) {
+    public NoSuchElementLightException(final String s) {
         super(s);
     }
 

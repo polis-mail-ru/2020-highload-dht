@@ -18,7 +18,7 @@ package ru.mail.polis.dao;
 
 import com.google.common.base.Functions;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
+import ru.mail.polis.dao.bmendli.NoSuchElementLightException;
 
 import java.util.Iterator;
 import java.util.function.Function;
@@ -38,7 +38,7 @@ public final class Iters {
 
         @Override
         public Object next() {
-            throw new NoSuchElementExceptionLightWeight("Next on empty iterator");
+            throw new NoSuchElementLightException("Next on empty iterator");
         }
     };
 

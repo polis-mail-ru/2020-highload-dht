@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
+import ru.mail.polis.dao.bmendli.NoSuchElementLightException;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
 
 public class MyService extends HttpServer implements Service {
 
-    private final Logger logger = LoggerFactory.getLogger(MyService.class);
+    private final Logger log = LoggerFactory.getLogger(MyService.class);
 
     @NotNull
     private final DAO dao;
@@ -50,7 +50,7 @@ public class MyService extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueCapacity),
                 new ThreadFactoryBuilder()
                         .setNameFormat("2020-highload-dht-thread-%d")
-                        .setUncaughtExceptionHandler((thread, e) -> logger.error("error in {} thread", thread, e))
+                        .setUncaughtExceptionHandler((thread, e) -> log.error("error in {} thread", thread, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
@@ -74,19 +74,19 @@ public class MyService extends HttpServer implements Service {
                 final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
                 final ByteBuffer byteBuffer = dao.get(wrappedBytes);
                 session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
-            } catch (NoSuchElementExceptionLightWeight e) {
-                logger.error("Does not exist record by id = {}", id, e);
+            } catch (NoSuchElementLightException e) {
+                log.error("Does not exist record by id = {}", id, e);
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException ioException) {
-                    logger.error("Server error, cant send response for session {}", session, e);
+                    log.error("Server error, cant send response for session {}", session, e);
                 }
             } catch (IOException ioe) {
-                logger.error("Error when trying get record", ioe);
+                log.error("Error when trying get record", ioe);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
-                    logger.error("Server error, cant send response for session {}", session, e);
+                    log.error("Server error, cant send response for session {}", session, e);
                 }
             }
         });
@@ -110,11 +110,11 @@ public class MyService extends HttpServer implements Service {
                 dao.upsert(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
             } catch (IOException ioe) {
-                logger.error("Error when trying put record", ioe);
+                log.error("Error when trying put record", ioe);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
-                    logger.error("Server error, cant send response for session {}", session, e);
+                    log.error("Server error, cant send response for session {}", session, e);
                 }
             }
         });
@@ -137,11 +137,11 @@ public class MyService extends HttpServer implements Service {
                 dao.remove(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)));
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
             } catch (IOException ioe) {
-                logger.error("Error when trying delete record", ioe);
+                log.error("Error when trying delete record", ioe);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
-                    logger.error("Server error, cant send response for session {}", session, e);
+                    log.error("Server error, cant send response for session {}", session, e);
                 }
             }
         });
@@ -156,7 +156,7 @@ public class MyService extends HttpServer implements Service {
             try {
                 session.sendResponse(Response.ok(Response.EMPTY));
             } catch (IOException e) {
-                logger.error("Server error, cant send response for session {}", session, e);
+                log.error("Server error, cant send response for session {}", session, e);
             }
         });
     }
@@ -167,7 +167,7 @@ public class MyService extends HttpServer implements Service {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                logger.error("Server error, cant send response for session {}", session, e);
+                log.error("Server error, cant send response for session {}", session, e);
             }
         });
     }
@@ -194,7 +194,7 @@ public class MyService extends HttpServer implements Service {
         config.acceptors = new AcceptorConfig[]{acceptor};
         config.minWorkers = threadCount;
         config.maxWorkers = threadCount;
-        config.selectors = 4;
+        config.selectors = threadCount;
         return config;
     }
 }
