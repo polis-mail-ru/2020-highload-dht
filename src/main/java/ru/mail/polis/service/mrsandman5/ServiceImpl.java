@@ -100,43 +100,17 @@ public class ServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private void getValue(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession session,
-                          final ByteBuffer[] value) throws IOException {
-        try {
-            value[0] = dao.get(key);
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("GET error : {}", toByteArray(key));
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-        session.sendResponse(Response.ok(toByteArray(value[0])));
-    }
-
     private void put(@NotNull final ByteBuffer key,
                           final byte[] body,
                      @NotNull final HttpSession session) {
         final ByteBuffer value = ByteBuffer.wrap(body);
         executorService.execute(() -> {
             try {
-                getValue(key, session, value);
+                putValue(key, session, value);
             } catch (IOException ex) {
                 log.error(NO_RESPONSE, ex);
             }
         });
-    }
-
-    private void getValue(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession session,
-                          final ByteBuffer value) throws IOException {
-        try {
-            dao.upsert(key, value);
-        } catch (IOException e) {
-            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
     private void delete(@NotNull final ByteBuffer key,
@@ -148,18 +122,6 @@ public class ServiceImpl extends HttpServer implements Service {
                 log.error(NO_RESPONSE, ex);
             }
         });
-    }
-
-    private void deleteKey(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession session) throws IOException {
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            log.error("DELETE error : {}", toByteArray(key));
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
     /** Request method for status return.
@@ -216,5 +178,43 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Can't stop the executor", e);
             Thread.currentThread().interrupt();
         }
+    }
+
+    private void getValue(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession session,
+                          final ByteBuffer... value) throws IOException {
+        try {
+            value[0] = dao.get(key);
+        } catch (NoSuchElementException e) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("GET error : {}", toByteArray(key));
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+        session.sendResponse(Response.ok(toByteArray(value[0])));
+    }
+
+    private void putValue(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession session,
+                          final ByteBuffer value) throws IOException {
+        try {
+            dao.upsert(key, value);
+        } catch (IOException e) {
+            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+    }
+
+    private void deleteKey(@NotNull final ByteBuffer key,
+                           @NotNull final HttpSession session) throws IOException {
+        try {
+            dao.remove(key);
+        } catch (IOException e) {
+            log.error("DELETE error : {}", toByteArray(key));
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+
+        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 }
