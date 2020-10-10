@@ -73,11 +73,11 @@ public class MemTablePool implements Table {
             log.error(errorMsg);
             throw new IllegalStateException(errorMsg);
         }
-        lock.writeLock().lock();
+        lock.readLock().lock();
         try {
             currentMemTable.remove(key);
         } finally {
-            lock.writeLock().unlock();
+            lock.readLock().unlock();
         }
         enqueueToFlush();
     }
@@ -128,11 +128,11 @@ public class MemTablePool implements Table {
             return;
         }
         final FlushTable flushTable;
-        lock.writeLock().lock();
+        lock.readLock().lock();
         try {
             flushTable = new FlushTable(generation, currentMemTable, true);
         } finally {
-            lock.writeLock().unlock();
+            lock.readLock().unlock();
         }
         try {
             flushTableQueue.put(flushTable);
