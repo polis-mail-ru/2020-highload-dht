@@ -71,26 +71,28 @@ public class MoribundService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id, final HttpSession session) {
-        try {
-            if (id.isEmpty()) {
-                logger.warn("FAIL GET! Id is empty!");
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            }
-            session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
-        } catch (NoSuchElementException e) {
+        executor.execute(() -> {
             try {
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            } catch (IOException ioException) {
-                logger.error("FAIL GET! Can't send response.", ioException);
+                if (id.isEmpty()) {
+                    logger.warn("FAIL GET! Id is empty!");
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
+                session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
+            } catch (NoSuchElementException e) {
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException ioException) {
+                    logger.error("FAIL GET! Can't send response.", ioException);
+                }
+            } catch (IOException e) {
+                logger.error("FAIL GET! id: {}, error: {}", id, e.getMessage());
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    logger.error("FAIL GET! Can't send response.", ioException);
+                }
             }
-        } catch (IOException e) {
-            logger.error("FAIL GET! id: {}, error: {}", id, e.getMessage());
-            try {
-                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            } catch (IOException ioException) {
-                logger.error("FAIL GET! Can't send response.", ioException);
-            }
-        }
+        });
     }
 
     /**
