@@ -1,6 +1,11 @@
 package ru.mail.polis.service.bmendli;
 
 import com.google.common.base.Charsets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -26,10 +31,29 @@ public class MyService extends HttpServer implements Service {
 
     @NotNull
     private final DAO dao;
+    @NotNull
+    private final ExecutorService executorService;
 
-    public MyService(final int port, @NotNull final DAO dao) throws IOException {
-        super(createConfigFromPort(port));
+    /**
+     * My implementation of {@link Service}.
+     */
+    public MyService(final int port,
+                     @NotNull final DAO dao,
+                     final int threadCount,
+                     final int queueCapacity) throws IOException {
+        super(createConfigFromPort(port, threadCount));
         this.dao = dao;
+        this.executorService = new ThreadPoolExecutor(
+                threadCount,
+                queueCapacity,
+                0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueCapacity),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("2020-highload-dht-thread-%d")
+                        .setUncaughtExceptionHandler((thread, e) -> logger.error("error in {} thread", thread, e))
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
     }
 
     /**
@@ -38,22 +62,34 @@ public class MyService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response get(@NotNull @Param(required = true, value = "id") final String id) {
-        try {
-            if (id.isBlank()) {
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+    public void get(@NotNull @Param(required = true, value = "id") final String id,
+                    @NotNull final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                if (id.isBlank()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
+                }
+                final byte[] bytes = id.getBytes(Charsets.UTF_8);
+                final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
+                final ByteBuffer byteBuffer = dao.get(wrappedBytes);
+                session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
+            } catch (NoSuchElementExceptionLightWeight e) {
+                logger.error("Does not exist record by id = {}", id, e);
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException ioException) {
+                    logger.error("Server error, cant send response for session {}", session, e);
+                }
+            } catch (IOException ioe) {
+                logger.error("Error when trying get record", ioe);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException e) {
+                    logger.error("Server error, cant send response for session {}", session, e);
+                }
             }
-            final byte[] bytes = id.getBytes(Charsets.UTF_8);
-            final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
-            final ByteBuffer byteBuffer = dao.get(wrappedBytes);
-            return Response.ok(getBytesFromByteBuffer(byteBuffer));
-        } catch (NoSuchElementExceptionLightWeight e) {
-            logger.error("Does not exist record by id = {}", id, e);
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException ioe) {
-            logger.error("Error when trying get record", ioe);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        });
     }
 
     /**
@@ -62,18 +98,26 @@ public class MyService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response put(@NotNull @Param(required = true, value = "id") final String id,
-                        @NotNull final Request request) {
-        try {
-            if (id.isBlank()) {
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+    public void put(@NotNull @Param(required = true, value = "id") final String id,
+                    @NotNull final Request request,
+                    @NotNull final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                if (id.isBlank()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
+                }
+                dao.upsert(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException ioe) {
+                logger.error("Error when trying put record", ioe);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException e) {
+                    logger.error("Server error, cant send response for session {}", session, e);
+                }
             }
-            dao.upsert(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException ioe) {
-            logger.error("Error when trying put record", ioe);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        });
     }
 
     /**
@@ -82,30 +126,50 @@ public class MyService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response delete(@NotNull @Param(required = true, value = "id") final String id) {
-        try {
-            if (id.isBlank()) {
-                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+    public void delete(@NotNull @Param(required = true, value = "id") final String id,
+                           @NotNull final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                if (id.isBlank()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
+                }
+                dao.remove(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)));
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException ioe) {
+                logger.error("Error when trying delete record", ioe);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException e) {
+                    logger.error("Server error, cant send response for session {}", session, e);
+                }
             }
-            dao.remove(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)));
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (IOException ioe) {
-            logger.error("Error when trying delete record", ioe);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        });
     }
 
     /**
      * Return status for path '/v0/status'.
      */
     @Path("/v0/status")
-    public Response status() {
-        return Response.ok(Response.EMPTY);
+    public void status(@NotNull final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(Response.ok(Response.EMPTY));
+            } catch (IOException e) {
+                logger.error("Server error, cant send response for session {}", session, e);
+            }
+        });
     }
 
     @Override
     public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                logger.error("Server error, cant send response for session {}", session, e);
+            }
+        });
     }
 
     @NotNull
@@ -120,7 +184,7 @@ public class MyService extends HttpServer implements Service {
     }
 
     @NotNull
-    private static HttpServerConfig createConfigFromPort(final int port) {
+    private static HttpServerConfig createConfigFromPort(final int port, final int threadCount) {
         final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
@@ -128,6 +192,8 @@ public class MyService extends HttpServer implements Service {
 
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
+        config.minWorkers = threadCount;
+        config.maxWorkers = threadCount;
         config.selectors = 4;
         return config;
     }
