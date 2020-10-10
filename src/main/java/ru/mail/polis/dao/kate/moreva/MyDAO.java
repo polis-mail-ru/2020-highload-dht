@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
@@ -55,8 +56,6 @@ public class MyDAO implements DAO {
     @NotNull
     private final ReadWriteLock readWriteLock;
 
-    private int generation;
-
     /**
      * Creates DAO from file storage.
      *
@@ -67,7 +66,7 @@ public class MyDAO implements DAO {
         assert flushThreshold > 0L;
         this.storage = storage;
         this.ssTables = new ConcurrentSkipListMap<>();
-        this.generation = -1;
+        final AtomicInteger generation = new AtomicInteger(-1);
 
         try (Stream<Path> stream = Files.walk(storage.toPath(), 1)) {
             stream.filter(path -> {
@@ -76,40 +75,40 @@ public class MyDAO implements DAO {
                         && !name.substring(0, name.indexOf(SUFFIX)).matches(LETTERS)
                         && !path.toFile().isDirectory();
             })
-                    .forEach(this::storeData);
+                    .forEach(path -> storeData(generation, path));
         } catch (IOException e) {
             log.error("Error while opening DAO", e);
             throw new UncheckedIOException(e);
         }
-        generation++;
-
         this.readWriteLock = new ReentrantReadWriteLock();
-        this.memTablePool = new TablesPool(flushThreshold, generation, POOL_SIZE);
+        this.memTablePool = new TablesPool(flushThreshold, generation.incrementAndGet(), POOL_SIZE);
         this.executorService = Executors.newFixedThreadPool(NUMBER_OF_THREADS);
-        this.executorService.execute(() -> {
-            boolean poisonReceived = false;
-            while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
-                FlushingTable flushTable;
-                try {
-                    flushTable = this.memTablePool.takeToFlash();
-                    poisonReceived = flushTable.isPoisonPill();
-                    flush(flushTable);
-                    memTablePool.flushed(flushTable.getGeneration());
-                } catch (InterruptedException e) {
-                    log.error("Interrupt while creating DAO", e);
-                    Thread.currentThread().interrupt();
-                } catch (IOException e) {
-                    log.error("Error while creating DAO", e);
-                }
-            }
-        });
+        this.executorService.execute(this::flusher);
     }
 
-    private void storeData(@NotNull final Path path) {
+    private void flusher() {
+        boolean poisonReceived = false;
+        while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
+            FlushingTable flushTable;
+            try {
+                flushTable = this.memTablePool.takeToFlash();
+                poisonReceived = flushTable.isPoisonPill();
+                flush(flushTable);
+                memTablePool.flushed(flushTable.getGeneration());
+            } catch (InterruptedException e) {
+                log.error("Interrupt while creating DAO", e);
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                log.error("Error while creating DAO", e);
+            }
+        }
+    }
+
+    private void storeData(@NotNull AtomicInteger generation, @NotNull final Path path) {
         try {
             final String fileName = path.getFileName().toString();
             final int generationCounter = Integer.parseInt(fileName.substring(0, fileName.indexOf(SUFFIX)));
-            generation = Math.max(generation, generationCounter);
+            generation.set(Math.max(generation.get(), generationCounter));
             ssTables.put(generationCounter, new SSTable(path));
         } catch (NumberFormatException e) {
             log.error("Error while storing data (Wrong name):", e);
@@ -215,17 +214,21 @@ public class MyDAO implements DAO {
             final List<Iterator<Cell>> iterators = cellIterator(ByteBuffer.allocate(0));
             final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
             final Iterator<Cell> iterator = Iters.collapseEquals(merged, Cell::getKey);
+            int generation = memTablePool.getGeneration();
             final File tmpFile = new File(storage, generation + TMP);
             SSTable.serialize(tmpFile, iterator);
             for (int i = 0; i < generation; i++) {
-                Files.delete(new File(storage, i + SUFFIX).toPath());
+                final File fileToDelete = new File(storage, i + SUFFIX);
+                if (!fileToDelete.exists()) {
+                    fileToDelete.createNewFile();
+                }
+                Files.delete(fileToDelete.toPath());
             }
             generation = 0;
             final File datFile = new File(storage, generation + SUFFIX);
             Files.move(tmpFile.toPath(), datFile.toPath(), StandardCopyOption.ATOMIC_MOVE);
             ssTables.clear();
             ssTables.put(generation, new SSTable(datFile.toPath()));
-            generation++;
         } finally {
             readWriteLock.writeLock().unlock();
         }

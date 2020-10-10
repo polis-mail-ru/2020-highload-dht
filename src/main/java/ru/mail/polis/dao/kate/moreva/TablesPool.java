@@ -171,4 +171,13 @@ public class TablesPool implements Table, Closeable {
             Thread.currentThread().interrupt();
         }
     }
+
+    public int getGeneration() {
+        lock.readLock().lock();
+        try {
+            return generation;
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
 }
