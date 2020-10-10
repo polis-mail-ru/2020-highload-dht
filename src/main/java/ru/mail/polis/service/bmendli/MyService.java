@@ -2,10 +2,6 @@ package ru.mail.polis.service.bmendli;
 
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -24,8 +20,14 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class MyService extends HttpServer implements Service {
+
+    private static final String SERVER_ERROR_MSG = "Server error, cant send response for session {}";
 
     private final Logger log = LoggerFactory.getLogger(MyService.class);
 
@@ -79,14 +81,14 @@ public class MyService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException ioException) {
-                    log.error("Server error, cant send response for session {}", session, e);
+                    log.error(SERVER_ERROR_MSG, session, e);
                 }
             } catch (IOException ioe) {
                 log.error("Error when trying get record", ioe);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
-                    log.error("Server error, cant send response for session {}", session, e);
+                    log.error(SERVER_ERROR_MSG, session, e);
                 }
             }
         });
@@ -114,7 +116,7 @@ public class MyService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
-                    log.error("Server error, cant send response for session {}", session, e);
+                    log.error(SERVER_ERROR_MSG, session, e);
                 }
             }
         });
@@ -141,7 +143,7 @@ public class MyService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
-                    log.error("Server error, cant send response for session {}", session, e);
+                    log.error(SERVER_ERROR_MSG, session, e);
                 }
             }
         });
@@ -156,7 +158,7 @@ public class MyService extends HttpServer implements Service {
             try {
                 session.sendResponse(Response.ok(Response.EMPTY));
             } catch (IOException e) {
-                log.error("Server error, cant send response for session {}", session, e);
+                log.error(SERVER_ERROR_MSG, session, e);
             }
         });
     }
@@ -167,7 +169,7 @@ public class MyService extends HttpServer implements Service {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                log.error("Server error, cant send response for session {}", session, e);
+                log.error(SERVER_ERROR_MSG, session, e);
             }
         });
     }
