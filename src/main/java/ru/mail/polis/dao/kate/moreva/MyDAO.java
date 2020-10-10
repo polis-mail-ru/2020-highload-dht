@@ -42,8 +42,8 @@ public class MyDAO implements DAO {
     private static final String LETTERS = "[a-zA-Z]+";
     private static final int POOL_SIZE = 2;
     private static final int NUMBER_OF_THREADS = 2;
+    private static final Logger log = LoggerFactory.getLogger(MyDAO.class);
 
-    private final static Logger log = LoggerFactory.getLogger(MyDAO.class);
     @NonNull
     private final File storage;
     @NotNull
