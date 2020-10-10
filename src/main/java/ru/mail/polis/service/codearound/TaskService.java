@@ -1,7 +1,6 @@
 package ru.mail.polis.service.codearound;
 
 import com.google.common.base.Charsets;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -11,23 +10,19 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;
-    Logger logger = LoggerFactory.getLogger(TaskService.class);
+    Logger logger = Logger.getLogger(TaskService.class.getName());
 
     /**
      * service impl const.
@@ -46,7 +41,7 @@ public class TaskService extends HttpServer implements Service {
      */
     private static HttpServerConfig getConfig(final int port) {
         if (port <= 1024 || port >= 65536) {
-            throw new IllegalArgumentException("Invalid port\n");
+            throw new IllegalArgumentException("Invalid port");
         }
         final AcceptorConfig acc = new AcceptorConfig();
         final HttpServerConfig config = new HttpServerConfig();
@@ -58,43 +53,39 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * try formation request to secure OK as response.
+     * try formation request to secure server OK as response.
      */
     @Path("/v0/status")
-    public Response status(final HttpSession session) {
+    public Response status() {
         return new Response(Response.OK, Response.EMPTY);
     }
 
     /**
      * returns server status info, feed to respective requests as well.
-     *
      * @param id String object to be processed as a key in terms of data storage design
-     * @param req client host request
+     * @param req client request
+     * @return server response object
      */
     @Path("/v0/entity")
-    public void entity(
+    public Response entity(
             @Param(value = "id", required = true) final String id,
             @NotNull final Request req,
             final HttpSession session) throws IOException, NoSuchMethodException {
-
         if (id == null || id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,
                     "Identifier is required as parameter. Error handling request\n");
-            return;
+            return null;
         }
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         switch (req.getMethod()) {
             case Request.METHOD_GET:
-                pushAsyncRun(session, get(buf));
-                break;
+                return get(buf);
             case Request.METHOD_PUT:
-                pushAsyncRun(session, upsert(buf, req));
-                break;
+                return upsert(buf, req);
             case Request.METHOD_DELETE:
-                pushAsyncRun(session, delete(buf));
-                break;
+                return delete(buf);
             default:
-                throw new NoSuchMethodException("No handler provided for request method\n");
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -127,7 +118,7 @@ public class TaskService extends HttpServer implements Service {
         try {
             dao.upsert(key, ByteBuffer.wrap(req.getBody()));
         } catch (IOException e) {
-            logger.error("Insertion / update operation failed\n", e);
+            logger.log(Level.SEVERE, "Insertion / update operation failed\n", e);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
@@ -160,49 +151,17 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * resolves asynchronous request evaluation and handling.
-     * @param session ongoing client-server session instance
-     * @param response server response
-     */
-    public void pushAsyncRun(final HttpSession session, final Response response) {
-        exec.execute(() -> {
-            try {
-                session.sendResponse(response);
-            } catch (IOException exc) {
-                try {
-                    session.sendError(Response.INTERNAL_ERROR, exc.getMessage());
-                } catch (IOException e) {
-                    logger.error("Asynchronous execution error\n", e);
-                }
-            }
-        });
-    }
-
-    /**
      * creates duplicate of key searched.
      * @param key key searched
      * @return key duplicate as a ByteBuffer object
      */
     public ByteBuffer duplicateValue(final ByteBuffer key) {
-
         ByteBuffer copy = null;
-
         try {
             copy = dao.get(key).duplicate();
         } catch (IOException e) {
-            logger.error("Copying process failed as match key is missing\n", e);
+            logger.log(Level.SEVERE, "Copying process denied as match key is missing\n", e);
         }
         return copy;
-    }
-
-    @Override
-    public synchronized void stop() {
-        super.stop();
-        exec.shutdown();
-        try {
-            exec.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            logger.error("Failed executor termination\n");
-        }
     }
 }
