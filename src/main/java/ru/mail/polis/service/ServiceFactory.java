@@ -58,9 +58,9 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
+        //final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+                //new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
 
-        return new TaskService(port, dao, exec);
+        return new TaskService(port, dao, Runtime.getRuntime().availableProcessors());
     }
 }

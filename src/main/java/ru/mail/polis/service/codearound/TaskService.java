@@ -1,6 +1,7 @@
 package ru.mail.polis.service.codearound;
 
 import com.google.common.base.Charsets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,32 +11,32 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.Executor;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;
-    private final Executor exec;
-    Logger logger = Logger.getLogger(TaskService.class.getName());
+    Logger logger = LoggerFactory.getLogger(TaskService.class);
 
     /**
-     * async service impl const.
+     * service impl const.
      * @param port request listening port
      * @param dao DAO instance
-     * @param exec thread pool executor
      */
-    public TaskService(final int port, @NotNull final DAO dao, final Executor exec) throws IOException {
+    public TaskService(final int port, @NotNull final DAO dao) throws IOException {
         super(getConfig(port));
         this.dao = dao;
-        this.exec = exec;
     }
 
     /**
@@ -45,7 +46,7 @@ public class TaskService extends HttpServer implements Service {
      */
     private static HttpServerConfig getConfig(final int port) {
         if (port <= 1024 || port >= 65536) {
-            throw new IllegalArgumentException("Invalid port");
+            throw new IllegalArgumentException("Invalid port\n");
         }
         final AcceptorConfig acc = new AcceptorConfig();
         final HttpServerConfig config = new HttpServerConfig();
@@ -60,7 +61,7 @@ public class TaskService extends HttpServer implements Service {
      * try formation request to secure OK as response.
      */
     @Path("/v0/status")
-    public Response status() {
+    public Response status(final HttpSession session) {
         return new Response(Response.OK, Response.EMPTY);
     }
 
@@ -126,7 +127,7 @@ public class TaskService extends HttpServer implements Service {
         try {
             dao.upsert(key, ByteBuffer.wrap(req.getBody()));
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Insertion / update operation failed\n", e);
+            logger.error("Insertion / update operation failed\n", e);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
@@ -171,7 +172,7 @@ public class TaskService extends HttpServer implements Service {
                 try {
                     session.sendError(Response.INTERNAL_ERROR, exc.getMessage());
                 } catch (IOException e) {
-                    logger.log(Level.SEVERE, "Asynchronous execution error\n", e);
+                    logger.error("Asynchronous execution error\n", e);
                 }
             }
         });
@@ -189,8 +190,19 @@ public class TaskService extends HttpServer implements Service {
         try {
             copy = dao.get(key).duplicate();
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Copying process denied as match key is missing\n", e);
+            logger.error("Copying process failed as match key is missing\n", e);
         }
         return copy;
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        exec.shutdown();
+        try {
+            exec.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            logger.error("Failed executor termination\n");
+        }
     }
 }
