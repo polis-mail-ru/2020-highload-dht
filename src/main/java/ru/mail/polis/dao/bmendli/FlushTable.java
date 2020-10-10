@@ -38,10 +38,9 @@ public class FlushTable {
 
     @Override
     public String toString() {
-        return "FlushTable{" +
-                "generation=" + generation +
-                ", table=" + table +
-                ", poisonPill=" + poisonPill +
-                '}';
+        return "FlushTable{"
+                + "generation=" + generation
+                + ", table=" + table
+                + ", poisonPill=" + poisonPill + '}';
     }
 }

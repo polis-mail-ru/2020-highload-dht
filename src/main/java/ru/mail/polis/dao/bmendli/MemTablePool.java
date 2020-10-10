@@ -1,7 +1,6 @@
 package ru.mail.polis.dao.bmendli;
 
 import com.google.common.collect.Iterators;
-import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -113,7 +113,7 @@ public class MemTablePool implements Table {
         lock.readLock().lock();
         try {
             long tempSize = currentMemTable.size();
-            for (Map.Entry<Integer, Table> entry : waitingFlushTables.entrySet()) {
+            for (final Map.Entry<Integer, Table> entry : waitingFlushTables.entrySet()) {
                 tempSize += entry.getValue().size();
             }
             return tempSize;

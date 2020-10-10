@@ -1,7 +1,6 @@
 package ru.mail.polis.dao.bmendli;
 
 import com.google.common.collect.Iterators;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +42,7 @@ public class DAOImpl implements DAO {
     private static final int MAX_THREADS = 4;
 
     private final Logger log = LoggerFactory.getLogger(DAOImpl.class);
-    @NonNull
+    @NotNull
     private final File storage;
     @NotNull
     private final MemTablePool memTablePool;
@@ -84,7 +83,7 @@ public class DAOImpl implements DAO {
         this.lock = new ReentrantReadWriteLock();
         this.memTablePool = new MemTablePool(tableByteSize, generation.incrementAndGet(), memTablePoolSize);
         this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
-        this.executorService.execute(this::flush);
+        this.executorService.execute(this::checkOnFlush);
     }
 
     @NotNull
@@ -226,7 +225,7 @@ public class DAOImpl implements DAO {
         return Iters.collapseEquals(mergedCellIterator, Cell::getKey);
     }
 
-    private void flush() {
+    private void checkOnFlush() {
         boolean poisonReceived = false;
         while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
             try {
