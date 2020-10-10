@@ -35,4 +35,13 @@ public class FlushTable {
     public boolean isPoisonPill() {
         return poisonPill;
     }
+
+    @Override
+    public String toString() {
+        return "FlushTable{" +
+                "generation=" + generation +
+                ", table=" + table +
+                ", poisonPill=" + poisonPill +
+                '}';
+    }
 }

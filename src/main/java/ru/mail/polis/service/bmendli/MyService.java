@@ -14,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
+import ru.mail.polis.dao.bmendli.NoSuchElementLightException;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 
 public class MyService extends HttpServer implements Service {
 
-    private final Logger logger = LoggerFactory.getLogger(MyService.class);
+    private final Logger log = LoggerFactory.getLogger(MyService.class);
 
     @NotNull
     private final DAO dao;
@@ -47,11 +47,11 @@ public class MyService extends HttpServer implements Service {
             final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
             final ByteBuffer byteBuffer = dao.get(wrappedBytes);
             return Response.ok(getBytesFromByteBuffer(byteBuffer));
-        } catch (NoSuchElementExceptionLightWeight e) {
-            logger.error("Does not exist record by id = {}", id, e);
+        } catch (NoSuchElementLightException e) {
+            log.warn("Does not exist record by id = {}", id, e);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ioe) {
-            logger.error("Error when trying get record", ioe);
+            log.error("Error when trying get record", ioe);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -71,7 +71,7 @@ public class MyService extends HttpServer implements Service {
             dao.upsert(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ioe) {
-            logger.error("Error when trying put record", ioe);
+            log.error("Error when trying put record", ioe);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -90,7 +90,7 @@ public class MyService extends HttpServer implements Service {
             dao.remove(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ioe) {
-            logger.error("Error when trying delete record", ioe);
+            log.error("Error when trying delete record", ioe);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -128,7 +128,7 @@ public class MyService extends HttpServer implements Service {
 
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-        config.selectors = 4;
+        config.selectors = Runtime.getRuntime().availableProcessors();
         return config;
     }
 }

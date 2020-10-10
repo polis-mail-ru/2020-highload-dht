@@ -19,7 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
-import ru.mail.polis.dao.bmendli.NoSuchElementExceptionLightWeight;
+import ru.mail.polis.dao.bmendli.NoSuchElementLightException;
 import ru.mail.polis.dao.bmendli.Value;
 
 import java.io.Closeable;
@@ -69,20 +69,20 @@ public interface DAO extends Closeable {
     /**
      * Obtains {@link Record} corresponding to given key.
      *
-     * @throws NoSuchElementExceptionLightWeight if no such record
+     * @throws NoSuchElementLightException if no such record
      */
     @NotNull
-    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementExceptionLightWeight {
+    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementLightException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
-            throw new NoSuchElementExceptionLightWeight("Not found");
+            throw new NoSuchElementLightException("Not found");
         }
 
         final Record next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
-            throw new NoSuchElementExceptionLightWeight("Not found");
+            throw new NoSuchElementLightException("Not found");
         }
     }
 

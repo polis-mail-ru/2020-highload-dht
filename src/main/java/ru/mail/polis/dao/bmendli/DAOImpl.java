@@ -42,7 +42,7 @@ public class DAOImpl implements DAO {
     private static final String FILE_NAME_REGEX = "[0-9]+";
     private static final int MAX_THREADS = 4;
 
-    private final Logger logger = LoggerFactory.getLogger(DAOImpl.class);
+    private final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     @NonNull
     private final File storage;
     @NotNull
@@ -52,7 +52,7 @@ public class DAOImpl implements DAO {
     @NotNull
     private final ExecutorService executorService;
     @NotNull
-    private final ReadWriteLock readWriteLock;
+    private final ReadWriteLock lock;
 
     /**
      * Creates DAO from file storage, data from file will be store in immutable SSTable
@@ -77,40 +77,25 @@ public class DAOImpl implements DAO {
                                 && name.substring(0, name.indexOf(SSTABLE_FILE_END)).matches(FILE_NAME_REGEX);
                     }).forEach(path -> storeDataFromFile(generation, path));
         } catch (IOException e) {
-            logger.error("error open file stream", e);
+            log.error("error open file stream", e);
             throw new UncheckedIOException(e);
         }
 
-        this.readWriteLock = new ReentrantReadWriteLock();
+        this.lock = new ReentrantReadWriteLock();
         this.memTablePool = new MemTablePool(tableByteSize, generation.incrementAndGet(), memTablePoolSize);
         this.executorService = Executors.newFixedThreadPool(MAX_THREADS);
-        this.executorService.execute(() -> {
-            boolean poisonReceived = false;
-            while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
-                try {
-                    final FlushTable flushTable = this.memTablePool.takeTableToFlush();
-                    poisonReceived = flushTable.isPoisonPill();
-                    flush(flushTable);
-                    memTablePool.flushed(flushTable.getGeneration());
-                } catch (InterruptedException e) {
-                    logger.error("error take table to flush", e);
-                    Thread.currentThread().interrupt();
-                } catch (IOException e) {
-                    logger.error("error flushing table from flushing queue", e);
-                }
-            }
-        });
+        this.executorService.execute(this::flush);
     }
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final List<Iterator<Cell>> iterators;
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
             iterators = listCellIterator(from.duplicate());
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
         final Iterator<Cell> filteredIterator = Iterators.filter(mergeIterator(iterators),
                 cell -> !cell.getValue().isTombstone() && !cell.getValue().isExpired());
@@ -140,7 +125,7 @@ public class DAOImpl implements DAO {
                 executorService.shutdownNow();
             }
         } catch (InterruptedException e) {
-            logger.error("error shut down", e);
+            log.error("error shut down", e);
             Thread.currentThread().interrupt();
         }
     }
@@ -151,7 +136,7 @@ public class DAOImpl implements DAO {
         final Iterator<Cell> cellIterator = mergeIterator(iterators);
         int generation = memTablePool.getGeneration();
         final List<File> oldFiles = new ArrayList<>(generation);
-        readWriteLock.writeLock().lock();
+        lock.writeLock().lock();
         try {
             for (int i = 0; i < generation; i++) {
                 final File dest = new File(storage, i + "_old" + SSTABLE_FILE_END);
@@ -176,7 +161,7 @@ public class DAOImpl implements DAO {
             ssTables.clear();
             ssTables.put(generation, new SSTable(targetPath));
         } finally {
-            readWriteLock.writeLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
@@ -184,7 +169,7 @@ public class DAOImpl implements DAO {
      * Saving data on the disk.
      */
     public void flush(@NotNull final FlushTable flushTable) throws IOException {
-        readWriteLock.writeLock().lock();
+        lock.writeLock().lock();
         try {
             final Iterator<Cell> iterator = flushTable.getTable().iterator(ByteBuffer.allocate(0));
             while (iterator.hasNext()) {
@@ -197,7 +182,7 @@ public class DAOImpl implements DAO {
                 ssTables.put(flushTable.getGeneration(), new SSTable(dst.toPath()));
             }
         } finally {
-            readWriteLock.writeLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
@@ -209,7 +194,7 @@ public class DAOImpl implements DAO {
             generation.set(Math.max(generation.get(), fileGeneration));
             ssTables.put(fileGeneration, new SSTable(path));
         } catch (IOException e) {
-            logger.error("error create SSTable", e);
+            log.error("error create SSTable", e);
             throw new UncheckedIOException(e);
         }
     }
@@ -219,14 +204,14 @@ public class DAOImpl implements DAO {
         try {
             iterators.add(memTablePool.iterator(from));
         } catch (IOException e) {
-            logger.error("error get mem table pool iterator", e);
+            log.error("error get mem table pool iterator", e);
             throw new UncheckedIOException(e);
         }
         ssTables.descendingMap().values().forEach(ssTable -> {
             try {
                 iterators.add(ssTable.iterator(from));
             } catch (IOException e) {
-                logger.error("error get SSTable iterator", e);
+                log.error("error get SSTable iterator", e);
                 throw new UncheckedIOException(e);
             }
         });
@@ -239,5 +224,22 @@ public class DAOImpl implements DAO {
         final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
                 Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
         return Iters.collapseEquals(mergedCellIterator, Cell::getKey);
+    }
+
+    private void flush() {
+        boolean poisonReceived = false;
+        while (!poisonReceived && !Thread.currentThread().isInterrupted()) {
+            try {
+                final FlushTable flushTable = this.memTablePool.takeTableToFlush();
+                poisonReceived = flushTable.isPoisonPill();
+                flush(flushTable);
+                memTablePool.flushed(flushTable.getGeneration());
+            } catch (InterruptedException e) {
+                log.error("error take table to flush", e);
+                Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                log.error("error flushing table from flushing queue", e);
+            }
+        }
     }
 }

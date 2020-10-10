@@ -1,6 +1,7 @@
 package ru.mail.polis.dao.bmendli;
 
 import com.google.common.collect.Iterators;
+import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,21 +18,19 @@ import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MemTablePool implements Table {
 
-    private final Logger logger = LoggerFactory.getLogger(MemTablePool.class);
-    private final ReadWriteLock readWriteLock;
+    private final Logger log = LoggerFactory.getLogger(MemTablePool.class);
+    private final ReadWriteLock lock;
     private final NavigableMap<Integer, Table> waitingFlushTables;
-    private final BlockingQueue<FlushTable> blockingQueue;
-    private final AtomicLong tempSize;
-    private final AtomicBoolean stop;
+    private final BlockingQueue<FlushTable> flushTableQueue;
+    private final AtomicBoolean stopped;
     private final long flushThreshold;
 
-    private volatile MemTable currentMemTable;
+    private MemTable currentMemTable;
     private int generation;
 
     /**
@@ -40,10 +39,9 @@ public class MemTablePool implements Table {
     public MemTablePool(final long flushThreshold,
                         final int firstGeneration,
                         final int flushTablePool) {
-        this.readWriteLock = new ReentrantReadWriteLock();
-        this.blockingQueue = new ArrayBlockingQueue<>(flushTablePool);
-        this.tempSize = new AtomicLong(0);
-        this.stop = new AtomicBoolean();
+        this.lock = new ReentrantReadWriteLock();
+        this.flushTableQueue = new ArrayBlockingQueue<>(flushTablePool);
+        this.stopped = new AtomicBoolean();
         this.flushThreshold = flushThreshold;
         this.generation = firstGeneration;
         this.currentMemTable = new MemTable();
@@ -54,21 +52,33 @@ public class MemTablePool implements Table {
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value,
                        final long expireTime) {
-        if (stop.get()) {
-            logger.error("cannot upsert data");
-            throw new IllegalStateException();
+        if (stopped.get()) {
+            final String errorMsg = "cannot upsert data";
+            log.error(errorMsg);
+            throw new IllegalStateException(errorMsg);
         }
-        currentMemTable.upsert(key, value, expireTime);
+        lock.writeLock().lock();
+        try {
+            currentMemTable.upsert(key, value, expireTime);
+        } finally {
+            lock.writeLock().unlock();
+        }
         enqueueToFlush();
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) {
-        if (stop.get()) {
-            logger.error("cannot remove data");
-            throw new IllegalStateException();
+        if (stopped.get()) {
+            final String errorMsg = "cannot remove data";
+            log.error(errorMsg);
+            throw new IllegalStateException(errorMsg);
         }
-        currentMemTable.remove(key);
+        lock.writeLock().lock();
+        try {
+            currentMemTable.remove(key);
+        } finally {
+            lock.writeLock().unlock();
+        }
         enqueueToFlush();
     }
 
@@ -76,19 +86,19 @@ public class MemTablePool implements Table {
     @Override
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> iterators;
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
             iterators = new ArrayList<>(waitingFlushTables.size() + 1);
             iterators.add(currentMemTable.iterator(from));
-            waitingFlushTables.descendingMap().values().forEach(table -> {
+            waitingFlushTables.values().forEach(table -> {
                 try {
                     iterators.add(table.iterator(from));
                 } catch (IOException e) {
-                    logger.error("error get iterator", e);
+                    log.error("error get iterator", e);
                 }
             });
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
 
         final Iterator<Cell> mergedCellIterator = Iterators.mergeSorted(iterators,
@@ -100,32 +110,34 @@ public class MemTablePool implements Table {
 
     @Override
     public long size() {
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
-            tempSize.set(currentMemTable.size());
-            waitingFlushTables.forEach((key, value) -> tempSize.addAndGet(value.size()));
-            return tempSize.get();
+            long tempSize = currentMemTable.size();
+            for (Map.Entry<Integer, Table> entry : waitingFlushTables.entrySet()) {
+                tempSize += entry.getValue().size();
+            }
+            return tempSize;
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
     }
 
     @Override
     public void close() {
-        if (!stop.compareAndSet(false, true)) {
+        if (!stopped.compareAndSet(false, true)) {
             return;
         }
         final FlushTable flushTable;
-        readWriteLock.writeLock().lock();
+        lock.writeLock().lock();
         try {
             flushTable = new FlushTable(generation, currentMemTable, true);
         } finally {
-            readWriteLock.writeLock().unlock();
+            lock.writeLock().unlock();
         }
         try {
-            blockingQueue.put(flushTable);
+            flushTableQueue.put(flushTable);
         } catch (InterruptedException e) {
-            logger.error("error put flush table {} int blocking queue", flushTable, e);
+            log.error("Error. Cannot put FlushTable {} in blocking queue", flushTable, e);
             Thread.currentThread().interrupt();
         }
     }
@@ -134,11 +146,11 @@ public class MemTablePool implements Table {
      * Return generation of {@code currentMemTable}.
      */
     public int getGeneration() {
-        readWriteLock.readLock().lock();
+        lock.readLock().lock();
         try {
             return generation;
         } finally {
-            readWriteLock.readLock().unlock();
+            lock.readLock().unlock();
         }
     }
 
@@ -146,22 +158,22 @@ public class MemTablePool implements Table {
      * Remove table which is flushed.
      */
     public void flushed(final int generation) {
-        readWriteLock.writeLock().lock();
+        lock.writeLock().lock();
         try {
             waitingFlushTables.remove(generation);
         } finally {
-            readWriteLock.writeLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
     public FlushTable takeTableToFlush() throws InterruptedException {
-        return blockingQueue.take();
+        return flushTableQueue.take();
     }
 
     private void enqueueToFlush() {
         if (currentMemTable.size() > flushThreshold) {
             FlushTable flushTable = null;
-            readWriteLock.writeLock().lock();
+            lock.writeLock().lock();
             try {
                 if (currentMemTable.size() > flushThreshold) {
                     flushTable = new FlushTable(generation, currentMemTable);
@@ -170,13 +182,13 @@ public class MemTablePool implements Table {
                     currentMemTable = new MemTable();
                 }
             } finally {
-                readWriteLock.writeLock().unlock();
+                lock.writeLock().unlock();
             }
             if (flushTable != null) {
                 try {
-                    blockingQueue.put(flushTable);
+                    flushTableQueue.put(flushTable);
                 } catch (InterruptedException e) {
-                    logger.error("error put flush table {} int blocking queue", flushTable, e);
+                    log.error("Error. Cannot put FlushTable {} in blocking queue", flushTable, e);
                     Thread.currentThread().interrupt();
                 }
             }
