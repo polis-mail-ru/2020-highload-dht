@@ -88,7 +88,7 @@ public class TablesPool implements Table, Closeable {
     }
 
     @Override
-    public void upsert(final ByteBuffer key, final ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key,@NotNull final ByteBuffer value) {
         if (stopFlag.get()) {
             throw new IllegalStateException("Already stopped");
         }
@@ -102,7 +102,7 @@ public class TablesPool implements Table, Closeable {
     }
 
     @Override
-    public void remove(final ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) {
         if (stopFlag.get()) {
             throw new IllegalStateException("Already stopped");
         }
@@ -172,6 +172,9 @@ public class TablesPool implements Table, Closeable {
         }
     }
 
+    /**
+     * Method returns current generation.
+     */
     public int getGeneration() {
         lock.readLock().lock();
         try {

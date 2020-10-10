@@ -62,7 +62,7 @@ public class MyDAO implements DAO {
      * @param storage        - file
      * @param flushThreshold - table size
      */
-    public MyDAO(final File storage, final long flushThreshold) {
+    public MyDAO(@NotNull final File storage, final long flushThreshold) {
         assert flushThreshold > 0L;
         this.storage = storage;
         this.ssTables = new ConcurrentSkipListMap<>();
@@ -104,7 +104,7 @@ public class MyDAO implements DAO {
         }
     }
 
-    private void storeData(@NotNull AtomicInteger generation, @NotNull final Path path) {
+    private void storeData(@NotNull final AtomicInteger generation, @NotNull final Path path) {
         try {
             final String fileName = path.getFileName().toString();
             final int generationCounter = Integer.parseInt(fileName.substring(0, fileName.indexOf(SUFFIX)));
