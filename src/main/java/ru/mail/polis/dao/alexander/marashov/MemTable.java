@@ -2,6 +2,7 @@ package ru.mail.polis.dao.alexander.marashov;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -32,7 +33,7 @@ public class MemTable implements Table {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         sizeInBytes.addAndGet(value.capacity());
-        final Value prev = map.put(key.duplicate(), new Value(System.currentTimeMillis(), value.duplicate()));
+        final Value prev = map.put(key, new Value(System.currentTimeMillis(), value));
         if (prev == null) {
             // + key and timestamp
             sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
@@ -44,10 +45,10 @@ public class MemTable implements Table {
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        final Value prev = map.put(key.duplicate(), new Value(System.currentTimeMillis(), null));
+        final Value prev = map.put(key, new Value(System.currentTimeMillis(), null));
         if (prev == null) {
             // + key and timestamp
-            sizeInBytes.addAndGet(key.duplicate().capacity() + Long.BYTES);
+            sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
         } else if (!prev.isTombstone()) {
             // - old value
             sizeInBytes.addAndGet(-prev.getData().capacity());
@@ -68,5 +69,10 @@ public class MemTable implements Table {
     public void close() throws IOException {
         map.clear();
         sizeInBytes.set(0);
+    }
+
+    @Override
+    public File getFile() {
+        throw new UnsupportedOperationException("In memory!");
     }
 }

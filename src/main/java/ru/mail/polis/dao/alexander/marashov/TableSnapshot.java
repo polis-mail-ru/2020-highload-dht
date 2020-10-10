@@ -51,6 +51,15 @@ public class TableSnapshot {
         );
     }
 
+    public TableSnapshot fakeFlushIntent() {
+        return new TableSnapshot(
+                memTable,
+                generation + 1,
+                storageTables,
+                flushingTables
+        );
+    }
+
     public TableSnapshot loadTableIntent(final int oldGeneration, final File file) {
         final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
         final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
@@ -64,16 +73,17 @@ public class TableSnapshot {
         );
     }
 
-    public TableSnapshot compactIntent(final int generation, final File file) {
-        final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables.tailMap(generation));
-        final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
-        newStorageTables.put(generation, new SSTable(file));
-        newFlushingTables.remove(generation);
+    public TableSnapshot compactIntent(final NavigableMap<Integer, Table> tablesToRemove, final int compactedGen, final File compactedFile) {
+        final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
+        for (Integer integer : tablesToRemove.keySet()) {
+            newStorageTables.remove(integer);
+        }
+        newStorageTables.put(compactedGen, new SSTable(compactedFile));
         return new TableSnapshot(
                 memTable,
                 generation,
                 newStorageTables,
-                newFlushingTables
+                flushingTables
         );
     }
 }

@@ -11,7 +11,7 @@ import java.util.Iterator;
  */
 public final class TableIterator implements Comparable<TableIterator> {
 
-    private final Integer generation;
+    private final Integer compareKey;
     private final Iterator<Cell> cellIterator;
     private Cell bufferedCell;
 
@@ -19,10 +19,10 @@ public final class TableIterator implements Comparable<TableIterator> {
      * Creates an TableIterator instance.
      */
     public TableIterator(
-            final Integer generation,
+            final Integer compareKey,
             final Table ssTable
     ) throws IOException {
-        this.generation = generation;
+        this.compareKey = compareKey;
         this.cellIterator = ssTable.iterator(ByteBuffer.allocate(0));
         this.bufferedCell = cellIterator.hasNext() ? cellIterator.next() : null;
     }
@@ -42,7 +42,7 @@ public final class TableIterator implements Comparable<TableIterator> {
         }
         final int comp = this.getBufferedCell().getKey().compareTo(o.getBufferedCell().getKey());
         if (comp == 0) {
-            return -this.generation.compareTo(o.generation);
+            return -this.compareKey.compareTo(o.compareKey);
         } else {
             return comp;
         }

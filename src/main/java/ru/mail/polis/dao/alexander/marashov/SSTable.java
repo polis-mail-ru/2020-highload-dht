@@ -22,6 +22,7 @@ public class SSTable implements Table {
     private FileChannel fileChannel;
     private int rowsCount;
     private int fileSize;
+    private final File file;
 
     private final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
     private final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
@@ -30,13 +31,14 @@ public class SSTable implements Table {
      * Creates SSTable from file.
      */
     public SSTable(@NotNull final File file) {
+        this.file = file;
         try {
             fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
             fileSize = (int) fileChannel.size();
             fileChannel.read(intBuffer.rewind(), fileChannel.size() - Integer.BYTES);
             rowsCount = intBuffer.rewind().getInt();
         } catch (IOException e) {
-            log.error(e.getMessage());
+            log.error("SSTable: can't open channel", e);
         }
     }
 
@@ -77,7 +79,7 @@ public class SSTable implements Table {
                         position.addAndGet(channel.write(it.getValue().getData()));
                     }
                 } catch (IOException e) {
-                    log.error(e.getMessage());
+                    log.error("SSTable: can't write to the channel", e);
                     throw new UncheckedIOException(e);
                 }
 
@@ -93,7 +95,7 @@ public class SSTable implements Table {
             try {
                 channel.write(indexesBuffer);
             } catch (IOException e) {
-                log.error(e.getMessage());
+                log.error("SSTable: can't write to the channel", e);
             }
         }
     }
@@ -147,7 +149,7 @@ public class SSTable implements Table {
     }
 
     private int binarySearch(@NotNull final ByteBuffer from) throws IOException {
-        assert rowsCount > 0;
+        assert rowsCount >= 0;
 
         int left = 0;
         int right = rowsCount - 1;
@@ -185,7 +187,7 @@ public class SSTable implements Table {
                     ++rowIndex;
                     return cell;
                 } catch (IOException e) {
-                    log.error(e.getMessage());
+                    log.error("SsTable: Iterating error ", e);
                     return null;
                 }
             }
@@ -215,5 +217,10 @@ public class SSTable implements Table {
     @Override
     public void close() throws IOException {
         fileChannel.close();
+    }
+
+    @Override
+    public File getFile() {
+        return this.file;
     }
 }

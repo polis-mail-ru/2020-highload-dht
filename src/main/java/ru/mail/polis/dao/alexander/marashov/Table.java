@@ -3,6 +3,7 @@ package ru.mail.polis.dao.alexander.marashov;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -21,4 +22,6 @@ public interface Table extends Closeable {
     long sizeInBytes();
 
     int size();
+
+    File getFile();
 }

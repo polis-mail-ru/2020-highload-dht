@@ -18,6 +18,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -40,6 +41,7 @@ public class DAOImpl implements DAO {
 
     private final static String SUFFIX = ".dat";
     private final static String TEMP = ".tmp";
+    private final static String UNDERSCORE = "_";
 
     private final int flusherQueueSize = 10;
 
@@ -48,7 +50,7 @@ public class DAOImpl implements DAO {
     private final long flushThreshold;
 
     @GuardedBy("lock")
-    private static volatile TableSnapshot tableSnapshot;
+    private static TableSnapshot tableSnapshot;
     private final Flusher flusher;
 
     /**
@@ -140,6 +142,7 @@ public class DAOImpl implements DAO {
         }
     }
 
+
     /**
      * Saving data on the disk.
      */
@@ -203,14 +206,6 @@ public class DAOImpl implements DAO {
         }
     }
 
-    private File writeDataToFile(final Iterator<Cell> cellIterator, final Integer generation) throws IOException {
-        final File file = new File(storage, generation + TEMP);
-        SSTable.serialize(cellIterator, file);
-        final File dst = new File(storage, generation + SUFFIX);
-        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        return dst;
-    }
-
     @Override
     public void close() throws IOException {
 
@@ -241,53 +236,53 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void compact() throws IOException {
-        final List<TableIterator> tableIteratorList;
-        final int lastGen;
-        int index = 0;
+    public synchronized void compact() throws IOException {
+        final TableSnapshot snapshot;
         lock.readLock().lock();
         try {
-            lastGen = tableSnapshot.generation;
-            final int tableIteratorsCount = tableSnapshot.storageTables.size() + 1;
-            tableIteratorList = new ArrayList<>(
-                    tableIteratorsCount
-            );
-            for (final Table table : tableSnapshot.storageTables.values()) {
-                tableIteratorList.add(
-                        new TableIterator(index, table)
-                );
-                ++index;
+            if (tableSnapshot.storageTables.size() <= 1) {
+                // nothing to compact
+                return;
             }
+            snapshot = tableSnapshot;
         } finally {
             lock.readLock().unlock();
         }
 
-        lock.writeLock().lock();
-        try {
-            tableIteratorList.add(new TableIterator(tableSnapshot.generation, tableSnapshot.memTable));
-            tableSnapshot = tableSnapshot.flushIntent();
-        } finally {
-            lock.writeLock().unlock();
+        final int tableIteratorsCount = snapshot.storageTables.size();
+        int maxGeneration = 0;
+        final List<TableIterator> tableIteratorList = new ArrayList<>(tableIteratorsCount);
+        for (final Map.Entry<Integer, Table> entry : snapshot.storageTables.entrySet()) {
+            maxGeneration = Math.max(maxGeneration, entry.getKey());
+            tableIteratorList.add(new TableIterator(entry.getKey(), entry.getValue()));
         }
-
         final Iterator<Cell> cellIterator = new CellIterator(tableIteratorList);
-        final File file = writeDataToFile(cellIterator, lastGen);
 
         lock.writeLock().lock();
         try {
-            tableSnapshot = tableSnapshot.compactIntent(lastGen, file);
+            tableSnapshot = tableSnapshot.fakeFlushIntent();
         } finally {
             lock.writeLock().unlock();
         }
-        doWithFiles(storage.toPath(), (gen, path) -> {
-            if (gen < lastGen) {
-                try {
-                    Files.delete(path);
-                } catch (IOException e) {
-                    log.error(e.getMessage());
-                }
+
+        final File file = new File(this.storage, maxGeneration + UNDERSCORE + TEMP);
+        SSTable.serialize(cellIterator, file);
+        final File dst = new File(this.storage, maxGeneration + UNDERSCORE + SUFFIX);
+        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        lock.writeLock().lock();
+        try {
+            tableSnapshot = tableSnapshot.compactIntent(snapshot.storageTables, maxGeneration, dst);
+        } finally {
+            lock.writeLock().unlock();
+        }
+
+        for (final Table table : snapshot.storageTables.values()) {
+            final File fl = table.getFile();
+            if (!fl.delete()) {
+                throw new IOException("Flusher: can't delete file " + fl);
             }
-        });
+        }
     }
 
     private void doWithFiles(final Path storagePath, final BiConsumer<Integer, Path> genBiConsumer) {
@@ -295,7 +290,9 @@ public class DAOImpl implements DAO {
             stream.filter(p -> p.toString().endsWith(SUFFIX))
                     .forEach(path -> {
                         final String name = path.getFileName().toString();
-                        final String genStr = name.substring(0, name.indexOf(SUFFIX));
+                        final String genStrWithUnderscores = name.substring(0, name.indexOf(SUFFIX));
+                        final int underscoreIndex = genStrWithUnderscores.indexOf("_");
+                        final String genStr = underscoreIndex == -1 ? genStrWithUnderscores : genStrWithUnderscores.substring(0, underscoreIndex);
                         if (genStr.matches("[0-9]+")) {
                             final int gen = Integer.parseInt(genStr);
                             genBiConsumer.accept(gen, path);
