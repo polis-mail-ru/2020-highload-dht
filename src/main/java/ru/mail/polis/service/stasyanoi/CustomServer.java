@@ -60,7 +60,7 @@ public class CustomServer extends HttpServer {
         ByteBuffer response;
         try {
             final Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
-            while (!future.isDone());
+            while(!future.isDone());
             response = dao.get(id);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -121,7 +121,7 @@ public class CustomServer extends HttpServer {
                 throw new RuntimeException(e);
             }
         });
-        while (!future.isDone());
+        while(!future.isDone());
         future.get();
         final Response response = new Response(Response.CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
@@ -152,7 +152,7 @@ public class CustomServer extends HttpServer {
                 throw new RuntimeException(e);
             }
         });
-        while (!future.isDone());
+        while(!future.isDone());
         future.get();
 
         final Response acceptedResponse = new Response(Response.ACCEPTED);
