@@ -54,7 +54,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-//        return new ServiceImpl(ServiceImpl.getConfig(port), dao);
         return new AsyncServiceImpl(AsyncServiceImpl.getConfig(port), dao);
     }
 }
