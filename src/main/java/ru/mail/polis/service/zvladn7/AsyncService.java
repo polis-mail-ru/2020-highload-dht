@@ -128,15 +128,17 @@ public class AsyncService extends HttpServer implements Service {
         session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 
+    private static void process(final Processor processor) {
+        try {
+            processor.process();
+        } catch (IOException e) {
+            log.error(ERROR_SENDING_RESPONSE, e);
+        }
+    }
+
     private void processRequest(final Processor processor, final HttpSession session) {
         try {
-            es.execute(() -> {
-                try {
-                    processor.process();
-                } catch (IOException e) {
-                    log.error(ERROR_SENDING_RESPONSE, e);
-                }
-            });
+            es.execute(() -> process(processor));
         } catch (RejectedExecutionException e) {
             sendServiceUnavailableResponse(session);
         }
