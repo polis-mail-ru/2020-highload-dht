@@ -1,5 +1,14 @@
 package ru.mail.polis.service.stakenschneider;
 
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
+import one.nio.net.Socket;
+import one.nio.server.AcceptorConfig;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
@@ -7,30 +16,18 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
 
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Path;
-import one.nio.http.Response;
-import one.nio.http.Request;
-import one.nio.net.Socket;
-import one.nio.server.AcceptorConfig;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
-
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 
-import org.jetbrains.annotations.NotNull;
-
-import static one.nio.http.Response.EMPTY;
 import static one.nio.http.Response.BAD_REQUEST;
-import static one.nio.http.Response.METHOD_NOT_ALLOWED;
+import static one.nio.http.Response.EMPTY;
 import static one.nio.http.Response.INTERNAL_ERROR;
+import static one.nio.http.Response.METHOD_NOT_ALLOWED;
+
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
@@ -47,7 +44,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param dao - storage interface
      * @param executor - an object that executes submitted tasks
      */
-    public AsyncServiceImpl(final int port, @NotNull final DAO dao, @NotNull final Executor executor) throws IOException {
+    public AsyncServiceImpl(final int port, @NotNull final DAO dao,
+                            @NotNull final Executor executor) throws IOException {
         super(from(port));
         this.dao = dao;
         this.executor = executor;
@@ -97,7 +95,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
@@ -142,7 +140,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     session.sendError(INTERNAL_ERROR, e.getMessage());
                 } catch (IOException ex) {
                     log.info("something has gone terribly wrong", ex);
-                    throw new UncheckedIOException(e);
                 }
             }
         });
