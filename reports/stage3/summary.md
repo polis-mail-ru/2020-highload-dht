@@ -218,20 +218,30 @@ LOCK get ASYNC
 1) Put
 
 SYNC
+
  Latency -> Avg. 4.67ms | Max. 14.96ms
+
  Req/Sec -> Avg. 2.09k  | Max. 5.42k 
+
 ASYNC
+
  Latency -> Avg. 1.15ms | Max. 9.50ms
+
  Req/Sec -> Avg. 2.11k  | Max. 4.11k 
 
 
 2) Get
  
 SYNC
+
  Latency -> Avg. 4.38ms | Max. 15.19ms
+
  Req/Sec -> Avg. 2.09k  | Max. 5.42k 
+
 ASYNC
+
  Latency -> Avg. 1.45ms | Max. 5.59ms
+
  Req/Sec -> Avg. 2.11k  | Max. 2.78k 
 
 В обоих случаях асинхронная версия сервера показала большую скорость при обработке запросов.
