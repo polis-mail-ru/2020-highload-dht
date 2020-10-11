@@ -15,6 +15,9 @@
 Нагрузочные испытания, проведённые с использованием <em>wrk2</em>, организованы в виде серий PUT- и GET-запросов фиксированной продолжительности (7 минут) в режиме симулирования обмена данными с пулом клиентов (число клиентов (соединений с сервером) в synchronized-реализации установлено равным 16, в асинхронной - 64, количество параллельных потоков в обеих - 2 по числу ядер ЦПУ). Интенсивность генерации / отправки запросов каждого вида (<em>Rate</em>) задана равной 15000 запросов/с исходя из предварительной оценки стабильной нагрузки, де-факто достигаемой в ходе выполнения <em>wrk2</em> на локальном компьютере.
 
 **Команды <em>wrk2</em>**<br/>
+
+<p></p>
+
 <ins><em>wrk2</em> | PUT | thread safe synchronized</ins>
 ```
 wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R15000 --latency http://127.0.0.1:8080
@@ -36,6 +39,9 @@ wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://
 ```
 
 **Команды <em>async-profiler</em>**<br/>
+
+<p></p>
+
 <ins><em>async-profiler</em> | cpu</ins>
 ```
 ./profiler.sh -d 60 -e cpu -t -f /path/to/output/folder/flame_output_cpu.svg <server_process_pid>
@@ -55,7 +61,7 @@ wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://
 
 ### 1. Добавление/изменение записей (PUT)
 
-<ins><em>wrk2</em> outputs / **synchronized** server /</ins>  
+<ins><em>wrk2</em> outputs / **synchronized** server</ins>  
 ```
 max@max-Inspiron-15-3573:~/hackdht$ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R15000 --latency http://127.0.0.1:8080
 Running 7m test @ http://127.0.0.1:8080
@@ -202,7 +208,7 @@ Running 7m test @ http://127.0.0.1:8080
 Requests/sec:  14999.26
 Transfer/sec:      0.96MB
 ```
-<ins><em>wrk2</em> outputs / **async** server /</ins>  
+<ins><em>wrk2</em> outputs / **async** server</ins>  
 
 В соответствии с приведённым выводом средняя задержка при обработке запросов на добавление записей достигла 700 мс при отклонении на уровне 87%. Каждую секунду сервер выполнял свыше 7500 запросов, в то время как интенсивность их подачи оказалась близкой целевому значению (15000 запросов/с). В структуре квантильного распределения времён отклика максимальная длительность ответа установлена равной 6.77 с, получение отклика на 90% запросов уложилось в 6.5 с.<br/>            
 <ins>Flamegraph-анализ</ins><br/>  
@@ -226,7 +232,7 @@ Transfer/sec:      0.96MB
 
 ### 2. Чтение записей (GET)
 
-<ins><em>wrk2</em> outputs / **synchronized** server /</ins>  
+<ins><em>wrk2</em> outputs / **synchronized** server</ins>  
 ```
 max@max-Inspiron-15-3573:~/hackdht$ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://127.0.0.1:8080
 Running 7m test @ http://127.0.0.1:8080
@@ -374,7 +380,7 @@ Running 7m test @ http://127.0.0.1:8080
 Requests/sec:  14998.24
 Transfer/sec:      0.98MB
 ```
-<ins><em>wrk2</em> outputs / **async** server /</ins>  
+<ins><em>wrk2</em> outputs / **async** server</ins>  
 
 Приведённые результаты отражают существенное снижение времени отклика в сравнении с оценками, актуальными для операций добавления. При средней задержке в 18 мс (отклонение на уровне 96%) сервер получал в обработку более 3200 запросов в каждую единицу времени. В 99% случаев время ожидания отклика не превысило 600 мс, худший результат оказался в пределах 1 с.<br/>                  
 
