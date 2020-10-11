@@ -28,7 +28,6 @@ import static one.nio.http.Response.EMPTY;
 import static one.nio.http.Response.INTERNAL_ERROR;
 import static one.nio.http.Response.METHOD_NOT_ALLOWED;
 
-
 public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
