@@ -3,19 +3,21 @@ package ru.mail.polis.dao.zvladn7;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
+@ThreadSafe
 public class MemoryTable implements Table {
 
-    private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
-
-    private int currentAmountOfBytes;
+    private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
+    private final AtomicInteger currentAmountOfBytes = new AtomicInteger();
 
     public int getAmountOfBytes() {
-        return currentAmountOfBytes;
+        return currentAmountOfBytes.get();
     }
 
     @NotNull
@@ -41,9 +43,9 @@ public class MemoryTable implements Table {
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         final Value val = map.put(key.duplicate(), new Value(System.currentTimeMillis(), value.duplicate()));
         if (val == null) {
-            currentAmountOfBytes += key.remaining() + value.remaining() + Long.BYTES;
+            currentAmountOfBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
         } else {
-            currentAmountOfBytes += value.remaining() - val.getData().remaining();
+            currentAmountOfBytes.addAndGet(value.remaining() - val.getData().remaining());
         }
     }
 
@@ -51,9 +53,9 @@ public class MemoryTable implements Table {
     public void remove(@NotNull final ByteBuffer key) {
         final Value value = map.put(key.duplicate(), Value.newTombstoneValue(System.currentTimeMillis()));
         if (value == null) {
-            currentAmountOfBytes += key.remaining() + Long.BYTES;
+            currentAmountOfBytes.addAndGet(key.remaining() + Long.BYTES);
         } else if (!value.isTombstone()) {
-            currentAmountOfBytes -= value.getData().remaining();
+            currentAmountOfBytes.addAndGet(value.getData().remaining());
         }
     }
 

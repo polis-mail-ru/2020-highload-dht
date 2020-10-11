@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.Iters;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
@@ -26,6 +25,7 @@ final class TransactionalDAOImpl implements TransactionalDAO {
 
     /**
      * TransactionalDAO implementation.
+     *
      * @param dao - DAO which has started transaction
      */
     TransactionalDAOImpl(@NotNull final LsmDAOImpl dao) {
@@ -37,15 +37,11 @@ final class TransactionalDAOImpl implements TransactionalDAO {
     @Override
     public void commit() {
         memoryTable.iterator(ByteBuffer.allocate(0)).forEachRemaining(cell -> {
-            try {
-                if (cell.getValue().isTombstone()) {
-                    dao.remove(cell.getKey());
-                } else {
-                    dao.upsert(cell.getKey(), cell.getValue().getData());
+            if (cell.getValue().isTombstone()) {
+                dao.remove(cell.getKey());
+            } else {
+                dao.upsert(cell.getKey(), cell.getValue().getData());
 
-                }
-            } catch (IOException e) {
-                logger.error("The error occurred while transaction was trying to commit, id: " + id, e);
             }
         });
     }
@@ -59,9 +55,16 @@ final class TransactionalDAOImpl implements TransactionalDAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+        final TableSet snapshot;
+        dao.readLock.lock();
+        try {
+            snapshot = dao.tableSet;
+        } finally {
+            dao.readLock.unlock();
+        }
         final List<Iterator<Cell>> iters = new ArrayList<>();
         iters.add(memoryTable.iterator(from));
-        iters.addAll(dao.getAllCellItersList(from));
+        dao.getAllCellItersList(from, iters, snapshot);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
                 iters,
