@@ -68,7 +68,6 @@ public class DAOImpl implements DAO {
                     });
         }
         this.tableSet = TableSet.fromFiles(ssTables, generation + 1);
-        generation++;
     }
 
     @NotNull
@@ -88,15 +87,15 @@ public class DAOImpl implements DAO {
 
         this.tableSet = this.tableSet.startCompacting();
 
-        final File file = new File(storage, generation + TEMP);
+        final File file = new File(storage, snapshot.generation + TEMP);
         SSTable.serialize(file, alive);
 
-        final File dst = new File(storage, generation + SUFFIX);
+        final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         this.tableSet= this.tableSet.replaceCompactedFiles(snapshot.files, new SSTable(dst), snapshot.generation);
 
-        for (int i = generation - 1; i >= 0; i--) {
+        for (int i = snapshot.generation - 1; i >= 0; i--) {
             final File delFile = new File(storage, i + SUFFIX);
             //final SSTable ssTable = tableSet.files.remove(i);
 //            if (ssTable == null) {
@@ -109,8 +108,6 @@ public class DAOImpl implements DAO {
                 break;
             }
         }
-
-        generation = 0;
         //atomicMoveTempToSuffix(file, snapshot);
     }
 
@@ -157,7 +154,7 @@ public class DAOImpl implements DAO {
             return;
         }
         this.tableSet = snapshot.markedAsFlushing();
-        final File file = new File(storage, generation + TEMP);
+        final File file = new File(storage, snapshot.generation + TEMP);
         SSTable.serialize(
                 file,
                 snapshot.mem.iterator(ByteBuffer.allocate(0)));
@@ -166,11 +163,10 @@ public class DAOImpl implements DAO {
     }
 
     private void atomicMoveTempToSuffix(final File file, final TableSet snapshot) throws IOException {
-        final File dst = new File(storage, generation + SUFFIX);
+        final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        this.tableSet = this.tableSet.flushed(snapshot.mem, new SSTable(dst), generation);
-        generation++;
+        this.tableSet = this.tableSet.flushed(snapshot.mem, new SSTable(dst), snapshot.generation);
     }
 
     @Override
