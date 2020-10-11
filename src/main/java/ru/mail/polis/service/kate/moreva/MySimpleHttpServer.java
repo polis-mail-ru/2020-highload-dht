@@ -140,6 +140,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 } catch (IOException e) {
                     log.error(SERVER_ERROR, session, e);
                 }
+                break;
         }
     }
 
