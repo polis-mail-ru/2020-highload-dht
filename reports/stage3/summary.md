@@ -62,26 +62,28 @@ LOCK put SYNC
 ASYNCHRONOUS 
 -----------    
  
- Running 15s test @ http://localhost:8080
+Running 15s test @ http://localhost:8080
  
-   1 threads and 65 connections
+  1 threads and 65 connections
  
-   Thread calibration: mean lat.: 1.173ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.139ms, rate sampling interval: 10ms
  
-      Thread Stats   Avg      Stdev     Max   +/- Stdev
-      Latency     1.24ms    1.07ms  22.26ms   98.31%
-      Req/Sec     2.11k   292.50     6.44k    90.28%
-  
-   Latency Distribution (HdrHistogram - Recorded Latency)
-    
-    50.000%    1.15ms
-    75.000%    1.55ms
-    90.000%    1.85ms
-    99.000%    2.51ms
-    99.900%    18.61ms
-    99.990%    22.16ms
-    99.999%    22.27ms
-    100.000%   22.27ms   
+    Thread Stats   Avg      Stdev     Max   +/- Stdev
+
+    Latency     1.15ms  563.93us   9.50ms   72.00%
+    Req/Sec     2.11k   199.62     4.11k    75.11%
+ 
+  Latency Distribution (HdrHistogram - Recorded Latency)
+
+    50.000%     1.11ms
+    75.000%     1.52ms
+    90.000%     1.80ms
+    99.000%     2.24ms
+    99.900%     7.51ms
+    99.990%     9.40ms
+    99.999%     9.51ms
+    100.000%    9.51ms
+
    
 
 ----------------------------------------------------------------
@@ -166,25 +168,26 @@ ASYNCHRONOUS
 ----------------------------------------------------------------------
 
 Running 15s test @ http://localhost:8080
- 
+
   1 threads and 65 connections
- 
-  Thread calibration: mean lat.: 1.574ms, rate sampling interval: 10ms
- 
+
+  Thread calibration: mean lat.: 1.480ms, rate sampling interval: 10ms
+
     Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.55ms  798.80us  18.18ms   81.31%
-    Req/Sec     2.12k   225.37     4.50k    81.43%
-  
+    
+    Latency     1.45ms  584.65us   3.59ms   65.22%
+    Req/Sec     2.11k   174.40     2.78k    70.63%
+
   Latency Distribution (HdrHistogram - Recorded Latency)
  
-    50.000%    1.47ms
-    75.000%    1.92ms
-    90.000%    2.33ms
-    99.000%    3.24ms
-    99.900%    10.51ms
-    99.990%    17.90ms
-    99.999%    18.19ms
-    100.000%   18.19ms
+    50.000%     1.40ms
+    75.000%     1.86ms
+    90.000%     2.27ms
+    99.000%     2.84ms
+    99.900%     3.25ms
+    99.990%     3.52ms
+    99.999%     3.59ms
+    100.000%    3.59ms
 
 ----------------------------------------------------------------
 CPU get ASYNC
@@ -218,8 +221,8 @@ SYNC
  Latency -> Avg. 4.67ms | Max. 14.96ms
  Req/Sec -> Avg. 2.09k  | Max. 5.42k 
 ASYNC
- Latency -> Avg. 1.24ms | Max. 22.26ms
- Req/Sec -> Avg. 2.11k  | Max. 6.44k 
+ Latency -> Avg. 1.15ms | Max. 9.50ms
+ Req/Sec -> Avg. 2.11k  | Max. 4.11k 
 
 
 2) Get
@@ -228,6 +231,6 @@ SYNC
  Latency -> Avg. 4.38ms | Max. 15.19ms
  Req/Sec -> Avg. 2.09k  | Max. 5.42k 
 ASYNC
- Latency -> Avg. 1.55ms | Max. 18.18ms
- Req/Sec -> Avg. 2.12k  | Max. 4.50k 
+ Latency -> Avg. 1.45ms | Max. 5.59ms
+ Req/Sec -> Avg. 2.11k  | Max. 2.78k 
 

@@ -18,7 +18,6 @@ repositories {
 dependencies {
 
     compile("org.rocksdb:rocksdbjni:6.5.3")
-    compile("org.awaitility:awaitility:3.0.0")
 
     // Checks
     errorprone("com.google.errorprone:error_prone_core:2.3.3")
