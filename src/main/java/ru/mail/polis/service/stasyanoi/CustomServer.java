@@ -2,6 +2,7 @@ package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.net.HttpHeaders;
 import one.nio.http.*;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 
@@ -17,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
+import static org.awaitility.Awaitility.*;
 
 public class CustomServer extends HttpServer {
 
@@ -54,7 +56,7 @@ public class CustomServer extends HttpServer {
         ByteBuffer response;
         try {
             Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
-            while (!future.isDone());
+            await().until(future::isDone);
             response = dao.get(id);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -108,15 +110,15 @@ public class CustomServer extends HttpServer {
 
         final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
         final ByteBuffer value = fromBytes(request.getBody());
-        Future<?> submit = executorService.submit(() -> {
+        Future<?> future = executorService.submit(() -> {
             try {
                 dao.upsert(key, value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        while (!submit.isDone());
-        submit.get();
+        await().until(future::isDone);
+        future.get();
         final Response response = new Response(Response.CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return response;
@@ -139,15 +141,15 @@ public class CustomServer extends HttpServer {
         }
 
         final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
-        Future<?> submit = executorService.submit(() -> {
+        Future<?> future = executorService.submit(() -> {
             try {
                 dao.remove(key);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        while (!submit.isDone());
-        submit.get();
+        await().until(future::isDone);
+        future.get();
 
         final Response acceptedResponse = new Response(Response.ACCEPTED);
         acceptedResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
