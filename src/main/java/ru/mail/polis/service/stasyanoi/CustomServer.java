@@ -8,6 +8,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 
@@ -15,10 +16,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -60,7 +58,7 @@ public class CustomServer extends HttpServer {
         ByteBuffer response;
         try {
             final Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
-            while(!future.isDone());
+           Awaitility.await().pollInterval(0, TimeUnit.NANOSECONDS).until(future::isDone);
             response = dao.get(id);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -121,7 +119,7 @@ public class CustomServer extends HttpServer {
                 throw new RuntimeException(e);
             }
         });
-        while(!future.isDone());
+        Awaitility.await().pollInterval(0, TimeUnit.NANOSECONDS).until(future::isDone);
         future.get();
         final Response response = new Response(Response.CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
@@ -152,7 +150,7 @@ public class CustomServer extends HttpServer {
                 throw new RuntimeException(e);
             }
         });
-        while(!future.isDone());
+       Awaitility.await().pollInterval(0, TimeUnit.NANOSECONDS).until(future::isDone);
         future.get();
 
         final Response acceptedResponse = new Response(Response.ACCEPTED);
