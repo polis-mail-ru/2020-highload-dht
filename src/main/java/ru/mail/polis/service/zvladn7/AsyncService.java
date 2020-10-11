@@ -1,14 +1,7 @@
 package ru.mail.polis.service.zvladn7;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.RequestMethod;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.server.AcceptorConfig;
 import one.nio.util.Utf8;
 import org.jetbrains.annotations.NotNull;
@@ -40,10 +33,11 @@ public class AsyncService extends HttpServer implements Service {
 
     /**
      * Asynchronous server implementation.
-     * @param port - server port
-     * @param dao - DAO implemenation
+     *
+     * @param port            - server port
+     * @param dao             - DAO implemenation
      * @param amountOfWorkers - amount of workers in executor service
-     * @param queueSize - queue size of requests in executor service
+     * @param queueSize       - queue size of requests in executor service
      */
     public AsyncService(final int port,
                         @NotNull final DAO dao,
@@ -123,6 +117,14 @@ public class AsyncService extends HttpServer implements Service {
         session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 
+    private static void processRequest(final Runnable processor, final HttpSession session) {
+        try {
+            processor.run();
+        } catch (RejectedExecutionException e) {
+            sendServiceUnavailableResponse(session);
+        }
+    }
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.error("Unsupported mapping request.\n Cannot understand it: {} {}",
@@ -132,21 +134,18 @@ public class AsyncService extends HttpServer implements Service {
 
     /**
      * Return status of the server instance.
-     * @param session
+     *
+     * @param session - server session
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        try {
-            es.execute(() -> {
-                try {
-                    session.sendResponse(Response.ok("Status: OK"));
-                } catch (IOException e) {
-                    log.error(ERROR_SENDING_RESPONSE, e);
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            sendServiceUnavailableResponse(session);
-        }
+        processRequest(() -> es.execute(() -> {
+            try {
+                session.sendResponse(Response.ok("Status: OK"));
+            } catch (IOException e) {
+                log.error(ERROR_SENDING_RESPONSE, e);
+            }
+        }), session);
     }
 
     /**
@@ -157,52 +156,49 @@ public class AsyncService extends HttpServer implements Service {
      * 2. 400 if id is empty
      * 3. 404 if value with id was not found
      * 4. 500 if some io error was happened
+     *
      * @param id - String
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
                     final HttpSession session) {
-        try {
-            es.execute(() -> {
+        processRequest(() -> es.execute(() -> {
+            try {
+                log.debug("GET request with mapping: /v0/entity and key={}", id);
+                if (id.isEmpty()) {
+                    sendEmptyIdResponse(session);
+                    return;
+                }
+                byte[] body;
+                lock.lock();
                 try {
-                    log.debug("GET request with mapping: /v0/entity and key={}", id);
-                    if (id.isEmpty()) {
-                        sendEmptyIdResponse(session);
+                    body = cache.get(id);
+                } finally {
+                    lock.unlock();
+                }
+                if (body == null) {
+                    final ByteBuffer key = wrapString(id);
+                    final ByteBuffer value;
+                    try {
+                        value = dao.get(key);
+                    } catch (NoSuchElementException e) {
+                        log.info("Value with key: {} was not found", id, e);
+                        session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                        return;
+                    } catch (IOException e) {
+                        sendInternalErrorResponse(session, id, e);
                         return;
                     }
-                    byte[] body;
-                    lock.lock();
-                    try {
-                        body = cache.get(id);
-                    } finally {
-                        lock.unlock();
-                    }
-                    if (body == null) {
-                        final ByteBuffer key = wrapString(id);
-                        final ByteBuffer value;
-                        try {
-                            value = dao.get(key);
-                        } catch (NoSuchElementException e) {
-                            log.info("Value with key: {} was not found", id, e);
-                            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                            return;
-                        } catch (IOException e) {
-                            sendInternalErrorResponse(session, id, e);
-                            return;
-                        }
-                        body = toBytes(value);
-                        final byte[] finalBody = body;
-                        lockAction(() -> updateCache(id, finalBody));
-                    }
-                    session.sendResponse(Response.ok(body));
-                } catch (IOException e) {
-                    log.error(ERROR_SENDING_RESPONSE, e);
+                    body = toBytes(value);
+                    final byte[] finalBody = body;
+                    lockAction(() -> updateCache(id, finalBody));
                 }
-            });
-        } catch (RejectedExecutionException e) {
-            sendServiceUnavailableResponse(session);
-        }
+                session.sendResponse(Response.ok(body));
+            } catch (IOException e) {
+                log.error(ERROR_SENDING_RESPONSE, e);
+            }
+        }), session);
     }
 
     /**
@@ -212,36 +208,33 @@ public class AsyncService extends HttpServer implements Service {
      * 1. 202 if value is successfully deleted
      * 2. 400 if id is empty
      * 3. 500 if some io error was happened
+     *
      * @param id - String
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void remove(@Param(value = "id", required = true) final String id,
                        final HttpSession session) {
-        try {
-            es.execute(() -> {
-                try {
-                    log.debug("DELETE request with mapping: /v0/entity and key={}", id);
-                    if (id.isEmpty()) {
-                        sendEmptyIdResponse(session);
-                        return;
-                    }
-                    final ByteBuffer key = wrapString(id);
-                    try {
-                        dao.remove(key);
-                        lockAction(() -> cache.remove(id));
-                    } catch (IOException e) {
-                        sendInternalErrorResponse(session, id, e);
-                        return;
-                    }
-                    session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error(ERROR_SENDING_RESPONSE, e);
+        processRequest(() -> es.execute(() -> {
+            try {
+                log.debug("DELETE request with mapping: /v0/entity and key={}", id);
+                if (id.isEmpty()) {
+                    sendEmptyIdResponse(session);
+                    return;
                 }
-            });
-        } catch (RejectedExecutionException e) {
-            sendServiceUnavailableResponse(session);
-        }
+                final ByteBuffer key = wrapString(id);
+                try {
+                    dao.remove(key);
+                    lockAction(() -> cache.remove(id));
+                } catch (IOException e) {
+                    sendInternalErrorResponse(session, id, e);
+                    return;
+                }
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException e) {
+                log.error(ERROR_SENDING_RESPONSE, e);
+            }
+        }), session);
     }
 
     /**
@@ -251,6 +244,7 @@ public class AsyncService extends HttpServer implements Service {
      * 1. 201 if value is successfully inserted and created
      * 2. 400 if id is empty
      * 3. 500 if some io error was happened
+     *
      * @param id - String
      */
     @Path("/v0/entity")
@@ -259,33 +253,29 @@ public class AsyncService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id,
             final Request request,
             final HttpSession session) {
-        try {
-            es.execute(() -> {
-                try {
-                    log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
-                            id, new String(request.getBody(), StandardCharsets.UTF_8));
-                    if (id.isEmpty()) {
-                        sendEmptyIdResponse(session);
-                        return;
-                    }
-
-                    final ByteBuffer key = wrapString(id);
-                    final ByteBuffer value = wrapArray(request.getBody());
-                    try {
-                        dao.upsert(key, value);
-                        lockAction(() -> cache.computeIfPresent(id, (k, v) -> request.getBody()));
-                    } catch (IOException e) {
-                        sendInternalErrorResponse(session, id, e);
-                        return;
-                    }
-                    session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error(ERROR_SENDING_RESPONSE, e);
+        processRequest(() -> es.execute(() -> {
+            try {
+                log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
+                        id, new String(request.getBody(), StandardCharsets.UTF_8));
+                if (id.isEmpty()) {
+                    sendEmptyIdResponse(session);
+                    return;
                 }
-            });
-        } catch (RejectedExecutionException e) {
-            sendServiceUnavailableResponse(session);
-        }
+
+                final ByteBuffer key = wrapString(id);
+                final ByteBuffer value = wrapArray(request.getBody());
+                try {
+                    dao.upsert(key, value);
+                    lockAction(() -> cache.computeIfPresent(id, (k, v) -> request.getBody()));
+                } catch (IOException e) {
+                    sendInternalErrorResponse(session, id, e);
+                    return;
+                }
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException e) {
+                log.error(ERROR_SENDING_RESPONSE, e);
+            }
+        }), session);
     }
 
     @Override
