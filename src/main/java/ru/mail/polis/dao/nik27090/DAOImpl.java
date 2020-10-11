@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class DAOImpl implements DAO {
@@ -26,6 +27,7 @@ public class DAOImpl implements DAO {
     private static final String TEMP = ".tmp";
 
     private TableSet tableSet;
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     @NotNull
     private final File storage;
@@ -36,7 +38,7 @@ public class DAOImpl implements DAO {
     /**
      * Creates key-value database.
      *
-     * @param storage data storage
+     * @param storage   data storage
      * @param flushSize MemTable size at which MemTable converted to SSTable
      */
     public DAOImpl(
@@ -83,9 +85,21 @@ public class DAOImpl implements DAO {
     public void compact() throws IOException {
         final Iterator<Cell> alive = getAliveCells(ByteBuffer.allocate(0));
 
-        final TableSet snapshot = this.tableSet;
+        final TableSet snapshot;
 
-        this.tableSet = this.tableSet.startCompacting();
+        lock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
+        }
+
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.startCompacting();
+        } finally {
+            lock.writeLock().unlock();
+        }
 
         final File file = new File(storage, snapshot.generation + TEMP);
         SSTable.serialize(file, alive);
@@ -93,7 +107,12 @@ public class DAOImpl implements DAO {
         final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        this.tableSet= this.tableSet.replaceCompactedFiles(snapshot.files, new SSTable(dst), snapshot.generation);
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.replaceCompactedFiles(snapshot.files, new SSTable(dst), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
 
         for (int i = snapshot.generation - 1; i >= 0; i--) {
             final File delFile = new File(storage, i + SUFFIX);
@@ -113,8 +132,14 @@ public class DAOImpl implements DAO {
 
     private Iterator<Cell> getAliveCells(@NotNull final ByteBuffer key) throws IOException {
 
-        final TableSet snapshot = this.tableSet;
+        final TableSet snapshot;
 
+        lock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            lock.readLock().unlock();
+        }
 
         final List<Iterator<Cell>> iterators = new ArrayList<>(snapshot.files.size() + 1);
         iterators.add(snapshot.mem.iterator(key));
@@ -131,33 +156,51 @@ public class DAOImpl implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        tableSet.mem.upsert(key.rewind().duplicate(), value.rewind().duplicate());
-        if (tableSet.mem.getSizeInBytes() > flushSize) {
+        final boolean doFlush;
+        lock.readLock().lock();
+        try {
+            tableSet.mem.upsert(key.rewind().duplicate(), value.rewind().duplicate());
+            doFlush = tableSet.mem.getSizeInBytes() > flushSize;
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (doFlush) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        tableSet.mem.remove(key.rewind().duplicate());
-        if (tableSet.mem.getSizeInBytes() > flushSize) {
+        final boolean doFlush;
+        lock.readLock().lock();
+        try {
+            tableSet.mem.remove(key.rewind().duplicate());
+            doFlush = tableSet.mem.getSizeInBytes() > flushSize;
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (doFlush) {
             flush();
         }
     }
 
     private void flush() throws IOException {
-
-        final TableSet snapshot = this.tableSet;
-
-
-        if (snapshot.mem.size() == 0) {
-            return;
+        final TableSet snapshot;
+        final File file;
+        lock.writeLock().lock();
+        try {
+            snapshot = this.tableSet;
+            if (snapshot.mem.size() == 0) {
+                return;
+            }
+            this.tableSet = snapshot.markedAsFlushing();
+            file = new File(storage, snapshot.generation + TEMP);
+            SSTable.serialize(
+                    file,
+                    snapshot.mem.iterator(ByteBuffer.allocate(0)));
+        } finally {
+            lock.writeLock().unlock();
         }
-        this.tableSet = snapshot.markedAsFlushing();
-        final File file = new File(storage, snapshot.generation + TEMP);
-        SSTable.serialize(
-                file,
-                snapshot.mem.iterator(ByteBuffer.allocate(0)));
 
         atomicMoveTempToSuffix(file, snapshot);
     }
@@ -166,12 +209,24 @@ public class DAOImpl implements DAO {
         final File dst = new File(storage, snapshot.generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-        this.tableSet = this.tableSet.flushed(snapshot.mem, new SSTable(dst), snapshot.generation);
+        lock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.flushed(snapshot.mem, new SSTable(dst), snapshot.generation);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (tableSet.mem.size() > 0) {
+        final boolean doFlush;
+        lock.readLock().lock();
+        try {
+            doFlush =tableSet.mem.getSizeInBytes() > 0;
+        } finally {
+            lock.readLock().unlock();
+        }
+        if (doFlush) {
             flush();
         }
         tableSet.files.values().forEach(SSTable::close);
