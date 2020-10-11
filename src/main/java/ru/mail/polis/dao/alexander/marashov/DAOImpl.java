@@ -20,8 +20,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -36,21 +34,18 @@ import java.util.stream.Stream;
  */
 public class DAOImpl implements DAO {
 
-    private final static Logger log = LoggerFactory.getLogger(DAOImpl.class);
-    private final static ReadWriteLock lock = new ReentrantReadWriteLock(false);
-
-    private final static String SUFFIX = ".dat";
-    private final static String TEMP = ".tmp";
+    private final Logger log = LoggerFactory.getLogger(DAOImpl.class);
+    private final ReadWriteLock lock = new ReentrantReadWriteLock(false);
+    private final String SUFFIX = ".dat";
+    private final String TEMP = ".tmp";
     private final static String UNDERSCORE = "_";
+    private final static int flusherQueueSize = 10;
 
-    private final int flusherQueueSize = 10;
-
+    @GuardedBy("lock")
+    private TableSnapshot tableSnapshot;
     @NotNull
     private final File storage;
     private final long flushThreshold;
-
-    @GuardedBy("lock")
-    private static TableSnapshot tableSnapshot;
     private final Flusher flusher;
 
     /**
@@ -74,7 +69,7 @@ public class DAOImpl implements DAO {
                 flushingTables,
                 maxGeneration.get() + 1
         );
-        flusher = new Flusher(storage, flusherQueueSize, this::postFlushingMethod);
+        flusher = new Flusher(storage, flusherQueueSize, this::postFlushingMethod, SUFFIX, TEMP);
         flusher.start();
     }
 
@@ -142,7 +137,6 @@ public class DAOImpl implements DAO {
         }
     }
 
-
     /**
      * Saving data on the disk.
      */
@@ -165,53 +159,8 @@ public class DAOImpl implements DAO {
         }
     }
 
-    public static class Flusher extends Thread {
-        final File storage;
-        final BlockingQueue<NumberedTable> tablesQueue;
-        final BiConsumer<Integer, File> tableFlashedCallback;
-
-        public Flusher(
-                final File storage,
-                final int initialCapacity,
-                final BiConsumer<Integer, File> tableFlushedCallback
-        ) {
-            super("Flusher");
-            setDaemon(true);
-            this.storage = storage;
-            this.tablesQueue = new ArrayBlockingQueue<>(initialCapacity);
-            this.tableFlashedCallback = tableFlushedCallback;
-        }
-
-        @Override
-        public void run() {
-            try {
-                while (true) {
-                    final NumberedTable numberedTable = tablesQueue.take();
-                    log.debug("FLUSHER: flush task queued");
-                    if (numberedTable.table == null) {
-                        log.info("Flusher stopped");
-                        return;
-                    }
-                    final int generation = numberedTable.generation;
-                    final Iterator<Cell> cellIterator = numberedTable.table.iterator(ByteBuffer.allocate(0));
-                    final File file = new File(this.storage, generation + TEMP);
-                    SSTable.serialize(cellIterator, file);
-                    final File dst = new File(this.storage, generation + SUFFIX);
-                    Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
-                    this.tableFlashedCallback.accept(numberedTable.generation, dst);
-                }
-            } catch (final InterruptedException e) {
-                log.error("Flusher interrupted. The program stops.", e);
-            } catch (final IOException e) {
-                log.error("Flusher met an unexpected IOException. The program stops.", e);
-            }
-            System.exit(-1);
-        }
-    }
-
     @Override
     public void close() throws IOException {
-
         final TableSnapshot snapshot;
         lock.readLock().lock();
         try {
@@ -243,8 +192,7 @@ public class DAOImpl implements DAO {
         final TableSnapshot snapshot;
         lock.readLock().lock();
         try {
-            if (tableSnapshot.storageTables.size() <= 1) {
-                // nothing to compact
+            if (tableSnapshot.storageTables.size() <= 1) { // nothing to compact
                 return;
             }
             snapshot = tableSnapshot;
@@ -260,14 +208,6 @@ public class DAOImpl implements DAO {
             tableIteratorList.add(new TableIterator(entry.getKey(), entry.getValue()));
         }
         final Iterator<Cell> cellIterator = new CellIterator(tableIteratorList);
-
-        lock.writeLock().lock();
-        try {
-            tableSnapshot = tableSnapshot.fakeFlushIntent();
-        } finally {
-            lock.writeLock().unlock();
-        }
-
         final File file = new File(this.storage, maxGeneration + UNDERSCORE + TEMP);
         SSTable.serialize(cellIterator, file);
         final File dst = new File(this.storage, maxGeneration + UNDERSCORE + SUFFIX);
@@ -279,7 +219,6 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-
         for (final Table table : snapshot.storageTables.values()) {
             final File fl = table.getFile();
             if (!fl.delete()) {
@@ -293,9 +232,9 @@ public class DAOImpl implements DAO {
             stream.filter(p -> p.toString().endsWith(SUFFIX))
                     .forEach(path -> {
                         final String name = path.getFileName().toString();
-                        final String genStrWithUnderscores = name.substring(0, name.indexOf(SUFFIX));
-                        final int underscoreIndex = genStrWithUnderscores.indexOf("_");
-                        final String genStr = underscoreIndex == -1 ? genStrWithUnderscores : genStrWithUnderscores.substring(0, underscoreIndex);
+                        final String rowStr = name.substring(0, name.indexOf(SUFFIX));
+                        final int underscoreInd = rowStr.indexOf('_');
+                        final String genStr = underscoreInd == -1 ? rowStr : rowStr.substring(0, underscoreInd);
                         if (genStr.matches("[0-9]+")) {
                             final int gen = Integer.parseInt(genStr);
                             genBiConsumer.accept(gen, path);

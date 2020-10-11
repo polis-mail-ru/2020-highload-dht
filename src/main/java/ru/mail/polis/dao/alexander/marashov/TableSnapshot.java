@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
-public class TableSnapshot {
+final public class TableSnapshot {
 
     // current table for recording data
     final Table memTable;
@@ -27,6 +27,13 @@ public class TableSnapshot {
         this.storageTables = ssTables;
     }
 
+    /**
+     * Initializing correct TableSnapshot state.
+     * @param ssTables - tables that are already on the disk.
+     * @param flushingTables - tables that are currently being flushed.
+     * @param generation - max free generation for MemTable to start with.
+     * @return TableSnapshot instance.
+     */
     public static TableSnapshot initializeTables(
             final NavigableMap<Integer, Table> ssTables,
             final NavigableMap<Integer, Table> flushingTables,
@@ -40,8 +47,12 @@ public class TableSnapshot {
         );
     }
 
+    /**
+     * Switches the TableSnapshot state according to the flushing logic.
+     * @return new state of the TableSnapshot.
+     */
     public TableSnapshot flushIntent() {
-        ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
+        final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
         newFlushingTables.put(generation, memTable);
         return new TableSnapshot(
                 new MemTable(),
@@ -51,16 +62,17 @@ public class TableSnapshot {
         );
     }
 
-    public TableSnapshot fakeFlushIntent() {
-        return new TableSnapshot(
-                memTable,
-                generation + 1,
-                storageTables,
-                flushingTables
-        );
-    }
-
-    public TableSnapshot loadTableIntent(final int oldGeneration, final File file) {
+    /**
+     * Switches the TableSnapshot state according to the logic of loading the table from the storage.
+     * Deletes loaded table from the FlushingTables map.
+     * @param oldGeneration - generation of the old MemTable to become SSTable.
+     * @param file - where the data is located.
+     * @return new state of the TableSnapshot.
+     */
+    public TableSnapshot loadTableIntent(
+            final int oldGeneration,
+            final File file
+    ) {
         final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
         final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
         newFlushingTables.remove(oldGeneration);
@@ -73,9 +85,20 @@ public class TableSnapshot {
         );
     }
 
-    public TableSnapshot compactIntent(final NavigableMap<Integer, Table> tablesToRemove, final int compactedGen, final File compactedFile) {
+    /**
+     * Switches the TableSnapshot state according to the logic of tables compacting.
+     * @param tablesToRemove - tables that were compacted.
+     * @param compactedGen - table generation to become SSTable.
+     * @param compactedFile - where the compacted data is located.
+     * @return new state of the TableSnapshot.
+     */
+    public TableSnapshot compactIntent(
+            final NavigableMap<Integer, Table> tablesToRemove,
+            final int compactedGen,
+            final File compactedFile
+    ) {
         final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
-        for (Integer integer : tablesToRemove.keySet()) {
+        for (final Integer integer : tablesToRemove.keySet()) {
             newStorageTables.remove(integer);
         }
         newStorageTables.put(compactedGen, new SSTable(compactedFile));

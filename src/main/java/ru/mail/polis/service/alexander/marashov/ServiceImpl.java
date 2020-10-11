@@ -24,14 +24,16 @@ import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
 
-    private final static Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
     private final ExecutorService executorService;
+    private final String responseErrorString = "Sending response error";
 
     /**
      * Implementation of a persistent storage with HTTP API.
@@ -96,11 +98,12 @@ public class ServiceImpl extends HttpServer implements Service {
     private void executeOrSendError(final HttpSession httpSession, final Runnable runnable) {
         try {
             executorService.execute(runnable);
-        } catch (final Exception e) {
+        } catch (final RejectedExecutionException e) {
+            log.error("Request rejected", e);
             try {
                 httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             } catch (final IOException ioException) {
-                log.error("Sending response error", ioException);
+                log.error(responseErrorString, ioException);
             }
         }
     }
@@ -125,7 +128,7 @@ public class ServiceImpl extends HttpServer implements Service {
      * Http method handler for getting a value in the DAO by the key.
      *
      * @param id is the key for searching for a value in the DAO.
-     * @return {@link Response} instance with value as body, if the key exists. Response status is
+     * Sends {@link Response} instance with value as body, if the key exists. Response status is
      * {@code 200} if data is found
      * {@code 400} if id is empty
      * {@code 404} if not found,
@@ -161,7 +164,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         }
                         httpSession.sendResponse(new Response(Response.OK, getBytes(result)));
                     } catch (final IOException e) {
-                        log.error("Sending response error", e);
+                        log.error(responseErrorString, e);
                     }
                 }
         );
@@ -171,14 +174,18 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for placing a value by the key in the DAO storage.
      *
      * @param id is the key that the data will be associated with.
-     * @return {@link Response} instance with
+     * Sends {@link Response} instance with
      * {@code 201} if data saved
      * {@code 400} if id is empty,
      * {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void handleEntityPut(final HttpSession httpSession, final Request request, @Param(value = "id", required = true) final String id) {
+    public void handleEntityPut(
+            final HttpSession httpSession,
+            final Request request,
+            @Param(value = "id", required = true) final String id
+    ) {
         executeOrSendError(
                 httpSession,
                 () -> {
@@ -197,12 +204,19 @@ public class ServiceImpl extends HttpServer implements Service {
                         try {
                             this.dao.upsert(key, value);
                         } catch (IOException e) {
-                            log.error(String.format("Put entity method: key = '%s', value = '%s' error", id, Arrays.toString(body)), e);
+                            log.error(
+                                    String.format(
+                                            "Put entity method: key = '%s', value = '%s' error",
+                                            id,
+                                            Arrays.toString(body)
+                                    ),
+                                    e
+                            );
                             httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                         }
                         httpSession.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                     } catch (final IOException e) {
-                        log.error("Sending response error", e);
+                        log.error(responseErrorString, e);
                     }
                 }
         );
@@ -212,14 +226,17 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for removing a value by the key from the DAO storage.
      *
      * @param id is the key that the data associated with.
-     * @return {@link Response} instance with
+     * Sends {@link Response} instance with
      * {@code 202} if the key deleted,
      * {@code 400} if id is empty,
      * {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void handleEntityDelete(final HttpSession httpSession, @Param(value = "id", required = true) final String id) {
+    public void handleEntityDelete(
+            final HttpSession httpSession,
+            @Param(value = "id", required = true) final String id
+    ) {
         executeOrSendError(
                 httpSession,
                 () -> {
@@ -241,7 +258,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
                         httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
                     } catch (final IOException e) {
-                        log.error("Sending response error", e);
+                        log.error(responseErrorString, e);
                     }
                 }
         );
