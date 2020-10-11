@@ -29,6 +29,8 @@ import java.io.IOException;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    private static final int queueSize = 100;
+    private static final int workersCount = Runtime.getRuntime().availableProcessors();
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -53,6 +55,11 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImpl(port, dao);
+        return new ServiceImpl(
+                port,
+                dao,
+                workersCount,
+                queueSize
+        );
     }
 }

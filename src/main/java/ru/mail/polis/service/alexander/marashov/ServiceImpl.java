@@ -22,8 +22,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
@@ -37,16 +38,26 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @author Marashov Alexander
      */
-    public ServiceImpl(final int port, @NotNull final DAO dao, final int workersCount) throws IOException {
+    public ServiceImpl(
+            final int port,
+            @NotNull final DAO dao,
+            final int workersCount,
+            final int queueSize
+    ) throws IOException {
         super(configFrom(port));
         BasicConfigurator.configure();
         this.dao = dao;
-        this.executorService = Executors.newFixedThreadPool(
+        this.executorService = new ThreadPoolExecutor(
                 workersCount,
+                workersCount,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
                         .setUncaughtExceptionHandler((t, e) -> log.error("{}: uncaught exception", t, e))
-                        .build()
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
         );
     }
 
@@ -82,6 +93,18 @@ public class ServiceImpl extends HttpServer implements Service {
         return result;
     }
 
+    private void executeOrSendError(final HttpSession httpSession, final Runnable runnable) {
+        try {
+            executorService.execute(runnable);
+        } catch (final Exception e) {
+            try {
+                httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (final IOException ioException) {
+                log.error("Sending response error", ioException);
+            }
+        }
+    }
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -111,37 +134,37 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void handleEntityGet(final HttpSession httpSession, @Param(value = "id", required = true) final String id) {
-        executorService.execute(() -> {
-            try {
+        executeOrSendError(
+                httpSession,
+                () -> {
+                    try {
+                        if (id.isEmpty()) {
+                            log.debug("Get entity method: key is empty");
+                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                            return;
+                        }
 
-                if (id.isEmpty()) {
-                    log.debug("Get entity method: key is empty");
-                    httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
+                        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+                        final ByteBuffer key = ByteBuffer.wrap(bytes);
+
+                        final ByteBuffer result;
+                        try {
+                            result = this.dao.get(key);
+                        } catch (NoSuchElementException e) {
+                            log.debug(String.format("Get entity method: key = '%s' not found", id));
+                            httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                            return;
+                        } catch (IOException e) {
+                            log.error(String.format("Get entity method: key = '%s' error", id), e);
+                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                            return;
+                        }
+                        httpSession.sendResponse(new Response(Response.OK, getBytes(result)));
+                    } catch (final IOException e) {
+                        log.error("Sending response error", e);
+                    }
                 }
-
-                final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                final ByteBuffer key = ByteBuffer.wrap(bytes);
-
-                final ByteBuffer result;
-                try {
-                    result = this.dao.get(key);
-                } catch (NoSuchElementException e) {
-                    log.debug(String.format("Get entity method: key = '%s' not found", id));
-                    httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                } catch (IOException e) {
-                    log.error(String.format("Get entity method: key = '%s' error", id), e);
-                    httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    return;
-                }
-                httpSession.sendResponse(new Response(Response.OK, getBytes(result)));
-
-            } catch(final IOException e) {
-                log.error("Sending response error", e);
-            }
-        });
-
+        );
     }
 
     /**
@@ -155,26 +178,34 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response handleEntityPut(final Request request, @Param(value = "id", required = true) final String id) {
-        if (id.isEmpty()) {
-            log.debug("Put entity method: key is empty");
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
+    public void handleEntityPut(final HttpSession httpSession, final Request request, @Param(value = "id", required = true) final String id) {
+        executeOrSendError(
+                httpSession,
+                () -> {
+                    try {
+                        if (id.isEmpty()) {
+                            log.debug("Put entity method: key is empty");
+                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        }
 
-        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-        final ByteBuffer key = ByteBuffer.wrap(bytes);
+                        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+                        final ByteBuffer key = ByteBuffer.wrap(bytes);
 
-        final byte[] body = request.getBody();
-        final ByteBuffer value = ByteBuffer.wrap(body);
+                        final byte[] body = request.getBody();
+                        final ByteBuffer value = ByteBuffer.wrap(body);
 
-        try {
-            this.dao.upsert(key, value);
-        } catch (IOException e) {
-            log.error(String.format("Put entity method: key = '%s', value = '%s' error", id, Arrays.toString(body)), e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-
-        return new Response(Response.CREATED, Response.EMPTY);
+                        try {
+                            this.dao.upsert(key, value);
+                        } catch (IOException e) {
+                            log.error(String.format("Put entity method: key = '%s', value = '%s' error", id, Arrays.toString(body)), e);
+                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        }
+                        httpSession.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+                    } catch (final IOException e) {
+                        log.error("Sending response error", e);
+                    }
+                }
+        );
     }
 
     /**
@@ -188,23 +219,32 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response handleEntityDelete(@Param(value = "id", required = true) final String id) {
-        if (id.isEmpty()) {
-            log.debug("Delete entity method: key is empty");
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
+    public void handleEntityDelete(final HttpSession httpSession, @Param(value = "id", required = true) final String id) {
+        executeOrSendError(
+                httpSession,
+                () -> {
+                    try {
+                        if (id.isEmpty()) {
+                            log.debug("Delete entity method: key is empty");
+                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        }
 
-        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-        final ByteBuffer key = ByteBuffer.wrap(bytes);
+                        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+                        final ByteBuffer key = ByteBuffer.wrap(bytes);
 
-        try {
-            this.dao.remove(key);
-        } catch (IOException e) {
-            log.error(String.format("Delete entity method: key = '%s' error", id), e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+                        try {
+                            this.dao.remove(key);
+                        } catch (IOException e) {
+                            log.error(String.format("Delete entity method: key = '%s' error", id), e);
+                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        }
 
-        return new Response(Response.ACCEPTED, Response.EMPTY);
+                        httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+                    } catch (final IOException e) {
+                        log.error("Sending response error", e);
+                    }
+                }
+        );
     }
 
     @Override
