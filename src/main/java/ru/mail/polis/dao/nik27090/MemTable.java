@@ -5,18 +5,20 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MemTable implements Table {
     private final SortedMap<ByteBuffer, Value> sortedMap;
-    private long sizeInBytes;
-    private int size;
+    private final AtomicLong sizeInBytes = new AtomicLong();
+    private final AtomicInteger size = new AtomicInteger();
 
     /**
      * Creates table of data in memory.
      */
     public MemTable() {
-        this.sortedMap = new TreeMap<>();
+        this.sortedMap = new ConcurrentSkipListMap<>();
     }
 
     @NotNull
@@ -34,10 +36,10 @@ public class MemTable implements Table {
         final Value valueOfElement = new Value(System.currentTimeMillis(), value.duplicate());
         final Value prevValue = sortedMap.put(key.duplicate(), valueOfElement);
         if (prevValue == null) {
-            sizeInBytes += sizeOfElement(key, valueOfElement);
-            size++;
+            sizeInBytes.addAndGet(sizeOfElement(key, valueOfElement));
+            size.incrementAndGet();
         } else {
-            sizeInBytes += sizeOfElement(key, valueOfElement) - sizeOfElement(key, prevValue);
+            sizeInBytes.addAndGet(sizeOfElement(key, valueOfElement) - sizeOfElement(key, prevValue));
         }
     }
 
@@ -46,15 +48,15 @@ public class MemTable implements Table {
         final Value valueOfElement = new Value(System.currentTimeMillis());
         final Value prevValue = sortedMap.put(key.duplicate(), valueOfElement);
         if (prevValue == null) {
-            sizeInBytes += sizeOfElement(key, valueOfElement);
-            size++;
+            sizeInBytes.addAndGet(sizeOfElement(key, valueOfElement));
+            size.incrementAndGet();
         } else {
-            sizeInBytes += sizeOfElement(key, valueOfElement) - sizeOfElement(key, prevValue);
+            sizeInBytes.addAndGet(sizeOfElement(key, valueOfElement) - sizeOfElement(key, prevValue));
         }
     }
 
     public long getSizeInBytes() {
-        return sizeInBytes;
+        return sizeInBytes.get();
     }
 
     /**
@@ -78,6 +80,6 @@ public class MemTable implements Table {
     }
 
     public int size() {
-        return size;
+        return size.get();
     }
 }

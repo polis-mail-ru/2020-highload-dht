@@ -25,8 +25,7 @@ public class DAOImpl implements DAO {
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
 
-    private MemTable memTable;
-    private final NavigableMap<Integer, SSTable> ssTables;
+    private TableSet tableSet;
 
     @NotNull
     private final File storage;
@@ -46,8 +45,7 @@ public class DAOImpl implements DAO {
         this.storage = storage;
         this.flushSize = flushSize;
         assert flushSize > 0L;
-        this.ssTables = new TreeMap<>();
-        this.memTable = new MemTable();
+        final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
         this.generation = -1;
 
         try (Stream<Path> paths = Files.list(storage.toPath())) {
@@ -69,12 +67,13 @@ public class DAOImpl implements DAO {
                         }
                     });
         }
+        this.tableSet = TableSet.fromFiles(ssTables, generation + 1);
         generation++;
     }
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         final ByteBuffer key = from.rewind().duplicate();
         final Iterator<Cell> alive = getAliveCells(key);
 
@@ -85,16 +84,25 @@ public class DAOImpl implements DAO {
     public void compact() throws IOException {
         final Iterator<Cell> alive = getAliveCells(ByteBuffer.allocate(0));
 
+        final TableSet snapshot = this.tableSet;
+
+        this.tableSet = this.tableSet.startCompacting();
+
         final File file = new File(storage, generation + TEMP);
         SSTable.serialize(file, alive);
 
+        final File dst = new File(storage, generation + SUFFIX);
+        Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
+
+        this.tableSet= this.tableSet.replaceCompactedFiles(snapshot.files, new SSTable(dst), snapshot.generation);
+
         for (int i = generation - 1; i >= 0; i--) {
             final File delFile = new File(storage, i + SUFFIX);
-            final SSTable ssTable = ssTables.remove(i);
-            if (ssTable == null) {
-                break;
-            }
-            ssTable.close();
+            //final SSTable ssTable = tableSet.files.remove(i);
+//            if (ssTable == null) {
+//                break;
+//            }
+//            ssTable.close();
             try {
                 Files.delete(delFile.toPath());
             } catch (NoSuchFileException e) {
@@ -103,15 +111,22 @@ public class DAOImpl implements DAO {
         }
 
         generation = 0;
-        atomicMoveTempToSuffix(file);
+        //atomicMoveTempToSuffix(file, snapshot);
     }
 
-    private Iterator<Cell> getAliveCells(@NotNull final ByteBuffer key) {
-        final List<Iterator<Cell>> iterators = new ArrayList<>(ssTables.size() + 1);
-        iterators.add(memTable.iterator(key));
-        ssTables.descendingMap().values().forEach(ssTable -> {
+    private Iterator<Cell> getAliveCells(@NotNull final ByteBuffer key) throws IOException {
+
+        final TableSet snapshot = this.tableSet;
+
+
+        final List<Iterator<Cell>> iterators = new ArrayList<>(snapshot.files.size() + 1);
+        iterators.add(snapshot.mem.iterator(key));
+        snapshot.files.descendingMap().values().forEach(ssTable -> {
             iterators.add(ssTable.iterator(key));
         });
+        for (final Table flushing : snapshot.flushing) {
+            iterators.add(flushing.iterator(key));
+        }
         final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Cell.COMPARATOR);
         final Iterator<Cell> fresh = Iters.collapseEquals(merged, Cell::getKey);
         return Iterators.filter(fresh, el -> el.getValue().getContent() != null);
@@ -119,42 +134,50 @@ public class DAOImpl implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTable.upsert(key.rewind().duplicate(), value.rewind().duplicate());
-        if (memTable.getSizeInBytes() > flushSize) {
+        tableSet.mem.upsert(key.rewind().duplicate(), value.rewind().duplicate());
+        if (tableSet.mem.getSizeInBytes() > flushSize) {
             flush();
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key.rewind().duplicate());
-        if (memTable.getSizeInBytes() > flushSize) {
+        tableSet.mem.remove(key.rewind().duplicate());
+        if (tableSet.mem.getSizeInBytes() > flushSize) {
             flush();
         }
     }
 
     private void flush() throws IOException {
+
+        final TableSet snapshot = this.tableSet;
+
+
+        if (snapshot.mem.size() == 0) {
+            return;
+        }
+        this.tableSet = snapshot.markedAsFlushing();
         final File file = new File(storage, generation + TEMP);
         SSTable.serialize(
                 file,
-                memTable.iterator(ByteBuffer.allocate(0)));
+                snapshot.mem.iterator(ByteBuffer.allocate(0)));
 
-        atomicMoveTempToSuffix(file);
+        atomicMoveTempToSuffix(file, snapshot);
     }
 
-    private void atomicMoveTempToSuffix(final File file) throws IOException {
+    private void atomicMoveTempToSuffix(final File file, final TableSet snapshot) throws IOException {
         final File dst = new File(storage, generation + SUFFIX);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
-        memTable = new MemTable();
-        ssTables.put(generation, new SSTable(dst));
+
+        this.tableSet = this.tableSet.flushed(snapshot.mem, new SSTable(dst), generation);
         generation++;
     }
 
     @Override
     public void close() throws IOException {
-        if (memTable.size() > 0) {
+        if (tableSet.mem.size() > 0) {
             flush();
         }
-        ssTables.values().forEach(SSTable::close);
+        tableSet.files.values().forEach(SSTable::close);
     }
 }

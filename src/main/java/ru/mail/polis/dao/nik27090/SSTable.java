@@ -16,7 +16,7 @@ import java.util.List;
 public class SSTable implements Table, Closeable {
 
     private final FileChannel channel;
-    private final int amountElement;
+    private final long amountElement;
 
     private long iterPosition;
     private final long indexStart;
@@ -32,12 +32,12 @@ public class SSTable implements Table, Closeable {
     SSTable(@NotNull final File file) throws IOException {
         this.channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
         final long size = channel.size();
-        final ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.BYTES);
+        final ByteBuffer byteBuffer = ByteBuffer.allocate(Long.BYTES);
 
-        channel.read(byteBuffer, size - Integer.BYTES);
-        this.amountElement = byteBuffer.getInt(0);
+        channel.read(byteBuffer, size - Long.BYTES);
+        this.amountElement = byteBuffer.getLong(0);
 
-        this.indexStart = size - Integer.BYTES - Long.BYTES * amountElement;
+        this.indexStart = size - Long.BYTES - Long.BYTES * amountElement;
     }
 
     /**
@@ -47,7 +47,7 @@ public class SSTable implements Table, Closeable {
      * @param iterator contains all Cell of MemTable
      */
     public static void serialize(final File file, final Iterator<Cell> iterator) {
-        int size = 0;
+        long size = 0;
         try (FileChannel fileChannel = FileChannel.open(file.toPath(),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.WRITE,
@@ -74,7 +74,7 @@ public class SSTable implements Table, Closeable {
                 }
             }
             //количество элементов
-            bufOffsetArray.add(intToByteBuffer(size));
+            bufOffsetArray.add(longToByteBuffer(size));
             for (final ByteBuffer buff : bufOffsetArray) {
                 fileChannel.write(buff);
             }
@@ -88,7 +88,7 @@ public class SSTable implements Table, Closeable {
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return new Iterator<>() {
             final ByteBuffer key = from.duplicate();
-            int next = findElement(key);
+            long next = findElement(key);
 
             @Override
             public boolean hasNext() {
@@ -103,7 +103,7 @@ public class SSTable implements Table, Closeable {
         };
     }
 
-    private Cell getNext(final int next) {
+    private Cell getNext(final long next) {
         try {
             return getCell(getKeyByOrder(next));
         } catch (IOException e) {
@@ -111,11 +111,11 @@ public class SSTable implements Table, Closeable {
         }
     }
 
-    private int findElement(final ByteBuffer from) {
+    private long findElement(final ByteBuffer from) {
         final ByteBuffer key = from.rewind().duplicate();
-        int low = 0;
-        int high = amountElement - 1;
-        int mid;
+        long low = 0;
+        long high = amountElement - 1;
+        long mid;
         while (low <= high) {
             mid = low + (high - low) / 2;
             final ByteBuffer midKey;
@@ -137,7 +137,7 @@ public class SSTable implements Table, Closeable {
         return low;
     }
 
-    private ByteBuffer getKeyByOrder(final int order) throws IOException {
+    private ByteBuffer getKeyByOrder(final long order) throws IOException {
         final ByteBuffer bbIndex = ByteBuffer.allocate(Long.BYTES);
         channel.read(bbIndex, indexStart + order * Long.BYTES);
         iterPosition = bbIndex.getLong(0);
