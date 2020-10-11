@@ -37,7 +37,7 @@ import java.util.stream.Stream;
 public class DAOImpl implements DAO {
 
     private final static Logger log = LoggerFactory.getLogger(DAOImpl.class);
-    private final static ReadWriteLock lock = new ReentrantReadWriteLock(true);
+    private final static ReadWriteLock lock = new ReentrantReadWriteLock(false);
 
     private final static String SUFFIX = ".dat";
     private final static String TEMP = ".tmp";
@@ -175,6 +175,8 @@ public class DAOImpl implements DAO {
                 final int initialCapacity,
                 final BiConsumer<Integer, File> tableFlushedCallback
         ) {
+            super("Flusher");
+            setDaemon(true);
             this.storage = storage;
             this.tablesQueue = new ArrayBlockingQueue<>(initialCapacity);
             this.tableFlashedCallback = tableFlushedCallback;
@@ -185,6 +187,7 @@ public class DAOImpl implements DAO {
             try {
                 while (true) {
                     final NumberedTable numberedTable = tablesQueue.take();
+                    log.debug("FLUSHER: flush task queued");
                     if (numberedTable.table == null) {
                         log.info("Flusher stopped");
                         return;
