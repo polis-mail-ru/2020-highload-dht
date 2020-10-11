@@ -127,11 +127,15 @@ LOCK get
 №4 Количество запросов (Rate) - 2000
 
 1) Put
+
  Latency -> Avg. 1.12ms | Max. 2.91ms
+
  Req/Sec -> Avg. 2.11k  | Max. 2.56k 
 
 2) Get
+
  Latency -> Avg. 1.15ms | Max. 5.91ms
+
  Req/Sec -> Avg. 2.11k  | Max. 2.56k 
  
 GET запросы выполняюстя дольше, 
