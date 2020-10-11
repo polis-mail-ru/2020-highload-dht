@@ -113,34 +113,34 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     public void entity(@Param(value = "id", required = true) final String id,
                        final Request request,
                        final HttpSession session) {
-            if (id.isBlank()) {
-                log.error("Request with empty id on /v0/entity");
+        if (id.isBlank()) {
+            log.error("Request with empty id on /v0/entity");
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                log.error(SERVER_ERROR, session, e);
+            }
+        }
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                getMethod(key, session);
+                break;
+            case Request.METHOD_PUT:
+                putMethod(key, request, session);
+                break;
+            case Request.METHOD_DELETE:
+                deleteMethod(key, session);
+                break;
+            default:
+                log.error("Not allowed method on /v0/entity");
                 try {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                 } catch (IOException e) {
                     log.error(SERVER_ERROR, session, e);
                 }
-            }
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                   getMethod(key, session);
-                    break;
-                case Request.METHOD_PUT:
-                    putMethod(key, request, session);
-                    break;
-                case Request.METHOD_DELETE:
-                    deleteMethod(key, session);
-                    break;
-                default:
-                    log.error("Not allowed method on /v0/entity");
-                    try {
-                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                    } catch (IOException e) {
-                        log.error(SERVER_ERROR, session, e);
-                    }
-            }
+        }
     }
 
     private void getMethod(final ByteBuffer key, final HttpSession session) {
@@ -172,7 +172,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             }
         });
     }
-
 
     /**
      * Subsidiary method to get value.
