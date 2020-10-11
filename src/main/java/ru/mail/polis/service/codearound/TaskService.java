@@ -25,7 +25,7 @@ public class TaskService extends HttpServer implements Service {
     Logger logger = Logger.getLogger(TaskService.class.getName());
 
     /**
-     * service impl const.
+     * initial (non-async) service impl const.
      * @param port request listening port
      * @param dao DAO instance
      */
@@ -53,7 +53,7 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * try formation request to secure server OK as response.
+     * fires formation request to make sure server is alive.
      */
     @Path("/v0/status")
     public Response status() {
@@ -62,9 +62,9 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * returns server status info, feed to respective requests as well.
-     * @param id String object to be processed as a key in terms of data storage design
+     * @param id key either to push a new record or to modify existing one
      * @param req client request
-     * @return server response object
+     * @return server response
      */
     @Path("/v0/entity")
     public Response entity(
@@ -90,9 +90,9 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * handles GET request.
-     * @param key - key that should match for sending a value in server response
-     * @return Response object
+     * GET request handler.
+     * @param key - key searched
+     * @return server response
      */
     private Response get(final ByteBuffer key) {
         ByteBuffer copy = null;
@@ -109,10 +109,10 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * handles PUT request.
-     * @param key - key to either initiate a new record or to modify an existing one
-     * @param req client host request
-     * @return server response object
+     * PUT request handler.
+     * @param key - key searched
+     * @param req client request
+     * @return server response
      */
     private Response upsert(final ByteBuffer key, final Request req) {
         try {
@@ -124,9 +124,9 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * handles DELETE request.
-     * @param key - specific key to remove a record from storage unless match is missing there
-     * @return server response object
+     * DELETE request handler.
+     * @param key - key searched
+     * @return server response
      */
     private Response delete(final ByteBuffer key) {
         try {
@@ -141,9 +141,9 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * default request handler.
-     * @param req client host request
-     * @param session ongoing client-server session instance
+     * default handler.
+     * @param req client request
+     * @param session ongoing session instance
      */
     @Override
     public void handleDefault(final Request req, final HttpSession session) throws IOException {
@@ -151,9 +151,9 @@ public class TaskService extends HttpServer implements Service {
     }
 
     /**
-     * creates duplicate of key searched.
+     * duplicates key searched.
      * @param key key searched
-     * @return key duplicate as a ByteBuffer object
+     * @return copy of key
      */
     public ByteBuffer duplicateValue(final ByteBuffer key) {
         ByteBuffer copy = null;

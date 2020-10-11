@@ -16,14 +16,11 @@
 
 package ru.mail.polis.service;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.codearound.TaskService;
+import ru.mail.polis.service.codearound.AsyncService;
 
 import java.io.IOException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * Constructs {@link Service} instances.
@@ -58,9 +55,7 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        //final Executor exec = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-                //new ThreadFactoryBuilder().setNameFormat("thread-%d").build());
-
-        return new TaskService(port, dao, Runtime.getRuntime().availableProcessors());
+        return new AsyncService(port, dao,
+                Runtime.getRuntime().availableProcessors(), 1024);
     }
 }

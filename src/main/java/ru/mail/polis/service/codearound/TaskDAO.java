@@ -1,10 +1,7 @@
 package ru.mail.polis.service.codearound;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
+import org.rocksdb.*;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import java.io.File;
@@ -41,6 +38,10 @@ public class TaskDAO implements DAO {
             opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
             opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
             opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+
+            opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
+            opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
+                    .setCompressionType(CompressionType.LZ4_COMPRESSION); // replaces compression algorithm by default
 
             dbLocalDir = data;
             try {
