@@ -1,72 +1,116 @@
 ### PUT
 
+Параметры запуска:
+<ol>
+<li>4 потока</li>
+<li>16 открытых соединений</li>
+<li>2 минуты работы</li>
+<li>10000 запросов в секунду</li>
+</ol>
+
 ![CPU PUT](async/cpu-put.svg)
+
+Каждый из 8 селекторов отрабатывают запросы и занимают около 12% работы процессора. Остальное пространство ядра занимает работа основного потока Java (1%).
 
 ![ALLOC PUT](async/alloc-put.svg)
 
-```
-wrk2 -t4 -c20 -d60s -R10000 -s wrk/put.lua --latency http://127.0.0.1:8080
-Running 1m test @ http://127.0.0.1:8080
-  4 threads and 20 connections
-  Thread calibration: mean lat.: 1.233ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.226ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.230ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.266ms, rate sampling interval: 10ms
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.25ms    1.23ms  47.78ms   98.62%
-    Req/Sec     2.64k   229.67     7.70k    81.97%
-  Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    1.14ms
- 75.000%    1.57ms
- 90.000%    1.90ms
- 99.000%    2.64ms
- 99.900%   22.80ms
- 99.990%   34.65ms
- 99.999%   45.06ms
-100.000%   47.81ms
+Каждый из 8 селекторов использует в среднем 13% выделяемой памяти.
 
-#[Mean    =        1.251, StdDeviation   =        1.227]
-#[Max     =       47.776, Total count    =       499752]
+![LOCK PUT](async/lock-put.svg)
+
+Локи отсутствуют, поэтому граф пустой.
+
+```
+Running 2m test @ http://127.0.0.1:8080
+  4 threads and 16 connections
+  Thread calibration: mean lat.: 1.198ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.198ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.154ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.204ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.13ms  627.45us  22.30ms   76.14%
+    Req/Sec     2.64k   205.88     7.40k    75.82%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    1.07ms
+ 75.000%    1.47ms
+ 90.000%    1.83ms
+ 99.000%    2.41ms
+ 99.900%    7.41ms
+ 99.990%   14.76ms
+ 99.999%   20.86ms
+100.000%   22.32ms
+
+#[Mean    =        1.130, StdDeviation   =        0.627]
+#[Max     =       22.304, Total count    =      1099792]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  599901 requests in 1.00m, 38.33MB read
-Requests/sec:   9998.21
-Transfer/sec:    654.18KB
+  1199912 requests in 2.00m, 76.67MB read
+Requests/sec:   9999.37
+Transfer/sec:    654.26KB
 ```
 
-### GET 
+Итоги:
+<ol>
+<li>обработано 1199912 запросов</li>
+<li>прочитано 76.67MB данных</li>
+<li>сервер держит заданную нагрузку на уровне 9999.37 запросов в секунду</li>
+</ol>
+
+### GET
+
+Параметры запуска:
+<ol>
+<li>4 потока</li>
+<li>16 открытых соединений</li>
+<li>2 минуты работы</li>
+<li>10000 запросов в секунду</li>
+</ol>
 
 ![CPU GET](async/cpu-get.svg)
 
+Каждый из 8 селекторов отрабатывают запросы и занимают около 12% работы процессора. Остальное пространство ядра занимает работа основного потока Java (1.5%).
+
 ![ALLOC GET](async/alloc-get.svg)
 
-```
-wrk2 -t4 -c20 -d60s -R10000 -s wrk/get.lua --latency http://127.0.0.1:8080
-Running 1m test @ http://127.0.0.1:8080
-  4 threads and 20 connections
-  Thread calibration: mean lat.: 1.029ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.045ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.121ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.063ms, rate sampling interval: 10ms
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.08ms  616.23us  27.23ms   77.36%
-    Req/Sec     2.63k   209.46     5.30k    81.35%
-  Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    1.03ms
- 75.000%    1.42ms
- 90.000%    1.74ms
- 99.000%    2.24ms
- 99.900%    7.54ms
- 99.990%   13.85ms
- 99.999%   24.14ms
-100.000%   27.25ms
+Каждый из 8 селекторов использует около 12% выделяемой памяти.
 
-#[Mean    =        1.083, StdDeviation   =        0.616]
-#[Max     =       27.232, Total count    =       499728]
+![LOCK GET](async/lock-get.svg)
+
+Локи отсутствуют, поэтому граф пустой.
+
+```
+Running 2m test @ http://127.0.0.1:8080
+  4 threads and 16 connections
+  Thread calibration: mean lat.: 1.049ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.076ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.030ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.053ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.06ms  534.61us  20.34ms   67.94%
+    Req/Sec     2.63k   190.00     5.44k    76.59%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    0.99ms
+ 75.000%    1.42ms
+ 90.000%    1.75ms
+ 99.000%    2.15ms
+ 99.900%    4.00ms
+ 99.990%   10.57ms
+ 99.999%   17.58ms
+100.000%   20.35ms
+
+#[Mean    =        1.057, StdDeviation   =        0.535]
+#[Max     =       20.336, Total count    =      1099787]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  599880 requests in 1.00m, 38.48MB read
-Requests/sec:   9997.05
-Transfer/sec:    656.63KB
+  1199913 requests in 2.00m, 77.39MB read
+Requests/sec:   9999.36
+Transfer/sec:    660.40KB
+
 ```
- 
+
+Итоги:
+<ol>
+<li>обработано 1199913 запросов</li>
+<li>прочитано 77.39MB данных</li>
+<li>сервер выдерживает заданную нагрузку на уровне 9999.36 запросов в секунду</li>
+</ol>
