@@ -23,7 +23,7 @@ public class Cell {
 
     @NotNull
     public ByteBuffer getKey() {
-        return key.duplicate().asReadOnlyBuffer();
+        return key;
     }
 
     @NotNull
