@@ -24,14 +24,12 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class AsyncService extends HttpServer implements Service {
 
+    private static final String ERROR_SENDING_RESPONSE = "Error when sending response";
     private static final Logger log = LoggerFactory.getLogger(BasicService.class);
     private static final int CACHE_SIZE = 15;
 
@@ -132,6 +130,10 @@ public class AsyncService extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
+    /**
+     * Return status of the server instance.
+     * @param session
+     */
     @Path("/v0/status")
     public void status(final HttpSession session) {
         try {
@@ -139,10 +141,10 @@ public class AsyncService extends HttpServer implements Service {
                 try {
                     session.sendResponse(Response.ok("Status: OK"));
                 } catch (IOException e) {
-                    log.error("Error when sending response", e);
+                    log.error(ERROR_SENDING_RESPONSE, e);
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             sendServiceUnavailableResponse(session);
         }
     }
@@ -190,15 +192,15 @@ public class AsyncService extends HttpServer implements Service {
                             return;
                         }
                         body = toBytes(value);
-                        byte[] finalBody = body;
+                        final byte[] finalBody = body;
                         lockAction(() -> updateCache(id, finalBody));
                     }
                     session.sendResponse(Response.ok(body));
                 } catch (IOException e) {
-                    log.error("Error when sending response", e);
+                    log.error(ERROR_SENDING_RESPONSE, e);
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             sendServiceUnavailableResponse(session);
         }
     }
@@ -234,10 +236,10 @@ public class AsyncService extends HttpServer implements Service {
                     }
                     session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
                 } catch (IOException e) {
-                    log.error("Error when sending response", e);
+                    log.error(ERROR_SENDING_RESPONSE, e);
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             sendServiceUnavailableResponse(session);
         }
     }
@@ -278,10 +280,10 @@ public class AsyncService extends HttpServer implements Service {
                     }
                     session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                 } catch (IOException e) {
-                    log.error("Error when sending response", e);
+                    log.error(ERROR_SENDING_RESPONSE, e);
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             sendServiceUnavailableResponse(session);
         }
     }
