@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -61,7 +62,7 @@ public class CustomServer extends HttpServer {
         ByteBuffer response;
         try {
             final Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
-            Awaitility.await().until(future::isDone);
+            Awaitility.await().pollInterval(0, TimeUnit.NANOSECONDS).until(future::isDone);
             response = dao.get(id);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -122,7 +123,7 @@ public class CustomServer extends HttpServer {
                 throw new RuntimeException(e);
             }
         });
-        Awaitility.await().until(future::isDone);
+        Awaitility.await().pollInterval(0, TimeUnit.NANOSECONDS).until(future::isDone);
         future.get();
         final Response response = new Response(Response.CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
@@ -153,7 +154,7 @@ public class CustomServer extends HttpServer {
                 throw new RuntimeException(e);
             }
         });
-        Awaitility.await().until(future::isDone);
+        Awaitility.await().pollInterval(0, TimeUnit.NANOSECONDS).until(future::isDone);
         future.get();
 
         final Response acceptedResponse = new Response(Response.ACCEPTED);
