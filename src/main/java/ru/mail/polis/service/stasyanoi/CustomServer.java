@@ -1,24 +1,29 @@
 package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.net.HttpHeaders;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
-import static org.awaitility.Awaitility.*;
 
 public class CustomServer extends HttpServer {
 
@@ -50,13 +55,13 @@ public class CustomServer extends HttpServer {
         }
 
         //get id as aligned byte buffer
-        final ByteBuffer id = fromBytes(idParam.getBytes(UTF_8));
+        final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
 
         //get the response from db
         ByteBuffer response;
         try {
-            Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
-            await().until(future::isDone);
+            final Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
+            Awaitility.await().until(future::isDone);
             response = dao.get(id);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -108,16 +113,16 @@ public class CustomServer extends HttpServer {
             return response;
         }
 
-        final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
+        final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         final ByteBuffer value = fromBytes(request.getBody());
-        Future<?> future = executorService.submit(() -> {
+        final Future<?> future = executorService.submit(() -> {
             try {
                 dao.upsert(key, value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        await().until(future::isDone);
+        Awaitility.await().until(future::isDone);
         future.get();
         final Response response = new Response(Response.CREATED);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
@@ -140,15 +145,15 @@ public class CustomServer extends HttpServer {
             return badReqResponse;
         }
 
-        final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
-        Future<?> future = executorService.submit(() -> {
+        final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+        final Future<?> future = executorService.submit(() -> {
             try {
                 dao.remove(key);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        await().until(future::isDone);
+        Awaitility.await().until(future::isDone);
         future.get();
 
         final Response acceptedResponse = new Response(Response.ACCEPTED);
