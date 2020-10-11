@@ -128,7 +128,7 @@ public class CustomServer extends HttpServer {
         return response;
     }
 
-    private void awaitUntilReady(Future<?> future) {
+    private void awaitUntilReady(final Future<?> future) {
         boolean isReady = false;
         while (!isReady) {
             if (future.isDone()) {
