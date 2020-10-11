@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -33,7 +34,7 @@ public class DAOImpl implements DAO {
     private final File storage;
     private final long flushSize;
 
-    private int generation;
+    //private int generation;
 
     /**
      * Creates key-value database.
@@ -48,7 +49,7 @@ public class DAOImpl implements DAO {
         this.flushSize = flushSize;
         assert flushSize > 0L;
         final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
-        this.generation = -1;
+        final AtomicInteger generation = new AtomicInteger(-1);
 
         try (Stream<Path> paths = Files.list(storage.toPath())) {
             paths
@@ -62,14 +63,14 @@ public class DAOImpl implements DAO {
                         try {
                             final String name = element.getFileName().toString();
                             final int foundedGen = Integer.parseInt(name.substring(0, name.indexOf(SUFFIX)));
-                            this.generation = Math.max(this.generation, foundedGen);
+                            generation.set(Math.max(generation.get(), foundedGen));
                             ssTables.put(foundedGen, new SSTable(element.toFile()));
                         } catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }
                     });
         }
-        this.tableSet = TableSet.fromFiles(ssTables, generation + 1);
+        this.tableSet = TableSet.fromFiles(ssTables, generation.get() + 1);
     }
 
     @NotNull

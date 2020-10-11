@@ -15,12 +15,12 @@ final class TableSet {
     final MemTable mem;
 
     @NotNull
-    final Set<Table> flushing; // read-only memTable
+    final Set<Table> flushing;
 
     @NotNull
-    final NavigableMap<Integer, SSTable> files; // read-only ssTable
+    final NavigableMap<Integer, SSTable> files;
 
-    int generation;
+    final int generation;
 
     private TableSet(@NotNull final MemTable mem, @NotNull final Set<Table> flushing,
                      @NotNull final NavigableMap<Integer, SSTable> files, final int generation) {
