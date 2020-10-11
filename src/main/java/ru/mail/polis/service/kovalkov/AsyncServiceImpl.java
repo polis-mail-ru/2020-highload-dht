@@ -36,7 +36,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final DAO dao;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param config - service configuration.
      * @param dao - dao implementation.
