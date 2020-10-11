@@ -1,6 +1,7 @@
 package ru.mail.polis.service.kate.moreva;
 
 import com.google.common.base.Charsets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -17,6 +18,10 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Simple Http Server Service implementation.
@@ -26,31 +31,51 @@ import java.util.NoSuchElementException;
 
 public class MySimpleHttpServer extends HttpServer implements Service {
 
+    private static final String SERVER_ERROR = "Server error can't send response {}";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
     private final DAO dao;
+    private final ExecutorService executorService;
 
     /**
      * Http Server constructor.
      */
-    public MySimpleHttpServer(final int port, final DAO dao) throws IOException {
-        super(getConfigPort(port));
+    public MySimpleHttpServer(final int port, final DAO dao, final int numberOfWorkers, final int queueSize) throws IOException {
+        super(getConfigPort(port, numberOfWorkers));
         this.dao = dao;
-
+        assert numberOfWorkers > 0;
+        assert queueSize > 0;
+        this.executorService = new ThreadPoolExecutor(numberOfWorkers, queueSize, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("Worker_%d")
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Error in {} when processing request", t, e))
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
-    private static HttpServerConfig getConfigPort(final int port) {
+    private static HttpServerConfig getConfigPort(final int port, final int numberOfWorkers) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
         acceptorConfig.port = port;
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
+        config.selectors = numberOfWorkers;
+        config.maxWorkers = numberOfWorkers;
+        config.minWorkers = numberOfWorkers;
         return config;
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    public void handleDefault(final Request request, final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                log.error(SERVER_ERROR, session, e);
+            }
+        });
+
     }
 
     /**
@@ -58,14 +83,20 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * If the server is available @return {@link Response} {@code 200}.
      */
     @Path("/v0/status")
-    public Response status() {
-        return new Response(Response.OK, Response.EMPTY);
+    public void status(final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(new Response(Response.OK, Response.EMPTY));
+            } catch (IOException e) {
+                log.error(SERVER_ERROR, session, e);
+            }
+        });
     }
 
     /**
      * Method for working with value in the DAO by the key.
-     *
-     * @return {@code 200, data} (data is found).
+     * <p>
+     * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 201} (new data created).
      * {@code 202} (data deleted).
@@ -73,75 +104,123 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * {@code 500} (internal server error occurred).
      */
     @Path("/v0/entity")
-    public Response entity(@Param(value = "id", required = true) final String id, final Request request) {
-        if (id.isBlank()) {
-            log.error("Request with empty id on /v0/entity");
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                return getEntity(key);
-            case Request.METHOD_PUT:
-                return putEntity(key, request);
-            case Request.METHOD_DELETE:
-                return deleteEntity(key);
-            default:
-                log.error("Not allowed method on /v0/entity");
-                return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
-        }
+    public void entity(@Param(value = "id", required = true) final String id, final Request request, final HttpSession session) {
+        executorService.execute(() -> {
+            if (id.isBlank()) {
+                log.error("Request with empty id on /v0/entity");
+                try {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error(SERVER_ERROR, session, e);
+                }
+            }
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    getEntity(key, session);
+                    break;
+                case Request.METHOD_PUT:
+                    putEntity(key, request, session);
+                    break;
+                case Request.METHOD_DELETE:
+                    deleteEntity(key, session);
+                    break;
+                default:
+                    log.error("Not allowed method on /v0/entity");
+                    try {
+                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    } catch (IOException e) {
+                        log.error(SERVER_ERROR, session, e);
+                    }
+            }
+        });
     }
 
     /**
      * Subsidiary method to get value.
-     *
-     * @return {@code 200, data} (data is found).
+     * <p>
+     * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 500} (internal server error occurred).
      */
-    private Response getEntity(final ByteBuffer key) {
-        try {
-            final ByteBuffer value = dao.get(key).duplicate();
-            final byte[] body = new byte[value.remaining()];
-            value.get(body);
-            return new Response(Response.OK, body);
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("GET method failed on /v0/entity for id {}, error{}", key, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    private void getEntity(final ByteBuffer key, final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                final ByteBuffer value = dao.get(key).duplicate();
+                final byte[] body = new byte[value.remaining()];
+                value.get(body);
+                session.sendResponse(new Response(Response.OK, body));
+            } catch (NoSuchElementException e) {
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
+            } catch (IOException e) {
+                log.error("GET method failed on /v0/entity for id {}, error{}", key, e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
+            }
+        });
+
     }
 
     /**
      * Subsidiary method to put new value.
-     *
-     * @return {@code 201} (new data created).
+     * <p>
+     * {@code 201} (new data created).
      * {@code 500} (internal server error occurred).
      */
-    private Response putEntity(final ByteBuffer key, final Request request) {
-        try {
-            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("PUT method failed on /v0/entity for id {}, request body{}, error{}", key, request.getBody(), e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    private void putEntity(final ByteBuffer key, final Request request, final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException e) {
+                log.error("PUT method failed on /v0/entity for id {}, request body{}, error{}", key, request.getBody(), e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
+            }
+        });
     }
 
     /**
      * Subsidiary method to delete value by the key.
-     *
-     * @return {@code 202} (data deleted).
+     * <p>
+     * {@code 202} (data deleted).
      * {@code 500} (internal server error occurred).
      */
-    private Response deleteEntity(final ByteBuffer key) {
+    private void deleteEntity(final ByteBuffer key, final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                dao.remove(key);
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException e) {
+                log.error("DELETE method failed on /v0/entity for id {}, error{}", key, e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
+            }
+        });
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executorService.shutdown();
         try {
-            dao.remove(key);
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("DELETE method failed on /v0/entity for id {}, error{}", key, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            executorService.awaitTermination(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("Can't shutdown execution service");
+            Thread.currentThread().interrupt();
         }
     }
 }

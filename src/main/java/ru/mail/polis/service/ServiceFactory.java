@@ -29,6 +29,7 @@ import java.io.IOException;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    private static final int QUEUE_SIZE = 32;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -42,9 +43,8 @@ public final class ServiceFactory {
      * @return a storage instance
      */
     @NotNull
-    public static Service create(
-            final int port,
-            @NotNull final DAO dao) throws IOException {
+    public static Service create(final int port, @NotNull final DAO dao) throws IOException {
+
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -53,6 +53,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new MySimpleHttpServer(port, dao);
+        return new MySimpleHttpServer(port, dao, Runtime.getRuntime().availableProcessors(), QUEUE_SIZE);
     }
 }
