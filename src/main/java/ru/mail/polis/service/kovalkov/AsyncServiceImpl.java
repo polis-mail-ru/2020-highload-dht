@@ -10,7 +10,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -36,6 +35,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final ExecutorService service;
     private final DAO dao;
 
+    /**
+     * Constructor
+     *
+     * @param config - service configuration.
+     * @param dao - dao implementation.
+     */
     public AsyncServiceImpl(final HttpServerConfig config, final DAO dao) throws IOException {
         super(config);
         this.dao = dao;
@@ -56,7 +61,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public static HttpServerConfig getConfig(final int port) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
-        acceptorConfig.deferAccept =true;
+        acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
@@ -72,7 +77,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public void status(final HttpSession session) {
-        final Future<?> future = service.submit(() ->{
+        final Future<?> future = service.submit(() -> {
             try {
                 session.sendResponse(Response.ok(Response.OK));
             } catch (IOException e) {
@@ -129,7 +134,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public void put(@Param("id") final String id, final Request request, final HttpSession session) {
-        final Future<?> future = service.submit(() -> { ;
+        final Future<?> future = service.submit(() -> {
             try {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -150,12 +155,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * Delete by key.
      *
      * @param id - key.
-     * @return - code 202 if all's ok, and status 400 if key empty.
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public void delete(@Param("id") final String id, final HttpSession session) {
-        Future<?> future = service.submit(()->{
+        final Future<?> future = service.submit(() -> {
             try {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
