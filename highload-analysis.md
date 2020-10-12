@@ -25,38 +25,37 @@
 ```
 Running 2m test @ http://127.0.0.1:8080
   4 threads and 64 connections
-  Thread calibration: mean lat.: 1.829ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.901ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.961ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 1.870ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.632ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.670ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.697ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.651ms, rate sampling interval: 10ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     2.29ms    6.31ms 113.73ms   95.85%
-    Req/Sec     1.99k     0.88k   15.67k    78.99%
+    Latency     2.35ms    5.16ms 132.86ms   95.34%
+    Req/Sec     3.96k     0.96k   15.44k    84.96%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    0.99ms
- 75.000%    1.36ms
- 90.000%    3.73ms
- 99.000%   36.29ms
- 99.900%   75.07ms
- 99.990%   97.98ms
- 99.999%  109.25ms
-100.000%  113.79ms
+ 50.000%    1.28ms
+ 75.000%    1.93ms
+ 90.000%    4.13ms
+ 99.000%   24.62ms
+ 99.900%   70.85ms
+ 99.990%   99.14ms
+ 99.999%  116.10ms
+100.000%  132.99ms
 
-#[Mean    =        2.294, StdDeviation   =        6.312]
-#[Max     =      113.728, Total count    =       824413]
+#[Mean    =        2.350, StdDeviation   =        5.157]
+#[Max     =      132.864, Total count    =      1648771]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  900134 requests in 2.00m, 57.52MB read
-  Socket errors: connect 0, read 0, write 0, timeout 1856
-Requests/sec:   7501.00
-Transfer/sec:    490.79KB
+  1799418 requests in 2.00m, 114.98MB read
+Requests/sec:  14995.36
+Transfer/sec:      0.96MB
 ```
 
 Итоги:
 <ol>
-<li>обработано 900134 запросов</li>
-<li>прочитано 57.52MB данных</li>
-<li>сервер держит половину заданной нагрузки на уровне 7501 запросов в секунду</li>
+<li>обработано 1799418 запросов</li>
+<li>прочитано 114.98MB данных</li>
+<li>сервер держит заданную нагрузку на уровне 14995.36 запросов в секунду</li>
 </ol>
 
 ### GET
@@ -84,36 +83,35 @@ Transfer/sec:    490.79KB
 ```
 Running 2m test @ http://127.0.0.1:8080
   4 threads and 64 connections
-  Thread calibration: mean lat.: 11.052ms, rate sampling interval: 56ms
-  Thread calibration: mean lat.: 10.599ms, rate sampling interval: 50ms
-  Thread calibration: mean lat.: 10.451ms, rate sampling interval: 51ms
-  Thread calibration: mean lat.: 11.589ms, rate sampling interval: 54ms
+  Thread calibration: mean lat.: 4.433ms, rate sampling interval: 15ms
+  Thread calibration: mean lat.: 4.349ms, rate sampling interval: 16ms
+  Thread calibration: mean lat.: 4.581ms, rate sampling interval: 15ms
+  Thread calibration: mean lat.: 5.849ms, rate sampling interval: 19ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.06s     1.19s    4.89s    78.78%
-    Req/Sec   611.75    262.03     1.68k    64.94%
+    Latency     1.83s     1.66s    5.45s    45.97%
+    Req/Sec   762.62    223.02     2.07k    64.73%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%  595.97ms
- 75.000%    2.08s 
- 90.000%    2.81s 
- 99.000%    3.89s 
- 99.900%    4.73s 
- 99.990%    4.88s 
- 99.999%    4.89s 
-100.000%    4.89s 
+ 50.000%    1.68s 
+ 75.000%    3.36s 
+ 90.000%    3.89s 
+ 99.000%    5.10s 
+ 99.900%    5.31s 
+ 99.990%    5.39s 
+ 99.999%    5.44s 
+100.000%    5.45s 
 
-#[Mean    =     1058.210, StdDeviation   =     1189.449]
-#[Max     =     4886.528, Total count    =       266550]
+#[Mean    =     1826.595, StdDeviation   =     1657.288]
+#[Max     =     5447.680, Total count    =       324652]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  294519 requests in 2.00m, 18.78MB read
-  Socket errors: connect 0, read 0, write 0, timeout 1847
-Requests/sec:   2454.31
-Transfer/sec:    160.23KB
+  354089 requests in 2.00m, 22.58MB read
+Requests/sec:   2950.69
+Transfer/sec:    192.70KB
 ```
 
 Итоги:
 <ol>
-<li>обработано 294519 запросов</li>
-<li>прочитано 18.78MB данных</li>
-<li>сервер выдерживает половину заданной нагрузки на уровне 2454.31 запросов в секунду</li>
+<li>обработано 354089 запросов</li>
+<li>прочитано 22.58MB данных</li>
+<li>сервер выдерживает заданную нагрузку на уровне 2950.69 запросов в секунду</li>
 </ol>

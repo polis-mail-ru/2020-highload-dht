@@ -40,12 +40,13 @@ public class ServiceImpl extends HttpServer implements Service {
      * */
     public ServiceImpl(final int port,
                        @NotNull final DAO dao,
-                       final int pools) throws IOException {
+                       final int pools,
+                       final int queueSize) throws IOException {
         super(config(port));
         this.dao = dao;
         this.executorService = new ThreadPoolExecutor(pools, pools,
                 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(32));
+                new ArrayBlockingQueue<>(queueSize));
     }
 
     /** Request method for HTTP server.
@@ -78,7 +79,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 delete(key, session);
                 break;
             default:
-                log.warn("Non-supported request : {}", id);
+                log.error("Non-supported request : {}", id);
                 try {
                     session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                 } catch (IOException e) {
@@ -90,10 +91,9 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private void get(@NotNull final ByteBuffer key,
                      @NotNull final HttpSession session) {
-        final ByteBuffer[] value = new ByteBuffer[1];
         executorService.execute(() -> {
             try {
-                getValue(key, session, value);
+                getValue(key, session);
             } catch (IOException ex) {
                 log.error(NO_RESPONSE, ex);
             }
@@ -181,17 +181,15 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     private void getValue(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession session,
-                          final ByteBuffer... value) throws IOException {
+                          @NotNull final HttpSession session) throws IOException {
         try {
-            value[0] = dao.get(key);
+            session.sendResponse(Response.ok(toByteArray(dao.get(key))));
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException e) {
             log.error("GET error : {}", toByteArray(key));
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-        session.sendResponse(Response.ok(toByteArray(value[0])));
     }
 
     private void putValue(@NotNull final ByteBuffer key,
@@ -199,22 +197,21 @@ public class ServiceImpl extends HttpServer implements Service {
                           final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException e) {
             log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
     private void deleteKey(@NotNull final ByteBuffer key,
                            @NotNull final HttpSession session) throws IOException {
         try {
             dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException e) {
             log.error("DELETE error : {}", toByteArray(key));
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 }
