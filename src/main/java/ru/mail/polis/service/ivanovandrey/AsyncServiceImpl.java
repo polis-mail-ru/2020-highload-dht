@@ -90,7 +90,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             val = dao.get(key);
             session.sendResponse(Response.ok(Converter.fromByteBufferToByteArray(val)));
             } catch (NoSuchElementException e) {
-                try{
+                try {
                 session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
             } catch (IOException i) {
                     log.error(ERROR_MESSAGE, session, e);
@@ -127,9 +127,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                 } catch (IOException e) {
                 log.error("Error in delete request", e);
-                try{
+                try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }catch (IOException ex) {
+                } catch (IOException ex) {
                     log.error(ERROR_MESSAGE, session, ex);
                 }
             }
@@ -153,14 +153,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 dao.remove(key);
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
                 } catch (NoSuchElementException e) {
-                try{
+                try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException i) {
                     log.error(ERROR_MESSAGE, session, e);
                 }
             } catch (IOException e) {
                 log.error("Error in delete request", e);
-                try{
+                try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
                     log.error(ERROR_MESSAGE, session, ex);
@@ -178,7 +178,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void status(@NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-                session.sendResponse( Response.ok("OK"));
+                session.sendResponse(Response.ok("OK"));
             } catch (IOException e) {
                 log.error(ERROR_MESSAGE, session, e);
             }
