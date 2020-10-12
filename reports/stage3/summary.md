@@ -63,28 +63,27 @@ ASYNCHRONOUS
 -----------    
  
 Running 15s test @ http://localhost:8080
- 
+  
   1 threads and 65 connections
- 
-  Thread calibration: mean lat.: 1.139ms, rate sampling interval: 10ms
- 
-    Thread Stats   Avg      Stdev     Max   +/- Stdev
-
-    Latency     1.15ms  563.93us   9.50ms   72.00%
-    Req/Sec     2.11k   199.62     4.11k    75.11%
- 
+  
+  Thread calibration: mean lat.: 1.199ms, rate sampling interval: 10ms
+  
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+  
+    Latency     1.17ms  489.15us   2.99ms   63.84%
+    Req/Sec     2.11k   162.53     2.78k    75.54%
+  
   Latency Distribution (HdrHistogram - Recorded Latency)
+ 
+    50.000%     1.14ms
+    75.000%     1.53ms
+    90.000%     1.83ms
+    99.000%     2.27ms
+    99.900%     2.75ms
+    99.990%     2.93ms
+    99.999%     2.99ms
+    100.000%    2.99ms
 
-    50.000%     1.11ms
-    75.000%     1.52ms
-    90.000%     1.80ms
-    99.000%     2.24ms
-    99.900%     7.51ms
-    99.990%     9.40ms
-    99.999%     9.51ms
-    100.000%    9.51ms
-
-   
 
 ----------------------------------------------------------------
 CPU put ASYNC
@@ -171,23 +170,22 @@ Running 15s test @ http://localhost:8080
 
   1 threads and 65 connections
 
-  Thread calibration: mean lat.: 1.480ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 4.150ms, rate sampling interval: 13ms
 
-    Thread Stats   Avg      Stdev     Max   +/- Stdev
-    
-    Latency     1.45ms  584.65us   3.59ms   65.22%
-    Req/Sec     2.11k   174.40     2.78k    70.63%
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+      Latency     4.51ms    2.11ms  12.18ms   64.40%
+      Req/Sec     2.09k     1.97k    5.42k    45.38%
 
   Latency Distribution (HdrHistogram - Recorded Latency)
- 
-    50.000%     1.40ms
-    75.000%     1.86ms
-    90.000%     2.27ms
-    99.000%     2.84ms
-    99.900%     3.25ms
-    99.990%     3.52ms
-    99.999%     3.59ms
-    100.000%    3.59ms
+
+    50.000%    4.41ms
+    75.000%    6.00ms
+    90.000%    7.36ms
+    99.000%    9.53ms
+    99.900%    10.87ms
+    99.990%    11.94ms
+    99.999%    12.19ms
+    100.000%   12.19ms
 
 ----------------------------------------------------------------
 CPU get ASYNC
@@ -225,10 +223,10 @@ SYNC
 
 ASYNC
 
- Latency -> Avg. 1.15ms | Max. 9.50ms
+ Latency -> Avg. 1.17ms | Max. 2.99ms
 
- Req/Sec -> Avg. 2.11k  | Max. 4.11k 
-
+ Req/Sec -> Avg. 2.11k  | Max. 2.78k
+  
 
 2) Get
  
@@ -240,14 +238,19 @@ SYNC
 
 ASYNC
 
- Latency -> Avg. 1.45ms | Max. 5.59ms
+ Latency -> Avg. 4.51ms | Max. 12.18ms
 
- Req/Sec -> Avg. 2.11k  | Max. 2.78k 
-
-В обоих случаях асинхронная версия сервера показала большую скорость при обработке запросов.
+ Req/Sec -> Avg. 2.09k  | Max. 5.42k 
+ 
+ 
+В случае c put асинхронная версия сервера показала большую скорость при обработке запросов.
 Быстрее примерно в 3.5 - 4 раза. 
+С get запросом не получается улучшить производительность ввиду того,
+что реализация get требует блокирования всей операции.  Таким образом образуется 
+бутылочное горлышко, через которое может пройти только 1 запрос
+  
 
-В рамках графов асинхронных запросов можно так же заметить, что запросы к 
+В рамках графов CPU асинхронных запросов можно так же заметить, что запросы к 
 хранилищу теперь делаются в рамках отдельного потока. Что отражает тот факт, 
 что запросы теперь обрабатывается отдельным пулом потоков. 
 

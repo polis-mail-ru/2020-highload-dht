@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" width="1200" height="246" onload="init(evt)" viewBox="0 0 1200 246" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg version="1.1" width="1200" height="278" onload="init(evt)" viewBox="0 0 1200 278" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <style type="text/css">
 	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
 	#search { opacity:0.1; cursor:pointer; }
@@ -328,86 +328,82 @@
 </script>
 <rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
 <text id="title" x="600" y="24">Flame Graph</text>
-<text id="details" x="10" y="229"> </text>
+<text id="details" x="10" y="261"> </text>
 <text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
 <text id="search" x="1090" y="24">Search</text>
-<text id="matched" x="1090" y="229"> </text>
+<text id="matched" x="1090" y="261"> </text>
 <g id="frames">
 <g>
-<title>all (5,557 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#fc7e7e" rx="2" ry="2"/>
-<text x="13.0" y="206.0">all</text>
+<title>all (6,326 samples, 100.00%)</title><rect x="10.0" y="227.0" width="1180.0" height="15" fill="#f77777" rx="2" ry="2"/>
+<text x="13.0" y="238.0">all</text>
 </g>
 <g>
-<title>java/lang/Thread.run (5,403 samples, 97.23%)</title><rect x="10.0" y="179.0" width="1147.3" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="13.0" y="190.0">java/lang/Thread.run</text>
+<title>java/lang/Thread.run (6,326 samples, 100.00%)</title><rect x="10.0" y="211.0" width="1180.0" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="13.0" y="222.0">java/lang/Thread.run</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (5,403 samples, 97.23%)</title><rect x="10.0" y="163.0" width="1147.3" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="13.0" y="174.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (6,326 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="13.0" y="206.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor.runWorker (5,403 samples, 97.23%)</title><rect x="10.0" y="147.0" width="1147.3" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="13.0" y="158.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (6,326 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="13.0" y="190.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
 </g>
 <g>
-<title>java/util/concurrent/FutureTask.run (5,402 samples, 97.21%)</title><rect x="10.0" y="131.0" width="1147.1" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="13.0" y="142.0">java/util/concurrent/FutureTask.run</text>
+<title>java/util/concurrent/ThreadPoolExecutor.getTask (5 samples, 0.08%)</title><rect x="10.0" y="163.0" width="0.9" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="13.0" y="174.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/stasyanoi/CustomServer$$Lambda$68/1219091857.call (5,402 samples, 97.21%)</title><rect x="10.0" y="115.0" width="1147.1" height="15" fill="#5ced5c" rx="2" ry="2"/>
-<text x="13.0" y="126.0">ru/mail/polis/service/stasyanoi/CustomServer$$Lambda$68/1219091857.call</text>
+<title>java/util/concurrent/LinkedBlockingQueue.take (5 samples, 0.08%)</title><rect x="10.0" y="147.0" width="0.9" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="13.0" y="158.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/stasyanoi/CustomServer.lambda$get$0 (5,402 samples, 97.21%)</title><rect x="10.0" y="99.0" width="1147.1" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="13.0" y="110.0">ru/mail/polis/service/stasyanoi/CustomServer.lambda$get$0</text>
+<title>java/util/concurrent/locks/ReentrantLock.lockInterruptibly (5 samples, 0.08%)</title><rect x="10.0" y="131.0" width="0.9" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="13.0" y="142.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/dao/stasyanoi/DAOImpl.get (5,402 samples, 97.21%)</title><rect x="10.0" y="83.0" width="1147.1" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="13.0" y="94.0">ru/mail/polis/dao/stasyanoi/DAOImpl.get</text>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireInterruptibly (5 samples, 0.08%)</title><rect x="10.0" y="115.0" width="0.9" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="13.0" y="126.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.dao.stasyanoi.DAOImpl (5,402 samples, 97.21%)</title><rect x="10.0" y="67.0" width="1147.1" height="15" fill="#54c2c2" rx="2" ry="2"/>
-<text x="13.0" y="78.0">ru.mail.polis.dao.stasyanoi.DAOImpl</text>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.doAcquireInterruptibly (5 samples, 0.08%)</title><rect x="10.0" y="99.0" width="0.9" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="13.0" y="110.0"></text>
 </g>
 <g>
-<title>one/nio/server/SelectorThread.run (154 samples, 2.77%)</title><rect x="1157.3" y="179.0" width="32.7" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="1160.3" y="190.0">on..</text>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (5 samples, 0.08%)</title><rect x="10.0" y="83.0" width="0.9" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="13.0" y="94.0"></text>
 </g>
 <g>
-<title>one/nio/net/Session.process (154 samples, 2.77%)</title><rect x="1157.3" y="163.0" width="32.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="1160.3" y="174.0">on..</text>
+<title>java/util/concurrent/locks/LockSupport.park (5 samples, 0.08%)</title><rect x="10.0" y="67.0" width="0.9" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="13.0" y="78.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.processRead (154 samples, 2.77%)</title><rect x="1157.3" y="147.0" width="32.7" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="1160.3" y="158.0">on..</text>
+<title>jdk/internal/misc/Unsafe.park (5 samples, 0.08%)</title><rect x="10.0" y="51.0" width="0.9" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="13.0" y="62.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.processHttpBuffer (154 samples, 2.77%)</title><rect x="1157.3" y="131.0" width="32.7" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="1160.3" y="142.0">on..</text>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (5 samples, 0.08%)</title><rect x="10.0" y="35.0" width="0.9" height="15" fill="#62d0d0" rx="2" ry="2"/>
+<text x="13.0" y="46.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.handleParsedRequest (154 samples, 2.77%)</title><rect x="1157.3" y="115.0" width="32.7" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="1160.3" y="126.0">on..</text>
+<title>ru/mail/polis/service/stasyanoi/CustomServer$$Lambda$68/1086173512.run (6,321 samples, 99.92%)</title><rect x="10.9" y="163.0" width="1179.1" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="13.9" y="174.0">ru/mail/polis/service/stasyanoi/CustomServer$$Lambda$68/1086173512.run</text>
 </g>
 <g>
-<title>one/nio/http/HttpServer.handleRequest (154 samples, 2.77%)</title><rect x="1157.3" y="99.0" width="32.7" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="1160.3" y="110.0">on..</text>
+<title>ru/mail/polis/service/stasyanoi/CustomServer.lambda$get$0 (6,321 samples, 99.92%)</title><rect x="10.9" y="147.0" width="1179.1" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="13.9" y="158.0">ru/mail/polis/service/stasyanoi/CustomServer.lambda$get$0</text>
 </g>
 <g>
-<title>RequestHandler0_get.handleRequest (154 samples, 2.77%)</title><rect x="1157.3" y="83.0" width="32.7" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="1160.3" y="94.0">Re..</text>
+<title>ru/mail/polis/service/stasyanoi/CustomServer.getInternal (6,321 samples, 99.92%)</title><rect x="10.9" y="131.0" width="1179.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="13.9" y="142.0">ru/mail/polis/service/stasyanoi/CustomServer.getInternal</text>
 </g>
 <g>
-<title>ru/mail/polis/service/stasyanoi/CustomServer.get (154 samples, 2.77%)</title><rect x="1157.3" y="67.0" width="32.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="1160.3" y="78.0">ru..</text>
+<title>ru/mail/polis/dao/stasyanoi/DAOImpl.get (6,321 samples, 99.92%)</title><rect x="10.9" y="115.0" width="1179.1" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="13.9" y="126.0">ru/mail/polis/dao/stasyanoi/DAOImpl.get</text>
 </g>
 <g>
-<title>ru/mail/polis/dao/stasyanoi/DAOImpl.get (154 samples, 2.77%)</title><rect x="1157.3" y="51.0" width="32.7" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="1160.3" y="62.0">ru..</text>
-</g>
-<g>
-<title>ru.mail.polis.dao.stasyanoi.DAOImpl (154 samples, 2.77%)</title><rect x="1157.3" y="35.0" width="32.7" height="15" fill="#65d3d3" rx="2" ry="2"/>
-<text x="1160.3" y="46.0">ru..</text>
+<title>ru.mail.polis.dao.stasyanoi.DAOImpl (6,321 samples, 99.92%)</title><rect x="10.9" y="99.0" width="1179.1" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="13.9" y="110.0">ru.mail.polis.dao.stasyanoi.DAOImpl</text>
 </g>
 </g>
 </svg>
