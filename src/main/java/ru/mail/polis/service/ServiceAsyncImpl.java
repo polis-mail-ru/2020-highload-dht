@@ -1,7 +1,13 @@
 package ru.mail.polis.service;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -95,13 +101,18 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 }
                 default:
                     session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    break;
             }
         } catch (IOException ex) {
-            try {
-                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            } catch (IOException e) {
-                logger.error("Couldn't send response", e);
-            }
+            this.handleError(session);
+        }
+    }
+
+    private void handleError(final HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        } catch (IOException e) {
+            logger.error("Couldn't send response", e);
         }
     }
 
@@ -131,11 +142,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 dao.upsert(key, ByteBuffer.wrap(request.getBody()));
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
             } catch (IOException e) {
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    logger.error("Couldn't send response", e);
-                }
+                this.handleError(session);
             }
         });
     }
@@ -146,11 +153,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 dao.remove(key);
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
             } catch (IOException e) {
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    logger.error("Couldn't send response", e);
-                }
+                this.handleError(session);
             }
         });
     }
