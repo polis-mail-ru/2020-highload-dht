@@ -2,8 +2,16 @@ package ru.mail.polis.service.codearound;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
+import ru.mail.polis.service.Service;
 
+/**
+ *  class which method to be invoked for initializing HTTP Server configuration.
+ */
 public class TaskServerConfig {
+
+    private TaskServerConfig() {
+
+    }
 
     /**
      * set HTTP server initial configuration.

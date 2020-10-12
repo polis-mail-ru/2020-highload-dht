@@ -27,8 +27,8 @@ public class AsyncService extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService exec;
     Logger logger = LoggerFactory.getLogger(TaskService.class);
-    final static String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved\n";
-    final static String IO_ERROR_LOG = "IO exception raised\n";
+    private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved\n";
+    private static final String IO_ERROR_LOG = "IO exception raised\n";
 
     /**
      * async service impl const.
@@ -55,7 +55,7 @@ public class AsyncService extends HttpServer implements Service {
         );
     }
 
-     /**
+    /**
      * fires formation request to make sure server is alive.
      */
     @Path("/v0/status")
