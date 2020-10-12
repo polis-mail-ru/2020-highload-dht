@@ -30,18 +30,18 @@
 2. Обстрел R = 50 000. И так что мы видим :
 
     
-    Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Thread Stats   Avg      Stdev     Max   +/- Stdev
        Latency     2.46ms    2.62ms  28.74ms   86.51%
        Req/Sec    13.06k     3.78k   29.67k    71.32%
-      Latency Distribution (HdrHistogram - Recorded Latency)
-     50.000%    1.59ms
-     75.000%    2.59ms
-     90.000%    6.70ms
-     99.000%   11.40ms
-     99.900%   13.61ms
-     99.990%   17.15ms
-     99.999%   25.04ms
-    100.000%   28.75ms
+        Latency Distribution (HdrHistogram - Recorded Latency)
+        50.000%    1.59ms
+        75.000%    2.59ms
+        90.000%    6.70ms
+        99.000%   11.40ms
+        99.900%   13.61ms
+        99.990%   17.15ms
+        99.999%   25.04ms
+        100.000%   28.75ms
 
 
 И мы можем поддержать нагрузку в 50 000 запросов в секнуду с приемлемой задержкой. Если сравнить
