@@ -237,7 +237,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             executorService.awaitTermination(1, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            log.error("Can't shutdown execution service");
+            log.error("Error can't shutdown execution service");
             Thread.currentThread().interrupt();
         }
     }
