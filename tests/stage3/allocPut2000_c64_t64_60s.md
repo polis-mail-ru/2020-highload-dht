@@ -1,4 +1,4 @@
--t64 -c64 -d60s -R2000 -s ./wrk/put.lua --latency http://localhost:8080 put
+-t64 -c64 -d60s -R2000 -s ./wrk/put.lua --latency http://localhost:8080
 Running 1m test @ http://localhost:8080
   64 threads and 64 connections
   Thread calibration: mean lat.: 1.001ms, rate sampling interval: 10ms
