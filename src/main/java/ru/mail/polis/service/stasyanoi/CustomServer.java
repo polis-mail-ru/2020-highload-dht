@@ -3,6 +3,7 @@ package ru.mail.polis.service.stasyanoi;
 import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
@@ -15,6 +16,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -23,10 +26,12 @@ import static one.nio.http.Request.METHOD_PUT;
 public class CustomServer extends HttpServer {
 
     private final DAO dao;
+    private final ExecutorService executorService =
+            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public CustomServer(final DAO dao,
-                        final HttpServerConfig config,
-                        final Object... routers) throws IOException {
+                             final HttpServerConfig config,
+                             final Object... routers) throws IOException {
         super(config, routers);
         this.dao = dao;
     }
@@ -35,12 +40,21 @@ public class CustomServer extends HttpServer {
      * Get a record by key.
      *
      * @param idParam - key.
-     * @return Response with the value.
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public Response get(final @Param("id") String idParam) {
+    public void get(final @Param("id") String idParam, final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                getInternal(idParam, session);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
 
+    private void getInternal(final String idParam,
+                             final HttpSession session) throws IOException {
         Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
@@ -56,8 +70,6 @@ public class CustomServer extends HttpServer {
                 body = dao.get(id);
                 final byte[] bytes = toBytes(body);
                 responseHttp = Response.ok(bytes);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
             } catch (NoSuchElementException e) {
                 //if not found then 404
                 responseHttp = new Response(Response.NOT_FOUND);
@@ -65,7 +77,7 @@ public class CustomServer extends HttpServer {
             }
         }
 
-        return responseHttp;
+        session.sendResponse(responseHttp);
     }
 
     /**
@@ -91,14 +103,23 @@ public class CustomServer extends HttpServer {
      *
      * @param idParam - key of the record.
      * @param request - request with the body.
-     * @return Response with a status.
-     * @throws IOException - read/write file exception.
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public Response put(final @Param("id") String idParam,
-                        final Request request) throws IOException {
+    public void put(final @Param("id") String idParam,
+                    final Request request,
+                    final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                putInternal(idParam, request, session);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
 
+    private void putInternal(final String idParam, final Request request,
+                             final HttpSession session) throws IOException {
         Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = new Response(Response.BAD_REQUEST);
@@ -111,21 +132,29 @@ public class CustomServer extends HttpServer {
             responseHttp = new Response(Response.CREATED);
             responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         }
-
-        return responseHttp;
+        session.sendResponse(responseHttp);
     }
 
     /**
      * Delete a record.
      *
      * @param idParam - key of the record to delete.
-     * @return Response with a status.
-     * @throws IOException - file read/write exception
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public Response delete(final @Param("id") String idParam) throws IOException {
+    public void delete(final @Param("id") String idParam,
+                       final HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                deleteInternal(idParam, session);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
 
+    private void deleteInternal(final String idParam,
+                                final HttpSession session) throws IOException {
         Response responseHttp;
 
         if (idParam == null || idParam.isEmpty()) {
@@ -137,7 +166,7 @@ public class CustomServer extends HttpServer {
             responseHttp = new Response(Response.ACCEPTED);
             responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         }
-        return responseHttp;
+        session.sendResponse(responseHttp);
     }
 
     /**
