@@ -33,11 +33,19 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
 
+    private static final String ERROR_MESSAGE = "Can't send response. Session {}";
+
     @NotNull
     private final DAO dao;
     private final ExecutorService service;
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
+    /**
+     * Constructor.
+     *
+     * @param port - service configuration.
+     * @param dao - dao implementation.
+     */
     public AsyncServiceImpl(final int port,
                        @NotNull final DAO dao) throws IOException {
         super(createConfig(port));
@@ -70,26 +78,31 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public void get(@Param(value = "id", required = true) final String id,
+    public void get(@NotNull @Param(value = "id", required = true) final String id,
                     final HttpSession session) {
         service.execute(() -> {
-            try{
-            if (id == null || id.isEmpty()) {
+            try {
+            if (id.isEmpty()) {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
             final ByteBuffer key = strToByteBuffer(id, UTF_8);
             final ByteBuffer val;
-            try {
-                val = dao.get(key);
-                session.sendResponse( Response.ok(Converter.fromByteBufferToByteArray(val)));
+            val = dao.get(key);
+            session.sendResponse(Response.ok(Converter.fromByteBufferToByteArray(val)));
             } catch (NoSuchElementException e) {
-                session.sendResponse( new Response(Response.NOT_FOUND, Response.EMPTY));
-            } catch (IOException e) {
-                session.sendResponse( new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                try{
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException i) {
+                    log.error(ERROR_MESSAGE, session, e);
             }
         } catch (IOException e) {
-                log.error("Can't send response.", session, e);
-        }
+                log.error("Error in get request", e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error(ERROR_MESSAGE, session, ex);
+                }
+            }
         });
     }
 
@@ -100,24 +113,25 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id,
-                        @Param(value = "request", required = true) final Request request,
-                        @NotNull final HttpSession session) {
+    public void put(@NotNull @Param(value = "id", required = true) final String id,
+                    @NotNull @Param(value = "request", required = true) final Request request,
+                    @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-                if (id == null || id.isEmpty()) {
-                    session.sendResponse( new Response(Response.BAD_REQUEST, Response.EMPTY));
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
                 final ByteBuffer key = strToByteBuffer(id, UTF_8);
                 final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                try {
-                    dao.upsert(key, value);
+                dao.upsert(key, value);
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                 } catch (IOException e) {
-                    session.sendResponse( new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                log.error("Error in delete request", e);
+                try{
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }catch (IOException ex) {
+                    log.error(ERROR_MESSAGE, session, ex);
                 }
-                session.sendResponse( new Response(Response.CREATED, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Can't send response.", session, e);
             }
         });
     }
@@ -128,36 +142,45 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id,
+    public void delete(@NotNull @Param(value = "id", required = true) final String id,
                        @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-                if (id == null || id.isEmpty()) {
+                if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
                 final ByteBuffer key = strToByteBuffer(id, UTF_8);
-                try {
-                    dao.remove(key);
-                } catch (NoSuchElementException e) {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException e) {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
+                dao.remove(key);
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-            }
-            catch (IOException e) {
-                log.error("Can't send response.", session, e);
+                } catch (NoSuchElementException e) {
+                try{
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException i) {
+                    log.error(ERROR_MESSAGE, session, e);
+                }
+            } catch (IOException e) {
+                log.error("Error in delete request", e);
+                try{
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error(ERROR_MESSAGE, session, ex);
+                }
             }
         });
     }
 
+    /**
+     * Check status.
+     *
+     * @param session - session
+     */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 session.sendResponse( Response.ok("OK"));
             } catch (IOException e) {
-                log.error("Can't send response.", session, e);
+                log.error(ERROR_MESSAGE, session, e);
             }
         });
     }
