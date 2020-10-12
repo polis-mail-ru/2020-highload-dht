@@ -33,7 +33,7 @@ public class ServiceImpl extends HttpServer implements Service {
     private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
     private final ExecutorService executorService;
-    private final static String responseErrorString = "Sending response error";
+    private static final String responseErrorString = "Sending response error";
 
     /**
      * Implementation of a persistent storage with HTTP API.

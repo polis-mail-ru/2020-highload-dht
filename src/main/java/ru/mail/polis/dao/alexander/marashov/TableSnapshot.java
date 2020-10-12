@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
-final public class TableSnapshot {
+public final class TableSnapshot {
 
     // current table for recording data
     final Table memTable;

@@ -34,9 +34,9 @@ import java.util.stream.Stream;
  */
 public class DAOImpl implements DAO {
 
-    final static String SUFFIX = ".dat";
-    final static String TEMP = ".tmp";
-    final static String UNDERSCORE = "_";
+    static final String SUFFIX = ".dat";
+    static final String TEMP = ".tmp";
+    static final String UNDERSCORE = "_";
 
     private final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     private final ReadWriteLock lock = new ReentrantReadWriteLock(false);
@@ -156,6 +156,7 @@ public class DAOImpl implements DAO {
             flusher.tablesQueue.put(new NumberedTable(snapshot.memTable, snapshot.generation));
         } catch (final InterruptedException e) {
             log.error("Flush waiting interrupted", e);
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -184,6 +185,7 @@ public class DAOImpl implements DAO {
             flusher.join();
         } catch (final InterruptedException e) {
             log.error("Stopping interrupted", e);
+            Thread.currentThread().interrupt();
         }
     }
 

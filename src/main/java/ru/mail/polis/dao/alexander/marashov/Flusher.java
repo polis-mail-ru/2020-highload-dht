@@ -15,7 +15,7 @@ import java.util.function.BiConsumer;
 
 public class Flusher extends Thread {
 
-    private final static int FLUSHER_QUEUE_SIZE = 10;
+    private static final int FLUSHER_QUEUE_SIZE = 10;
     private final Logger log = LoggerFactory.getLogger(Flusher.class);
 
     final BlockingQueue<NumberedTable> tablesQueue;
@@ -59,6 +59,7 @@ public class Flusher extends Thread {
             }
         } catch (final InterruptedException e) {
             log.error("Flusher interrupted. The program stops.", e);
+            Thread.currentThread().interrupt();
         } catch (final IOException e) {
             log.error("Flusher met an unexpected IOException. The program stops.", e);
         }
