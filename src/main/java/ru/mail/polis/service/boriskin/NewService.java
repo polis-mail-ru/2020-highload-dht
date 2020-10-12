@@ -179,11 +179,13 @@ public class NewService extends HttpServer implements Service {
     private void getting(
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession) {
-        final ByteBuffer[] value = new ByteBuffer[1];
         executorService.execute(() -> {
             try {
                 try {
-                    value[0] = dao.get(key);
+                    httpSession.sendResponse(
+                            Response.ok(
+                                    toByteArray(dao.get(key)))
+                    );
                 } catch (NoSuchElementException e) {
                     httpSession.sendResponse(
                             resp(Response.NOT_FOUND));
@@ -193,10 +195,6 @@ public class NewService extends HttpServer implements Service {
                     httpSession.sendResponse(
                             resp(Response.INTERNAL_ERROR));
                 }
-                httpSession.sendResponse(
-                        Response.ok(
-                                toByteArray(value[0]))
-                );
             } catch (IOException ioException) {
                 logger.error(
                         "Не получается отправить запрос", ioException);
@@ -213,14 +211,15 @@ public class NewService extends HttpServer implements Service {
             try {
                 try {
                     dao.upsert(key, value);
+                    httpSession.sendResponse(
+                            resp(Response.CREATED)
+                    );
                 } catch (IOException e) {
                     logger.error(
                             "Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
                     httpSession.sendResponse(
                             resp(Response.INTERNAL_ERROR));
                 }
-                httpSession.sendResponse(
-                        resp(Response.CREATED));
             } catch (IOException ioException) {
                 logger.error(
                         "Не получается отправить запрос", ioException);
@@ -235,18 +234,18 @@ public class NewService extends HttpServer implements Service {
             try {
                 try {
                     dao.remove(key);
-                } catch (IOException e) {
+                    httpSession.sendResponse(
+                            resp(Response.ACCEPTED)
+                    );
+                } catch (IOException ioException) {
                     logger.error(
                             "Ошибка в DELETE: {}", toByteArray(key));
                     httpSession.sendResponse(
                             resp(Response.INTERNAL_ERROR));
                 }
-
-                httpSession.sendResponse(
-                        resp(Response.ACCEPTED));
-            } catch (IOException ex) {
+            } catch (IOException ioException) {
                 logger.error(
-                        "Не получается отправить запрос", ex);
+                        "Не получается отправить запрос", ioException);
             }
         });
     }
