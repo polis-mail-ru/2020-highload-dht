@@ -2,50 +2,47 @@ package ru.mail.polis.dao.boriskin;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
+import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
-
-import static java.nio.file.FileVisitResult.CONTINUE;
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import java.util.List;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Stream;
 
 /**
  * Своя реализация {@link NewDAO} интерфейса {@link DAO}.
  *
  * @author Makary Boriskin
  */
-public final class NewDAO implements DAO {
-
-    private static final Logger log = LoggerFactory.getLogger(NewDAO.class);
-
-    private final int maxSSTableCollectionThreshold;
-
+public class NewDAO implements DAO {
+    @NotNull
     private final File base;
     private final long maxHeapThreshold;
 
-    private Table memTable;
-    private final Collection<SortedStringTable> ssTableCollection;
-
-    // счетчик поколений
-    private int gen;
-
-    private static final String NAME = "SortedStringTABLE";
     private static final String DB = ".db";
     private static final String TEMP = ".tmp";
+
+    private final ReentrantReadWriteLock readWriteLock =
+            new ReentrantReadWriteLock();
+    @NotNull
+    @GuardedBy("readWriteLock")
+    private TableSet memTable;
 
     /**
      * Конструктор {link NewDAO} instance.
@@ -54,15 +51,17 @@ public final class NewDAO implements DAO {
      * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск
      * @throws IOException обработка получения на вход не того base
      */
-    public NewDAO(final File base, final long maxHeapThreshold) throws IOException {
+    public NewDAO(
+            @NotNull final File base,
+            final long maxHeapThreshold) throws IOException {
         this.base = base;
         assert maxHeapThreshold >= 0L;
         this.maxHeapThreshold = maxHeapThreshold;
 
-        this.maxSSTableCollectionThreshold = 64;
-
-        memTable = new MemTable();
-        ssTableCollection = new ArrayList<>();
+        final NavigableMap<Long, Table> ssTableCollection =
+                new TreeMap<>();
+        final AtomicLong identifierThreshold =
+                new AtomicLong();
 
         /*
           Сканируем иерархию в папке с целью понять, что там лежат SSTable'ы.
@@ -90,155 +89,243 @@ public final class NewDAO implements DAO {
 
           Однако в данном конкретном случае, можно обойтись без FOLLOW_LINKS.
          */
-        Files.walkFileTree(base.toPath(),
-                new SimpleFileVisitor<>() {
-           @Override
-           public FileVisitResult visitFile(final Path path,
-                                            final BasicFileAttributes attributes) throws IOException {
-               if (path.toFile().isFile() && path.getFileName().toString().endsWith(DB)
-                       && path.getFileName().toString().startsWith(NAME)) {
-                   ssTableCollection.add(new SortedStringTable(path.toFile()));
-                   // более свежая версия из того, что лежит на диске
-                   gen = Math.max(gen, getGeneration(path.toFile().getName()));
-               }
+        try (Stream<Path> stream = Files.walk(base.toPath(), 1)) {
+            stream.filter(path -> {
+                final String fName = path.getFileName().toString();
+                return fName.endsWith(DB)
+                        && !path.toFile().isDirectory()
+                        && fName.substring(0, fName.indexOf(DB)).matches("^[0-9]+$"); })
+                    .forEach(path -> {
+                            final String fName =
+                                    path.getFileName().toString();
+                            final long gen =
+                                    Integer.parseInt(fName.substring(0, fName.indexOf(DB)));
 
-               return CONTINUE;
-           }
-        });
+                            // более свежая версия из того, что лежит на диске
+                            identifierThreshold.set(
+                                    Math.max(
+                                            identifierThreshold.get(),
+                                            gen));
+                        try {
+                            ssTableCollection.put(
+                                    gen,
+                                    new SortedStringTable(path.toFile()));
+                        } catch (IOException ioException) {
+                            throw new UncheckedIOException("Ex while put in ssTableCollection: {}", ioException);
+                        }
+                    });
+        }
+        identifierThreshold.set(
+                identifierThreshold.get() + 1);
+        this.memTable =
+                new TableSet(
+                        new MemTable(),
+                        Collections.emptySet(),
+                        ssTableCollection,
+                        identifierThreshold.get());
     }
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(@NotNull final ByteBuffer point) throws IOException {
-
+    public Iterator<Record> iterator(
+            @NotNull final ByteBuffer point) throws IOException {
         // после мерджа ячеек разных таблиц,
         // при возвращении итератора пользователю:
         // в этот момент превращает их в рекорды (transform)
         return Iterators.transform(iterateThroughTableCells(point),
-                cell -> Record.of(cell.getKey(), cell.getValue().getData()));
+                cell -> Record.of(cell.getKey(), cell.getVal().getData()));
     }
 
-    private Iterator<TableCell> iterateThroughTableCells(@NotNull final ByteBuffer point) throws IOException {
-        final Collection<Iterator<TableCell>> filesIterator = new ArrayList<>();
+    /**
+     * Определяет итератор по "живым" ячейкам таблицы.
+     *
+     * @param point где определен интератор
+     * @return итератор по "живым" ячейкам таблицы
+     * @throws IOException в случае ошибки в доступе к итератору таблицы
+     */
+    @NotNull
+    public Iterator<TableCell> iterateThroughTableCells(
+            @NotNull final ByteBuffer point) throws IOException {
+        final TableSet snapshot;
+        readWriteLock.readLock().lock();
+        try {
+            snapshot = this.memTable;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+        final List<Iterator<TableCell>> iteratorList = new ArrayList<>(
+                snapshot.ssTableCollection.size() + 1);
+        iteratorList.add(
+                snapshot
+                        .currMemTable
+                        .iterator(point));
 
-        for (final SortedStringTable sortedStringTable : ssTableCollection) {
-            filesIterator.add(sortedStringTable.iterator(point));
+        for (final Table table : snapshot.tablesReadyToFlush) {
+            iteratorList.add(table.iterator(point));
         }
 
-        filesIterator.add(memTable.iterator(point));
         // итератор мерджит разные потоки и выбирает самое актуальное значение
-        final Iterator<TableCell> cells = Iters.collapseEquals(
-                Iterators.mergeSorted(filesIterator, TableCell.COMPARATOR),
-                TableCell::getKey);
+        final Iterator<TableCell> alive =
+                returnIteratorOverMergedCollapsedFiltered(
+                        snapshot,
+                        point,
+                        iteratorList);
         // может быть "живое" значение, а может быть, что значение по ключу удалили в момент времени Time Stamp
-        return Iterators.filter(cells,
-                cell -> !cell.getValue().wasRemoved());
+        return Iterators.filter(
+                alive, cell -> !cell.getVal().wasRemoved());
     }
 
-    // вставить-обновить
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
-        memTable.upsert(key, val);
+    public void upsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer val) throws IOException {
+        final boolean flushPending;
+        readWriteLock.readLock().lock();
+        try {
+            memTable.currMemTable.upsert(key, val);
+            flushPending =
+                    memTable.currMemTable.getSize() >= maxHeapThreshold;
+
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
         // когда размер таблицы достигает порога,
         // сбрасываем данную таблицу на диск,
         // где она хранится в бинарном сериализованном виде
-        if (memTable.getSize() >= maxHeapThreshold) {
+        if (flushPending) {
             flush();
-        }
-
-        if (ssTableCollection.size() > maxSSTableCollectionThreshold) {
-            compact();
         }
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key);
-        // сбрасываем таблицу на диск
-        if (memTable.getSize() >= maxHeapThreshold) {
-            flush();
-        }
+    public void remove(
+            @NotNull final ByteBuffer key) throws IOException {
+        final boolean flushPending;
+        readWriteLock.readLock().lock();
+        try {
+            memTable.currMemTable.remove(key);
+            flushPending =
+                    memTable.currMemTable.getSize() >= maxHeapThreshold;
 
-        if (ssTableCollection.size() > maxSSTableCollectionThreshold) {
-            compact();
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+        // сбрасываем таблицу на диск
+        if (flushPending) {
+            flush();
         }
     }
 
     @Override
     public void close() throws IOException {
         // сохранить все, что мы не сохранили
-        if (memTable.getSize() > 0) {
-            flush();
-        }
+        flush();
     }
 
     private void flush() throws IOException {
-        // в начале нужно писать во временный файл
-        final File temp = new File(base, NAME + gen + TEMP);
-
+        final TableSet snapshot;
+        readWriteLock.writeLock().lock();
         try {
-            SortedStringTable.writeData(
-                    memTable.iterator(ByteBuffer.allocate(0)),
-                    temp);
-        } catch (IOException ex) {
-            Files.delete(temp.toPath());
-            throwDBStrangeBehaviour();
+            snapshot = this.memTable;
+            if (snapshot.currMemTable.getSize() == 0L) {
+                return;
+            }
+            this.memTable = snapshot.setToFlush();
+        } finally {
+            readWriteLock.writeLock().unlock();
         }
+
+        // в начале нужно писать во временный файл
+        final File temp =
+                new File(base, snapshot.gen + TEMP);
+        SortedStringTable.writeData(
+                snapshot
+                        .currMemTable
+                        .iterator(ByteBuffer.allocate(0)),
+                temp);
 
         // превращаем в постоянный файл
-        final File dest = new File(base, NAME + gen + DB);
-        Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
+        final File dest =
+                new File(base, snapshot.gen + DB);
+        Files.move(
+                temp.toPath(),
+                dest.toPath(),
+                StandardCopyOption.ATOMIC_MOVE);
 
-        ssTableCollection.add(new SortedStringTable(dest));
-
-        // обновляем счетчик поколений
-        gen++;
-        // заменяем MemTable в памяти на пустой
-        memTable = new MemTable();
-        // таким образом, на диске копятся SSTable'ы + есть пустой-непустой MemTable в памяти
-    }
-
-    private void throwDBStrangeBehaviour() throws IOException {
-        throw new IOException("БД в странном состоянии");
-    }
-
-    private int getGeneration(final String name) {
-        for (int i = 0; i < Math.min(9, name.length()); i++) {
-            if (!Character.isDigit(name.charAt(i))) {
-                return i == 0 ? 0 : Integer.parseInt(name.substring(0, i));
-            }
+        readWriteLock.writeLock().lock();
+        try {
+            this.memTable =
+                    this.memTable
+                            .flushTable(
+                                    snapshot.currMemTable,
+                                    new SortedStringTable(dest),
+                                    snapshot.gen);
+        } finally {
+            readWriteLock.writeLock().unlock();
         }
-        return -1;
     }
 
     @Override
-    public void compact() throws IOException {
-        gen = 1;
-        final File temp = new File(base, NAME + gen + TEMP);
-
+    public synchronized void compact() throws IOException {
+        final TableSet snapshot;
+        readWriteLock.readLock().lock();
         try {
-            SortedStringTable.writeData(
-                    iterateThroughTableCells(ByteBuffer.allocate(0)),
-                    temp);
-        } catch (IOException ex) {
-            Files.delete(temp.toPath());
-            throwDBStrangeBehaviour();
+            snapshot = this.memTable;
+        } finally {
+            readWriteLock.readLock().unlock();
         }
 
-        for (final SortedStringTable sortedStringTable : ssTableCollection) {
-            try {
-                Files.delete(sortedStringTable.getTable().toPath());
-            } catch (IOException ex) {
-                log.warn("Не удалось удалить: " + ex);
-            }
+        final ByteBuffer point =
+                ByteBuffer.allocate(0);
+        final List<Iterator<TableCell>> fileIterators =
+                new ArrayList<>(
+                        snapshot.ssTableCollection.size());
+        final Iterator<TableCell> cells =
+                returnIteratorOverMergedCollapsedFiltered(snapshot, point, fileIterators);
+
+        readWriteLock.writeLock().lock();
+        try {
+            this.memTable = this.memTable.compactSSTables();
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+        final File temp = new File(base, snapshot.gen + TEMP);
+        SortedStringTable.writeData(cells, temp);
+        final File dest = new File(base, snapshot.gen + DB);
+        Files.move(
+                temp.toPath(),
+                dest.toPath(),
+                StandardCopyOption.ATOMIC_MOVE);
+
+        readWriteLock.writeLock().lock();
+        try {
+            this.memTable =
+                    this.memTable
+                            .flushCompactTable(
+                                    snapshot.ssTableCollection,
+                                    new SortedStringTable(dest),
+                                    snapshot.gen);
+        } finally {
+            readWriteLock.writeLock().unlock();
         }
 
-        ssTableCollection.clear();
+        for (final long gen : snapshot.ssTableCollection.keySet()) {
+            final File f = new File(base, gen + DB);
+            Files.delete(f.toPath());
+        }
+    }
 
-        final File dest = new File(base, NAME + gen + DB);
-        Files.move(temp.toPath(), dest.toPath(), ATOMIC_MOVE);
-        ssTableCollection.add(new SortedStringTable(dest));
+    private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(
+            final TableSet snapshot,
+            final ByteBuffer point,
+            final List<Iterator<TableCell>> iteratorList) throws IOException {
+        for (final Table table : snapshot.ssTableCollection.descendingMap().values()) {
+            iteratorList.add(table.iterator(point));
+        }
 
-        gen = ssTableCollection.size() + 1;
+        final Iterator<TableCell> merged =
+                Iterators.mergeSorted(iteratorList, Comparator.naturalOrder());
+
+        return Iters.collapseEquals(merged, TableCell::getKey);
     }
 }

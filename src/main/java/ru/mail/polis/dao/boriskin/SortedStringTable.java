@@ -2,40 +2,35 @@ package ru.mail.polis.dao.boriskin;
 
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.IntBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class SortedStringTable implements Table {
-    private final long size;
+@ThreadSafe
+public final class SortedStringTable implements Table {
     private final int rows;
+    private final int size;
 
-    private final File table;
-
-    // хранит указатели на начало каждой строки
-    private final IntBuffer offsets;
-    private final ByteBuffer cells;
-
-    File getTable() {
-        return table;
-    }
+    private final FileChannel fileChannel;
 
     @Override
     public long getSize() {
-        return size;
+        return
+                (long) size + (rows + 1) * Integer.BYTES;
     }
 
     @NotNull
     @Override
-    public Iterator<TableCell> iterator(@NotNull final ByteBuffer point) throws IOException {
+    public Iterator<TableCell> iterator(
+            @NotNull final ByteBuffer point) throws IOException {
         return new Iterator<>() {
             int next = findNext(point);
 
@@ -59,43 +54,82 @@ public class SortedStringTable implements Table {
         };
     }
 
-    private TableCell findCell(final int index) {
+    private TableCell findCell(
+            final int index) {
         assert index >= 0 && index < rows;
 
-        int offset = offsets.get(index);
+        int offset = 0;
+        try {
+            offset = findOffset(index);
+        } catch (IOException ioException) {
+            throw new UncheckedIOException("Ex in getting offset 1: {}", ioException);
+        }
+        final ByteBuffer keySize =
+                ByteBuffer.allocate(Integer.BYTES);
 
-        // используем длину ключа
-        final int sizeOfK = cells.getInt(offset);
+        try {
+            fileChannel.read(keySize, offset);
+        } catch (IOException ioException) {
+            throw new UncheckedIOException("Ex in read file channel 1: {}", ioException);
+        }
+
         offset += Integer.BYTES;
+        final int key = keySize.rewind().getInt();
+        final ByteBuffer keyBuf =
+                ByteBuffer.allocate(key);
 
-        final ByteBuffer key = cells.duplicate();
-        key.position(offset);
-        key.limit(key.position() + sizeOfK);
-        offset += sizeOfK;
+        try {
+            fileChannel.read(keyBuf, offset);
+        } catch (IOException ioException) {
+            throw new UncheckedIOException("Ex in read file channel 2: {}", ioException);
+        }
 
-        // работа с версией
-        final long timeStamp = cells.getLong(offset);
-        offset += Long.BYTES;
+        offset += key;
+        final ByteBuffer timeStampBuf =
+                ByteBuffer.allocate(Long.BYTES);
+
+        try {
+            fileChannel.read(timeStampBuf, offset);
+        } catch (IOException ioException) {
+            throw new UncheckedIOException("Ex in read file channel 3: {}", ioException);
+        }
+
+        final long timeStamp = timeStampBuf.rewind().getLong();
 
         if (timeStamp < 0) {
-            // если это могилка, то дальше ничего нет
-            return new TableCell(key.slice(), new Value(-timeStamp, null));
+            return new TableCell(keyBuf.rewind(), new Value(-timeStamp));
         } else {
-            // Values Module
-            final int sizeOfV = cells.getInt(offset);
-            offset += Integer.BYTES;
+            offset += Long.BYTES;
 
-            final ByteBuffer val = cells.duplicate();
-            val.position(offset);
-            val.limit(val.position() + sizeOfV);
+            final int fullSize;
+            if (index == rows - 1) {
+                fullSize = size - offset;
+            } else {
+                try {
+                    fullSize = findOffset(index + 1) - offset;
+                } catch (IOException ioException) {
+                    throw new UncheckedIOException("Ex in getting offset 2: {}", ioException);
+                }
+            }
 
-            // если это нормальное значение, то дальше длина этого значения и само значение
-            return new TableCell(key.slice(), new Value(timeStamp, val.slice()));
+            final ByteBuffer data =
+                    ByteBuffer.allocate(fullSize);
+
+            try {
+                fileChannel.read(data, offset);
+            } catch (IOException ioException) {
+                throw new UncheckedIOException("Ex in read file channel 4: {}", ioException);
+            }
+
+            return new TableCell(keyBuf.rewind(), new Value(
+                    timeStamp,
+                    data.rewind()));
         }
     }
 
     // бинарный поиск поверх файла
-    private int findNext(final ByteBuffer point) {
+    private int findNext(
+            final ByteBuffer point) throws IOException {
         int l = 0;
         int r = rows - 1;
         while (l < r + 1) {
@@ -116,106 +150,156 @@ public class SortedStringTable implements Table {
         return l;
     }
 
-    private Comparable<ByteBuffer> findK(final int index) {
+    private ByteBuffer findK(
+            final int index) throws IOException {
         assert 0 <= index && index < rows;
 
-        final int offset = offsets.get(index);
-        final int sizeOfK = cells.getInt(offset);
-        final ByteBuffer key = cells.duplicate();
+        final int offset =
+                findOffset(index);
+        final ByteBuffer keySize =
+                ByteBuffer.allocate(Integer.BYTES);
 
-        key.position(offset + Integer.BYTES);
-        key.limit(key.position() + sizeOfK);
+        fileChannel.read(
+                keySize,
+                offset);
 
-        return key.slice();
+        final int key =
+                keySize
+                        .rewind()
+                        .getInt();
+        final ByteBuffer keyBuf =
+                ByteBuffer.allocate(key);
+
+        fileChannel.read(
+                keyBuf,
+                offset + Integer.BYTES);
+
+        return keyBuf.rewind();
     }
 
-    // Отсортированная таблица на диске.
-    // После записи на диск поддерживает только операции чтения.
-    SortedStringTable(@NotNull final File f) throws IOException {
-        this.table = f;
-        this.size = f.length();
-        assert size != 0 && size <= Integer.MAX_VALUE;
+    private int findOffset(
+            final int num) throws IOException {
+        final ByteBuffer offsetBuf =
+                ByteBuffer.allocate(Integer.BYTES);
 
-        final MappedByteBuffer mapped;
-        try (FileChannel fileChannel = FileChannel.open(f.toPath(), StandardOpenOption.READ)) {
-            mapped = (MappedByteBuffer) fileChannel.map(
-                    FileChannel.MapMode.READ_ONLY, 0L, fileChannel.size()
-            ).order(ByteOrder.BIG_ENDIAN);
-        }
+        fileChannel.read(
+                offsetBuf,
+                size + num * Integer.BYTES);
 
-        rows = mapped.getInt((int) (size - Integer.BYTES));
+        return offsetBuf
+                .rewind()
+                .getInt();
+    }
 
-        final ByteBuffer offsetsByteBuffer = mapped.duplicate();
-        final ByteBuffer cellsByteBuffer = mapped.duplicate();
+    /**
+     * Отсортированная таблица на диске.
+     * После записи на диск поддерживает только операции чтения.
+     *
+     * @param f файл
+     * @throws IOException если ошибка при работе с файлом
+     */
+    public SortedStringTable(
+            @NotNull final File f) throws IOException {
+        fileChannel =
+                FileChannel.open(
+                        f.toPath(),
+                        StandardOpenOption.READ);
 
-        offsetsByteBuffer.position(mapped.limit() - Integer.BYTES * rows - Integer.BYTES);
-        offsetsByteBuffer.limit(mapped.limit() - Integer.BYTES);
-        cellsByteBuffer.limit(offsetsByteBuffer.position());
+        final int fSize =
+                (int) fileChannel.size() - Integer.BYTES;
+        final ByteBuffer tableCellsAmount =
+                ByteBuffer.allocate(Integer.BYTES);
 
-        this.offsets = offsetsByteBuffer.slice().asIntBuffer();
-        this.cells = cellsByteBuffer.slice();
+        fileChannel.read(
+                tableCellsAmount,
+                fSize);
+
+        rows =
+                tableCellsAmount.rewind().getInt();
+        size =
+                fSize - rows * Integer.BYTES;
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer val) throws IOException {
-        throw new UnsupportedOperationException("");
+    public void upsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer val) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) throws IOException {
-        throw new UnsupportedOperationException("");
+    public void remove(
+            @NotNull final ByteBuffer key) {
+        throw new UnsupportedOperationException();
     }
 
-    static void writeData(final Iterator<TableCell> cells, final File target) throws IOException {
-        try (FileChannel fileChannel = FileChannel.open(target.toPath(),
-                StandardOpenOption.CREATE_NEW,
-                StandardOpenOption.WRITE)) {
-            final List<Integer> offsets = new ArrayList<>();
+    /**
+     * Запись таблицы на диск.
+     *
+     * @param cells итератор по ячейкам таблицы
+     * @param target файл, куда пишем
+     * @throws IOException если ошибка при работе с файлом
+     */
+    public static void writeData(
+            final Iterator<TableCell> cells,
+            final File target) throws IOException {
+        try (FileChannel fileChannel = new FileOutputStream(target).getChannel()) {
+            final List<Integer> offsets =
+                    new ArrayList<>();
             int offset = 0;
             while (cells.hasNext()) {
+                final TableCell tableCell =
+                        cells.next();
+                final ByteBuffer key =
+                        tableCell.getKey();
+
                 offsets.add(offset);
-
-                final TableCell tableCell = cells.next();
-
-                final ByteBuffer key = tableCell.getKey();
-                final int sizeOfK = key.remaining();
-
-                fileChannel.write(Bytes.fromInt(sizeOfK));
-                offset += Integer.BYTES;
+                offset += key.remaining() + Long.BYTES + Integer.BYTES;
+                fileChannel.write(
+                        ByteBuffer
+                                .allocate(Integer.BYTES)
+                                .putInt(key.remaining())
+                                .rewind());
                 fileChannel.write(key);
-                offset += sizeOfK;
-
-                final Value val = tableCell.getValue();
 
                 /*
                 TimeStamp Module
                 храним монотонно увеличивающийся в системе Time Stamp,
                 чтобы можно было взять строки и по значению версии определить что свежее
                  */
+                final Value val =
+                        tableCell.getVal();
                 if (val.wasRemoved()) {
-                    fileChannel.write(Bytes.fromLong(-tableCell.getValue().getTimeStamp()));
+                    fileChannel.write(
+                            ByteBuffer
+                                    .allocate(Long.BYTES)
+                                    .putLong(-tableCell.getVal().getTimeStamp())
+                                    .rewind());
                 } else {
-                    fileChannel.write(Bytes.fromLong(tableCell.getValue().getTimeStamp()));
-                }
-
-                offset += Long.BYTES;
-
-                if (!val.wasRemoved()) {
-                    final ByteBuffer data = val.getData();
-                    final int sizeOfV = data.remaining();
-
-                    fileChannel.write(Bytes.fromInt(sizeOfV));
-                    offset += Integer.BYTES;
+                    fileChannel.write(
+                            ByteBuffer
+                                    .allocate(Long.BYTES)
+                                    .putLong(tableCell.getVal().getTimeStamp())
+                                    .rewind());
+                    final ByteBuffer data = tableCell.getVal().getData();
+                    offset += data.remaining();
                     fileChannel.write(data);
-                    offset += sizeOfV;
                 }
             }
 
             for (final Integer o : offsets) {
-                fileChannel.write(Bytes.fromInt(o));
+                fileChannel.write(
+                        ByteBuffer
+                                .allocate(Integer.BYTES)
+                                .putInt(o)
+                                .rewind());
             }
 
-            fileChannel.write(Bytes.fromInt(offsets.size()));
+            fileChannel.write(
+                    ByteBuffer
+                            .allocate(Integer.BYTES)
+                            .putInt(offsets.size())
+                            .rewind());
         }
     }
 }
