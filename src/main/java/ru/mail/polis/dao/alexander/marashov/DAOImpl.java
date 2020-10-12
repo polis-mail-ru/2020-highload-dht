@@ -226,7 +226,7 @@ public class DAOImpl implements DAO {
             try {
                 Files.delete(path);
             } catch (final IOException e) {
-                throw new IOException("Flusher: can't delete file " + path);
+                throw new IOException("Flusher: can't delete file " + path, e);
             }
         }
     }
