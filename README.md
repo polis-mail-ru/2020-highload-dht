@@ -687,6 +687,8 @@ Transfer/sec:      0.98MB
 ![get_cpu_64](https://user-images.githubusercontent.com/55311053/95678755-5b25a500-0bd7-11eb-8f85-5e19bfc3a506.jpg)
 <p align="center">Рис.7. Выделение ресурса CPU при симулировании GET-запросов (async-featured)</p>
 
+Как и результаты PUT-запросов, текущие профили отражают активность потоков, запущенных <em>ThreadPoolExecutor</em>. Часть выделений процессорного времени приходится на вызовы методов <em>get</em> и <em>getAsync</em>, формирующие основную вычислительную нагрузку наряду с операциями чтения ключей и записи связанных значений в сокет.    
+
 ![get_alloc_ext](https://user-images.githubusercontent.com/55311053/95623573-2fdb7280-0a7e-11eb-99b8-fad5d51d8f5f.jpg)
 <p align="center">Рис.8. Выделение ресурса RAM при симулировании GET-запросов (thread safe synchronized)</p>
 
