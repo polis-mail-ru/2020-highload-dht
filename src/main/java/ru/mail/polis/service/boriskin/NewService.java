@@ -72,8 +72,8 @@ public class NewService extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> logger.error(
-                                "Ошибка в {}, возникла при обработке запроса", t, e))
+                        .setUncaughtExceptionHandler((t, e) ->
+                                logger.error("Ошибка в {}, возникла при обработке запроса", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
     }
@@ -114,11 +114,7 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) {
         idValidation(id, httpSession);
 
-        final ByteBuffer key = ByteBuffer.wrap(
-                id.getBytes(
-                        StandardCharsets.UTF_8
-                )
-        );
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         getting(
                 key,
                 httpSession);
@@ -139,11 +135,7 @@ public class NewService extends HttpServer implements Service {
     ) {
         idValidation(id, httpSession);
 
-        final ByteBuffer key = ByteBuffer.wrap(
-                id.getBytes(
-                        StandardCharsets.UTF_8
-                )
-        );
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         upserting(
                 key,
                 request,
@@ -163,11 +155,7 @@ public class NewService extends HttpServer implements Service {
     ) {
         idValidation(id, httpSession);
 
-        final ByteBuffer key = ByteBuffer.wrap(
-                id.getBytes(
-                        StandardCharsets.UTF_8
-                )
-        );
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         removing(
                 key,
                 httpSession);
@@ -178,11 +166,9 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
             try {
-                httpSession.sendResponse(
-                        resp(Response.BAD_REQUEST));
+                httpSession.sendResponse(resp(Response.BAD_REQUEST));
             } catch (IOException ioException) {
-                logger.error(
-                        "Не плучается отправить запрос", ioException);
+                logger.error("Не плучается отправить запрос", ioException);
             }
         }
     }
@@ -194,8 +180,7 @@ public class NewService extends HttpServer implements Service {
             try {
                 doGet(key, httpSession);
             } catch (IOException ioException) {
-                logger.error(
-                        "Ошибка в getting ", ioException);
+                logger.error("Ошибка в getting ", ioException);
             }
         });
     }
@@ -209,13 +194,10 @@ public class NewService extends HttpServer implements Service {
                             toByteArray(dao.get(key)))
             );
         } catch (NoSuchElementException e) {
-            httpSession.sendResponse(
-                    resp(Response.NOT_FOUND));
-        } catch (IOException e) {
-            logger.error(
-                    "Ошибка в GET: {}", toByteArray(key));
-            httpSession.sendResponse(
-                    resp(Response.INTERNAL_ERROR));
+            httpSession.sendResponse(resp(Response.NOT_FOUND));
+        } catch (IOException ioException) {
+            logger.error("Ошибка в GET: {}", toByteArray(key));
+            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
         }
     }
 
@@ -231,8 +213,7 @@ public class NewService extends HttpServer implements Service {
                         httpSession,
                         value);
             } catch (IOException ioException) {
-                logger.error(
-                        "Ошибка в upserting ", ioException);
+                logger.error("Ошибка в upserting ", ioException);
             }
         });
     }
@@ -243,14 +224,10 @@ public class NewService extends HttpServer implements Service {
             final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
-            httpSession.sendResponse(
-                    resp(Response.CREATED)
-            );
-        } catch (IOException e) {
-            logger.error(
-                    "Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
-            httpSession.sendResponse(
-                    resp(Response.INTERNAL_ERROR));
+            httpSession.sendResponse(resp(Response.CREATED));
+        } catch (IOException ioException) {
+            logger.error("Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
+            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
         }
     }
 
@@ -263,8 +240,7 @@ public class NewService extends HttpServer implements Service {
                         key,
                         httpSession);
             } catch (IOException ioException) {
-                logger.error(
-                        "Ошибка в removing ", ioException);
+                logger.error("Ошибка в removing ", ioException);
             }
         });
     }
@@ -278,10 +254,8 @@ public class NewService extends HttpServer implements Service {
                     resp(Response.ACCEPTED)
             );
         } catch (IOException ioException) {
-            logger.error(
-                    "Ошибка в DELETE: {}", toByteArray(key));
-            httpSession.sendResponse(
-                    resp(Response.INTERNAL_ERROR));
+            logger.error("Ошибка в DELETE: {}", toByteArray(key));
+            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
         }
     }
 
@@ -294,11 +268,9 @@ public class NewService extends HttpServer implements Service {
     public void status(final HttpSession httpSession) {
         executorService.execute(() -> {
             try {
-                httpSession.sendResponse(
-                        Response.ok("OK"));
+                httpSession.sendResponse(Response.ok("OK"));
             } catch (IOException ioException) {
-                logger.error(
-                        "Ошибка при ответе", ioException);
+                logger.error("Ошибка при ответе", ioException);
             }
         });
     }
@@ -315,10 +287,8 @@ public class NewService extends HttpServer implements Service {
             final Request request,
             final HttpSession httpSession
     ) throws IOException {
-        logger.error(
-                "Непонятный запрос: {}", request);
-        httpSession.sendResponse(
-                resp(Response.BAD_REQUEST));
+        logger.error("Непонятный запрос: {}", request);
+        httpSession.sendResponse(resp(Response.BAD_REQUEST));
     }
 
     private Response resp(final String response) {
@@ -332,8 +302,8 @@ public class NewService extends HttpServer implements Service {
         try {
             executorService.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException interruptedException) {
-            logger.error(
-                    "Не получилось завершить Executor Service", interruptedException);
+            logger.error("Не получилось завершить Executor Service", interruptedException);
+            Thread.currentThread().interrupt();
         }
     }
 }
