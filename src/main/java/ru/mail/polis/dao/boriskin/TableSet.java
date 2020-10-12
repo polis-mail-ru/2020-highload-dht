@@ -9,13 +9,18 @@ import java.util.Set;
 import java.util.TreeMap;
 
 public final class TableSet {
+    // Набор таблиц, из которых только читаем
     @NotNull
     public Set<Table> tablesReadyToFlush;
+    // Набор файлов, из которых только читаем
     @NotNull
     public final NavigableMap<Long, Table> ssTableCollection;
+    // Текущая Mem Table, в которую идет запись
     @NotNull
     public Table currMemTable;
 
+    // Текщее поколение, которое только растет при очередном флаше,
+    // чтобы создавать новые файлы
     public final long gen;
 
     /**
