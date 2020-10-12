@@ -1,0 +1,1153 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="582" onload="init(evt)" viewBox="0 0 1200 582" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
+<text id="title" x="600" y="24">Flame Graph</text>
+<text id="details" x="10" y="565"> </text>
+<text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090" y="24">Search</text>
+<text id="matched" x="1090" y="565"> </text>
+<g id="frames">
+<g>
+<title>all (14,509 samples, 100.00%)</title><rect x="10.0" y="531.0" width="1180.0" height="15" fill="#ec6969" rx="2" ry="2"/>
+<text x="13.0" y="542.0">all</text>
+</g>
+<g>
+<title>java/lang/Thread.run (12,394 samples, 85.42%)</title><rect x="10.0" y="515.0" width="1008.0" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="13.0" y="526.0">java/lang/Thread.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (12,394 samples, 85.42%)</title><rect x="10.0" y="499.0" width="1008.0" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="13.0" y="510.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (12,394 samples, 85.42%)</title><rect x="10.0" y="483.0" width="1008.0" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="13.0" y="494.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.getTask (176 samples, 1.21%)</title><rect x="10.0" y="467.0" width="14.3" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="13.0" y="478.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ArrayBlockingQueue.take (176 samples, 1.21%)</title><rect x="10.0" y="451.0" width="14.3" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="13.0" y="462.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.await (71 samples, 0.49%)</title><rect x="10.0" y="435.0" width="5.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="13.0" y="446.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireQueued (71 samples, 0.49%)</title><rect x="10.0" y="419.0" width="5.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="13.0" y="430.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (71 samples, 0.49%)</title><rect x="10.0" y="403.0" width="5.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="13.0" y="414.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/LockSupport.park (71 samples, 0.49%)</title><rect x="10.0" y="387.0" width="5.8" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="13.0" y="398.0"></text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.park (71 samples, 0.49%)</title><rect x="10.0" y="371.0" width="5.8" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="13.0" y="382.0"></text>
+</g>
+<g>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (71 samples, 0.49%)</title><rect x="10.0" y="355.0" width="5.8" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="13.0" y="366.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/ReentrantLock.lockInterruptibly (105 samples, 0.72%)</title><rect x="15.8" y="435.0" width="8.5" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="18.8" y="446.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireInterruptibly (105 samples, 0.72%)</title><rect x="15.8" y="419.0" width="8.5" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="18.8" y="430.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.doAcquireInterruptibly (105 samples, 0.72%)</title><rect x="15.8" y="403.0" width="8.5" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="18.8" y="414.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (105 samples, 0.72%)</title><rect x="15.8" y="387.0" width="8.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="18.8" y="398.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/LockSupport.park (105 samples, 0.72%)</title><rect x="15.8" y="371.0" width="8.5" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="18.8" y="382.0"></text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.park (105 samples, 0.72%)</title><rect x="15.8" y="355.0" width="8.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="18.8" y="366.0"></text>
+</g>
+<g>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (105 samples, 0.72%)</title><rect x="15.8" y="339.0" width="8.5" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="18.8" y="350.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService$$Lambda$98/1861781073.run (12,218 samples, 84.21%)</title><rect x="24.3" y="467.0" width="993.7" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="27.3" y="478.0">ru/mail/polis/service/zvladn7/AsyncService$$Lambda$98/1861781073.run</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService.lambda$processRequest$1 (12,218 samples, 84.21%)</title><rect x="24.3" y="451.0" width="993.7" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="27.3" y="462.0">ru/mail/polis/service/zvladn7/AsyncService.lambda$processRequest$1</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService.process (12,218 samples, 84.21%)</title><rect x="24.3" y="435.0" width="993.7" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="27.3" y="446.0">ru/mail/polis/service/zvladn7/AsyncService.process</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService$$Lambda$119/1411889274.process (12,218 samples, 84.21%)</title><rect x="24.3" y="419.0" width="993.7" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="27.3" y="430.0">ru/mail/polis/service/zvladn7/AsyncService$$Lambda$119/1411889274.process</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService.lambda$get$4 (12,218 samples, 84.21%)</title><rect x="24.3" y="403.0" width="993.7" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="27.3" y="414.0">ru/mail/polis/service/zvladn7/AsyncService.lambda$get$4</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/ReentrantLock.lock (19 samples, 0.13%)</title><rect x="24.3" y="387.0" width="1.6" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="27.3" y="398.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquire (19 samples, 0.13%)</title><rect x="24.3" y="371.0" width="1.6" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="27.3" y="382.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireQueued (19 samples, 0.13%)</title><rect x="24.3" y="355.0" width="1.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="27.3" y="366.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (19 samples, 0.13%)</title><rect x="24.3" y="339.0" width="1.6" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="27.3" y="350.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/LockSupport.park (19 samples, 0.13%)</title><rect x="24.3" y="323.0" width="1.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="27.3" y="334.0"></text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.park (19 samples, 0.13%)</title><rect x="24.3" y="307.0" width="1.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="27.3" y="318.0"></text>
+</g>
+<g>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (19 samples, 0.13%)</title><rect x="24.3" y="291.0" width="1.6" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="27.3" y="302.0"></text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.sendResponse (70 samples, 0.48%)</title><rect x="25.9" y="387.0" width="5.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="28.9" y="398.0"></text>
+</g>
+<g>
+<title>one.nio.http.HttpSession (70 samples, 0.48%)</title><rect x="25.9" y="371.0" width="5.7" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="28.9" y="382.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/DAO.get (11,427 samples, 78.76%)</title><rect x="31.6" y="387.0" width="929.3" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="34.6" y="398.0">ru/mail/polis/dao/DAO.get</text>
+</g>
+<g>
+<title>com/google/common/collect/TransformedIterator.hasNext (251 samples, 1.73%)</title><rect x="31.6" y="371.0" width="20.4" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="34.6" y="382.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/AbstractIterator.hasNext (251 samples, 1.73%)</title><rect x="31.6" y="355.0" width="20.4" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="34.6" y="366.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/AbstractIterator.tryToComputeNext (251 samples, 1.73%)</title><rect x="31.6" y="339.0" width="20.4" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="34.6" y="350.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$5.computeNext (251 samples, 1.73%)</title><rect x="31.6" y="323.0" width="20.4" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="34.6" y="334.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/Iters$CollapseEqualsIterator.next (251 samples, 1.73%)</title><rect x="31.6" y="307.0" width="20.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="34.6" y="318.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator.next (251 samples, 1.73%)</title><rect x="31.6" y="291.0" width="20.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="34.6" y="302.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.add (251 samples, 1.73%)</title><rect x="31.6" y="275.0" width="20.4" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="34.6" y="286.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.offer (251 samples, 1.73%)</title><rect x="31.6" y="259.0" width="20.4" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="34.6" y="270.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUp (251 samples, 1.73%)</title><rect x="31.6" y="243.0" width="20.4" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="34.6" y="254.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUpUsingComparator (251 samples, 1.73%)</title><rect x="31.6" y="227.0" width="20.4" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="34.6" y="238.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (251 samples, 1.73%)</title><rect x="31.6" y="211.0" width="20.4" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="34.6" y="222.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (251 samples, 1.73%)</title><rect x="31.6" y="195.0" width="20.4" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="34.6" y="206.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.peek (251 samples, 1.73%)</title><rect x="31.6" y="179.0" width="20.4" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="34.6" y="190.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.next (251 samples, 1.73%)</title><rect x="31.6" y="163.0" width="20.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="34.6" y="174.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.next (251 samples, 1.73%)</title><rect x="31.6" y="147.0" width="20.4" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="34.6" y="158.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.get (251 samples, 1.73%)</title><rect x="31.6" y="131.0" width="20.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="34.6" y="142.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getKey (97 samples, 0.67%)</title><rect x="31.6" y="115.0" width="7.8" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="34.6" y="126.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (41 samples, 0.28%)</title><rect x="31.6" y="99.0" width="3.3" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="34.6" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (41 samples, 0.28%)</title><rect x="31.6" y="83.0" width="3.3" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="34.6" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (41 samples, 0.28%)</title><rect x="31.6" y="67.0" width="3.3" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="34.6" y="78.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (6 samples, 0.04%)</title><rect x="31.6" y="51.0" width="0.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="34.6" y="62.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (6 samples, 0.04%)</title><rect x="31.6" y="35.0" width="0.4" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="34.6" y="46.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (35 samples, 0.24%)</title><rect x="32.0" y="51.0" width="2.9" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="35.0" y="62.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (35 samples, 0.24%)</title><rect x="32.0" y="35.0" width="2.9" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="35.0" y="46.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (56 samples, 0.39%)</title><rect x="34.9" y="99.0" width="4.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="37.9" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (56 samples, 0.39%)</title><rect x="34.9" y="83.0" width="4.5" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="37.9" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (8 samples, 0.06%)</title><rect x="34.9" y="67.0" width="0.6" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="37.9" y="78.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (8 samples, 0.06%)</title><rect x="34.9" y="51.0" width="0.6" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="37.9" y="62.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (48 samples, 0.33%)</title><rect x="35.5" y="67.0" width="3.9" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="38.5" y="78.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (48 samples, 0.33%)</title><rect x="35.5" y="51.0" width="3.9" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<text x="38.5" y="62.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (56 samples, 0.39%)</title><rect x="39.4" y="115.0" width="4.6" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="42.4" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (56 samples, 0.39%)</title><rect x="39.4" y="99.0" width="4.6" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="42.4" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (56 samples, 0.39%)</title><rect x="39.4" y="83.0" width="4.6" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="42.4" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (49 samples, 0.34%)</title><rect x="39.4" y="67.0" width="4.0" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="42.4" y="78.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (49 samples, 0.34%)</title><rect x="39.4" y="51.0" width="4.0" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="42.4" y="62.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (7 samples, 0.05%)</title><rect x="43.4" y="67.0" width="0.6" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="46.4" y="78.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (7 samples, 0.05%)</title><rect x="43.4" y="51.0" width="0.6" height="15" fill="#6cdada" rx="2" ry="2"/>
+<text x="46.4" y="62.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (98 samples, 0.68%)</title><rect x="44.0" y="115.0" width="8.0" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="47.0" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (98 samples, 0.68%)</title><rect x="44.0" y="99.0" width="8.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="47.0" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (16 samples, 0.11%)</title><rect x="44.0" y="83.0" width="1.3" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="47.0" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (16 samples, 0.11%)</title><rect x="44.0" y="67.0" width="1.3" height="15" fill="#5ecccc" rx="2" ry="2"/>
+<text x="47.0" y="78.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (82 samples, 0.57%)</title><rect x="45.3" y="83.0" width="6.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="48.3" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (82 samples, 0.57%)</title><rect x="45.3" y="67.0" width="6.7" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="48.3" y="78.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.iterator (11,176 samples, 77.03%)</title><rect x="52.0" y="371.0" width="908.9" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="55.0" y="382.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.iterator</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.freshCellIterator (11,176 samples, 77.03%)</title><rect x="52.0" y="355.0" width="908.9" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="55.0" y="366.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.freshCellIterator</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators.mergeSorted (1,433 samples, 9.88%)</title><rect x="52.0" y="339.0" width="116.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="55.0" y="350.0">com/google/com..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator.&lt;init&gt; (1,433 samples, 9.88%)</title><rect x="52.0" y="323.0" width="116.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="55.0" y="334.0">com/google/com..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.add (1,433 samples, 9.88%)</title><rect x="52.0" y="307.0" width="116.5" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="55.0" y="318.0">java/util/Prio..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.offer (1,433 samples, 9.88%)</title><rect x="52.0" y="291.0" width="116.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="55.0" y="302.0">java/util/Prio..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUp (1,433 samples, 9.88%)</title><rect x="52.0" y="275.0" width="116.5" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="55.0" y="286.0">java/util/Prio..</text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUpUsingComparator (1,433 samples, 9.88%)</title><rect x="52.0" y="259.0" width="116.5" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="55.0" y="270.0">java/util/Prio..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (1,433 samples, 9.88%)</title><rect x="52.0" y="243.0" width="116.5" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="55.0" y="254.0">com/google/com..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (1,433 samples, 9.88%)</title><rect x="52.0" y="227.0" width="116.5" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="55.0" y="238.0">com/google/com..</text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.peek (1,433 samples, 9.88%)</title><rect x="52.0" y="211.0" width="116.5" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="55.0" y="222.0">com/google/com..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.next (1,433 samples, 9.88%)</title><rect x="52.0" y="195.0" width="116.5" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="55.0" y="206.0">ru/mail/polis/..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.next (1,433 samples, 9.88%)</title><rect x="52.0" y="179.0" width="116.5" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="55.0" y="190.0">ru/mail/polis/..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.get (1,433 samples, 9.88%)</title><rect x="52.0" y="163.0" width="116.5" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="55.0" y="174.0">ru/mail/polis/..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getKey (572 samples, 3.94%)</title><rect x="52.0" y="147.0" width="46.5" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="55.0" y="158.0">ru/m..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (182 samples, 1.25%)</title><rect x="52.0" y="131.0" width="14.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="55.0" y="142.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (182 samples, 1.25%)</title><rect x="52.0" y="115.0" width="14.8" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="55.0" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (182 samples, 1.25%)</title><rect x="52.0" y="99.0" width="14.8" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="55.0" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (30 samples, 0.21%)</title><rect x="52.0" y="83.0" width="2.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="55.0" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (30 samples, 0.21%)</title><rect x="52.0" y="67.0" width="2.4" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="55.0" y="78.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (152 samples, 1.05%)</title><rect x="54.4" y="83.0" width="12.4" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="57.4" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (152 samples, 1.05%)</title><rect x="54.4" y="67.0" width="12.4" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="57.4" y="78.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (390 samples, 2.69%)</title><rect x="66.8" y="131.0" width="31.7" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="69.8" y="142.0">su..</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (390 samples, 2.69%)</title><rect x="66.8" y="115.0" width="31.7" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="69.8" y="126.0">su..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (62 samples, 0.43%)</title><rect x="66.8" y="99.0" width="5.0" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="69.8" y="110.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (62 samples, 0.43%)</title><rect x="66.8" y="83.0" width="5.0" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="69.8" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (328 samples, 2.26%)</title><rect x="71.8" y="99.0" width="26.7" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="74.8" y="110.0">s..</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (328 samples, 2.26%)</title><rect x="71.8" y="83.0" width="26.7" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="74.8" y="94.0">s..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (345 samples, 2.38%)</title><rect x="98.5" y="147.0" width="28.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="101.5" y="158.0">ru..</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (345 samples, 2.38%)</title><rect x="98.5" y="131.0" width="28.0" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="101.5" y="142.0">su..</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (345 samples, 2.38%)</title><rect x="98.5" y="115.0" width="28.0" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="101.5" y="126.0">su..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (271 samples, 1.87%)</title><rect x="98.5" y="99.0" width="22.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="101.5" y="110.0">s..</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (271 samples, 1.87%)</title><rect x="98.5" y="83.0" width="22.0" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="101.5" y="94.0">s..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (74 samples, 0.51%)</title><rect x="120.5" y="99.0" width="6.0" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="123.5" y="110.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (74 samples, 0.51%)</title><rect x="120.5" y="83.0" width="6.0" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="123.5" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (516 samples, 3.56%)</title><rect x="126.5" y="147.0" width="42.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="129.5" y="158.0">sun..</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (516 samples, 3.56%)</title><rect x="126.5" y="131.0" width="42.0" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="129.5" y="142.0">sun..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (73 samples, 0.50%)</title><rect x="126.5" y="115.0" width="6.0" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="129.5" y="126.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (73 samples, 0.50%)</title><rect x="126.5" y="99.0" width="6.0" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="129.5" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (443 samples, 3.05%)</title><rect x="132.5" y="115.0" width="36.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="135.5" y="126.0">sun..</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (443 samples, 3.05%)</title><rect x="132.5" y="99.0" width="36.0" height="15" fill="#52c0c0" rx="2" ry="2"/>
+<text x="135.5" y="110.0">sun..</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/Iters.collapseEquals (237 samples, 1.63%)</title><rect x="168.5" y="339.0" width="19.3" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="171.5" y="350.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/Iters$CollapseEqualsIterator.&lt;init&gt; (237 samples, 1.63%)</title><rect x="168.5" y="323.0" width="19.3" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="171.5" y="334.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator.next (237 samples, 1.63%)</title><rect x="168.5" y="307.0" width="19.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="171.5" y="318.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.add (237 samples, 1.63%)</title><rect x="168.5" y="291.0" width="19.3" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="171.5" y="302.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.offer (237 samples, 1.63%)</title><rect x="168.5" y="275.0" width="19.3" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="171.5" y="286.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUp (237 samples, 1.63%)</title><rect x="168.5" y="259.0" width="19.3" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="171.5" y="270.0"></text>
+</g>
+<g>
+<title>java/util/PriorityQueue.siftUpUsingComparator (237 samples, 1.63%)</title><rect x="168.5" y="243.0" width="19.3" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="171.5" y="254.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (237 samples, 1.63%)</title><rect x="168.5" y="227.0" width="19.3" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="171.5" y="238.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$MergingIterator$1.compare (237 samples, 1.63%)</title><rect x="168.5" y="211.0" width="19.3" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="171.5" y="222.0"></text>
+</g>
+<g>
+<title>com/google/common/collect/Iterators$PeekingImpl.peek (237 samples, 1.63%)</title><rect x="168.5" y="195.0" width="19.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="171.5" y="206.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.next (237 samples, 1.63%)</title><rect x="168.5" y="179.0" width="19.3" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="171.5" y="190.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.next (237 samples, 1.63%)</title><rect x="168.5" y="163.0" width="19.3" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="171.5" y="174.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.get (237 samples, 1.63%)</title><rect x="168.5" y="147.0" width="19.3" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="171.5" y="158.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getKey (94 samples, 0.65%)</title><rect x="168.5" y="131.0" width="7.7" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="171.5" y="142.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (28 samples, 0.19%)</title><rect x="168.5" y="115.0" width="2.3" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="171.5" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (28 samples, 0.19%)</title><rect x="168.5" y="99.0" width="2.3" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="171.5" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (28 samples, 0.19%)</title><rect x="168.5" y="83.0" width="2.3" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="171.5" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (4 samples, 0.03%)</title><rect x="168.5" y="67.0" width="0.3" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="171.5" y="78.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (4 samples, 0.03%)</title><rect x="168.5" y="51.0" width="0.3" height="15" fill="#52c0c0" rx="2" ry="2"/>
+<text x="171.5" y="62.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (24 samples, 0.17%)</title><rect x="168.8" y="67.0" width="2.0" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="171.8" y="78.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (24 samples, 0.17%)</title><rect x="168.8" y="51.0" width="2.0" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="171.8" y="62.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (66 samples, 0.45%)</title><rect x="170.8" y="115.0" width="5.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="173.8" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (66 samples, 0.45%)</title><rect x="170.8" y="99.0" width="5.4" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="173.8" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (63 samples, 0.43%)</title><rect x="171.0" y="83.0" width="5.2" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="174.0" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (63 samples, 0.43%)</title><rect x="171.0" y="67.0" width="5.2" height="15" fill="#5bc9c9" rx="2" ry="2"/>
+<text x="174.0" y="78.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (52 samples, 0.36%)</title><rect x="176.2" y="131.0" width="4.2" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="179.2" y="142.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (52 samples, 0.36%)</title><rect x="176.2" y="115.0" width="4.2" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="179.2" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (52 samples, 0.36%)</title><rect x="176.2" y="99.0" width="4.2" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="179.2" y="110.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (40 samples, 0.28%)</title><rect x="176.2" y="83.0" width="3.2" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="179.2" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (40 samples, 0.28%)</title><rect x="176.2" y="67.0" width="3.2" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="179.2" y="78.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (12 samples, 0.08%)</title><rect x="179.4" y="83.0" width="1.0" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="182.4" y="94.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (12 samples, 0.08%)</title><rect x="179.4" y="67.0" width="1.0" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="182.4" y="78.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (91 samples, 0.63%)</title><rect x="180.4" y="131.0" width="7.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="183.4" y="142.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (91 samples, 0.63%)</title><rect x="180.4" y="115.0" width="7.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="183.4" y="126.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (10 samples, 0.07%)</title><rect x="180.4" y="99.0" width="0.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="183.4" y="110.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (10 samples, 0.07%)</title><rect x="180.4" y="83.0" width="0.8" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="183.4" y="94.0"></text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (81 samples, 0.56%)</title><rect x="181.2" y="99.0" width="6.6" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="184.2" y="110.0"></text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (81 samples, 0.56%)</title><rect x="181.2" y="83.0" width="6.6" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="184.2" y="94.0"></text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.getAllCellItersList (9,506 samples, 65.52%)</title><rect x="187.8" y="339.0" width="773.1" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="190.8" y="350.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.getAllCellItersList</text>
+</g>
+<g>
+<title>java/lang/Iterable.forEach (9,506 samples, 65.52%)</title><rect x="187.8" y="323.0" width="773.1" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="190.8" y="334.0">java/lang/Iterable.forEach</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl$$Lambda$128/327364468.accept (9,506 samples, 65.52%)</title><rect x="187.8" y="307.0" width="773.1" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="190.8" y="318.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl$$Lambda$128/327364468.accept</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/LsmDAOImpl.lambda$getAllCellItersList$10 (9,506 samples, 65.52%)</title><rect x="187.8" y="291.0" width="773.1" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="190.8" y="302.0">ru/mail/polis/dao/zvladn7/LsmDAOImpl.lambda$getAllCellItersList$10</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.iterator (9,506 samples, 65.52%)</title><rect x="187.8" y="275.0" width="773.1" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="190.8" y="286.0">ru/mail/polis/dao/zvladn7/SSTable.iterator</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.&lt;init&gt; (9,506 samples, 65.52%)</title><rect x="187.8" y="259.0" width="773.1" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="190.8" y="270.0">ru/mail/polis/dao/zvladn7/SSTable$SSTableIter.&lt;init&gt;</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getElementPosition (9,506 samples, 65.52%)</title><rect x="187.8" y="243.0" width="773.1" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="190.8" y="254.0">ru/mail/polis/dao/zvladn7/SSTable.getElementPosition</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getKey (9,506 samples, 65.52%)</title><rect x="187.8" y="227.0" width="773.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="190.8" y="238.0">ru/mail/polis/dao/zvladn7/SSTable.getKey</text>
+</g>
+<g>
+<title>ru/mail/polis/dao/zvladn7/SSTable.getOffset (3,332 samples, 22.97%)</title><rect x="187.8" y="211.0" width="271.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="190.8" y="222.0">ru/mail/polis/dao/zvladn7/SSTable.ge..</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (3,332 samples, 22.97%)</title><rect x="187.8" y="195.0" width="271.0" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="190.8" y="206.0">sun/nio/ch/FileChannelImpl.read</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (3,332 samples, 22.97%)</title><rect x="187.8" y="179.0" width="271.0" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="190.8" y="190.0">sun/nio/ch/FileChannelImpl.readInter..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (813 samples, 5.60%)</title><rect x="187.8" y="163.0" width="66.1" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="190.8" y="174.0">sun/nio..</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (813 samples, 5.60%)</title><rect x="187.8" y="147.0" width="66.1" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="190.8" y="158.0">sun.nio..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (2,519 samples, 17.36%)</title><rect x="253.9" y="163.0" width="204.9" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="256.9" y="174.0">sun/nio/ch/NativeThreadSet...</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (2,519 samples, 17.36%)</title><rect x="253.9" y="147.0" width="204.9" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="256.9" y="158.0">sun.nio.ch.NativeThreadSet</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.read (6,174 samples, 42.55%)</title><rect x="458.8" y="211.0" width="502.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="461.8" y="222.0">sun/nio/ch/FileChannelImpl.read</text>
+</g>
+<g>
+<title>sun/nio/ch/FileChannelImpl.readInternal (6,174 samples, 42.55%)</title><rect x="458.8" y="195.0" width="502.1" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="461.8" y="206.0">sun/nio/ch/FileChannelImpl.readInternal</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.add (703 samples, 4.85%)</title><rect x="458.8" y="179.0" width="57.1" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="461.8" y="190.0">sun/ni..</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (703 samples, 4.85%)</title><rect x="458.8" y="163.0" width="57.1" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<text x="461.8" y="174.0">sun.ni..</text>
+</g>
+<g>
+<title>sun/nio/ch/NativeThreadSet.remove (5,471 samples, 37.71%)</title><rect x="515.9" y="179.0" width="445.0" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="518.9" y="190.0">sun/nio/ch/NativeThreadSet.remove</text>
+</g>
+<g>
+<title>sun.nio.ch.NativeThreadSet (5,471 samples, 37.71%)</title><rect x="515.9" y="163.0" width="445.0" height="15" fill="#5ccaca" rx="2" ry="2"/>
+<text x="518.9" y="174.0">sun.nio.ch.NativeThreadSet</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService.lockAction (702 samples, 4.84%)</title><rect x="960.9" y="387.0" width="57.1" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="963.9" y="398.0">ru/mai..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/ReentrantLock.lock (702 samples, 4.84%)</title><rect x="960.9" y="371.0" width="57.1" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="963.9" y="382.0">java/u..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquire (702 samples, 4.84%)</title><rect x="960.9" y="355.0" width="57.1" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="963.9" y="366.0">java/u..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireQueued (702 samples, 4.84%)</title><rect x="960.9" y="339.0" width="57.1" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="963.9" y="350.0">java/u..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (702 samples, 4.84%)</title><rect x="960.9" y="323.0" width="57.1" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="963.9" y="334.0">java/u..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/LockSupport.park (702 samples, 4.84%)</title><rect x="960.9" y="307.0" width="57.1" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="963.9" y="318.0">java/u..</text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.park (702 samples, 4.84%)</title><rect x="960.9" y="291.0" width="57.1" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="963.9" y="302.0">jdk/in..</text>
+</g>
+<g>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (702 samples, 4.84%)</title><rect x="960.9" y="275.0" width="57.1" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="963.9" y="286.0">java.u..</text>
+</g>
+<g>
+<title>one/nio/server/SelectorThread.run (2,115 samples, 14.58%)</title><rect x="1018.0" y="515.0" width="172.0" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="1021.0" y="526.0">one/nio/server/Selecto..</text>
+</g>
+<g>
+<title>one/nio/net/Session.process (2,115 samples, 14.58%)</title><rect x="1018.0" y="499.0" width="172.0" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1021.0" y="510.0">one/nio/net/Session.pr..</text>
+</g>
+<g>
+<title>one.nio.http.HttpSession (1,488 samples, 10.26%)</title><rect x="1018.0" y="483.0" width="121.0" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1021.0" y="494.0">one.nio.http.Ht..</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.processRead (627 samples, 4.32%)</title><rect x="1139.0" y="483.0" width="51.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="1142.0" y="494.0">one/n..</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.processHttpBuffer (627 samples, 4.32%)</title><rect x="1139.0" y="467.0" width="51.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1142.0" y="478.0">one/n..</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.handleParsedRequest (627 samples, 4.32%)</title><rect x="1139.0" y="451.0" width="51.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1142.0" y="462.0">one/n..</text>
+</g>
+<g>
+<title>one/nio/http/HttpServer.handleRequest (627 samples, 4.32%)</title><rect x="1139.0" y="435.0" width="51.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="1142.0" y="446.0">one/n..</text>
+</g>
+<g>
+<title>RequestHandler1_get.handleRequest (627 samples, 4.32%)</title><rect x="1139.0" y="419.0" width="51.0" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1142.0" y="430.0">Reque..</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService.get (627 samples, 4.32%)</title><rect x="1139.0" y="403.0" width="51.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="1142.0" y="414.0">ru/ma..</text>
+</g>
+<g>
+<title>ru/mail/polis/service/zvladn7/AsyncService.processRequest (627 samples, 4.32%)</title><rect x="1139.0" y="387.0" width="51.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="1142.0" y="398.0">ru/ma..</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.execute (627 samples, 4.32%)</title><rect x="1139.0" y="371.0" width="51.0" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="1142.0" y="382.0">java/..</text>
+</g>
+<g>
+<title>java/util/concurrent/ArrayBlockingQueue.offer (627 samples, 4.32%)</title><rect x="1139.0" y="355.0" width="51.0" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="1142.0" y="366.0">java/..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/ReentrantLock.lock (627 samples, 4.32%)</title><rect x="1139.0" y="339.0" width="51.0" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="1142.0" y="350.0">java/..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquire (627 samples, 4.32%)</title><rect x="1139.0" y="323.0" width="51.0" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="1142.0" y="334.0">java/..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireQueued (627 samples, 4.32%)</title><rect x="1139.0" y="307.0" width="51.0" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="1142.0" y="318.0">java/..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (627 samples, 4.32%)</title><rect x="1139.0" y="291.0" width="51.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1142.0" y="302.0">java/..</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/LockSupport.park (627 samples, 4.32%)</title><rect x="1139.0" y="275.0" width="51.0" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="1142.0" y="286.0">java/..</text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.park (627 samples, 4.32%)</title><rect x="1139.0" y="259.0" width="51.0" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1142.0" y="270.0">jdk/i..</text>
+</g>
+<g>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (627 samples, 4.32%)</title><rect x="1139.0" y="243.0" width="51.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="1142.0" y="254.0">java...</text>
+</g>
+</g>
+</svg>

@@ -29,6 +29,7 @@ import java.io.IOException;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    private static final int EXECUTOR_QUEUE_SIZE = 128;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -56,6 +57,6 @@ public final class ServiceFactory {
         return new AsyncService(port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),
-                512);
+                EXECUTOR_QUEUE_SIZE);
     }
 }
