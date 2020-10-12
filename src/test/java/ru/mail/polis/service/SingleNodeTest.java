@@ -97,7 +97,7 @@ class SingleNodeTest extends TestBase {
         return client.put(path(key), data);
     }
 
-    @RepeatedTest(20)
+    @Test
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertEquals(400, get("").getStatus());
