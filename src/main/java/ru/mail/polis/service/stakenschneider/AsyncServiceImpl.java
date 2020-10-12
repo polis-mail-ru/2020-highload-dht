@@ -86,6 +86,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final String id = request.getParameter("id=");
         if (id == null || id.isEmpty()) {
             try {
+                log.info("id is null or empty");
                 session.sendResponse(new Response(BAD_REQUEST, EMPTY));
             } catch (IOException e) {
                 log.info("something has gone terribly wrong", e);
@@ -111,6 +112,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     break;
             }
         } catch (IOException e) {
+            log.error("Internal error", e);
             session.sendError(INTERNAL_ERROR, e.getMessage());
         }
     }
