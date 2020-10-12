@@ -15,37 +15,28 @@ import java.util.function.BiConsumer;
 
 public class Flusher extends Thread {
 
+    private final static int FLUSHER_QUEUE_SIZE = 10;
     private final Logger log = LoggerFactory.getLogger(Flusher.class);
 
     final BlockingQueue<NumberedTable> tablesQueue;
 
-    private final String suffix;
-    private final String temp;
     private final File storage;
     private final BiConsumer<Integer, File> tableFlashedCallback;
 
     /**
      * Flusher constructor.
      * @param storage - root of the DAO storage.
-     * @param capacity - capacity of the BlockingQueue, max count of the Table-to-flush tasks.
      * @param tableFlushedCallback - callback function which called after table flushing.
-     * @param suffix - data file extension
-     * @param temp - temporary data file extension
      */
     public Flusher(
             final File storage,
-            final int capacity,
-            final BiConsumer<Integer, File> tableFlushedCallback,
-            final String suffix,
-            final String temp
+            final BiConsumer<Integer, File> tableFlushedCallback
     ) {
         super("Flusher");
         setDaemon(true);
         this.storage = storage;
-        this.tablesQueue = new ArrayBlockingQueue<>(capacity);
+        this.tablesQueue = new ArrayBlockingQueue<>(FLUSHER_QUEUE_SIZE);
         this.tableFlashedCallback = tableFlushedCallback;
-        this.suffix = suffix;
-        this.temp = temp;
     }
 
     @Override
@@ -60,9 +51,9 @@ public class Flusher extends Thread {
                 }
                 final int generation = numberedTable.generation;
                 final Iterator<Cell> cellIterator = numberedTable.table.iterator(ByteBuffer.allocate(0));
-                final File file = new File(this.storage, generation + temp);
+                final File file = new File(this.storage, generation + DAOImpl.TEMP);
                 SSTable.serialize(cellIterator, file);
-                final File dst = new File(this.storage, generation + suffix);
+                final File dst = new File(this.storage, generation + DAOImpl.SUFFIX);
                 Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
                 this.tableFlashedCallback.accept(numberedTable.generation, dst);
             }

@@ -34,12 +34,12 @@ import java.util.stream.Stream;
  */
 public class DAOImpl implements DAO {
 
+    final static String SUFFIX = ".dat";
+    final static String TEMP = ".tmp";
+    final static String UNDERSCORE = "_";
+
     private final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     private final ReadWriteLock lock = new ReentrantReadWriteLock(false);
-    private final String SUFFIX = ".dat";
-    private final String TEMP = ".tmp";
-    private final static String UNDERSCORE = "_";
-    private final static int flusherQueueSize = 10;
 
     @GuardedBy("lock")
     private TableSnapshot tableSnapshot;
@@ -69,7 +69,7 @@ public class DAOImpl implements DAO {
                 flushingTables,
                 maxGeneration.get() + 1
         );
-        flusher = new Flusher(storage, flusherQueueSize, this::postFlushingMethod, SUFFIX, TEMP);
+        flusher = new Flusher(storage, this::postFlushingMethod);
         flusher.start();
     }
 
@@ -154,8 +154,8 @@ public class DAOImpl implements DAO {
         }
         try {
             flusher.tablesQueue.put(new NumberedTable(snapshot.memTable, snapshot.generation));
-        } catch (InterruptedException e) {
-            log.info("Flush waiting interrupted", e);
+        } catch (final InterruptedException e) {
+            log.error("Flush waiting interrupted", e);
         }
     }
 
@@ -182,8 +182,8 @@ public class DAOImpl implements DAO {
         try {
             flusher.tablesQueue.put(new NumberedTable(null, -1));
             flusher.join();
-        } catch (InterruptedException e) {
-            log.info("Stopping interrupted", e);
+        } catch (final InterruptedException e) {
+            log.error("Stopping interrupted", e);
         }
     }
 
@@ -221,7 +221,7 @@ public class DAOImpl implements DAO {
         }
         for (final Table table : snapshot.storageTables.values()) {
             final File fl = table.getFile();
-            if (!fl.delete()) {
+            if (Files.deleteIfExists(fl.toPath())) {
                 throw new IOException("Flusher: can't delete file " + fl);
             }
         }

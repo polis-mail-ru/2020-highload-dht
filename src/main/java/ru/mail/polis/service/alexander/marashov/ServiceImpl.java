@@ -33,7 +33,7 @@ public class ServiceImpl extends HttpServer implements Service {
     private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
     private final ExecutorService executorService;
-    private final String responseErrorString = "Sending response error";
+    private final static String responseErrorString = "Sending response error";
 
     /**
      * Implementation of a persistent storage with HTTP API.
@@ -108,6 +108,14 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private void trySendError(final HttpSession httpSession, final Response response) {
+        try {
+            httpSession.sendResponse(response);
+        } catch (final IOException ioException) {
+            log.error(responseErrorString, ioException);
+        }
+    }
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -128,7 +136,7 @@ public class ServiceImpl extends HttpServer implements Service {
      * Http method handler for getting a value in the DAO by the key.
      *
      * @param id is the key for searching for a value in the DAO.
-     * Sends {@link Response} instance with value as body, if the key exists. Response status is
+     *           Sends {@link Response} instance with value as body, if the key exists. Response status is
      * {@code 200} if data is found
      * {@code 400} if id is empty
      * {@code 404} if not found,
@@ -140,32 +148,26 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    try {
-                        if (id.isEmpty()) {
-                            log.debug("Get entity method: key is empty");
-                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                            return;
-                        }
-
-                        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                        final ByteBuffer key = ByteBuffer.wrap(bytes);
-
-                        final ByteBuffer result;
-                        try {
-                            result = this.dao.get(key);
-                        } catch (NoSuchElementException e) {
-                            log.debug(String.format("Get entity method: key = '%s' not found", id));
-                            httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                            return;
-                        } catch (IOException e) {
-                            log.error(String.format("Get entity method: key = '%s' error", id), e);
-                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                            return;
-                        }
-                        httpSession.sendResponse(new Response(Response.OK, getBytes(result)));
-                    } catch (final IOException e) {
-                        log.error(responseErrorString, e);
+                    if (id.isEmpty()) {
+                        log.debug("Get entity method: key is empty");
+                        trySendError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        return;
                     }
+                    final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+                    final ByteBuffer key = ByteBuffer.wrap(bytes);
+                    final ByteBuffer result;
+                    try {
+                        result = this.dao.get(key);
+                    } catch (final NoSuchElementException e) {
+                        log.debug(String.format("Get entity method: key = '%s' not found", id));
+                        trySendError(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
+                        return;
+                    } catch (final IOException e) {
+                        log.error(String.format("Get entity method: key = '%s' error", id), e);
+                        trySendError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        return;
+                    }
+                    trySendError(httpSession, new Response(Response.OK, getBytes(result)));
                 }
         );
     }
@@ -174,7 +176,7 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for placing a value by the key in the DAO storage.
      *
      * @param id is the key that the data will be associated with.
-     * Sends {@link Response} instance with
+     *           Sends {@link Response} instance with
      * {@code 201} if data saved
      * {@code 400} if id is empty,
      * {@code 500} if an internal server error occurred.
@@ -189,35 +191,31 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    try {
-                        if (id.isEmpty()) {
-                            log.debug("Put entity method: key is empty");
-                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        }
-
-                        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                        final ByteBuffer key = ByteBuffer.wrap(bytes);
-
-                        final byte[] body = request.getBody();
-                        final ByteBuffer value = ByteBuffer.wrap(body);
-
-                        try {
-                            this.dao.upsert(key, value);
-                        } catch (IOException e) {
-                            log.error(
-                                    String.format(
-                                            "Put entity method: key = '%s', value = '%s' error",
-                                            id,
-                                            Arrays.toString(body)
-                                    ),
-                                    e
-                            );
-                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                        }
-                        httpSession.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                    } catch (final IOException e) {
-                        log.error(responseErrorString, e);
+                    if (id.isEmpty()) {
+                        log.debug("Put entity method: key is empty");
+                        trySendError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     }
+
+                    final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+                    final ByteBuffer key = ByteBuffer.wrap(bytes);
+
+                    final byte[] body = request.getBody();
+                    final ByteBuffer value = ByteBuffer.wrap(body);
+
+                    try {
+                        this.dao.upsert(key, value);
+                    } catch (IOException e) {
+                        log.error(
+                                String.format(
+                                        "Put entity method: key = '%s', value = '%s' error",
+                                        id,
+                                        Arrays.toString(body)
+                                ),
+                                e
+                        );
+                        trySendError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    }
+                    trySendError(httpSession, new Response(Response.CREATED, Response.EMPTY));
                 }
         );
     }
@@ -226,7 +224,7 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for removing a value by the key from the DAO storage.
      *
      * @param id is the key that the data associated with.
-     * Sends {@link Response} instance with
+     *           Sends {@link Response} instance with
      * {@code 202} if the key deleted,
      * {@code 400} if id is empty,
      * {@code 500} if an internal server error occurred.
@@ -240,26 +238,19 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    try {
-                        if (id.isEmpty()) {
-                            log.debug("Delete entity method: key is empty");
-                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        }
-
-                        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                        final ByteBuffer key = ByteBuffer.wrap(bytes);
-
-                        try {
-                            this.dao.remove(key);
-                        } catch (IOException e) {
-                            log.error(String.format("Delete entity method: key = '%s' error", id), e);
-                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                        }
-
-                        httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                    } catch (final IOException e) {
-                        log.error(responseErrorString, e);
+                    if (id.isEmpty()) {
+                        log.debug("Delete entity method: key is empty");
+                        trySendError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     }
+                    final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+                    final ByteBuffer key = ByteBuffer.wrap(bytes);
+                    try {
+                        this.dao.remove(key);
+                    } catch (IOException e) {
+                        log.error(String.format("Delete entity method: key = '%s' error", id), e);
+                        trySendError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    }
+                    trySendError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
                 }
         );
     }
