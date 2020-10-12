@@ -36,8 +36,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService exec;
     private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private final String EXECUTOR_ERROR = "Error in executor";
-    private final String RESPONSE_ERROR = "Can not send response.";
+    private static final String EXECUTOR_ERROR = "Error in executor";
+    private static final String RESPONSE_ERROR = "Can not send response.";
 
     /**
      * Config HttpServer, DAO and ExecutorService.
@@ -94,18 +94,35 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Get data by id.
+     * Get, set or delete data by id.
      *
      * @param id key of entity
+     * @param request request with the entity value in body (for METHOD_PUT)
      * @param session - HttpSession
      */
     @Path("/v0/entity")
-    @RequestMethod(METHOD_GET)
-    public void get(@Param(value = "id", required = true) final String id,
-                    final HttpSession session) {
+    public void entity(@Param(value = "id", required = true) final String id,
+                       @Param("request") final Request request,
+                       final HttpSession session) {
         final Future<?> future = exec.submit(() -> {
             try {
-                getSync(id, session);
+                switch (request.getMethod()) {
+                    case METHOD_GET:
+                        getSync(id, session);
+                        break;
+                    case METHOD_PUT:
+                        putSync(id, request, session);
+                        break;
+                    case METHOD_DELETE:
+                        deleteSync(id, session);
+                        break;
+                    default:
+                        log.error("Unknown method");
+                        session.sendResponse(
+                                new Response(Response.METHOD_NOT_ALLOWED,
+                                        Response.EMPTY));
+                }
+
             } catch (IOException ex) {
                 log.error(RESPONSE_ERROR, ex);
             }
@@ -131,31 +148,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /**
-     * Set data by id.
-     *
-     * @param id key of entity
-     * @param request request with the entity value in body
-     * @param session - HttpSession
-     */
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_PUT)
-    public void put(@Param("id") final String id,
-                        @Param("request") final Request request,
-                        final HttpSession session) {
-        final Future<?> future = exec.submit(() -> {
-            try {
-                putSync(id, request, session);
-            } catch (IOException ex) {
-                log.error(RESPONSE_ERROR, ex);
-            }
-        });
-
-        if (future.isCancelled()) {
-            log.error(EXECUTOR_ERROR);
-        }
-    }
-
     private void putSync(final String id,
                          final Request request,
                          final HttpSession session) throws IOException {
@@ -169,28 +161,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException ex) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-
-    /**
-     * Delete data by id.
-     *
-     * @param id key of entity
-     * @param session - HttpSession
-     */
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_DELETE)
-    public void delete(@Param("id") final String id, final HttpSession session) {
-        final Future<?> future = exec.submit(() -> {
-            try {
-                deleteSync(id, session);
-            } catch (IOException ex) {
-                log.error(RESPONSE_ERROR, ex);
-            }
-        });
-
-        if (future.isCancelled()) {
-            log.error(EXECUTOR_ERROR);
         }
     }
 
