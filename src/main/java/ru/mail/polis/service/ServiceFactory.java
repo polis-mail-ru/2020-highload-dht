@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.dariagap.ServiceImpl;
+import ru.mail.polis.service.dariagap.AsyncServiceImpl;
 
 import java.io.IOException;
 
@@ -53,6 +53,10 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImpl(port, dao);
+        return new AsyncServiceImpl(
+                port,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                1024);
     }
 }
