@@ -22,6 +22,7 @@ import one.nio.net.ConnectionString;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.Files;
 import ru.mail.polis.TestBase;
@@ -96,7 +97,7 @@ class SingleNodeTest extends TestBase {
         return client.put(path(key), data);
     }
 
-    @Test
+    @RepeatedTest(20)
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertEquals(400, get("").getStatus());
