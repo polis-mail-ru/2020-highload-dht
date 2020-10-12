@@ -10,11 +10,12 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
@@ -39,32 +40,32 @@ public class CustomServer extends HttpServer {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(final @Param("id") String idParam) {
+
+        Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
-            final Response badReqResponse = new Response(Response.BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return badReqResponse;
+            responseHttp = new Response(Response.BAD_REQUEST);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        } else {
+
+            //get id as aligned byte buffer
+            final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            //get the response from db
+            ByteBuffer body;
+            try {
+                body = dao.get(id);
+                final byte[] bytes = toBytes(body);
+                responseHttp = Response.ok(bytes);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (NoSuchElementException e) {
+                //if not found then 404
+                responseHttp = new Response(Response.NOT_FOUND);
+                responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            }
         }
 
-        //get id as aligned byte buffer
-        final ByteBuffer id = fromBytes(idParam.getBytes(UTF_8));
-
-        //get the response from db
-        ByteBuffer response;
-        try {
-            response = dao.get(id);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (NoSuchElementException e) {
-            //if not found then 404
-            final Response notFoundResponse = new Response(Response.NOT_FOUND);
-            notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return notFoundResponse;
-        }
-
-        // if found then return
-        final byte[] bytes = toBytes(response);
-        return Response.ok(bytes);
+        return responseHttp;
     }
 
     /**
@@ -97,18 +98,21 @@ public class CustomServer extends HttpServer {
     @RequestMethod(METHOD_PUT)
     public Response put(final @Param("id") String idParam,
                         final Request request) throws IOException {
+
+        Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            final Response response = new Response(Response.BAD_REQUEST);
-            response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return response;
+            responseHttp = new Response(Response.BAD_REQUEST);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        } else {
+
+            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer value = fromBytes(request.getBody());
+            dao.upsert(key, value);
+            responseHttp = new Response(Response.CREATED);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         }
 
-        final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
-        final ByteBuffer value = fromBytes(request.getBody());
-        dao.upsert(key, value);
-        final Response response = new Response(Response.CREATED);
-        response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return response;
+        return responseHttp;
     }
 
     /**
@@ -121,18 +125,19 @@ public class CustomServer extends HttpServer {
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public Response delete(final @Param("id") String idParam) throws IOException {
+
+        Response responseHttp;
+
         if (idParam == null || idParam.isEmpty()) {
-            final Response badReqResponse = new Response(Response.BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return badReqResponse;
+            responseHttp = new Response(Response.BAD_REQUEST);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        } else {
+            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            dao.remove(key);
+            responseHttp = new Response(Response.ACCEPTED);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         }
-
-        final ByteBuffer key = fromBytes(idParam.getBytes(UTF_8));
-        dao.remove(key);
-
-        final Response acceptedResponse = new Response(Response.ACCEPTED);
-        acceptedResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return acceptedResponse;
+        return responseHttp;
     }
 
     /**
