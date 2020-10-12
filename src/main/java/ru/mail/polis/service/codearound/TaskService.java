@@ -2,13 +2,11 @@ package ru.mail.polis.service.codearound;
 
 import com.google.common.base.Charsets;
 import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
@@ -30,26 +28,8 @@ public class TaskService extends HttpServer implements Service {
      * @param dao DAO instance
      */
     public TaskService(final int port, @NotNull final DAO dao) throws IOException {
-        super(getConfig(port));
+        super(TaskServerConfig.getConfig(port));
         this.dao = dao;
-    }
-
-    /**
-     * set HTTP server initial configuration.
-     * @param port - server listening port
-     * @return HTTP server configuration object
-     */
-    private static HttpServerConfig getConfig(final int port) {
-        if (port <= 1024 || port >= 65536) {
-            throw new IllegalArgumentException("Invalid port");
-        }
-        final AcceptorConfig acc = new AcceptorConfig();
-        final HttpServerConfig config = new HttpServerConfig();
-        acc.port = port;
-        acc.deferAccept = true;
-        acc.reusePort = true;
-        config.acceptors = new AcceptorConfig[]{acc};
-        return config;
     }
 
     /**

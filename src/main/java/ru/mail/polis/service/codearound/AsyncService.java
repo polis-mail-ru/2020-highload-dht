@@ -2,13 +2,11 @@ package ru.mail.polis.service.codearound;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +27,8 @@ public class AsyncService extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService exec;
     Logger logger = LoggerFactory.getLogger(TaskService.class);
-    final String notFoundErrorLog = "Match key is missing, no value can be retrieved\n";
-    final String handlerErrorLog = "Error handling request\n";
+    final static String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved\n";
+    final static String IO_ERROR_LOG = "IO exception raised\n";
 
     /**
      * async service impl const.
@@ -41,7 +39,7 @@ public class AsyncService extends HttpServer implements Service {
     public AsyncService(final int port, @NotNull final DAO dao,
                         final int workerPoolSize, final int queueSize) throws IOException {
 
-        super(getAsyncConfig(port));
+        super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
         assert queueSize > 0;
 
@@ -57,25 +55,7 @@ public class AsyncService extends HttpServer implements Service {
         );
     }
 
-    /**
-     * set HTTP server initial configuration.
-     * @param port - server listening port
-     * @return HTTP server configuration object
-     */
-    private static HttpServerConfig getAsyncConfig(final int port) {
-        if (port <= 1024 || port >= 65536) {
-            throw new IllegalArgumentException("Invalid port\n");
-        }
-        final AcceptorConfig acc = new AcceptorConfig();
-        final HttpServerConfig config = new HttpServerConfig();
-        acc.port = port;
-        acc.deferAccept = true;
-        acc.reusePort = true;
-        config.acceptors = new AcceptorConfig[]{acc};
-        return config;
-    }
-
-    /**
+     /**
      * fires formation request to make sure server is alive.
      */
     @Path("/v0/status")
@@ -134,9 +114,9 @@ public class AsyncService extends HttpServer implements Service {
             try {
                 getAsync(key, session);
             } catch (NoSuchElementException exc) {
-                logger.error(notFoundErrorLog);
+                logger.error(NOT_FOUND_ERROR_LOG);
             } catch (IOException exc) {
-                logger.error(handlerErrorLog, exc);
+                logger.error(IO_ERROR_LOG, exc);
             }
         });
     }
@@ -155,7 +135,7 @@ public class AsyncService extends HttpServer implements Service {
             try {
                 upsertAsync(key, session, val);
             } catch (IOException exc) {
-                logger.error(handlerErrorLog, exc);
+                logger.error(IO_ERROR_LOG, exc);
             }
         });
     }
@@ -171,9 +151,9 @@ public class AsyncService extends HttpServer implements Service {
             try {
                 removeAsync(key, session);
             } catch (NoSuchElementException exc) {
-                logger.error(notFoundErrorLog);
+                logger.error(NOT_FOUND_ERROR_LOG);
             } catch (IOException exc) {
-                logger.error(handlerErrorLog, exc);
+                logger.error(IO_ERROR_LOG, exc);
             }
         });
     }
@@ -192,7 +172,7 @@ public class AsyncService extends HttpServer implements Service {
         try {
             buf = dao.get(key);
         } catch (NoSuchElementException exc) {
-            logger.error(notFoundErrorLog);
+            logger.error(NOT_FOUND_ERROR_LOG);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         }
 
@@ -213,7 +193,7 @@ public class AsyncService extends HttpServer implements Service {
         try {
             dao.upsert(key, val);
         } catch (IOException exc) {
-            logger.error(handlerErrorLog, exc);
+            logger.error(IO_ERROR_LOG, exc);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
@@ -229,10 +209,10 @@ public class AsyncService extends HttpServer implements Service {
         try {
             dao.remove(key);
         } catch (NoSuchElementException exc) {
-            logger.error(notFoundErrorLog);
+            logger.error(NOT_FOUND_ERROR_LOG);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException exc) {
-            logger.error(handlerErrorLog, exc);
+            logger.error(IO_ERROR_LOG, exc);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
