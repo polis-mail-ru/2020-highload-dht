@@ -117,18 +117,12 @@ public class DAOImpl implements DAO {
 
         for (int i = snapshot.generation - 1; i >= 0; i--) {
             final File delFile = new File(storage, i + SUFFIX);
-            //final SSTable ssTable = tableSet.files.remove(i);
-//            if (ssTable == null) {
-//                break;
-//            }
-//            ssTable.close();
             try {
                 Files.delete(delFile.toPath());
             } catch (NoSuchFileException e) {
                 break;
             }
         }
-        //atomicMoveTempToSuffix(file, snapshot);
     }
 
     private Iterator<Cell> getAliveCells(@NotNull final ByteBuffer key) throws IOException {
