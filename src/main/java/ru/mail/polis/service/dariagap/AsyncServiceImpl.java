@@ -107,8 +107,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             try {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                }
-                else {
+                } else {
                     switch (request.getMethod()) {
                         case METHOD_GET:
                             getSync(id, session);
