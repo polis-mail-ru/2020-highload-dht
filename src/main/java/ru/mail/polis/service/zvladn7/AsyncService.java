@@ -34,7 +34,8 @@ import java.util.concurrent.locks.ReentrantLock;
 public class AsyncService extends HttpServer implements Service {
 
     private static final String ERROR_SENDING_RESPONSE = "Error when sending response";
-    private static final Logger log = LoggerFactory.getLogger(BasicService.class);
+    private static final String ERROR_SERVICE_UNAVAILABLE = "Cannot send SERVICE_UNAVAILABLE response";
+    private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
     private static final int CACHE_SIZE = 15;
 
     private final DAO dao;
@@ -112,7 +113,7 @@ public class AsyncService extends HttpServer implements Service {
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
         } catch (IOException ex) {
-            log.error("Cannot send SERVICE_UNAVAILABLE response");
+            log.error(ERROR_SERVICE_UNAVAILABLE, ex);
         }
     }
 
