@@ -15,10 +15,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -27,8 +23,6 @@ import static one.nio.http.Request.METHOD_PUT;
 public class CustomServer extends HttpServer {
 
     private final DAO dao;
-    private final ExecutorService executorService =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public CustomServer(final DAO dao,
                         final HttpServerConfig config,
@@ -46,34 +40,32 @@ public class CustomServer extends HttpServer {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public Response get(final @Param("id") String idParam) {
+
+        Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
-            final Response badReqResponse = new Response(Response.BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return badReqResponse;
+            responseHttp = new Response(Response.BAD_REQUEST);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        } else {
+
+            //get id as aligned byte buffer
+            final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            //get the response from db
+            ByteBuffer body;
+            try {
+                body = dao.get(id);
+                final byte[] bytes = toBytes(body);
+                responseHttp = Response.ok(bytes);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (NoSuchElementException e) {
+                //if not found then 404
+                responseHttp = new Response(Response.NOT_FOUND);
+                responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            }
         }
 
-        //get id as aligned byte buffer
-        final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
-
-        //get the response from db
-        ByteBuffer response;
-        try {
-            final Future<ByteBuffer> future = executorService.submit(() -> dao.get(id));
-            awaitUntilReady(future);
-            response = dao.get(id);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (NoSuchElementException e) {
-            //if not found then 404
-            final Response notFoundResponse = new Response(Response.NOT_FOUND);
-            notFoundResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return notFoundResponse;
-        }
-
-        // if found then return
-        final byte[] bytes = toBytes(response);
-        return Response.ok(bytes);
+        return responseHttp;
     }
 
     /**
@@ -105,36 +97,22 @@ public class CustomServer extends HttpServer {
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
     public Response put(final @Param("id") String idParam,
-                        final Request request) throws ExecutionException, InterruptedException {
+                        final Request request) throws IOException {
+
+        Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            final Response response = new Response(Response.BAD_REQUEST);
-            response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return response;
+            responseHttp = new Response(Response.BAD_REQUEST);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        } else {
+
+            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer value = fromBytes(request.getBody());
+            dao.upsert(key, value);
+            responseHttp = new Response(Response.CREATED);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         }
 
-        final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
-        final ByteBuffer value = fromBytes(request.getBody());
-        final Future<?> future = executorService.submit(() -> {
-            try {
-                dao.upsert(key, value);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        awaitUntilReady(future);
-        future.get();
-        final Response response = new Response(Response.CREATED);
-        response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return response;
-    }
-
-    private void awaitUntilReady(final Future<?> future) {
-        boolean isReady = false;
-        while (!isReady) {
-            if (future.isDone()) {
-                isReady = true;
-            }
-        }
+        return responseHttp;
     }
 
     /**
@@ -146,27 +124,20 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public Response delete(final @Param("id") String idParam) throws ExecutionException, InterruptedException {
+    public Response delete(final @Param("id") String idParam) throws IOException {
+
+        Response responseHttp;
+
         if (idParam == null || idParam.isEmpty()) {
-            final Response badReqResponse = new Response(Response.BAD_REQUEST);
-            badReqResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-            return badReqResponse;
+            responseHttp = new Response(Response.BAD_REQUEST);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        } else {
+            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            dao.remove(key);
+            responseHttp = new Response(Response.ACCEPTED);
+            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         }
-
-        final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
-        final Future<?> future = executorService.submit(() -> {
-            try {
-                dao.remove(key);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        awaitUntilReady(future);
-        future.get();
-
-        final Response acceptedResponse = new Response(Response.ACCEPTED);
-        acceptedResponse.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return acceptedResponse;
+        return responseHttp;
     }
 
     /**
