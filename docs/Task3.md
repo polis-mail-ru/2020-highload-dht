@@ -1,6 +1,6 @@
 # Асинхронный сервер
 
-На данном этапе обработка запросов была вынесена в [отдельный ExecutorService с ограниченной очередью](/Users/polina/GitHub/2020-highload-dht/src/main/java/ru/mail/polis/service/ServiceAsyncImpl.java), чтобы разгрузить SelectorThread'ы HTTP-сервера. Ниже приведены результаты профилирования под нагрузкой, а также анализ их и сравнение с [предыдущим этапом](/Users/polina/GitHub/2020-highload-dht/docs/Task2.md).
+На данном этапе обработка запросов была вынесена в [отдельный ExecutorService с ограниченной очередью](../src/main/java/ru/mail/polis/service/ServiceAsyncImpl.java), чтобы разгрузить SelectorThread'ы HTTP-сервера. Ниже приведены результаты профилирования под нагрузкой, а также анализ их и сравнение с [предыдущим этапом](./Task2.md).
 
 ### Обстрел PUT-ами
 
