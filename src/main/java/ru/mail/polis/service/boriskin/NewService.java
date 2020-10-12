@@ -20,7 +20,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Поддержка следующего HTTP REST API протокола:
@@ -42,6 +45,15 @@ public class NewService extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
 
+    /**
+     * Конструктор {@link NewService}.
+     *
+     * @param port порт
+     * @param dao Дао
+     * @param workers воркеры
+     * @param queueSize размер очереди
+     * @throws IOException возможна ошибка при неправильных параметрах
+     */
     public NewService(
             final int port,
             @NotNull final DAO dao,
@@ -94,7 +106,6 @@ public class NewService extends HttpServer implements Service {
      * HTTP GET /v0/entity?id="ID" -- получает данные по ключу.
      *
      * @param id ключ
-     * @return 200 OK и данные или 404 Not Found
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -118,7 +129,6 @@ public class NewService extends HttpServer implements Service {
      *
      * @param id ключ
      * @param request данные
-     * @return 201 Created
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -144,7 +154,6 @@ public class NewService extends HttpServer implements Service {
      * HTTP DELETE /v0/entity?id="ID" - удаляет данные по ключу.
      *
      * @param id ключ
-     * @return 202 Accepted
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -165,13 +174,15 @@ public class NewService extends HttpServer implements Service {
     }
 
     private void idValidation(
-            @Param(value = "id", required = true) String id,
+            @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
             try {
-                httpSession.sendResponse(resp(Response.BAD_REQUEST));
+                httpSession.sendResponse(
+                        resp(Response.BAD_REQUEST));
             } catch (IOException ioException) {
-                logger.error("Не плучается отправить запрос", ioException);
+                logger.error(
+                        "Не плучается отправить запрос", ioException);
             }
         }
     }
@@ -181,25 +192,31 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) {
         executorService.execute(() -> {
             try {
-                try {
-                    httpSession.sendResponse(
-                            Response.ok(
-                                    toByteArray(dao.get(key)))
-                    );
-                } catch (NoSuchElementException e) {
-                    httpSession.sendResponse(
-                            resp(Response.NOT_FOUND));
-                } catch (IOException e) {
-                    logger.error(
-                            "Ошибка в GET: {}", toByteArray(key));
-                    httpSession.sendResponse(
-                            resp(Response.INTERNAL_ERROR));
-                }
+                doGet(key, httpSession);
             } catch (IOException ioException) {
                 logger.error(
-                        "Не получается отправить запрос", ioException);
+                        "Ошибка в getting ", ioException);
             }
         });
+    }
+
+    private void doGet(
+            @NotNull final ByteBuffer key,
+            @NotNull final HttpSession httpSession) throws IOException {
+        try {
+            httpSession.sendResponse(
+                    Response.ok(
+                            toByteArray(dao.get(key)))
+            );
+        } catch (NoSuchElementException e) {
+            httpSession.sendResponse(
+                    resp(Response.NOT_FOUND));
+        } catch (IOException e) {
+            logger.error(
+                    "Ошибка в GET: {}", toByteArray(key));
+            httpSession.sendResponse(
+                    resp(Response.INTERNAL_ERROR));
+        }
     }
 
     private void upserting(
@@ -209,22 +226,32 @@ public class NewService extends HttpServer implements Service {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         executorService.execute(() -> {
             try {
-                try {
-                    dao.upsert(key, value);
-                    httpSession.sendResponse(
-                            resp(Response.CREATED)
-                    );
-                } catch (IOException e) {
-                    logger.error(
-                            "Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
-                    httpSession.sendResponse(
-                            resp(Response.INTERNAL_ERROR));
-                }
+                doUpsert(
+                        key,
+                        httpSession,
+                        value);
             } catch (IOException ioException) {
                 logger.error(
-                        "Не получается отправить запрос", ioException);
+                        "Ошибка в upserting ", ioException);
             }
         });
+    }
+
+    private void doUpsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final HttpSession httpSession,
+            final ByteBuffer value) throws IOException {
+        try {
+            dao.upsert(key, value);
+            httpSession.sendResponse(
+                    resp(Response.CREATED)
+            );
+        } catch (IOException e) {
+            logger.error(
+                    "Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
+            httpSession.sendResponse(
+                    resp(Response.INTERNAL_ERROR));
+        }
     }
 
     private void removing(
@@ -232,50 +259,48 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) {
         executorService.execute(() -> {
             try {
-                try {
-                    dao.remove(key);
-                    httpSession.sendResponse(
-                            resp(Response.ACCEPTED)
-                    );
-                } catch (IOException ioException) {
-                    logger.error(
-                            "Ошибка в DELETE: {}", toByteArray(key));
-                    httpSession.sendResponse(
-                            resp(Response.INTERNAL_ERROR));
-                }
+                doRemove(
+                        key,
+                        httpSession);
             } catch (IOException ioException) {
                 logger.error(
-                        "Не получается отправить запрос", ioException);
+                        "Ошибка в removing ", ioException);
             }
         });
     }
 
+    private void doRemove(
+            @NotNull final ByteBuffer key,
+            @NotNull final HttpSession httpSession) throws IOException {
+        try {
+            dao.remove(key);
+            httpSession.sendResponse(
+                    resp(Response.ACCEPTED)
+            );
+        } catch (IOException ioException) {
+            logger.error(
+                    "Ошибка в DELETE: {}", toByteArray(key));
+            httpSession.sendResponse(
+                    resp(Response.INTERNAL_ERROR));
+        }
+    }
+
+    /**
+     * Метод проверки: отвечает ли сервер.
+     *
+     * @param httpSession сессия
+     */
     @Path("/v0/status")
     public void status(final HttpSession httpSession) {
-        try {
-            final Future<?> future = executorService.submit(() -> {
-                try {
-                    httpSession.sendResponse(
-                            Response.ok("OK"));
-                } catch (IOException ioException) {
-                    logger.error(
-                            "Ошибка при ответе", ioException);
-                }
-            });
-            if (future.isCancelled()) {
-                logger.error(
-                        "Задача отменена");
-            }
-        } catch (Exception exception) {
-            logger.error(
-                    "Не получается добавить запрос в очередь на выполнение", exception);
+        executorService.execute(() -> {
             try {
-                httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
+                httpSession.sendResponse(
+                        Response.ok("OK"));
             } catch (IOException ioException) {
                 logger.error(
-                        "Не получилось отправить сообщение об ошибке", ioException);
+                        "Ошибка при ответе", ioException);
             }
-        }
+        });
     }
 
     /**
