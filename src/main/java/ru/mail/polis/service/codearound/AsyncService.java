@@ -173,30 +173,6 @@ public class AsyncService extends HttpServer implements Service {
     }
 
     /**
-     * default handler.
-     * @param req client host request
-     * @param session ongoing session instance
-     */
-    @Override
-    public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    /**
-     * terminates ExecutorService process.
-     */
-    @Override
-    public synchronized void stop() {
-        super.stop();
-        exec.shutdown();
-        try {
-            exec.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            logger.error("Failed executor termination\n");
-        }
-    }
-
-    /**
      * DAO-resolved async GET handler impl.
      * @param key - target key
      * @param session ongoing session instance
@@ -247,5 +223,29 @@ public class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+    }
+
+    /**
+     * default handler.
+     * @param req client host request
+     * @param session ongoing session instance
+     */
+    @Override
+    public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    /**
+     * terminates ExecutorService process.
+     */
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        exec.shutdown();
+        try {
+            exec.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            logger.error("Failed executor termination\n");
+        }
     }
 }
