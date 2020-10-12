@@ -40,9 +40,10 @@ public class NewDAO implements DAO {
 
     private final ReentrantReadWriteLock readWriteLock =
             new ReentrantReadWriteLock();
+    // набор всех таблиц, с которыми мы работаем
     @NotNull
     @GuardedBy("readWriteLock")
-    private TableSet memTable;
+    private TableSet tables;
 
     /**
      * Конструктор {link NewDAO} instance.
@@ -117,7 +118,7 @@ public class NewDAO implements DAO {
         }
         identifierThreshold.set(
                 identifierThreshold.get() + 1);
-        this.memTable =
+        this.tables =
                 new TableSet(
                         new MemTable(),
                         Collections.emptySet(),
@@ -149,7 +150,7 @@ public class NewDAO implements DAO {
         final TableSet snapshot;
         readWriteLock.readLock().lock();
         try {
-            snapshot = this.memTable;
+            snapshot = this.tables;
         } finally {
             readWriteLock.readLock().unlock();
         }
@@ -182,9 +183,9 @@ public class NewDAO implements DAO {
         final boolean flushPending;
         readWriteLock.readLock().lock();
         try {
-            memTable.currMemTable.upsert(key, val);
+            tables.currMemTable.upsert(key, val);
             flushPending =
-                    memTable.currMemTable.getSize() >= maxHeapThreshold;
+                    tables.currMemTable.getSize() >= maxHeapThreshold;
 
         } finally {
             readWriteLock.readLock().unlock();
@@ -203,9 +204,9 @@ public class NewDAO implements DAO {
         final boolean flushPending;
         readWriteLock.readLock().lock();
         try {
-            memTable.currMemTable.remove(key);
+            tables.currMemTable.remove(key);
             flushPending =
-                    memTable.currMemTable.getSize() >= maxHeapThreshold;
+                    tables.currMemTable.getSize() >= maxHeapThreshold;
 
         } finally {
             readWriteLock.readLock().unlock();
@@ -226,11 +227,11 @@ public class NewDAO implements DAO {
         final TableSet snapshot;
         readWriteLock.writeLock().lock();
         try {
-            snapshot = this.memTable;
+            snapshot = this.tables;
             if (snapshot.currMemTable.getSize() == 0L) {
                 return;
             }
-            this.memTable = snapshot.setToFlush();
+            this.tables = snapshot.setToFlush();
         } finally {
             readWriteLock.writeLock().unlock();
         }
@@ -254,8 +255,8 @@ public class NewDAO implements DAO {
 
         readWriteLock.writeLock().lock();
         try {
-            this.memTable =
-                    this.memTable
+            this.tables =
+                    this.tables
                             .flushTable(
                                     snapshot.currMemTable,
                                     new SortedStringTable(dest),
@@ -270,7 +271,7 @@ public class NewDAO implements DAO {
         final TableSet snapshot;
         readWriteLock.readLock().lock();
         try {
-            snapshot = this.memTable;
+            snapshot = this.tables;
         } finally {
             readWriteLock.readLock().unlock();
         }
@@ -285,7 +286,7 @@ public class NewDAO implements DAO {
 
         readWriteLock.writeLock().lock();
         try {
-            this.memTable = this.memTable.compactSSTables();
+            this.tables = this.tables.compactSSTables();
         } finally {
             readWriteLock.writeLock().unlock();
         }
@@ -299,8 +300,8 @@ public class NewDAO implements DAO {
 
         readWriteLock.writeLock().lock();
         try {
-            this.memTable =
-                    this.memTable
+            this.tables =
+                    this.tables
                             .flushCompactTable(
                                     snapshot.ssTableCollection,
                                     new SortedStringTable(dest),
