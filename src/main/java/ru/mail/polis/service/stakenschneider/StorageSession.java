@@ -12,6 +12,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
+import static ru.mail.polis.dao.ByteBufferConverter.toArray;
+
 final class StorageSession extends HttpSession {
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
     private static final byte LF = '\n';
@@ -40,13 +42,6 @@ final class StorageSession extends HttpSession {
         next();
     }
 
-    @NotNull
-    private static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
-        final byte[] result = new byte[buffer.remaining()];
-        buffer.get(result);
-        return result;
-    }
-
     @Override
     protected void processWrite() throws Exception {
         super.processWrite();
@@ -61,8 +56,8 @@ final class StorageSession extends HttpSession {
     private void next() throws IOException {
         while (records.hasNext() && queueHead == null) {
             final Record record = records.next();
-            final byte[] key = toByteArray(record.getKey());
-            final byte[] value = toByteArray(record.getValue());
+            final byte[] key = toArray(record.getKey());
+            final byte[] value = toArray(record.getValue());
 
             final int payloadLength = key.length + 1 + value.length;
             final String size = Integer.toHexString(payloadLength);
