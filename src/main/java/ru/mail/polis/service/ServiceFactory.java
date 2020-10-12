@@ -21,6 +21,7 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomServer;
+import ru.mail.polis.service.stasyanoi.CustomServerAsync;
 import ru.mail.polis.service.stasyanoi.ServiceImpl;
 
 import java.io.IOException;
@@ -61,9 +62,7 @@ public final class ServiceFactory {
 
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
-        httpServerConfig.selectors = 3;
-        httpServerConfig.maxWorkers = 10;
 
-        return new ServiceImpl(new CustomServer(dao, httpServerConfig));
+        return new ServiceImpl(new CustomServerAsync(dao, httpServerConfig));
     }
 }

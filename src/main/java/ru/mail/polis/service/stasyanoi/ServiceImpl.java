@@ -1,12 +1,13 @@
 package ru.mail.polis.service.stasyanoi;
 
+import one.nio.http.HttpServer;
 import ru.mail.polis.service.Service;
 
 public class ServiceImpl implements Service {
 
-    private final CustomServer customServer;
+    private final HttpServer customServer;
 
-    public ServiceImpl(final CustomServer customServer) {
+    public ServiceImpl(final HttpServer customServer) {
         this.customServer = customServer;
     }
 
