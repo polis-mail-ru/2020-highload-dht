@@ -119,17 +119,21 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     private void get(final ByteBuffer key, final HttpSession session) {
         this.executor.execute(() -> {
             try {
-                try {
-                    session.sendResponse(new Response(Response.OK, toByteArray(dao.get(key))));
-                } catch (NoSuchElementException ex) {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException e) {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
+                getValue(key, session);
             } catch (IOException e) {
                 logger.error("Couldn't send response", e);
             }
         });
+    }
+
+    private void getValue(final ByteBuffer key, final HttpSession session) throws IOException {
+        try {
+            session.sendResponse(new Response(Response.OK, toByteArray(dao.get(key))));
+        } catch (NoSuchElementException ex) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException e) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
     }
 
     private void put(
