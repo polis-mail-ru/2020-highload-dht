@@ -222,9 +222,11 @@ public class DAOImpl implements DAO {
             lock.writeLock().unlock();
         }
         for (final Table table : snapshot.storageTables.values()) {
-            final File fl = table.getFile();
-            if (Files.deleteIfExists(fl.toPath())) {
-                throw new IOException("Flusher: can't delete file " + fl);
+            final Path path = table.getFile().toPath();
+            try {
+                Files.delete(path);
+            } catch (final IOException e) {
+                throw new IOException("Flusher: can't delete file " + path);
             }
         }
     }

@@ -33,7 +33,7 @@ public class ServiceImpl extends HttpServer implements Service {
     private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final DAO dao;
     private final ExecutorService executorService;
-    private static final String responseErrorString = "Sending response error";
+    private static final String RESPONSE_ERROR_STRING = "Sending response error";
 
     /**
      * Implementation of a persistent storage with HTTP API.
@@ -103,7 +103,7 @@ public class ServiceImpl extends HttpServer implements Service {
             try {
                 httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             } catch (final IOException ioException) {
-                log.error(responseErrorString, ioException);
+                log.error(RESPONSE_ERROR_STRING, ioException);
             }
         }
     }
@@ -112,7 +112,7 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             httpSession.sendResponse(response);
         } catch (final IOException ioException) {
-            log.error(responseErrorString, ioException);
+            log.error(RESPONSE_ERROR_STRING, ioException);
         }
     }
 
@@ -263,6 +263,7 @@ public class ServiceImpl extends HttpServer implements Service {
             executorService.awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             log.error("Waiting for a stop is interrupted");
+            Thread.currentThread().interrupt();
         }
     }
 }
