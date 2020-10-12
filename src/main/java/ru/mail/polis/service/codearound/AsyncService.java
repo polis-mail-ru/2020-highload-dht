@@ -1,7 +1,13 @@
 package ru.mail.polis.service.codearound;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -23,6 +29,8 @@ public class AsyncService extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService exec;
     Logger logger = LoggerFactory.getLogger(TaskService.class);
+    final String notFoundErrorLog = "Match key is missing, no value can be retrieved\n";
+    final String handlerErrorLog = "Error handling request\n";
 
     /**
      * async service impl const.
@@ -33,7 +41,7 @@ public class AsyncService extends HttpServer implements Service {
     public AsyncService(final int port, @NotNull final DAO dao,
                         final int workerPoolSize, final int queueSize) throws IOException {
 
-        super(getConfig(port));
+        super(getAsyncConfig(port));
         assert workerPoolSize > 0;
         assert queueSize > 0;
 
@@ -54,7 +62,7 @@ public class AsyncService extends HttpServer implements Service {
      * @param port - server listening port
      * @return HTTP server configuration object
      */
-    private static HttpServerConfig getConfig(final int port) {
+    private static HttpServerConfig getAsyncConfig(final int port) {
         if (port <= 1024 || port >= 65536) {
             throw new IllegalArgumentException("Invalid port\n");
         }
@@ -71,12 +79,12 @@ public class AsyncService extends HttpServer implements Service {
      * fires formation request to make sure server is alive.
      */
     @Path("/v0/status")
-    public void status(final HttpSession session) {
+    public void status(@NotNull final HttpSession session) throws IOException {
         exec.execute(() -> {
             try {
-                session.sendResponse(Response.ok("Server is running...\n"));;
-            } catch (Exception e) {
-                logger.error("Sending request fails, raising exception\n", e);
+                session.sendResponse(Response.ok("Server is running...\n"));
+            } catch (IOException exc) {
+                logger.error("Sending request fails, raising exception\n", exc);
             }
         });
     }
@@ -110,8 +118,8 @@ public class AsyncService extends HttpServer implements Service {
                 delete(buf, session);
                 break;
             default:
-                throw new NoSuchMethodException("No handler is available for request method. " +
-                        "Failed determining response\n");
+                throw new NoSuchMethodException("No handler is available for request method. "
+                        + "Failed determining response\n");
         }
     }
 
@@ -122,15 +130,13 @@ public class AsyncService extends HttpServer implements Service {
      */
     private void get(@NotNull final ByteBuffer key, @NotNull final HttpSession session) {
 
-        final ByteBuffer[] val = new ByteBuffer[1];
-
         exec.execute(() -> {
             try {
-                getAsync(key, session, val[0]);
+                getAsync(key, session);
             } catch (NoSuchElementException exc) {
-                logger.error("Match key is missing, no value can be retrieved\n");
+                logger.error(notFoundErrorLog);
             } catch (IOException exc) {
-                logger.error("Error handling request\n", exc);
+                logger.error(handlerErrorLog, exc);
             }
         });
     }
@@ -149,7 +155,7 @@ public class AsyncService extends HttpServer implements Service {
             try {
                 upsertAsync(key, session, val);
             } catch (IOException exc) {
-                logger.error("Error handling request\n", exc);
+                logger.error(handlerErrorLog, exc);
             }
         });
     }
@@ -165,9 +171,9 @@ public class AsyncService extends HttpServer implements Service {
             try {
                 removeAsync(key, session);
             } catch (NoSuchElementException exc) {
-                logger.error("Match key is missing, no value can be retrieved\n");
+                logger.error(notFoundErrorLog);
             } catch (IOException exc) {
-                logger.error("Error handling request\n", exc);
+                logger.error(handlerErrorLog, exc);
             }
         });
     }
@@ -176,17 +182,22 @@ public class AsyncService extends HttpServer implements Service {
      * DAO-resolved async GET handler impl.
      * @param key - target key
      * @param session ongoing session instance
-     * @param val - key-specific value to return by server response
+     *
      */
-    private void getAsync(@NotNull final ByteBuffer key, @NotNull final HttpSession session, ByteBuffer val) throws IOException {
+    private void getAsync(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession session) throws IOException {
+
+        ByteBuffer buf = null;
 
         try {
-            val = dao.get(key);
+            buf = dao.get(key);
         } catch (NoSuchElementException exc) {
-            logger.error("Match key is missing, no value can be retrieved\n");
+            logger.error(notFoundErrorLog);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         }
-        session.sendResponse(Response.ok(DAOByteOnlyConverter.readByteArray(val)));
+
+        assert buf != null;
+        session.sendResponse(Response.ok(DAOByteOnlyConverter.readByteArray(buf)));
     }
 
     /**
@@ -195,12 +206,14 @@ public class AsyncService extends HttpServer implements Service {
      * @param session ongoing session instance
      * @param val - key-specific value to return by server response
      */
-    private void upsertAsync(@NotNull final ByteBuffer key, @NotNull final HttpSession session, final ByteBuffer val) throws IOException {
+    private void upsertAsync(@NotNull final ByteBuffer key,
+                             @NotNull final HttpSession session,
+                             final ByteBuffer val) throws IOException {
 
         try {
             dao.upsert(key, val);
         } catch (IOException exc) {
-            logger.error("Error handling request\n", exc);
+            logger.error(handlerErrorLog, exc);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
@@ -216,10 +229,10 @@ public class AsyncService extends HttpServer implements Service {
         try {
             dao.remove(key);
         } catch (NoSuchElementException exc) {
-            logger.error("Match key is missing, no value can be retrieved\n");
+            logger.error(notFoundErrorLog);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException exc) {
-            logger.error("Error handling request\n", exc);
+            logger.error(handlerErrorLog, exc);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
@@ -246,6 +259,7 @@ public class AsyncService extends HttpServer implements Service {
             exec.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             logger.error("Failed executor termination\n");
+            Thread.currentThread().interrupt();
         }
     }
 }
