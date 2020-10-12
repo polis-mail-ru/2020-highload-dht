@@ -31,14 +31,15 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     ServiceAsyncImpl(
             final int port,
             @NotNull final DAO dao,
-            final int workersCount
+            final int workersCount,
+            final int queueSize
     ) throws IOException {
         super(getConfig(port, workersCount));
         this.dao = dao;
         this.executor = new ThreadPoolExecutor(
                 workersCount, workersCount,
                 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(32),
+                new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setUncaughtExceptionHandler((t, e) -> logger.error("Exception {} in thread {}", e, t))
                         .setNameFormat("async_worker_%d")
@@ -63,7 +64,6 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
      * @param id      key of entity
      * @param request HTTP request
      * @param session HTTP session
-     * @return response or error
      */
     @Path("/v0/entity")
     public void entity(
@@ -106,17 +106,15 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     }
 
     private void get(final ByteBuffer key, final HttpSession session) {
-        final ByteBuffer[] value = new ByteBuffer[1];
         this.executor.execute(() -> {
             try {
                 try {
-                    value[0] = dao.get(key);
+                    session.sendResponse(new Response(Response.OK, toByteArray(dao.get(key))));
                 } catch (NoSuchElementException ex) {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException e) {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 }
-                session.sendResponse(new Response(Response.OK, toByteArray(value[0])));
             } catch (IOException e) {
                 logger.error("Couldn't send response", e);
             }
