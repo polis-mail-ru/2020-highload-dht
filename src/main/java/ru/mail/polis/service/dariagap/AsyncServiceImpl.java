@@ -7,7 +7,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -106,23 +105,28 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        final HttpSession session) {
         final Future<?> future = exec.submit(() -> {
             try {
-                switch (request.getMethod()) {
-                    case METHOD_GET:
-                        getSync(id, session);
-                        break;
-                    case METHOD_PUT:
-                        putSync(id, request, session);
-                        break;
-                    case METHOD_DELETE:
-                        deleteSync(id, session);
-                        break;
-                    default:
-                        log.error("Unknown method");
-                        session.sendResponse(
-                                new Response(Response.METHOD_NOT_ALLOWED,
-                                        Response.EMPTY));
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
-
+                else {
+                    switch (request.getMethod()) {
+                        case METHOD_GET:
+                            getSync(id, session);
+                            break;
+                        case METHOD_PUT:
+                            putSync(id, request, session);
+                            break;
+                        case METHOD_DELETE:
+                            deleteSync(id, session);
+                            break;
+                        default:
+                            log.error("Unknown method");
+                            session.sendResponse(
+                                    new Response(Response.METHOD_NOT_ALLOWED,
+                                            Response.EMPTY));
+                            break;
+                    }
+                }
             } catch (IOException ex) {
                 log.error(RESPONSE_ERROR, ex);
             }
@@ -135,9 +139,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private void getSync(final String id,
                          final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-        }
         try {
             final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(UTF_8)));
             session.sendResponse(new Response(Response.OK, Util.byteBufferToBytes(value)));
@@ -151,10 +152,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private void putSync(final String id,
                          final Request request,
                          final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-        }
-
         try {
             dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)),
                     ByteBuffer.wrap(request.getBody()));
@@ -166,10 +163,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private void deleteSync(final String id,
                          final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-        }
-
         try {
             dao.remove(ByteBuffer.wrap(id.getBytes(UTF_8)));
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
