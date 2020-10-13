@@ -135,7 +135,7 @@ public class DiskManager implements Closeable {
     }
 
     private synchronized void saveFileNameToMeta(final String fileName) throws IOException {
-        try (final var writer = Files.newBufferedWriter(this.metaFile,
+        try (var writer = Files.newBufferedWriter(this.metaFile,
                 Charset.defaultCharset(), StandardOpenOption.APPEND)) {
             writer.write(fileName + "\n");
         }

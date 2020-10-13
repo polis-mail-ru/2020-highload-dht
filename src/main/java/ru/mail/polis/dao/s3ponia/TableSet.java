@@ -74,12 +74,12 @@ public final class TableSet {
         if (!tablesToFlush.remove(table)) {
             throw new IllegalStateException("table have already flushed.");
         }
-        final NavigableMap<Integer, Table> diskTables =
+        final NavigableMap<Integer, Table> newDiskTables =
                 new TreeMap<>(this.diskTables);
-        if (diskTables.put(gen, diskTable) != null) {
+        if (newDiskTables.put(gen, diskTable) != null) {
             throw new IllegalStateException("table have already flushed!");
         }
-        return new TableSet(this.memTable, tablesToFlush, diskTables, this.generation);
+        return new TableSet(this.memTable, tablesToFlush, newDiskTables, this.generation);
     }
 
     /**

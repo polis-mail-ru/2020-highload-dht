@@ -31,6 +31,7 @@ public final class BasicService extends HttpServer implements Service {
     private static final byte[] EMPTY = Response.EMPTY;
     private static final String UNAVAILABLE_MESSAGE = "Can't send unavailable error";
     private static final String SCHEDULE_MESSAGE = "Can't schedule request for execution";
+    private static final String ERROR_SEND_MESSAGE = "Error in sending error";
     private final DAO dao;
     private final ExecutorService es;
 
@@ -115,7 +116,7 @@ public final class BasicService extends HttpServer implements Service {
                     try {
                         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
                     } catch (IOException e) {
-                        logger.error("Error in sending error", e);
+                        logger.error(ERROR_SEND_MESSAGE, e);
                     }
                 }
 
@@ -135,7 +136,7 @@ public final class BasicService extends HttpServer implements Service {
                 try {
                     session.sendResponse(response);
                 } catch (IOException ioException) {
-                    logger.error("Error in sending error", ioException);
+                    logger.error(ERROR_SEND_MESSAGE, ioException);
                 }
             });
         } catch (RejectedExecutionException e) {
@@ -165,7 +166,7 @@ public final class BasicService extends HttpServer implements Service {
                     try {
                         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
                     } catch (IOException e) {
-                        logger.error("Error in sending error", e);
+                        logger.error(ERROR_SEND_MESSAGE, e);
                     }
                 }
 
@@ -178,7 +179,7 @@ public final class BasicService extends HttpServer implements Service {
                     try {
                         session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
                     } catch (IOException ioException) {
-                        logger.error("Error in sending error", ioException);
+                        logger.error(ERROR_SEND_MESSAGE, ioException);
                     }
                 }
             });
@@ -207,7 +208,7 @@ public final class BasicService extends HttpServer implements Service {
                     try {
                         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
                     } catch (IOException e) {
-                        logger.error("Error in sending error", e);
+                        logger.error(ERROR_SEND_MESSAGE, e);
                     }
                 }
 
@@ -224,7 +225,7 @@ public final class BasicService extends HttpServer implements Service {
                     try {
                         session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
                     } catch (IOException ioException) {
-                        logger.error("Error in sending error", ioException);
+                        logger.error(ERROR_SEND_MESSAGE, ioException);
                     }
                 }
 
