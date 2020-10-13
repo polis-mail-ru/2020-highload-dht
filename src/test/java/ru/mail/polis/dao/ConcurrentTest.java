@@ -62,17 +62,17 @@ class ConcurrentTest extends TestBase {
 
     @Test
     void singleReaderWriter(@TempDir File data) throws IOException, InterruptedException {
-        concurrentReadWrite(1, 1_000,  data);
+        concurrentReadWrite(1, 1_000, data);
     }
 
     @Test
     void twoReaderWriter(@TempDir File data) throws IOException, InterruptedException {
-        concurrentReadWrite(2, 1_000,  data);
+        concurrentReadWrite(2, 1_000, data);
     }
 
     @Test
     void tenReaderWriterManyRecords(@TempDir File data) throws IOException, InterruptedException {
-        concurrentReadWrite(10, 1_000_000,  data);
+        concurrentReadWrite(10, 1_000_000, data);
     }
 
     private void concurrentWrites(int threadsCount,
@@ -123,13 +123,8 @@ class ConcurrentTest extends TestBase {
     }
 
     private void concurrentReadWrite(int threadsCount,
-<<<<<<< HEAD
                                      int recordsCount,
                                      @NotNull final File data)
-=======
-                                  int recordsCount,
-                                  @NotNull final File data)
->>>>>>> bf3b4a20548990bb4253a36ce5cd4ff27b9c4a8a
             throws IOException, InterruptedException {
         final RecordsGenerator records = new RecordsGenerator(recordsCount, 0);
         try (final DAO dao = DAOFactory.create(data)) {
@@ -144,11 +139,8 @@ class ConcurrentTest extends TestBase {
                             Thread.currentThread().interrupt();
                         }
                     });
-<<<<<<< HEAD
+
             final AtomicInteger matches = new AtomicInteger();
-=======
-            final AtomicInteger matches = new AtomicInteger(); 
->>>>>>> bf3b4a20548990bb4253a36ce5cd4ff27b9c4a8a
             while (records.hasNext()) {
                 final Record record = records.next();
                 executor.submit(() -> {
@@ -168,8 +160,4 @@ class ConcurrentTest extends TestBase {
             assertEquals(recordsCount, matches.get());
         }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> bf3b4a20548990bb4253a36ce5cd4ff27b9c4a8a
