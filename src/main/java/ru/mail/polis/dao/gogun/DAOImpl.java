@@ -51,7 +51,9 @@ public class DAOImpl implements DAO {
      * @param flushThreshold threshold to write data
      * @throws IOException io error
      */
-    public DAOImpl(@NotNull final File storage, final long flushThreshold, final int executorQueueSize) throws IOException {
+    public DAOImpl(@NotNull final File storage,
+                   final long flushThreshold,
+                   final int executorQueueSize) throws IOException {
         this.storage = storage;
         this.flushThreshold = flushThreshold;
         final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>();
@@ -228,7 +230,7 @@ public class DAOImpl implements DAO {
                     lock.writeLock().unlock();
                 }
 
-            } catch (Exception e) {
+            } catch (IOException e) {
                 logger.error("Cannot flush", e);
             }
 
@@ -264,7 +266,6 @@ public class DAOImpl implements DAO {
         } finally {
             lock.readLock().unlock();
         }
-
 
     }
 }

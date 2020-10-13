@@ -32,7 +32,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     private final ExecutorService executorService;
 
-    public AsyncServiceImpl(final int port, final int numWorkers, final int queueSize, final DAO dao) throws IOException {
+
+    /**
+     * class that provides requests to lsm dao via http.
+     *
+     * @param port - port
+     * @param numWorkers - num of threads in executor service
+     * @param queueSize - thread queue size
+     * @param dao - key-value storage
+     * @throws IOException
+     */
+    public AsyncServiceImpl(final int port,
+                            final int numWorkers,
+                            final int queueSize,
+                            final DAO dao) throws IOException {
         super(makeConfig(port, numWorkers));
         this.dao = dao;
         executorService = new ThreadPoolExecutor(numWorkers,
@@ -74,6 +87,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         super.handleDefault(request, session);
     }
 
+
+    /**
+     * provide checking api is alive.
+     *
+     * @param session - session
+     */
     @Path("/v0/status")
     public void status(final HttpSession session) {
         executorService.execute(() -> {
@@ -124,8 +143,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * Provide getting data by id from lsm.
      *
-     * @param id - key
-     * @return 200 / 400 / 404
+     * @param id      - key
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -134,12 +153,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             try {
                 handleGetRequest(id, session);
             } catch (IOException e) {
-                log.error("Error sending response {}", e.getMessage());
+                log.error("Error sending response in method get {}", e.getMessage());
             }
         });
     }
 
-    private void handlePutRequest(final String id, final Request request, final HttpSession session) throws IOException {
+    private void handlePutRequest(final String id,
+                                  final Request request,
+                                  final HttpSession session) throws IOException {
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -161,16 +182,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      *
      * @param id      - key
      * @param request - value
-     * @return 201 / 400 / 404
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void upsert(@Param(value = "id", required = true) @NotNull final String id, final Request request, final HttpSession session) {
+    public void upsert(@Param(value = "id", required = true) @NotNull final String id,
+                       final Request request,
+                       final HttpSession session) {
         executorService.execute(() -> {
             try {
                 handlePutRequest(id, request, session);
             } catch (IOException e) {
-                log.error("Error sending response {}", e.getMessage());
+                log.error("Error sending response in method put {}", e.getMessage());
             }
         });
     }
@@ -195,8 +218,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * Provide deleting by id.
      *
-     * @param id - key
-     * @return 202 / 400 / 404
+     * @param id      - key
+     * @param session - session
+     *
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -205,7 +229,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             try {
                 handleDelRequest(id, session);
             } catch (IOException e) {
-                log.error("Error sending response {}", e.getMessage());
+                log.error("Error sending response in method del {}", e.getMessage());
             }
         });
     }
