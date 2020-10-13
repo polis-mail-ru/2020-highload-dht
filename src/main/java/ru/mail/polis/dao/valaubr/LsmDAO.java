@@ -43,7 +43,7 @@ public class LsmDAO implements DAO {
     private static final String TEMP_FILE_POSTFIX = ".tmp";
     private static final String LSM_TEMP_FILE = "temp.tmp";
     private static final int POOL_SIZE = 2;
-    private static final int NUMBER_OF_THREADS = 2;
+    private static final int NUMBER_OF_THREADS = 4;
 
     @NotNull
     private final File storage;
@@ -99,7 +99,9 @@ public class LsmDAO implements DAO {
         try {
             final Iterator<Cell> alive = Iterators.filter(cellIterator(from),
                     cell -> !requireNonNull(cell).getValue().isTombstone());
-            return Iterators.transform(alive, cell -> Record.of(requireNonNull(cell).getKey(), cell.getValue().getData()));
+            return Iterators.transform(alive, cell ->
+                    Record.of(requireNonNull(cell).getKey(),
+                            cell.getValue().getData()));
         } finally {
             readWriteLock.readLock().unlock();
         }
@@ -158,6 +160,7 @@ public class LsmDAO implements DAO {
                 flush(flushingTable);
                 memTablePool.flushed(flushingTable.getGen());
             } catch (InterruptedException e) {
+
                 log.error("Interrupt while creating table", e);
             } catch (IOException e) {
                 log.error("Error while creating table", e);
