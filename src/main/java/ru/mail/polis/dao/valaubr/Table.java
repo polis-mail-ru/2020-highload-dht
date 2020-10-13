@@ -15,7 +15,7 @@ public interface Table {
 
     void remove(@NotNull ByteBuffer key) throws IOException;
 
-    long getSizeInByte();
+    long getSizeInBytes();
 
     int size();
 

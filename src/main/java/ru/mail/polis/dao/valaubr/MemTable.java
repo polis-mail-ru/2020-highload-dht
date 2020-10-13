@@ -2,11 +2,14 @@ package ru.mail.polis.dao.valaubr;
 
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class MemTable implements Table {
     /*
      * ByteBuffer [link - 2 bytes
@@ -34,12 +37,12 @@ public class MemTable implements Table {
     private static final int OVAS = 39;
     //KEY_ADDITIONAL_SIZE
     private static final int KAS = 15;
-    private final SortedMap<ByteBuffer, Value> map = new TreeMap<>();
+    private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
 
-    private int sizeInBytes;
+    private final AtomicLong sizeInBytes = new AtomicLong();
 
     public MemTable() {
-        this.sizeInBytes = 0;
+        sizeInBytes.set(0);
     }
 
     @NotNull
@@ -56,9 +59,9 @@ public class MemTable implements Table {
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         final Value val = map.put(key, new Value(System.currentTimeMillis(), value.duplicate()));
         if (val == null) {
-            sizeInBytes += key.remaining() + value.remaining() + NVAS;
+            sizeInBytes.addAndGet(key.remaining() + value.remaining() + NVAS);
         } else {
-            sizeInBytes += value.remaining() + OVAS;
+            sizeInBytes.addAndGet(value.remaining() + OVAS);
         }
     }
 
@@ -66,15 +69,15 @@ public class MemTable implements Table {
     public void remove(@NotNull final ByteBuffer key) {
         final Value val = map.put(key, new Value(System.currentTimeMillis()));
         if (val == null) {
-            sizeInBytes += key.remaining() + KAS;
+            sizeInBytes.addAndGet(key.remaining() + KAS);
         } else if (!val.isTombstone()) {
-            sizeInBytes -= val.getData().remaining();
+            sizeInBytes.addAndGet(-val.getData().remaining());
         }
     }
 
     @Override
-    public long getSizeInByte() {
-        return sizeInBytes;
+    public long getSizeInBytes() {
+        return sizeInBytes.get();
     }
 
     @Override
@@ -85,6 +88,6 @@ public class MemTable implements Table {
     @Override
     public void close() {
         map.clear();
-        sizeInBytes = 0;
+        sizeInBytes.set(0);
     }
 }

@@ -2,6 +2,7 @@ package ru.mail.polis.dao.valaubr;
 
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+@ThreadSafe
 public class SSTable implements Table {
 
     private final FileChannel fileChannel;
@@ -164,7 +166,7 @@ public class SSTable implements Table {
     }
 
     @Override
-    public long getSizeInByte() {
+    public long getSizeInBytes() {
         try {
             return fileChannel.size();
         } catch (IOException e) {
