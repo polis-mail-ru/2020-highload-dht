@@ -36,7 +36,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public AsyncServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
         super(getConfig(port));
         this.dao = dao;
-        int countOfWorkers = Runtime.getRuntime().availableProcessors();
+        final int countOfWorkers = Runtime.getRuntime().availableProcessors();
         this.executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 10L,
                 TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1024),
                 new ThreadFactoryBuilder().setNameFormat("async_worker-%d").build());
@@ -115,20 +115,31 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final ByteBuffer value = dao.get(key).duplicate();
             final byte[] valueArray = ByteConvertor.toArray(value);
             session.sendResponse(Response.ok(valueArray));
-        } catch (NoSuchElementException error) {
+        }  catch (IOException ex) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+        catch (NoSuchElementException error) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
 
     private void put(final ByteBuffer key, final Request request,
                      final HttpSession session) throws IOException {
-        dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        try{
+            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        } catch (IOException error) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
     }
 
     private void delete(final ByteBuffer key, final HttpSession session) throws IOException {
-        dao.remove(key);
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        try {
+            dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException error) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
     }
 
     @Override
