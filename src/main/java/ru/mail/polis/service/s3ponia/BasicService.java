@@ -1,5 +1,6 @@
 package ru.mail.polis.service.s3ponia;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -19,45 +20,61 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public final class BasicService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(BasicService.class);
     private static final byte[] EMPTY = Response.EMPTY;
     private final DAO dao;
-    
-    private BasicService(final int port, @NotNull final DAO dao) throws IOException {
+    private final ExecutorService es;
+
+    private BasicService(final int port, @NotNull final DAO dao, final int workers) throws IOException {
         super(configFrom(port));
         this.dao = dao;
+        this.es = Executors.newFixedThreadPool(workers,
+                new ThreadFactoryBuilder()
+                        .setNameFormat("worker-%d")
+                        .setUncaughtExceptionHandler((t, e) ->
+                                logger.error("Error in {} when processing request", t, e))
+                        .build());
     }
-    
+
     @NotNull
     private static HttpServerConfig configFrom(final int port) {
         final AcceptorConfig ac = new AcceptorConfig();
         ac.port = port;
-        
+
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
         return config;
     }
-    
+
     @NotNull
     private static byte[] fromByteBuffer(@NotNull final ByteBuffer b) {
         final byte[] out = new byte[b.remaining()];
         b.get(out);
         return out;
     }
-    
+
     @NotNull
-    public static BasicService of(final int port, @NotNull final DAO dao) throws IOException {
-        return new BasicService(port, dao);
+    public static BasicService of(final int port, @NotNull final DAO dao, final int workers) throws IOException {
+        return new BasicService(port, dao, workers);
     }
-    
+
     @Path("/v0/status")
-    public Response handleSimple() throws IOException {
-        return Response.ok("OK");
+    public void handleStatus(final HttpSession session) throws IOException {
+        this.es.execute(() -> {
+            try {
+                session.sendResponse(Response.ok("OK"));
+            } catch (IOException e) {
+                logger.error("Error in sending status", e);
+            }
+        });
     }
-    
+
     /**
      * Basic implementation of http get handling.
      *
@@ -71,7 +88,7 @@ public final class BasicService extends HttpServer implements Service {
             logger.error("Empty key in getting");
             return new Response(Response.BAD_REQUEST, EMPTY);
         }
-        
+
         final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         try {
             final ByteBuffer value = dao.get(buffer);
@@ -84,7 +101,7 @@ public final class BasicService extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
-    
+
     /**
      * Basic implementation of http put handling.
      *
@@ -99,7 +116,7 @@ public final class BasicService extends HttpServer implements Service {
             logger.error("Empty key in putting");
             return new Response(Response.BAD_REQUEST, EMPTY);
         }
-        
+
         final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         try {
             dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
@@ -109,7 +126,7 @@ public final class BasicService extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
-    
+
     /**
      * Basic implementation of http put handling.
      *
@@ -123,7 +140,7 @@ public final class BasicService extends HttpServer implements Service {
             logger.error("Empty key in deleting");
             return new Response(Response.BAD_REQUEST, EMPTY);
         }
-        
+
         final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         try {
             dao.remove(buffer);
@@ -133,10 +150,21 @@ public final class BasicService extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, EMPTY);
         }
     }
-    
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         logger.error("Unhandled request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        this.es.shutdown();
+        try {
+            this.es.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            logger.error("Can't shutdown executor", e);
+        }
     }
 }

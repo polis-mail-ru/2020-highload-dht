@@ -13,11 +13,16 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
-public class DiskTable implements Closeable {
+public class DiskTable implements Closeable, Table {
     private static final Logger logger = Logger.getLogger(DiskTable.class.getName());
     private final int[] shifts;
     private final int generation;
     private final FileChannel fileChannel;
+
+    public Path getFilePath() {
+        return filePath;
+    }
+
     private final Path filePath;
     
     private class DiskTableIterator implements Iterator<Table.ICell> {
@@ -175,7 +180,7 @@ public class DiskTable implements Closeable {
         fileChannel = FileChannel.open(path, StandardOpenOption.READ);
         filePath = path;
         final var fileName = path.getFileName().toString();
-        generation = Integer.parseInt(fileName.substring(0, fileName.length() - 3)) - 1;
+        generation = Integer.parseInt(fileName.substring(0, fileName.length() - 3));
         final long size = fileChannel.size();
         final var buffSize = ByteBuffer.allocate(Integer.BYTES);
         fileChannel.read(buffSize, size - Integer.BYTES);
@@ -187,15 +192,42 @@ public class DiskTable implements Closeable {
         buff.flip().asIntBuffer().get(shifts);
         shifts[elementsQuantity] = arrayShift;
     }
-    
+
+    @Override
+    public int getGeneration() {
+        return generation;
+    }
+
+    @Override
+    public int size() {
+        return shifts.length;
+    }
+
+    @Override
     public Iterator<Table.ICell> iterator() {
         return new DiskTableIterator();
     }
-    
+
+    @Override
     public Iterator<Table.ICell> iterator(@NotNull final ByteBuffer from) {
         return new DiskTableIterator(from);
     }
-    
+
+    @Override
+    public ByteBuffer get(@NotNull ByteBuffer key) {
+        return null;
+    }
+
+    @Override
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void remove(@NotNull ByteBuffer key) {
+        throw new UnsupportedOperationException();
+    }
+
     static DiskTable of(final Path path) {
         try {
             return new DiskTable(path);

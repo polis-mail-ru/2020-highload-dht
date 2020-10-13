@@ -2,15 +2,17 @@ package ru.mail.polis.dao.s3ponia;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
-public class Table {
-    private final SortedMap<ByteBuffer, Value> keyToRecord;
-    private final int generation;
+public interface Table extends Closeable {
+    public int getGeneration();
 
     public interface ICell extends Comparable<ICell> {
         @NotNull
@@ -118,19 +120,9 @@ public class Table {
         }
     }
 
-    public Table(final int generation) {
-        this.keyToRecord = new TreeMap<>();
-        this.generation = generation;
-    }
+    public int size();
 
-    public int size() {
-        return keyToRecord.size();
-    }
-
-    public Iterator<ICell> iterator() {
-        return keyToRecord.entrySet().stream().map(e -> Cell.of(e.getKey(), e.getValue()))
-                .map(c -> (ICell) c).iterator();
-    }
+    public Iterator<ICell> iterator();
 
     /**
      * Provides iterator (possibly empty) over {@link Cell}s starting at "from" key (inclusive)
@@ -138,26 +130,11 @@ public class Table {
      * N.B. The iterator should be obtained as fast as possible, e.g.
      * one should not "seek" to start point ("from" element) in linear time ;)
      */
-    public Iterator<ICell> iterator(@NotNull final ByteBuffer from) {
-        return keyToRecord.tailMap(from).entrySet().stream().map(
-                e -> Cell.of(e.getKey(), e.getValue())
-        ).map(c -> (ICell) c).iterator();
-    }
+    public Iterator<ICell> iterator(@NotNull final ByteBuffer from);
 
-    public ByteBuffer get(@NotNull final ByteBuffer key) {
-        final var val = keyToRecord.get(key);
-        return val == null ? null : val.getValue();
-    }
+    public ByteBuffer get(@NotNull final ByteBuffer key);
 
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        keyToRecord.put(key, Value.of(value, generation));
-    }
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value);
 
-    public void remove(@NotNull final ByteBuffer key) {
-        keyToRecord.put(key, Value.dead(generation));
-    }
-
-    public void close() {
-        keyToRecord.clear();
-    }
+    public void remove(@NotNull final ByteBuffer key);
 }
