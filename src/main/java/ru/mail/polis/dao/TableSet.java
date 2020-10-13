@@ -21,6 +21,12 @@ public class TableSet {
     public final MemTable currMemTable;
     public int generation;
 
+    /**
+     * Конструктор TableSet
+     *
+     * @param ssTables - ssTable
+     * @param generation - generation
+     */
     public TableSet(
             @NotNull final MemTable memTable,
             @NotNull final Set<Table> flushing,
@@ -50,8 +56,9 @@ public class TableSet {
     }
 
     /**
+     * Flush from memTable to flushing
      *
-     * @param flushing - Set<Table>
+     * @param flushing - flushing hash set Table
      * @return TableSet
      */
     @NotNull
@@ -62,9 +69,10 @@ public class TableSet {
     }
 
     /**
+     * Flush from flushing to SSTable
      *
      * @param deleteMemTable - delete mem table
-     * @param flushing - flushing Set<Table>
+     * @param flushing - flushing hash set Table
      * @param ssTable - ssTable
      * @return TableSet
      */
@@ -82,6 +90,7 @@ public class TableSet {
     }
 
     /**
+     * Compact
      *
      * @param memTable - memTable
      * @param ssTable - ssTable

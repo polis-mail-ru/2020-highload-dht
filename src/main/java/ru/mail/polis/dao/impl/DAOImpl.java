@@ -216,8 +216,8 @@ public final class DAOImpl implements DAO {
         try {
             snapshot = this.tables;
             final List<Iterator<Cell>> iters =
-                    new ArrayList<>(snapshot.ssTableCollection.size() +
-                            snapshot.tablesReadyToFlush.size() + 1);
+                    new ArrayList<>(snapshot.ssTableCollection.size()
+                            + snapshot.tablesReadyToFlush.size() + 1);
             iters.add(snapshot.currMemTable.iterator(from));
             snapshot.ssTableCollection.descendingMap().values().forEach(table -> {
                 try {
