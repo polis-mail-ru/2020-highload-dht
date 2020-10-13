@@ -10,8 +10,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import org.apache.commons.logging.Log;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -20,17 +18,32 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ArrayBlockingQueue;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
 public class MyAsyncHttpServerImpl extends HttpServer implements Service {
+
     private static final Logger log = LoggerFactory.getLogger(MyAsyncHttpServerImpl.class);
     private final DAO dao;
     public ExecutorService execService;
-    public MyAsyncHttpServerImpl(final HttpServerConfig config, final DAO dao, int numWorkers) throws IOException {
+
+    String cantSendResponse = "can't send response";
+
+    /**
+     * MyAsyncHttpServerImpl
+     *
+     * @param config - has server's parametrs,
+     * @param dao - for interaction with RocksDB
+     * @param numWorkers - for executor service
+     */
+
+    public MyAsyncHttpServerImpl(final HttpServerConfig config, final DAO dao, final int numWorkers) throws IOException {
         super(config);
         this.dao = dao;
         assert 0 < numWorkers;
@@ -46,8 +59,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                          new ThreadPoolExecutor.AbortPolicy());
 
     }
-
-
 
     /**
      * Checking status.
@@ -65,23 +76,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     public Response statusCheckMethod(final HttpSession httpSession) {
         return new Response(Response.OK, new byte[0]);
     }
-      /*  try {
-            execService.execute(() -> {
-                try {
-                    httpSession.sendResponse(Response.ok("ok"));
-                } catch (IOException e) {
-                    log.error("error when trying send response", e);
-                }
-            });
-        } catch (Exception e) {
-            log.error("ExecService is probably full");
-            try {
-                httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (IOException ioException) {
-                log.error("error, can't spend response", ioException);
-            }
-        }
-    }*/
 
     /**
      * Get value by key.
@@ -97,7 +91,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                 try {
                     httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 } catch (IOException ioException) {
-                    log.error("can't send response", ioException);
+                    log.error(cantSendResponse, ioException);
                 }
             }
 
@@ -120,7 +114,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                 try {
                     httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException ioException) {
-                    log.error("can't send response", ioException);
+                    log.error(cantSendResponse, ioException);
                 }
             }
         }
@@ -137,12 +131,14 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putValueByKey(final @Param("id") String id, final Request request, final HttpSession httpSession) throws IOException {
+    public void putValueByKey(final @Param("id") String id,
+                              final Request request,
+                              final HttpSession httpSession) throws IOException {
         execService.execute(() -> { if ("".equals(id)) {
             try {
                 httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException ioException) {
-                log.error("can't send response", ioException);
+                log.error(cantSendResponse, ioException);
             }
 
         }
@@ -164,7 +160,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                 });
     }
 
-
     /**
      * delete value by key.
      *
@@ -180,7 +175,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                 try {
                     httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 } catch (IOException ioException) {
-                    log.error("can't send response", ioException);
+                    log.error(cantSendResponse, ioException);
                 }
             }
             final byte[] keyBytes = id.getBytes(UTF_8);
@@ -194,9 +189,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
             }
         });
     }
-
-
-
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
@@ -215,7 +207,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
         try {
             execService.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            log.error("exec. service can't be closed");
+            log.error("exec. service can't be closed", e);
         }
 
     }
