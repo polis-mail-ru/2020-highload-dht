@@ -37,6 +37,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final ExecutorService service;
     private static final String RESP_ERR = "Response can't be sent: ";
 
+    /**
+     * Asynchronous Service Implementation.
+     *
+     * @param config - configuration.
+     * @param dao - dao 
+     * @return byte[] from buffer.
+     */
     public AsyncServiceImpl(final HttpServerConfig config,
                        @NotNull final DAO dao) throws IOException {
         super(config);
@@ -148,6 +155,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /**
+     * Check status.
+     *
+     * @param session - session
+     */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
         service.execute(() -> {
