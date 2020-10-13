@@ -102,7 +102,7 @@ public class DiskManager implements Closeable {
         generation += 1;
     }
 
-    private String getName(int daoGeneration) {
+    private String getName(final int daoGeneration) {
         return Integer.toString(daoGeneration);
     }
 
@@ -130,12 +130,13 @@ public class DiskManager implements Closeable {
     }
 
     DiskTable diskTableFromGeneration(final int generation) {
-        var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
+        final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         return DiskTable.of(filePath);
     }
 
     private synchronized void saveFileNameToMeta(final String fileName) throws IOException {
-        try (var writer = Files.newBufferedWriter(this.metaFile, Charset.defaultCharset(), StandardOpenOption.APPEND)) {
+        try (final var writer = Files.newBufferedWriter(this.metaFile,
+                Charset.defaultCharset(), StandardOpenOption.APPEND)) {
             writer.write(fileName + "\n");
         }
     }
@@ -148,7 +149,7 @@ public class DiskManager implements Closeable {
     }
 
     void save(final Table dao, final int generation) throws IOException {
-        var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
+        final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         final var fileName = filePath.toString();
         saveFileNameToMeta(fileName);
         saveTo(dao, filePath);

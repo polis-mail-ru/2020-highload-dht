@@ -2,7 +2,11 @@ package ru.mail.polis.dao.s3ponia;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.TreeMap;
 
 public final class TableSet {
     @NotNull
@@ -14,33 +18,31 @@ public final class TableSet {
     @NotNull
     public Table memTable;
 
-    // current generation.
-    // Generation increase with each flush
     public final int generation;
 
     /**
-     * Конструктор {link TableSet}.
+     * Constructor {link TableSet}.
      *
-     * @param currMemTable       текущая таблица
-     * @param tablesReadyToFlush таблицы, помеченные как готовые к записи на диск
-     * @param diskTableCollection  набор sorted string Tables
-     * @param gen                идентификатор
+     * @param currMemTable       current MemTable
+     * @param tablesReadyToFlush flushing tables
+     * @param diskTableCollection  flushed tables
+     * @param generation                generation
      */
     public TableSet(
             @NotNull final Table currMemTable,
             @NotNull final Set<Table> tablesReadyToFlush,
             @NotNull final NavigableMap<Integer, Table> diskTableCollection,
-            final int gen) {
+            final int generation) {
         this.memTable = currMemTable;
         this.flushingTables =
                 Collections.unmodifiableSet(tablesReadyToFlush);
         this.diskTables =
                 Collections.unmodifiableNavigableMap(diskTableCollection);
-        this.generation = gen;
+        this.generation = generation;
     }
 
     /**
-     * Set current table to flushing
+     * Set current table to flushing.
      *
      * @return TableSet that ready to flush
      */
@@ -55,7 +57,7 @@ public final class TableSet {
     }
 
     /**
-     * Set flushing table to flushed
+     * Set flushing table to flushed.
      *
      * @param table     flushing table
      * @param diskTable flushed table
@@ -81,10 +83,10 @@ public final class TableSet {
     }
 
     /**
-     * Переопределяет таблицу к записанным ssTables.
+     * Complete compaction.
      *
      * @param compactList compacted tables
-     * @param dest        memTable для переопределения compacted
+     * @param dest        destination of compacted tables
      * @param gen         generation
      * @return new TableSet
      */
@@ -93,17 +95,17 @@ public final class TableSet {
             @NotNull final NavigableMap<Integer, Table> compactList,
             @NotNull final Table dest,
             final int gen) {
-        final NavigableMap<Integer, Table> diskTables =
+        final NavigableMap<Integer, Table> newDiskTables =
                 new TreeMap<>(this.diskTables);
         for (final var entry : compactList.entrySet()) {
-            if (!diskTables.remove(entry.getKey(), entry.getValue())) {
+            if (!newDiskTables.remove(entry.getKey(), entry.getValue())) {
                 throw new IllegalStateException("compactList is not part of diskTables");
             }
         }
-        if (diskTables.put(gen, dest) != null) {
+        if (newDiskTables.put(gen, dest) != null) {
             throw new IllegalStateException("Error in compaction");
         }
-        return new TableSet(new MemTable(this.generation), this.flushingTables, diskTables, this.generation);
+        return new TableSet(new MemTable(this.generation), this.flushingTables, newDiskTables, this.generation);
     }
 
     /**

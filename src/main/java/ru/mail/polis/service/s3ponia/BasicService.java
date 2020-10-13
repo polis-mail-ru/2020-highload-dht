@@ -29,6 +29,8 @@ import java.util.concurrent.TimeUnit;
 public final class BasicService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(BasicService.class);
     private static final byte[] EMPTY = Response.EMPTY;
+    private static final String UNAVAILABLE_MESSAGE = "Can't send unavailable error";
+    private static final String SCHEDULE_MESSAGE = "Can't schedule request for execution";
     private final DAO dao;
     private final ExecutorService es;
 
@@ -75,6 +77,7 @@ public final class BasicService extends HttpServer implements Service {
 
     /**
      * Handling status request.
+     *
      * @param session current Session
      */
     @Path("/v0/status")
@@ -88,11 +91,11 @@ public final class BasicService extends HttpServer implements Service {
                 }
             });
         } catch (RejectedExecutionException e) {
-            logger.error("Can't schedule request for execution", e);
+            logger.error(SCHEDULE_MESSAGE, e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
             } catch (IOException ioException) {
-                logger.error("Can't send internal error", ioException);
+                logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
         }
     }
@@ -117,35 +120,30 @@ public final class BasicService extends HttpServer implements Service {
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                final Response response;
                 try {
                     final ByteBuffer value = dao.get(buffer);
-                    try {
-                        session.sendResponse(Response.ok(fromByteBuffer(value)));
-                    } catch (IOException ioException) {
-                        logger.error("Error in sending response", ioException);
-                    }
+                    session.sendResponse(Response.ok(fromByteBuffer(value)));
+                    return;
                 } catch (NoSuchElementException e) {
                     logger.error("No such element key(size: {}) in dao", id.length());
-                    try {
-                        session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error("Error in sending error", ioException);
-                    }
+                    response = new Response(Response.NOT_FOUND, EMPTY);
                 } catch (IOException e) {
                     logger.error("IOException in getting key(size: {}) from dao", id.length());
-                    try {
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error("Error in sending error", ioException);
-                    }
+                    response = new Response(Response.INTERNAL_ERROR, EMPTY);
+                }
+                try {
+                    session.sendResponse(response);
+                } catch (IOException ioException) {
+                    logger.error("Error in sending error", ioException);
                 }
             });
         } catch (RejectedExecutionException e) {
-            logger.error("Can't schedule request for execution", e);
+            logger.error(SCHEDULE_MESSAGE, e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
             } catch (IOException ioException) {
-                logger.error("Can't send internal error", ioException);
+                logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
         }
     }
@@ -155,12 +153,11 @@ public final class BasicService extends HttpServer implements Service {
      *
      * @param id      key
      * @param request value for putting in database
-     * @return response with http code
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public void handlePut(@Param(value = "id", required = true) final String id, final Request request,
-                              final HttpSession session) {
+                          final HttpSession session) {
         try {
             this.es.execute(() -> {
                 if (id.isEmpty()) {
@@ -175,11 +172,7 @@ public final class BasicService extends HttpServer implements Service {
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
                 try {
                     dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
-                    try {
-                        session.sendResponse(new Response(Response.CREATED, EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error("Error in sending response", ioException);
-                    }
+                    session.sendResponse(new Response(Response.CREATED, EMPTY));
                 } catch (IOException e) {
                     logger.error("IOException in putting key(size: {}) from dao", id.length());
                     try {
@@ -190,11 +183,11 @@ public final class BasicService extends HttpServer implements Service {
                 }
             });
         } catch (RejectedExecutionException e) {
-            logger.error("Can't schedule request for execution", e);
+            logger.error(SCHEDULE_MESSAGE, e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
             } catch (IOException ioException) {
-                logger.error("Can't send internal error", ioException);
+                logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
         }
     }
@@ -203,7 +196,6 @@ public final class BasicService extends HttpServer implements Service {
      * Basic implementation of http put handling.
      *
      * @param id key in database to delete
-     * @return response with http code
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -238,11 +230,11 @@ public final class BasicService extends HttpServer implements Service {
 
             });
         } catch (RejectedExecutionException e) {
-            logger.error("Can't schedule request for execution", e);
+            logger.error(SCHEDULE_MESSAGE, e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
             } catch (IOException ioException) {
-                logger.error("Can't send internal error", ioException);
+                logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
         }
     }
