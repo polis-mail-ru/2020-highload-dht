@@ -41,7 +41,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * Asynchronous Service Implementation.
      *
      * @param config - configuration.
-     * @param dao - dao  
+     * @param dao - dao
      */
     public AsyncServiceImpl(final HttpServerConfig config,
                        @NotNull final DAO dao) throws IOException {
@@ -71,6 +71,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 if (key.isEmpty()) {
                     logger.info("ServiceImpl.get() method: key is empty");
                     session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                    return;
                 }
                 final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
                 session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
@@ -106,6 +107,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 if (key.isEmpty()) {
                     logger.info("ServiceImpl.put() method: key is empty");
                     session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                    return;
                 }
                 dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
                            ByteBufferUtils.toByteBuffer(request.getBody()));
@@ -134,6 +136,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 if (key.isEmpty()) {
                     logger.info("ServiceImpl.delete() method: key is empty");
                     session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                    return;
                 }
                 dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
                 session.sendResponse(new ZeroResponse(Response.ACCEPTED));
