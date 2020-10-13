@@ -18,8 +18,10 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
-
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
@@ -29,18 +31,18 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(MyAsyncHttpServerImpl.class);
     private final DAO dao;
     public ExecutorService execService;
-
     String cantSendResponse = "can't send response";
 
     /**
-     * MyAsyncHttpServerImpl
+     * MyAsyncHttpServerImpl.
      *
-     * @param config - has server's parametrs,
-     * @param dao - for interaction with RocksDB
-     * @param numWorkers - for executor service
+     * @param config - has server's parametrs.
+     * @param dao - for interaction with RocksDB.
+     * @param numWorkers - for executor service.
      */
     public MyAsyncHttpServerImpl(final HttpServerConfig config,
-                                 final DAO dao, final int numWorkers) throws IOException {
+                                 final DAO dao,
+                                 final int numWorkers) throws IOException {
         super(config);
         this.dao = dao;
         assert 0 < numWorkers;
@@ -60,7 +62,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     /**
      * Checking status.
      *
-     * @return - return code 200 OK
+     * @return - return code 200 OK.
      */
     @Path("/abracadabra")
     @RequestMethod(Request.METHOD_GET)
@@ -77,7 +79,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     /**
      * Get value by key.
      *
-     * @param id - key
+     * @param id - key.
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -120,8 +122,8 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     /**
      * put value in the DB.
      *
-     * @param id - key
-     * @param request with value
+     * @param id - key.
+     * @param request with value.
      * @throws IOException - possible IO exception.
      */
     @Path("/v0/entity")
@@ -159,8 +161,8 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     /**
      * delete value by key.
      *
-     * @param id - key
-     * @throws IOException - possible IO exception
+     * @param id - key.
+     * @throws IOException - possible IO exception.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -200,10 +202,9 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
         execService.shutdown();
         super.stop();
         try {
-            execService.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            log.error("exec. service can't be closed", e);
-            throw new RuntimeException(e);
+            dao.close();
+        } catch (IOException ioException) {
+            log.error("can't close DB");
         }
     }
 }
