@@ -238,7 +238,7 @@ public class DAOImpl implements DAO {
 
     @Override
     public void close() throws IOException {
-        boolean isFlushing;
+        final boolean isFlushing;
         lock.readLock().lock();
         try {
             isFlushing = tables.memTable.getSize() > 0;
