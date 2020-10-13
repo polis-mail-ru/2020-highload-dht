@@ -61,19 +61,19 @@ public class MyService extends HttpServer {
     }
 
     /**
-     * Put/delete and get data from dao.
+     * Put/delete and get data from dao
+     *
+     * code 200 - "success" - successfully got data
+     * code 201 - "created" - successful respond to put request
+     * code 202 - "accepted" - successfully deleted data
+     * code 400 - "bad request" - syntax error (id is empty)
+     * code 404 - "not found" - server can't find the resource
+     * code 405 - "method is not allowed" - method can't be used
+     * code 500 - "internal error" - server is not responding.
      *
      * @param id      - key
      * @param request - body of request
      * @param session - current session
-     *                <p>
-     *                code 200 - "success" - successfully got data
-     *                code 201 - "created" - successful respond to put request
-     *                code 202 - "accepted" - successfully deleted data
-     *                code 400 - "bad request" - syntax error (id is empty)
-     *                code 404 - "not found" - server can't find the resource
-     *                code 405 - "method is not allowed" - method can't be used
-     *                code 500 - "internal error" - server is not responding
      */
     @Path("/v0/entity")
     public void entity(final @Param(value = "id", required = true) String id, final Request request,
@@ -95,49 +95,15 @@ public class MyService extends HttpServer {
         executor.execute(() -> {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    try {
-                        final ByteBuffer value = dao.get(key);
-                        try {
-                            session.sendResponse(Response.ok(toByteArray(value)));
-                        } catch (IOException e) {
-                            log.error("Can't send OK response", e);
-                        }
-                    } catch (NoSuchElementException e) {
-                        log.debug("Can't find resource {}", key, e);
-                        try {
-                            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                        } catch (IOException ex) {
-                            log.error("Can't send 404 response", e);
-                        }
-                    } catch (IOException e) {
-                        log.error("Can't send response", e);
-                    }
+                    getResponse(key, session);
                     break;
 
                 case Request.METHOD_PUT:
-                    try {
-                        dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-                    } catch (IOException e) {
-                        log.error("Can't upsert element", e);
-                    }
-                    try {
-                        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                    } catch (IOException e) {
-                        log.error("Can't send 201 response", e);
-                    }
+                    putResponse(key, request, session);
                     break;
 
                 case Request.METHOD_DELETE:
-                    try {
-                        dao.remove(key);
-                    } catch (IOException e) {
-                        log.error("Can't remove element", e);
-                    }
-                    try {
-                        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                    } catch (IOException e) {
-                        log.error("Can't send 202 response", e);
-                    }
+                    deleteResponse(key, session);
                     break;
 
                 default:
@@ -149,6 +115,56 @@ public class MyService extends HttpServer {
                     break;
             }
         });
+    }
+
+    private void getResponse (final ByteBuffer key, final HttpSession session) {
+        try {
+            final ByteBuffer value = dao.get(key);
+            sendOKResponse(value, session);
+        } catch (NoSuchElementException e) {
+            log.debug("Can't find resource {}", key, e);
+            try {
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ex) {
+                log.error("Can't send 404 response", e);
+            }
+        } catch (IOException e) {
+            log.error("Can't send response", e);
+        }
+    }
+
+    private void sendOKResponse(final ByteBuffer value, final HttpSession session) {
+        try {
+            session.sendResponse(Response.ok(toByteArray(value)));
+        } catch (IOException e) {
+            log.error("Can't send OK response", e);
+        }
+    }
+
+    private void putResponse(final ByteBuffer key, final Request request, final HttpSession session) {
+        try {
+            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+        } catch (IOException e) {
+            log.error("Can't upsert element", e);
+        }
+        try {
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Can't send 201 response", e);
+        }
+    }
+
+    private void deleteResponse (final ByteBuffer key, final HttpSession session) {
+        try {
+            dao.remove(key);
+        } catch (IOException e) {
+            log.error("Can't remove element", e);
+        }
+        try {
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Can't send 202 response", e);
+        }
     }
 
     private static byte[] toByteArray(final ByteBuffer value) {
