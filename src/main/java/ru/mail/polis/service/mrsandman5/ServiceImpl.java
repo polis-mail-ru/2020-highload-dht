@@ -173,9 +173,13 @@ public class ServiceImpl extends HttpServer implements Service {
         super.stop();
         executorService.shutdown();
         try {
-            executorService.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            log.error("Can't stop the executor", e);
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+                if (!executorService.awaitTermination(60, TimeUnit.SECONDS))
+                    log.error("Can't stop the executor");
+            }
+        } catch (InterruptedException ie) {
+            executorService.shutdownNow();
             Thread.currentThread().interrupt();
         }
     }
