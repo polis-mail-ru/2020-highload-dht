@@ -156,12 +156,12 @@ public class LsmDAO implements DAO {
             FlushingTable flushingTable;
             try {
                 flushingTable = this.memTablePool.takeToFlash();
-                poisonReceived = flushingTable.ispPill();
+                poisonReceived = flushingTable.isPoisonPill();
                 flush(flushingTable);
                 memTablePool.flushed(flushingTable.getGen());
             } catch (InterruptedException e) {
-
                 log.error("Interrupt while creating table", e);
+                Thread.currentThread().interrupt();
             } catch (IOException e) {
                 log.error("Error while creating table", e);
             }
@@ -194,7 +194,7 @@ public class LsmDAO implements DAO {
                     requireNonNull(cellIterator(ByteBuffer.allocate(0)))
             );
             for (int i = 1; i < generation.get(); i++) {
-                File deletingFile = new File(storage, i + FILE_POSTFIX);
+                final File deletingFile = new File(storage, i + FILE_POSTFIX);
                 if (deletingFile.exists()) {
                     Files.delete(deletingFile.toPath());
                 }

@@ -29,6 +29,13 @@ public class TablesPool implements Table {
     private MemTable current;
     private int generation;
 
+    /**
+     * Pool of tables to multiThreading work.
+     *
+     * @param memFlushThreshold - size to flush
+     * @param startGeneration - first generation
+     * @param flushTablePool - flush pool size
+     */
     public TablesPool(final long memFlushThreshold, final int startGeneration, final int flushTablePool) {
         this.memFlushThreshold = memFlushThreshold;
         this.current = new MemTable();
@@ -39,7 +46,7 @@ public class TablesPool implements Table {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull ByteBuffer from) throws IOException {
+    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> iterators;
         lock.readLock().lock();
         try {
@@ -75,7 +82,6 @@ public class TablesPool implements Table {
     }
 
     @Override
-    @Deprecated(since = "Do not usable", forRemoval = true)
     public int size() {
         return 0;
     }
@@ -160,15 +166,6 @@ public class TablesPool implements Table {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }
-    }
-
-    public int getGeneration() {
-        lock.readLock().lock();
-        try {
-            return generation;
-        } finally {
-            lock.readLock().unlock();
         }
     }
 }
