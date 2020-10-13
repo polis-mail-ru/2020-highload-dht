@@ -33,6 +33,7 @@ public class MyService extends HttpServer {
         this.dao = dao;
         assert workers > 0;
         assert queue > 0;
+
         executor = new ThreadPoolExecutor(workers, queue, 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queue),
                 new ThreadFactoryBuilder()
