@@ -46,7 +46,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * Http status getter path.
      *
-     * @return HTTP status code 200 (OK)
+     * @param session - HttpSession
      */
     @Path("/v0/status")
     public void status(@NotNull HttpSession session)
@@ -70,7 +70,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      *
      * @param id      key of entity
      * @param request HTTP request
-     * @return response or error
+     * @param session - HttpSession
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
