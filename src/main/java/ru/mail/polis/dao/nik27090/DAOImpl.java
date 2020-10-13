@@ -34,8 +34,6 @@ public class DAOImpl implements DAO {
     private final File storage;
     private final long flushSize;
 
-    //private int generation;
-
     /**
      * Creates key-value database.
      *
@@ -144,7 +142,7 @@ public class DAOImpl implements DAO {
                 try {
                     iterators.add(ssTable.iterator(key));
                 } catch (IOException e) {
-                    throw new IllegalStateException();
+                    throw new UncheckedIOException(e);
                 }
             });
             for (final Table flushing : snapshot.flushing) {

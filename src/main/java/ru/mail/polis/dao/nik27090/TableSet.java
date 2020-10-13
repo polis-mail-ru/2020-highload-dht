@@ -46,15 +46,15 @@ final class TableSet {
 
     @NotNull
     TableSet flushed(@NotNull final Table mem, @NotNull final SSTable file, final int generation) {
-        final Set<Table> flushing = new HashSet<>(this.flushing);
-        if(!flushing.remove(mem)) {
+        final Set<Table> flushingTables = new HashSet<>(this.flushing);
+        if (!flushingTables.remove(mem)) {
             throw new IllegalStateException("Flushing table that doesn't exist");
         }
-        final NavigableMap<Integer, SSTable> files = new TreeMap<>(this.files);
-        if(files.put(generation, file) != null) {
+        final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>(this.files);
+        if (ssTables.put(generation, file) != null) {
             throw new IllegalStateException("Error with generation");
         }
-        return new TableSet(this.mem, flushing, files, this.generation);
+        return new TableSet(this.mem, flushingTables, ssTables, this.generation);
     }
 
     @NotNull
@@ -66,17 +66,17 @@ final class TableSet {
     TableSet replaceCompactedFiles(@NotNull final NavigableMap<Integer, SSTable> source,
                                    @NotNull final SSTable destination, final int generation) {
 
-        final NavigableMap<Integer, SSTable> files = new TreeMap<>(this.files);
+        final NavigableMap<Integer, SSTable> ssTables = new TreeMap<>(this.files);
 
         for (final Map.Entry<Integer, SSTable> entry : source.entrySet()) {
-            if(!files.remove(entry.getKey(), entry.getValue())) {
+            if (!ssTables.remove(entry.getKey(), entry.getValue())) {
                 throw new IllegalStateException("Trying to delete nothing");
             }
         }
-        if (files.put(generation, destination) != null) {
+        if (ssTables.put(generation, destination) != null) {
             throw new IllegalStateException("Problem with generation");
         }
 
-        return new TableSet(this.mem, this.flushing, files, this.generation);
+        return new TableSet(this.mem, this.flushing, ssTables, this.generation);
     }
 }

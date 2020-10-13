@@ -33,13 +33,26 @@ public class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
 
-    public ServiceImpl(final int port, final @NotNull DAO dao, final int workers, final int queueSize) throws IOException {
+    /**
+     * Service constructor.
+     *
+     * @param port          - port
+     * @param dao           - key-value database
+     * @param workers       - count of workers
+     * @param queueCapacity - ArrayBlockingQueue capacity
+     * @throws IOException - extend exception from HttpServer constructor
+     */
+    public ServiceImpl(
+            final int port,
+            final @NotNull DAO dao,
+            final int workers,
+            final int queueCapacity) throws IOException {
         super(createConfig(port));
         this.dao = dao;
         executorService = new ThreadPoolExecutor(
-                workers, queueSize,
+                workers, queueCapacity,
                 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(queueSize),
+                new ArrayBlockingQueue<>(queueCapacity),
                 new ThreadFactoryBuilder()
                         .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
                         .setNameFormat("worker_%d")
@@ -59,6 +72,11 @@ public class ServiceImpl extends HttpServer implements Service {
         return config;
     }
 
+    /**
+     * Check status.
+     *
+     * @param session - session
+     */
     @Path("/v0/status")
     public void status(final HttpSession session) {
         log.debug("Request status.");
@@ -80,7 +98,9 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void getEntity(final @Param(value = "id", required = true) String id, final HttpSession session) {
+    public void getEntity(
+            final @Param(value = "id", required = true) String id,
+            final HttpSession session) {
         log.debug("GET request: id = {}", id);
 
         executorService.execute(() -> {
@@ -126,11 +146,8 @@ public class ServiceImpl extends HttpServer implements Service {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
-
                 final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
                 final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-
-
                 dao.upsert(key, value);
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
             } catch (IOException e) {
@@ -160,8 +177,6 @@ public class ServiceImpl extends HttpServer implements Service {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
-
-
                 dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
             } catch (IOException e) {
@@ -172,8 +187,6 @@ public class ServiceImpl extends HttpServer implements Service {
                     log.error("FATAL ERROR PUT. Can't send response.");
                 }
             }
-
-
         });
     }
 

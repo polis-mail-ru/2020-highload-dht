@@ -183,6 +183,4 @@ public class SSTable implements Table, Closeable {
     public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException("Unsupported method!");
     }
-
-
 }
