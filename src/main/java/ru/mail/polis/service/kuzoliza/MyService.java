@@ -1,5 +1,6 @@
 package ru.mail.polis.service.kuzoliza;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -16,21 +17,51 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class MyService extends HttpServer {
 
     private final DAO dao;
     private static final Logger log = LoggerFactory.getLogger(MyService.class);
+    private final ExecutorService executor;
 
-    MyService(final HttpServerConfig config, final DAO dao) throws IOException {
+    MyService(final HttpServerConfig config, final DAO dao, final int workers, final int queue) throws IOException {
         super(config);
         this.dao = dao;
+        assert workers > 0;
+        assert queue > 0;
+        executor = new ThreadPoolExecutor(workers, queue, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queue),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("worker_%d")
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Error processing request {}", t, e))
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
     }
 
     @Path("/v0/status")
     @RequestMethod(Request.METHOD_GET)
-    public Response status() {
-        return Response.ok("OK");
+    public void status(final HttpSession session) {
+        try {
+            executor.execute(() -> {
+                try {
+                    session.sendResponse(Response.ok("OK"));
+                } catch (IOException e) {
+                    log.error("Can't send OK response", e);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Execution error", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response", ex);
+            }
+        }
     }
 
     /**
@@ -48,41 +79,98 @@ public class MyService extends HttpServer {
      *           code 500 - "internal error" - server is not responding
      */
     @Path("/v0/entity")
-    public Response entity(final @Param(value = "id", required = true) String id, final Request request) {
-        if (id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
-
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+    public void entity(final @Param(value = "id", required = true) String id, final Request request, final HttpSession session) {
         try {
-            return response(key, request);
-        } catch (IOException e) {
-            log.error("Can't process response {}", id, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
-    private Response response(final ByteBuffer key, final Request request) throws IOException {
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                try {
-                    final ByteBuffer value = dao.get(key);
-                    return Response.ok(toByteArray(value));
-                } catch (NoSuchElementException e) {
-                    log.debug("Can't find resource {}", key, e);
-                    return new Response(Response.NOT_FOUND, Response.EMPTY);
+            executor.execute(() -> {
+                if (id.isEmpty()) {
+                    try {
+                        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    } catch (IOException e) {
+                        log.error("Can't send bad response", e);
+                    }
                 }
 
-            case Request.METHOD_PUT:
-                dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-                return new Response(Response.CREATED, Response.EMPTY);
+                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                response(key, request, session);
+            });
 
-            case Request.METHOD_DELETE:
-                dao.remove(key);
-                return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (Exception e) {
+            log.error("Execution error", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response", ex);
+            }
+        }
 
-            default:
-                return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
+    }
+
+    private void response(final ByteBuffer key, final Request request, final HttpSession session) {
+        try {
+            executor.execute(() -> {
+                switch (request.getMethod()) {
+                    case Request.METHOD_GET:
+                        try {
+                            final ByteBuffer value = dao.get(key);
+                            try {
+                                session.sendResponse(Response.ok(toByteArray(value)));
+                            } catch (IOException e) {
+                                log.error("Can't send OK response", e);
+                            }
+                        } catch (NoSuchElementException e) {
+                            log.debug("Can't find resource {}", key, e);
+                            try {
+                                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                            } catch (IOException ex) {
+                                log.error("Can't send 404 response", e);
+                            }
+                        } catch (IOException e) {
+                            log.error("Can't send OK response", e);
+                        }
+                        break;
+
+                    case Request.METHOD_PUT:
+                        try {
+                            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+                        } catch (IOException e) {
+                            log.error("Can't upsert element", e);
+                        }
+                        try {
+                            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+                        } catch (IOException e) {
+                            log.error("Can't send 201 response", e);
+                        }
+                        break;
+
+                    case Request.METHOD_DELETE:
+                        try {
+                            dao.remove(key);
+                        } catch (IOException e) {
+                            log.error("Can't remove element", e);
+                        }
+                        try {
+                            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+                        } catch (IOException e) {
+                            log.error("Can't send 202 response", e);
+                        }
+                        break;
+
+                    default:
+                        try {
+                            session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                        } catch (IOException e) {
+                            log.error("Can't send 405 response", e);
+                        }
+                        break;
+                }
+            });
+        } catch (Exception e) {
+            log.error("Execution error", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response", ex);
+            }
         }
     }
 
@@ -98,7 +186,33 @@ public class MyService extends HttpServer {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        try {
+            executor.execute(() -> {
+                try {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Can't send bad response", e);
+                }
+            });
+
+        } catch (Exception e) {
+            log.error("Execution error", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response", ex);
+            }
+        }
     }
 
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executor.shutdown();
+        try {
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("Can't shutdown executor", e);
+        }
+    }
 }
