@@ -22,8 +22,7 @@ public class TableSet {
     public int generation;
 
     /**
-     * 
-     * Конструктор TableSet
+     * Конструктор TableSet.
      *
      * @param ssTables - ssTable
      * @param generation - generation
@@ -41,8 +40,7 @@ public class TableSet {
     }
 
     /**
-     *
-     * Конструктор TableSet
+     * Конструктор TableSet.
      *
      * @param ssTables - ssTable
      * @param generation - generation
@@ -58,8 +56,7 @@ public class TableSet {
     }
 
     /**
-     *
-     * Flush from memTable to flushing
+     * Flush from memTable to flushing.
      *
      * @param flushing - flushing hash set Table
      * @return TableSet
@@ -72,8 +69,7 @@ public class TableSet {
     }
 
     /**
-     *
-     * Flush from flushing to SSTable
+     * Flush from flushing to SSTable.
      *
      * @param deleteMemTable - delete mem table
      * @param flushing - flushing hash set Table
@@ -94,8 +90,7 @@ public class TableSet {
     }
 
     /**
-     *
-     * Compact
+     * Compact.
      *
      * @param memTable - memTable
      * @param ssTable - ssTable

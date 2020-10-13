@@ -34,13 +34,12 @@ public class ThreadController extends HttpServer implements Service {
     private static final String RESPONSE_ERROR_LOG_MESSAGE = "Fail send response: ";
 
     /**
-     *
      * Implementation {@link Service}.
      *
      * @param config       - config
      * @param dao          - dao
-     * @param workersCount - count of executor workers
-     * @param queueSize    - ArrayBlockingQueue max size
+     * @param workersCount - count of thread workers
+     * @param queueSize    - Blocking queue max size
      */
     public ThreadController(
             final HttpServerConfig config,
@@ -64,8 +63,7 @@ public class ThreadController extends HttpServer implements Service {
     }
 
     /**
-     *
-     *  End - point status
+     *  End - point status.
      *
      * @param session - http session
      */
@@ -81,8 +79,7 @@ public class ThreadController extends HttpServer implements Service {
     }
 
     /**
-     *
-     * End-point get
+     * End-point get.
      *
      * @param id - id
      * @param session - http session
@@ -113,8 +110,7 @@ public class ThreadController extends HttpServer implements Service {
     }
 
     /**
-     *
-     * End-point put
+     * End-point put.
      *
      * @param id - id
      * @param session - http session
@@ -144,8 +140,7 @@ public class ThreadController extends HttpServer implements Service {
     }
 
     /**
-     *
-     * End-point delete
+     * End-point delete.
      *
      * @param id - id
      * @param session - http session
