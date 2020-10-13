@@ -38,6 +38,9 @@ public final class Utils {
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[1];
         httpServerConfig.acceptors[0] = acceptorConfig;
+        acceptorConfig.deferAccept = true;
+        acceptorConfig.reusePort = true;
+        httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
         return httpServerConfig;
     }
 

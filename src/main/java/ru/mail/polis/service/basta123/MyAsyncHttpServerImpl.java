@@ -1,0 +1,222 @@
+package ru.mail.polis.service.basta123;
+
+import com.google.common.net.HttpHeaders;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
+import org.apache.commons.logging.Log;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.Service;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
+import java.util.concurrent.*;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
+import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
+
+public class MyAsyncHttpServerImpl extends HttpServer implements Service {
+    private static final Logger log = LoggerFactory.getLogger(MyAsyncHttpServerImpl.class);
+    private final DAO dao;
+    public ExecutorService execService;
+    public MyAsyncHttpServerImpl(final HttpServerConfig config, final DAO dao, int numWorkers) throws IOException {
+        super(config);
+        this.dao = dao;
+        assert 0 < numWorkers;
+        execService = new ThreadPoolExecutor(numWorkers,
+                numWorkers,
+                0,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(1024),
+                new ThreadFactoryBuilder()
+                        .setUncaughtExceptionHandler((t,e) -> log.error("Error in worker {}", t, e))
+                        .setNameFormat("worker-%d")
+                        .build(),
+                         new ThreadPoolExecutor.AbortPolicy());
+
+    }
+
+
+
+    /**
+     * Checking status.
+     *
+     * @return - return code 200 OK
+     */
+    @Path("/abracadabra")
+    @RequestMethod(Request.METHOD_GET)
+    public Response abracadabraCheckMethod() {
+        return new Response(Response.BAD_REQUEST, Response.EMPTY);
+    }
+
+    @Path("/v0/status")
+    @RequestMethod(Request.METHOD_GET)
+    public Response statusCheckMethod(final HttpSession httpSession) {
+        return new Response(Response.OK, new byte[0]);
+    }
+      /*  try {
+            execService.execute(() -> {
+                try {
+                    httpSession.sendResponse(Response.ok("ok"));
+                } catch (IOException e) {
+                    log.error("error when trying send response", e);
+                }
+            });
+        } catch (Exception e) {
+            log.error("ExecService is probably full");
+            try {
+                httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error("error, can't spend response", ioException);
+            }
+        }
+    }*/
+
+    /**
+     * Get value by key.
+     *
+     * @param id - key
+     * @return value by key
+     */
+    @Path(value = "/v0/entity")
+    @RequestMethod(Request.METHOD_GET)
+    public void getValueByKey(final @Param("id") String id, final HttpSession httpSession) {
+        execService.execute(() -> {
+            if (id == null || "".equals(id)) {
+                try {
+                    httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("can't send response", ioException);
+                }
+            }
+
+            final byte[] keyBytes = id.getBytes(UTF_8);
+            final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
+            ByteBuffer valueByteBuffer;
+            final byte[] valueBytes;
+            try {
+                valueByteBuffer = dao.get(keyByteBuffer);
+                valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
+                final Response responseOk = new Response(Response.OK, valueBytes);
+                responseOk.addHeader(HttpHeaders.CONTENT_TYPE + ": " + "text/plain");
+                httpSession.sendResponse(responseOk);
+            } catch (IOException e) {
+                e.printStackTrace();
+                throw new RuntimeException("Error getting value :", e);
+
+            } catch (NoSuchElementException e) {
+                try {
+                    httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("can't send response", ioException);
+                }
+            }
+        }
+        );
+    }
+
+    /**
+     * put value in the DB.
+     *
+     * @param id - key
+     * @param request with value
+     * @return sends status
+     * @throws IOException - possible IO exception.
+     */
+    @Path("/v0/entity")
+    @RequestMethod(Request.METHOD_PUT)
+    public void putValueByKey(final @Param("id") String id, final Request request, final HttpSession httpSession) throws IOException {
+        execService.execute(() -> { if ("".equals(id)) {
+            try {
+                httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error("can't send response", ioException);
+            }
+
+        }
+
+            final byte[] keyBytes = id.getBytes(UTF_8);
+            final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
+            final byte[] valueByte = request.getBody();
+            final ByteBuffer valueByteBuffer = getByteBufferFromByteArray(valueByte);
+
+            try {
+                dao.upsert(keyByteBuffer, valueByteBuffer);
+                final Response responseCreated = new Response(Response.CREATED, Response.EMPTY);
+                responseCreated.addHeader(HttpHeaders.CONTENT_TYPE + ": " + "text/plain");
+                httpSession.sendResponse(responseCreated);
+            } catch (IOException ioException) {
+                log.error("upsert error", ioException);
+            }
+                });
+    }
+
+
+    /**
+     * delete value by key.
+     *
+     * @param id - key
+     * @return sends status
+     * @throws IOException - possible IO exception
+     */
+    @Path("/v0/entity")
+    @RequestMethod(Request.METHOD_DELETE)
+    public void deleteValueByKey(final @Param("id") String id, final HttpSession httpSession) throws IOException {
+        execService.execute(() -> {
+            if ("".equals(id)) {
+                try {
+                    httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("can't send response", ioException);
+                }
+            }
+            final byte[] keyBytes = id.getBytes(UTF_8);
+            final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
+            try {
+                dao.remove(keyByteBuffer);
+                httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error("can't remove value", ioException);
+            }
+        });
+    }
+
+
+
+
+    @Override
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+        session.sendResponse(new Response(Response.BAD_REQUEST, new byte[0]));
+    }
+
+    @Override
+    public synchronized void start() {
+        super.start();
+    }
+
+    @Override
+    public synchronized void stop() {
+        execService.shutdown();
+        super.stop();
+        try {
+            execService.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("exec. service can't be closed");
+        }
+
+    }
+}

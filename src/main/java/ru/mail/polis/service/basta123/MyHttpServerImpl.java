@@ -9,12 +9,15 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutorService;
+
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
@@ -23,8 +26,8 @@ import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 public class MyHttpServerImpl extends HttpServer implements Service {
 
     private final DAO dao;
-
-    public MyHttpServerImpl(final HttpServerConfig config, final DAO dao) throws IOException {
+    public ExecutorService execService;
+    public MyHttpServerImpl(final HttpServerConfig config, final DAO dao, int workers) throws IOException {
         super(config);
         this.dao = dao;
     }
