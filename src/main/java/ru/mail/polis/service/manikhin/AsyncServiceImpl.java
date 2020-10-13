@@ -23,9 +23,8 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Future;
-
+import java.util.concurrent.TimeUnit;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
 
@@ -33,6 +32,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final ExecutorService executor;
     private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
+    /**
+     * AsyncService initialization
+     *
+     * @param port - to accept HTTP server
+     * @param dao - storage interface
+     */
     public AsyncServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
         super(getConfig(port));
         this.dao = dao;
@@ -49,9 +54,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - HttpSession
      */
     @Path("/v0/status")
-    public void status(@NotNull HttpSession session)
+    public void status(@NotNull final HttpSession session)
     {
-        Future<?> future = executor.submit(() -> {
+        final Future<?> future = executor.submit(() -> {
             try {
                 session.sendResponse(Response.ok("OK"));
             } catch (IOException error) {
@@ -109,7 +114,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     }
 
-
     private void get(final ByteBuffer key, final HttpSession session) throws IOException {
         try {
             final ByteBuffer value = dao.get(key).duplicate();
@@ -117,15 +121,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(Response.ok(valueArray));
         }  catch (IOException ex) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-        catch (NoSuchElementException error) {
+        } catch (NoSuchElementException error) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
 
     private void put(final ByteBuffer key, final Request request,
                      final HttpSession session) throws IOException {
-        try{
+        try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException error) {
@@ -144,7 +147,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        final Future<?> future = executor.submit(() ->{
+        final Future<?> future = executor.submit(() -> {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException error) {
