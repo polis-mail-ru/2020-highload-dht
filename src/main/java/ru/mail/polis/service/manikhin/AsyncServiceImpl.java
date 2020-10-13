@@ -37,8 +37,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         super(getConfig(port));
         this.dao = dao;
         int countOfWorkers = Runtime.getRuntime().availableProcessors();
-        this.executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
-                TimeUnit.SECONDS, new ArrayBlockingQueue<>(1024),
+        this.executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 10L,
+                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1024),
                 new ThreadFactoryBuilder().setNameFormat("async_worker-%d").build());
     }
 
@@ -74,31 +74,39 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
-                       @NotNull final Request request, final HttpSession session) throws IOException {
-        try {
-            if (id.isEmpty()) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            }
+                       @NotNull final Request request, final HttpSession session) {
 
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final Future<?> future = executor.submit(() -> {
+            try {
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
 
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    get(key, session);
-                    break;
-                case Request.METHOD_PUT:
-                    put(key, request, session);
-                    break;
-                case Request.METHOD_DELETE:
-                    delete(key, session);
-                    break;
-                default:
-                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                    break;
+                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+                switch (request.getMethod()) {
+                    case Request.METHOD_GET:
+                        get(key, session);
+                        break;
+                    case Request.METHOD_PUT:
+                        put(key, request, session);
+                        break;
+                    case Request.METHOD_DELETE:
+                        delete(key, session);
+                        break;
+                    default:
+                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                        break;
+                }
+            } catch (IOException error) {
+                log.error("Response error: " + error);
             }
-        } catch (IOException error) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        });
+
+        if (future.isCancelled()) {
+            log.error("Executor error!");
         }
+
     }
 
 
@@ -145,9 +153,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
+        acceptor.deferAccept = true;
+        acceptor.reusePort = true;
         final HttpServerConfig config = new HttpServerConfig();
-        config.maxWorkers = Runtime.getRuntime().availableProcessors();
-        config.queueTime = 10;
         config.acceptors = new AcceptorConfig[]{acceptor};
         return config;
     }
