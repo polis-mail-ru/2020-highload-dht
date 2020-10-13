@@ -35,6 +35,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
     private final ExecutorService service;
+    private static final String errorResponse = "Response can't be sent: ";
 
     public AsyncServiceImpl(final HttpServerConfig config,
                        @NotNull final DAO dao) throws IOException {
@@ -53,42 +54,37 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     /** Get data by key.
      * @param key - record id.
-     * @return 200 OK + data,
-     *         400 Bad Request,
-     *         404 Not Found,
-     *         500 Internal Server Error.
+     * @param session - session.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public void get(final @Param(value = "id", required = true) String key,
                     @NotNull final HttpSession session) {
         service.execute(() -> {
-            try{
-                if (key.isEmpty()) {
-                    logger.info("ServiceImpl.get() method: key is empty");
-                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-                }
-                try {
-                    final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-                    session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
-                } catch (NoSuchElementException ex) {
-                    session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
-                } catch (IOException ex) {
-                    logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
-                    session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-                }
-            } catch (IOException ex) {
-                    logger.error("Response can't be sent: ", session, ex);
+            try {
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.get() method: key is empty");
+                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
             }
+            try {
+                final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
+                session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
+            } catch (NoSuchElementException ex) {
+                session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
+            } catch (IOException ex) {
+                logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            }
+        } catch (IOException ex) {
+                logger.error(errorResponse, session, ex);
+        }
         });
     }
 
     /** Insert or change key-data pair.
      * @param key - record id.
      * @param request - record data.
-     * @return 200 Created,
-     *         400 Bad Request,
-     *         500 Internal Server Error.
+     * @param session - session.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
@@ -97,30 +93,27 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-                if (key.isEmpty()) {
-                    logger.info("ServiceImpl.put() method: key is empty");
-                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-                }
-                try {
-                    dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                            ByteBufferUtils.toByteBuffer(request.getBody()));
-                } catch (IOException ex) {
-                    logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
-                    session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-                }
-                session.sendResponse(new ZeroResponse(Response.CREATED));
-            } catch (IOException ex) {
-                logger.error("Response can't be sent: ", session, ex);
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.put() method: key is empty");
+                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
             }
+            try {
+                dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
+                        ByteBufferUtils.toByteBuffer(request.getBody()));
+            } catch (IOException ex) {
+                logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            }
+            session.sendResponse(new ZeroResponse(Response.CREATED));
+        } catch (IOException ex) {
+            logger.error(errorResponse, session, ex);
+        }
         });
     }
 
     /** Remove key-data pair.
      * @param key - record id.
-     * @return 202 Accepted,
-     *         400 Bad Request,
-     *         404 Not Found,
-     *         500 Internal Server Error.
+     * @param session - session.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
@@ -128,22 +121,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-                if (key.isEmpty()) {
-                    logger.info("ServiceImpl.delete() method: key is empty");
-                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-                }
-                try {
-                    dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-                } catch (NoSuchElementException ex) {
-                    session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
-                } catch (IOException ex) {
-                    logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-                    session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-                }
-                session.sendResponse(new ZeroResponse(Response.ACCEPTED));
-            } catch (IOException ex) {
-                logger.error("Response can't be sent: ", session, ex);
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.delete() method: key is empty");
+                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
             }
+            try {
+                dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
+            } catch (NoSuchElementException ex) {
+                session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
+            } catch (IOException ex) {
+                logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            }
+            session.sendResponse(new ZeroResponse(Response.ACCEPTED));
+        } catch (IOException ex) {
+            logger.error(errorResponse, session, ex);
+        }
         });
     }
 
@@ -153,7 +146,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             try {
                 session.sendResponse(new ZeroResponse(Response.OK));
             } catch (IOException ex) {
-                logger.error("Response can't be sent: ", session, ex);
+                logger.error(errorResponse, session, ex);
             }
         });
     }
