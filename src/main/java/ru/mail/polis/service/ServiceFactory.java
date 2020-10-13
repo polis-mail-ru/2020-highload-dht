@@ -20,7 +20,7 @@ import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.mariarheon.ServiceImpl;
+import ru.mail.polis.service.mariarheon.AsyncServiceImpl;
 
 import java.io.IOException;
 
@@ -55,11 +55,14 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final var config = new HttpServerConfig();
         final var acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
-        config.acceptors = new AcceptorConfig[]{acceptorConfig};
 
-        return new ServiceImpl(config, dao);
+        final var config = new HttpServerConfig();
+        config.maxWorkers = Runtime.getRuntime().availableProcessors();
+        config.acceptors = new AcceptorConfig[]{acceptorConfig};
+        config.queueTime = 10;
+
+        return new AsyncServiceImpl(config, dao);
     }
 }
