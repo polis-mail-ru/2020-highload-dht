@@ -73,7 +73,7 @@ public class LSM implements DAO {
         final Iterator<Cell> alive = noTombstones(from);
         return Iterators.transform(alive, e -> {
             assert e != null;
-            return Record.of(e.getKey(), e.getValue().getData());
+            return Record.of(e.getKey(), e.getValue().getData().rewind());
         });
 
     }
@@ -92,7 +92,11 @@ public class LSM implements DAO {
         final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.files.size() + 1);
         iters.add(snapshot.mem.iterator(from));
         snapshot.files.descendingMap().values().forEach(t -> {
-            iters.add(t.iterator(from));
+            try {
+                iters.add(t.iterator(from));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         });
         for (final Table flushing : snapshot.flushing) {
             iters.add(flushing.iterator(from));

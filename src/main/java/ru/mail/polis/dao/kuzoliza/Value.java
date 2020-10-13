@@ -32,4 +32,8 @@ public final class Value implements Comparable<Value> {
         return -Long.compare(timestamp, value.timestamp);
     }
 
+    boolean isTombstone() {
+        return data == null;
+    }
+
 }

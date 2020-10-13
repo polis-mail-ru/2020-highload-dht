@@ -20,7 +20,7 @@ public final class Cell {
 
     @NotNull
     public ByteBuffer getKey() {
-        return key;
+        return key.asReadOnlyBuffer();
     }
 
     @NotNull
