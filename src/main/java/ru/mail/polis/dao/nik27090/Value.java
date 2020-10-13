@@ -30,4 +30,8 @@ final class Value implements Comparable<Value> {
     public int compareTo(@NotNull final Value o) {
         return Long.compare(o.timestamp, timestamp);
     }
+
+    boolean isTombstone() {
+        return content == null;
+    }
 }

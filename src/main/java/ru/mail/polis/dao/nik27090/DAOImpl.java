@@ -79,7 +79,7 @@ public class DAOImpl implements DAO {
         final ByteBuffer key = from.rewind().duplicate();
         final Iterator<Cell> alive = getAliveCells(key);
 
-        return Iterators.transform(alive, el -> Record.of(el.getKey(), el.getValue().getContent()));
+        return Iterators.transform(alive, el -> Record.of(el.getKey(), el.getValue().getContent().rewind()));
     }
 
     @Override
@@ -136,17 +136,26 @@ public class DAOImpl implements DAO {
             lock.readLock().unlock();
         }
 
-        final List<Iterator<Cell>> iterators = new ArrayList<>(snapshot.files.size() + 1);
-        iterators.add(snapshot.mem.iterator(key));
-        snapshot.files.descendingMap().values().forEach(ssTable -> {
-            iterators.add(ssTable.iterator(key));
-        });
-        for (final Table flushing : snapshot.flushing) {
-            iterators.add(flushing.iterator(key));
+        lock.writeLock().lock();
+        try {
+            final List<Iterator<Cell>> iterators = new ArrayList<>(snapshot.files.size() + 1);
+            iterators.add(snapshot.mem.iterator(key));
+            snapshot.files.descendingMap().values().forEach(ssTable -> {
+                try {
+                    iterators.add(ssTable.iterator(key));
+                } catch (IOException e) {
+                    throw new IllegalStateException();
+                }
+            });
+            for (final Table flushing : snapshot.flushing) {
+                iterators.add(flushing.iterator(key));
+            }
+            final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Cell.COMPARATOR);
+            final Iterator<Cell> fresh = Iters.collapseEquals(merged, Cell::getKey);
+            return Iterators.filter(fresh, el -> el.getValue().getContent() != null);
+        } finally {
+            lock.writeLock().unlock();
         }
-        final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Cell.COMPARATOR);
-        final Iterator<Cell> fresh = Iters.collapseEquals(merged, Cell::getKey);
-        return Iterators.filter(fresh, el -> el.getValue().getContent() != null);
     }
 
     @Override
@@ -217,7 +226,7 @@ public class DAOImpl implements DAO {
         final boolean doFlush;
         lock.readLock().lock();
         try {
-            doFlush =tableSet.mem.getSizeInBytes() > 0;
+            doFlush = tableSet.mem.getSizeInBytes() > 0;
         } finally {
             lock.readLock().unlock();
         }
