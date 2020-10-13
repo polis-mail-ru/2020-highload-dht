@@ -110,7 +110,7 @@ public class LsmDAO implements DAO {
         try {
             iters.add(memTablePool.iterator(from));
         } catch (IOException e) {
-            log.error("Bad iterator from memTablePool:" + e);
+            log.error("Bad iterator from memTablePool:", e);
             throw new UncheckedIOException(e);
         }
         ssTables.descendingMap().values().forEach(table -> {
@@ -158,9 +158,9 @@ public class LsmDAO implements DAO {
                 flush(flushingTable);
                 memTablePool.flushed(flushingTable.getGen());
             } catch (InterruptedException e) {
-                log.error("asd" + e);
+                log.error("Interrupt while creating table", e);
             } catch (IOException e) {
-                log.error("dsa" + e);
+                log.error("Error while creating table", e);
             }
         }
     }
@@ -192,7 +192,7 @@ public class LsmDAO implements DAO {
             );
             for (int i = 1; i < generation.get(); i++) {
                 File deletingFile = new File(storage, i + FILE_POSTFIX);
-                if (deletingFile.exists()){
+                if (deletingFile.exists()) {
                     Files.delete(deletingFile.toPath());
                 }
             }
