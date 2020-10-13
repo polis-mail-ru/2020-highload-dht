@@ -35,7 +35,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
     private final ExecutorService service;
-    private static final String errorResponse = "Response can't be sent: ";
+    private static final String RESP_ERR = "Response can't be sent: ";
 
     public AsyncServiceImpl(final HttpServerConfig config,
                        @NotNull final DAO dao) throws IOException {
@@ -62,22 +62,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.get() method: key is empty");
-                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-            }
-            try {
+                if (key.isEmpty()) {
+                    logger.info("ServiceImpl.get() method: key is empty");
+                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                }
                 final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
                 session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
             } catch (NoSuchElementException ex) {
-                session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
+                try {
+                    session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
+                } catch (IOException ex1) {
+                    logger.error(RESP_ERR, session, ex1);
+                }
             } catch (IOException ex) {
                 logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+                try {
+                    session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+                } catch (IOException ex1) {
+                    logger.error(RESP_ERR, session, ex1);
+                }
             }
-        } catch (IOException ex) {
-                logger.error(errorResponse, session, ex);
-        }
         });
     }
 
@@ -93,22 +97,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.put() method: key is empty");
-                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-            }
-            try {
+                if (key.isEmpty()) {
+                    logger.info("ServiceImpl.put() method: key is empty");
+                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                }
                 dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                        ByteBufferUtils.toByteBuffer(request.getBody()));
-            } catch (IOException ex) {
-                logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-            }
-            session.sendResponse(new ZeroResponse(Response.CREATED));
-        } catch (IOException ex) {
-            logger.error(errorResponse, session, ex);
-        }
-        });
+                           ByteBufferUtils.toByteBuffer(request.getBody()));
+                session.sendResponse(new ZeroResponse(Response.CREATED));
+                } catch (IOException ex) {
+                    logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
+                    try {
+                        session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+                    } catch (IOException ex1) {
+                        logger.error(RESP_ERR, session, ex1);
+                    }
+                }
+            });
     }
 
     /** Remove key-data pair.
@@ -121,22 +125,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.delete() method: key is empty");
-                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-            }
-            try {
+                if (key.isEmpty()) {
+                    logger.info("ServiceImpl.delete() method: key is empty");
+                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                }
                 dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            } catch (NoSuchElementException ex) {
-                session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
-            } catch (IOException ex) {
-                logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+                session.sendResponse(new ZeroResponse(Response.ACCEPTED));
+                } catch (NoSuchElementException ex) {
+                    try {
+                    session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
+                    } catch (IOException ex1) {
+                        logger.error(RESP_ERR, session, ex1);
+                    }
+                } catch (IOException ex) {
+                    logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+                    try {
+                        session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+                    } catch (IOException ex1) {
+                        logger.error(RESP_ERR, session, ex1);
+                    }
             }
-            session.sendResponse(new ZeroResponse(Response.ACCEPTED));
-        } catch (IOException ex) {
-            logger.error(errorResponse, session, ex);
-        }
         });
     }
 
@@ -146,7 +154,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             try {
                 session.sendResponse(new ZeroResponse(Response.OK));
             } catch (IOException ex) {
-                logger.error(errorResponse, session, ex);
+                logger.error(RESP_ERR, session, ex);
             }
         });
     }
