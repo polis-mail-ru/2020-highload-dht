@@ -33,6 +33,12 @@ public class TableSet {
         this.generation = generation;
     }
 
+    /**
+     * Конструктор TableSet
+     *
+     * @param ssTables - ssTable
+     * @param generation - generation
+     */
     public TableSet(
             @NotNull final NavigableMap<Integer, Table> ssTables,
             final int generation) {
@@ -43,6 +49,11 @@ public class TableSet {
         this.generation = generation;
     }
 
+    /**
+     *
+     * @param flushing - Set<Table>
+     * @return TableSet
+     */
     @NotNull
     public TableSet fromMemTableToFlushing(@NotNull final Set<Table> flushing) {
         final Set<Table> flush = new HashSet<>(flushing);
@@ -50,23 +61,36 @@ public class TableSet {
         return new TableSet(new MemTable(), flush, ssTableCollection, ++generation);
     }
 
+    /**
+     *
+     * @param deleteMemTable - delete mem table
+     * @param flushing - flushing Set<Table>
+     * @param ssTable - ssTable
+     * @return TableSet
+     */
     @NotNull
     public TableSet fromFlushingToSSTable(
-            @NotNull final MemTable deleteMem,
+            @NotNull final MemTable deleteMemTable,
             @NotNull final Set<Table> flushing,
             @NotNull final SSTable ssTable) {
         final Set<Table> flush = new HashSet<>(flushing);
         final NavigableMap<Integer, Table> files = new TreeMap<>(this.ssTableCollection);
-        if (flush.remove(deleteMem)) {
+        if (flush.remove(deleteMemTable)) {
             files.put(generation, ssTable);
         }
         return new TableSet(currMemTable, flush, files, generation);
     }
 
+    /**
+     *
+     * @param memTable - memTable
+     * @param ssTable - ssTable
+     * @return TableSet
+     */
     @NotNull
-    public TableSet compact(@NotNull final MemTable memTable, @NotNull final SSTable sstable) {
+    public TableSet compact(@NotNull final MemTable memTable, @NotNull final SSTable ssTable) {
         final NavigableMap<Integer, Table> files = new TreeMap<>();
-        files.put(generation, sstable);
+        files.put(generation, ssTable);
         generation = 1;
         return new TableSet(memTable, tablesReadyToFlush, files, generation);
     }

@@ -31,6 +31,7 @@ public class ThreadController extends HttpServer implements Service {
     @NotNull
     private final ExecutorService executor;
     private static final Logger logger = LoggerFactory.getLogger(ThreadController.class);
+    private static final String RESPONSE_ERROR_LOG_MESSAGE = "Fail send response: ";
 
     /**
      * Implementation {@link Service}.
@@ -61,17 +62,28 @@ public class ThreadController extends HttpServer implements Service {
         );
     }
 
+    /**
+     *  End - point status
+     *
+     * @param session - http session
+     */
     @Path("/v0/status")
     public void status(final HttpSession session) {
         executor.execute(() -> {
             try {
                 session.sendResponse(Response.ok("OK"));
             } catch (IOException e) {
-                logger.error("Fail send response: ", e);
+                logger.error(RESPONSE_ERROR_LOG_MESSAGE, e);
             }
         });
     }
 
+    /**
+     * End-point get
+     *
+     * @param id - id
+     * @param session - http session
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id, final HttpSession session) {
@@ -85,18 +97,25 @@ public class ThreadController extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException ioException) {
-                    logger.error("Fail send response: ", ioException);
+                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
                 }
             } catch (IOException e) {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ioException) {
-                    logger.error("Fail send response: ", ioException);
+                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
                 }
             }
         });
     }
 
+    /**
+     * End-point put
+     *
+     * @param id - id
+     * @param session - http session
+     * @param request - http request
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public void put(
@@ -114,12 +133,18 @@ public class ThreadController extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ioException) {
-                    logger.error("Fail send response: ", ioException);
+                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
                 }
             }
         });
     }
 
+    /**
+     * End-point delete
+     *
+     * @param id - id
+     * @param session - http session
+     */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(@Param(value = "id", required = true) final String id, final HttpSession session) {
@@ -134,7 +159,7 @@ public class ThreadController extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ioException) {
-                    logger.error("Fail send response: ", ioException);
+                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
                 }
             }
         });
@@ -146,7 +171,7 @@ public class ThreadController extends HttpServer implements Service {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                logger.error("Fail send response: ", e);
+                logger.error(RESPONSE_ERROR_LOG_MESSAGE, e);
             }
         });
     }

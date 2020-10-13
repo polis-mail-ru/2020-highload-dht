@@ -210,20 +210,14 @@ public final class DAOImpl implements DAO {
         });
     }
 
-//    @NotNull
-//    private Iterator<Cell> compactIterator(@NotNull final List<Iterator<Cell>> iteratorList) {
-//        return Iters.collapseEquals(
-//                Iterators.mergeSorted(iteratorList, Cell.COMPARATOR),
-//                Cell::getKey);
-//    }
-
     private Iterator<Cell> compactIterator(@NotNull final ByteBuffer from) throws IOException {
         final TableSet snapshot;
         lock.readLock().lock();
         try {
             snapshot = this.tables;
-            final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTableCollection.size() + snapshot.tablesReadyToFlush
-                    .size() + 1);
+            final List<Iterator<Cell>> iters =
+                    new ArrayList<>(snapshot.ssTableCollection.size() +
+                            snapshot.tablesReadyToFlush.size() + 1);
             iters.add(snapshot.currMemTable.iterator(from));
             snapshot.ssTableCollection.descendingMap().values().forEach(table -> {
                 try {
