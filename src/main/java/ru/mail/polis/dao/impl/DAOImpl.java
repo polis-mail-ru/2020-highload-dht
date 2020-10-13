@@ -169,8 +169,6 @@ public class DAOImpl implements DAO {
         try {
             if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
-                if (!executor.awaitTermination(60, TimeUnit.SECONDS))
-                    System.err.println("Pool did not terminate");
             }
         } catch (InterruptedException ie) {
             executor.shutdownNow();
