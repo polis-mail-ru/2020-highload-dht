@@ -5,7 +5,11 @@ import ru.mail.polis.MemTable;
 import ru.mail.polis.SSTable;
 import ru.mail.polis.Table;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.NavigableMap;
+import java.util.Set;
+import java.util.TreeMap;
 
 public class TableSet {
 
@@ -17,10 +21,11 @@ public class TableSet {
     public final MemTable currMemTable;
     public int generation;
 
-    public TableSet(@NotNull final MemTable memTable,
-                    @NotNull final Set<Table> flushing,
-                    @NotNull final NavigableMap<Integer, Table> ssTables,
-                    final int generation) {
+    public TableSet(
+            @NotNull final MemTable memTable,
+            @NotNull final Set<Table> flushing,
+            @NotNull final NavigableMap<Integer, Table> ssTables,
+            final int generation) {
         assert generation >= 0;
         this.ssTableCollection = ssTables;
         this.tablesReadyToFlush = Collections.unmodifiableSet(flushing);
@@ -28,8 +33,9 @@ public class TableSet {
         this.generation = generation;
     }
 
-    public TableSet(@NotNull final NavigableMap<Integer, Table> ssTables,
-                    final int generation) {
+    public TableSet(
+            @NotNull final NavigableMap<Integer, Table> ssTables,
+            final int generation) {
         assert generation >= 0;
         this.ssTableCollection = ssTables;
         this.tablesReadyToFlush = new HashSet<>();
@@ -45,9 +51,10 @@ public class TableSet {
     }
 
     @NotNull
-    public TableSet fromFlushingToSSTable(@NotNull final MemTable deleteMem,
-                                   @NotNull final Set<Table> flushing,
-                                   @NotNull final SSTable ssTable) {
+    public TableSet fromFlushingToSSTable(
+            @NotNull final MemTable deleteMem,
+            @NotNull final Set<Table> flushing,
+            @NotNull final SSTable ssTable) {
         final Set<Table> flush = new HashSet<>(flushing);
         final NavigableMap<Integer, Table> files = new TreeMap<>(this.ssTableCollection);
         if (flush.remove(deleteMem)) {

@@ -1,7 +1,14 @@
 package ru.mail.polis.service.ivlev;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,10 +40,11 @@ public class ThreadController extends HttpServer implements Service {
      * @param workersCount - count of executor workers
      * @param queueSize    - ArrayBlockingQueue max size
      */
-    public ThreadController(final HttpServerConfig config,
-                            @NotNull final DAO dao,
-                            final int workersCount,
-                            final int queueSize) throws IOException {
+    public ThreadController(
+            final HttpServerConfig config,
+            @NotNull final DAO dao,
+            final int workersCount,
+            final int queueSize) throws IOException {
         super(config, dao);
         assert workersCount > 0;
         assert queueSize > 0;
@@ -91,9 +99,10 @@ public class ThreadController extends HttpServer implements Service {
 
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id,
-                    final HttpSession session,
-                    final Request request) {
+    public void put(
+            @Param(value = "id", required = true) final String id,
+            final HttpSession session,
+            final Request request) {
         executor.execute(() -> {
             try {
                 if (id.isEmpty()) {

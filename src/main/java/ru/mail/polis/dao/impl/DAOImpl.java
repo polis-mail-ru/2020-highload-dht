@@ -3,11 +3,9 @@ package ru.mail.polis.dao.impl;
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Cell;
-import ru.mail.polis.MemTable;
 import ru.mail.polis.Record;
 import ru.mail.polis.SSTable;
 import ru.mail.polis.Table;
-import ru.mail.polis.Value;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 import ru.mail.polis.dao.TableSet;
@@ -18,7 +16,13 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,7 +82,8 @@ public final class DAOImpl implements DAO {
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         lock.writeLock().lock();
         try {
-            final Iterator<Cell> alive = Iterators.filter(compactIterator(from),
+            final Iterator<Cell> alive = Iterators.filter(
+                    compactIterator(from),
                     cell -> !requireNonNull(cell).getValue().isRemoved());
             return Iterators.transform(alive, cell ->
                     Record.of(requireNonNull(cell).getKey(), cell.getValue().getData()));
@@ -192,7 +197,10 @@ public final class DAOImpl implements DAO {
                     final File dest = new File(file, snapshot.generation + SUFFIX);
                     Files.move(copyFile.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
-                    tables = tables.fromFlushingToSSTable(snapshot.currMemTable, tables.tablesReadyToFlush, new SSTable(dest));
+                    tables = tables.fromFlushingToSSTable(
+                            snapshot.currMemTable,
+                            tables.tablesReadyToFlush,
+                            new SSTable(dest));
                 } finally {
                     lock.writeLock().unlock();
                 }
@@ -214,7 +222,8 @@ public final class DAOImpl implements DAO {
         lock.readLock().lock();
         try {
             snapshot = this.tables;
-            final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTableCollection.size() + snapshot.tablesReadyToFlush.size() + 1);
+            final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTableCollection.size() + snapshot.tablesReadyToFlush
+                    .size() + 1);
             iters.add(snapshot.currMemTable.iterator(from));
             snapshot.ssTableCollection.descendingMap().values().forEach(table -> {
                 try {

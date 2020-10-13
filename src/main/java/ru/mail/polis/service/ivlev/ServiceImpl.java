@@ -19,7 +19,7 @@ public class ServiceImpl implements Service {
      * Конструктор класса ServiceImpl.
      *
      * @param port - порт
-     * @param dao - реализация DAO
+     * @param dao  - реализация DAO
      */
     public ServiceImpl(final int port, @NotNull final DAO dao) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
@@ -33,7 +33,6 @@ public class ServiceImpl implements Service {
 
     @Override
     public void start() throws IOException {
-//        this.server = new ServiceController(config, dao);
         this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 16);
         this.server.start();
     }
