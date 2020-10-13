@@ -18,10 +18,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.*;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
@@ -42,8 +39,8 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      * @param dao - for interaction with RocksDB
      * @param numWorkers - for executor service
      */
-
-    public MyAsyncHttpServerImpl(final HttpServerConfig config, final DAO dao, final int numWorkers) throws IOException {
+    public MyAsyncHttpServerImpl(final HttpServerConfig config,
+                                 final DAO dao, final int numWorkers) throws IOException {
         super(config);
         this.dao = dao;
         assert 0 < numWorkers;
@@ -81,7 +78,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      * Get value by key.
      *
      * @param id - key
-     * @return value by key
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -126,7 +122,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      *
      * @param id - key
      * @param request with value
-     * @return sends status
      * @throws IOException - possible IO exception.
      */
     @Path("/v0/entity")
@@ -134,7 +129,8 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     public void putValueByKey(final @Param("id") String id,
                               final Request request,
                               final HttpSession httpSession) throws IOException {
-        execService.execute(() -> { if ("".equals(id)) {
+        execService.execute(() -> {
+            if ("".equals(id)) {
             try {
                 httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException ioException) {
@@ -164,7 +160,6 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      * delete value by key.
      *
      * @param id - key
-     * @return sends status
      * @throws IOException - possible IO exception
      */
     @Path("/v0/entity")
@@ -208,7 +203,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
             execService.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             log.error("exec. service can't be closed", e);
+            throw new RuntimeException(e);
         }
-
     }
 }
