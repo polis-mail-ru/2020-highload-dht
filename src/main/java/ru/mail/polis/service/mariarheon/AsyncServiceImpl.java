@@ -41,8 +41,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * Asynchronous Service Implementation.
      *
      * @param config - configuration.
-     * @param dao - dao 
-     * @return byte[] from buffer.
+     * @param dao - dao  
      */
     public AsyncServiceImpl(final HttpServerConfig config,
                        @NotNull final DAO dao) throws IOException {
