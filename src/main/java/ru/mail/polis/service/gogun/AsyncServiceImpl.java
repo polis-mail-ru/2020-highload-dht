@@ -83,7 +83,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 log.error("Can't understand request {}", request);
             }
         });
-        super.handleDefault(request, session);
     }
 
 
