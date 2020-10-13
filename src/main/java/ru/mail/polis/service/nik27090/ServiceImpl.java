@@ -138,7 +138,10 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putEntity(@Param(value = "id", required = true) final String id, final Request request, final HttpSession session) {
+    public void putEntity(
+            @Param(value = "id", required = true) final String id,
+            final Request request,
+            final HttpSession session) {
         log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
 
         executorService.execute(() -> {

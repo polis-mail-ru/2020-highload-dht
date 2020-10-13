@@ -39,9 +39,9 @@ final class TableSet {
 
     @NotNull
     TableSet markedAsFlushing() {
-        final Set<Table> flushing = new HashSet<>(this.flushing);
-        flushing.add(mem);
-        return new TableSet(new MemTable(), flushing, files, this.generation + 1);
+        final Set<Table> flushingTables = new HashSet<>(this.flushing);
+        flushingTables.add(mem);
+        return new TableSet(new MemTable(), flushingTables, files, this.generation + 1);
     }
 
     @NotNull
