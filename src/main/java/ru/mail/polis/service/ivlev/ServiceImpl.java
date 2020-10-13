@@ -19,19 +19,21 @@ public class ServiceImpl implements Service {
      * Конструктор класса ServiceImpl.
      *
      * @param port - порт
-     * @param dao - реализация DAO
+     * @param dao  - реализация DAO
      */
     public ServiceImpl(final int port, @NotNull final DAO dao) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
-        this.dao = dao;
-        this.config = new HttpServerConfig();
-        this.config.acceptors = new AcceptorConfig[]{acceptorConfig};
         acceptorConfig.port = port;
+        acceptorConfig.reusePort = true;
+        acceptorConfig.deferAccept = true;
+        this.config = new HttpServerConfig();
+        config.acceptors = new AcceptorConfig[]{acceptorConfig};
+        this.dao = dao;
     }
 
     @Override
     public void start() throws IOException {
-        this.server = new ServiceController(config, dao);
+        this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
         this.server.start();
     }
 

@@ -53,4 +53,8 @@ public class MemTable implements Table {
     public void close() {
         throw new UnsupportedOperationException();
     }
+
+    public int mapSize() {
+        return map.size();
+    }
 }

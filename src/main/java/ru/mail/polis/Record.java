@@ -54,8 +54,12 @@ public final class Record implements Comparable<Record> {
 
     @Override
     public boolean equals(final Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         final Record record = (Record) o;
         return Objects.equals(key, record.key)
                 && Objects.equals(value, record.value);
