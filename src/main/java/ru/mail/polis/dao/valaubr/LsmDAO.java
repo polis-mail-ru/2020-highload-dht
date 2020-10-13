@@ -168,7 +168,7 @@ public class LsmDAO implements DAO {
         }
     }
 
-    private void flush(FlushingTable flushingTable) throws IOException {
+    private void flush(@NotNull final FlushingTable flushingTable) throws IOException {
         readWriteLock.writeLock().lock();
         try {
             final File file = new File(storage, generation + TEMP_FILE_POSTFIX);

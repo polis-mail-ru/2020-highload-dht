@@ -28,7 +28,7 @@ public class HttpService extends HttpServer implements Service {
     private final DAO dao;
     private final Logger logger = LoggerFactory.getLogger(HttpService.class);
     private final ExecutorService executor;
-    private final String noIdAndResponse = "Empty id && response is dropped";
+    private static final String noIdAndResponse = "Empty id && response is dropped";
 
     /**
      * Constructor of the service.
