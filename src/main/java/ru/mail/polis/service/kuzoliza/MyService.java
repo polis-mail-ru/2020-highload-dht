@@ -62,12 +62,12 @@ public class MyService extends HttpServer {
 
     /**
      * Put/delete and get data from dao
-     * code 200 - "success" - successfully got data
-     * code 201 - "created" - successful respond to put request
-     * code 202 - "accepted" - successfully deleted data
-     * code 400 - "bad request" - syntax error (id is empty)
-     * code 404 - "not found" - server can't find the resource
-     * code 405 - "method is not allowed" - method can't be used
+     * code 200 - "success" - successfully got data,
+     * code 201 - "created" - successful respond to put request,
+     * code 202 - "accepted" - successfully deleted data,
+     * code 400 - "bad request" - syntax error (id is empty),
+     * code 404 - "not found" - server can't find the resource,
+     * code 405 - "method is not allowed" - method can't be used,
      * code 500 - "internal error" - server is not responding.
      *
      * @param id      - key
