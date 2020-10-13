@@ -62,7 +62,6 @@ public class MyService extends HttpServer {
 
     /**
      * Put/delete and get data from dao
-     *
      * code 200 - "success" - successfully got data
      * code 201 - "created" - successful respond to put request
      * code 202 - "accepted" - successfully deleted data
@@ -117,7 +116,7 @@ public class MyService extends HttpServer {
         });
     }
 
-    private void getResponse (final ByteBuffer key, final HttpSession session) {
+    private void getResponse(final ByteBuffer key, final HttpSession session) {
         try {
             final ByteBuffer value = dao.get(key);
             sendOKResponse(value, session);
@@ -154,7 +153,7 @@ public class MyService extends HttpServer {
         }
     }
 
-    private void deleteResponse (final ByteBuffer key, final HttpSession session) {
+    private void deleteResponse(final ByteBuffer key, final HttpSession session) {
         try {
             dao.remove(key);
         } catch (IOException e) {
