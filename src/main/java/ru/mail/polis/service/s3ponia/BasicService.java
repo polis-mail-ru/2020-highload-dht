@@ -20,7 +20,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public final class BasicService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(BasicService.class);
@@ -64,22 +68,26 @@ public final class BasicService extends HttpServer implements Service {
     }
 
     @NotNull
-    public static BasicService of(final int port, @NotNull final DAO dao, final int workers, final int queueSize) throws IOException {
+    public static BasicService of(final int port, @NotNull final DAO dao,
+                                  final int workers, final int queueSize) throws IOException {
         return new BasicService(port, dao, workers, queueSize);
     }
 
+    /**
+     * Handling status request.
+     * @param session current Session
+     */
     @Path("/v0/status")
-    public void handleStatus(final HttpSession session) throws IOException {
+    public void handleStatus(final HttpSession session) {
         try {
             this.es.execute(() -> {
                 try {
                     session.sendResponse(Response.ok("OK"));
-                    Thread.sleep(10);
-                } catch (Exception e) {
+                } catch (IOException e) {
                     logger.error("Error in sending status", e);
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             logger.error("Can't schedule request for execution", e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
@@ -93,7 +101,6 @@ public final class BasicService extends HttpServer implements Service {
      * Basic implementation of http get handling.
      *
      * @param id key in database
-     * @return response with value from database by key or http error code
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -133,7 +140,7 @@ public final class BasicService extends HttpServer implements Service {
                     }
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             logger.error("Can't schedule request for execution", e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
@@ -152,7 +159,7 @@ public final class BasicService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response handlePut(@Param(value = "id", required = true) final String id, final Request request,
+    public void handlePut(@Param(value = "id", required = true) final String id, final Request request,
                               final HttpSession session) {
         try {
             this.es.execute(() -> {
@@ -182,7 +189,7 @@ public final class BasicService extends HttpServer implements Service {
                     }
                 }
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             logger.error("Can't schedule request for execution", e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
@@ -200,7 +207,7 @@ public final class BasicService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response handleDelete(@Param(value = "id", required = true) final String id, final HttpSession session) {
+    public void handleDelete(@Param(value = "id", required = true) final String id, final HttpSession session) {
         try {
             this.es.execute(() -> {
                 if (id.isEmpty()) {
@@ -230,7 +237,7 @@ public final class BasicService extends HttpServer implements Service {
                 }
 
             });
-        } catch (Exception e) {
+        } catch (RejectedExecutionException e) {
             logger.error("Can't schedule request for execution", e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));

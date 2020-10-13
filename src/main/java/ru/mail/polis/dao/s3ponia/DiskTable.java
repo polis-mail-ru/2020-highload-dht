@@ -19,11 +19,11 @@ public class DiskTable implements Closeable, Table {
     private final int generation;
     private final FileChannel fileChannel;
 
+    private final Path filePath;
+
     public Path getFilePath() {
         return filePath;
     }
-
-    private final Path filePath;
     
     private class DiskTableIterator implements Iterator<Table.ICell> {
         private int elementIndex;
@@ -214,17 +214,17 @@ public class DiskTable implements Closeable, Table {
     }
 
     @Override
-    public ByteBuffer get(@NotNull ByteBuffer key) {
-        return null;
-    }
-
-    @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) {
+    public ByteBuffer get(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void remove(@NotNull ByteBuffer key) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException();
     }
 

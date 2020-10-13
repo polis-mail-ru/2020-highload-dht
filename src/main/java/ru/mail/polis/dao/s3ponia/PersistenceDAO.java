@@ -12,10 +12,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.*;
-import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -24,7 +25,6 @@ public final class PersistenceDAO implements DAO {
     private final long maxMemory;
     private final AtomicLong currMemory = new AtomicLong();
     private static final long MIN_FREE_MEMORY = 64 * 1024;
-
 
     private final ReentrantReadWriteLock readWriteLock =
             new ReentrantReadWriteLock();
@@ -36,7 +36,7 @@ public final class PersistenceDAO implements DAO {
         this.manager = new DiskManager(Paths.get(data.getAbsolutePath(),
                 DiskManager.META_PREFIX + data.getName() + DiskManager.META_EXTENSION));
         final NavigableMap<Integer, Table> diskSet = new TreeMap<>();
-        for (var diskTable : this.manager.diskTables()) {
+        for (final var diskTable : this.manager.diskTables()) {
             diskSet.put(diskTable.getGeneration(), diskTable);
         }
         // Closing all files and clear list of diskTables and fileNames
@@ -65,7 +65,7 @@ public final class PersistenceDAO implements DAO {
 
         this.manager.save(snapshot.memTable.iterator(ByteBuffer.allocate(0)), snapshot.generation);
 
-        var dest = this.manager.diskTableFromGeneration(snapshot.generation);
+        final var dest = this.manager.diskTableFromGeneration(snapshot.generation);
 
         readWriteLock.writeLock().lock();
         try {

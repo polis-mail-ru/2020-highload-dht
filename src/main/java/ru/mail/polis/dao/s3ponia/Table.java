@@ -6,15 +6,11 @@ import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 
 public interface Table extends Closeable {
-    public int getGeneration();
+    int getGeneration();
 
-    public interface ICell extends Comparable<ICell> {
+    interface ICell extends Comparable<ICell> {
         @NotNull
         ByteBuffer getKey();
 
@@ -22,7 +18,7 @@ public interface Table extends Closeable {
         Value getValue();
     }
 
-    public static class Cell implements ICell {
+    class Cell implements ICell {
         @NotNull
         private final ByteBuffer key;
         @NotNull
@@ -55,7 +51,7 @@ public interface Table extends Closeable {
         }
     }
 
-    public static class Value implements Comparable<Value> {
+    class Value implements Comparable<Value> {
         private final ByteBuffer byteBuffer;
         private static final long DEAD_FLAG = 0x4000000000000000L;
         private final long deadFlagTimeStamp;
@@ -120,9 +116,9 @@ public interface Table extends Closeable {
         }
     }
 
-    public int size();
+    int size();
 
-    public Iterator<ICell> iterator();
+    Iterator<ICell> iterator();
 
     /**
      * Provides iterator (possibly empty) over {@link Cell}s starting at "from" key (inclusive)
@@ -130,11 +126,11 @@ public interface Table extends Closeable {
      * N.B. The iterator should be obtained as fast as possible, e.g.
      * one should not "seek" to start point ("from" element) in linear time ;)
      */
-    public Iterator<ICell> iterator(@NotNull final ByteBuffer from);
+    Iterator<ICell> iterator(@NotNull final ByteBuffer from);
 
-    public ByteBuffer get(@NotNull final ByteBuffer key);
+    ByteBuffer get(@NotNull final ByteBuffer key);
 
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value);
+    void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value);
 
-    public void remove(@NotNull final ByteBuffer key);
+    void remove(@NotNull final ByteBuffer key);
 }

@@ -1,8 +1,5 @@
 package ru.mail.polis.dao.s3ponia;
 
-import org.jetbrains.annotations.NotNull;
-
-import javax.annotation.concurrent.GuardedBy;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -15,7 +12,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 public class DiskManager implements Closeable {
@@ -27,12 +23,11 @@ public class DiskManager implements Closeable {
     private final List<String> fileNames;
     private final List<DiskTable> diskTables;
     private int generation;
-//    private final Path root;
 
     private void saveTo(final Iterator<Table.ICell> it, final Path file) throws IOException {
         Files.createFile(file);
         try (FileChannel writer = FileChannel.open(file, StandardOpenOption.WRITE)) {
-            var shifts = new ArrayList<Integer>();
+            final var shifts = new ArrayList<Integer>();
             shifts.add(0);
             var index = 0;
             while (it.hasNext()) {
@@ -96,10 +91,10 @@ public class DiskManager implements Closeable {
     }
 
     private void setSeed() {
-        if (fileNames.size() <= 0) {
+        if (fileNames.isEmpty()) {
             return;
         }
-        for (var file : fileNames) {
+        for (final var file : fileNames) {
             final var fileName = Paths.get(file).getFileName().toString();
             final var fileGen = fileName.substring(0, fileName.length() - 3);
             generation = Math.max(Integer.parseInt(fileGen), generation);
@@ -107,12 +102,11 @@ public class DiskManager implements Closeable {
         generation += 1;
     }
 
-    private String getName(int dao_generation) {
-        return Integer.toString(dao_generation);
+    private String getName(int daoGeneration) {
+        return Integer.toString(daoGeneration);
     }
 
     DiskManager(final Path file) throws IOException {
-//        root = file;
         metaFile = file;
         if (!Files.exists(metaFile)) {
             Files.createFile(metaFile);
@@ -147,7 +141,7 @@ public class DiskManager implements Closeable {
     }
 
     void save(final Iterator<Table.ICell> it, final int generation) throws IOException {
-        var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
+        final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         final var fileName = filePath.toString();
         saveFileNameToMeta(fileName);
         saveTo(it, filePath);
