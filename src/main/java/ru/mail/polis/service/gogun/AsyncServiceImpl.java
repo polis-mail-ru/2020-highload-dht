@@ -32,7 +32,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     private final ExecutorService executorService;
 
-
     /**
      * class that provides requests to lsm dao via http.
      *
@@ -40,7 +39,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param numWorkers - num of threads in executor service
      * @param queueSize - thread queue size
      * @param dao - key-value storage
-     * @throws IOException
+     * @throws IOException - ioexception
      */
     public AsyncServiceImpl(final int port,
                             final int numWorkers,
