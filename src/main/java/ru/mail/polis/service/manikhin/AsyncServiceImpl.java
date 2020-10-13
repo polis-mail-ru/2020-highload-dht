@@ -33,7 +33,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     /**
-     * AsyncService initialization
+     * AsyncService initialization.
      *
      * @param port - to accept HTTP server
      * @param dao - storage interface
@@ -54,8 +54,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - HttpSession
      */
     @Path("/v0/status")
-    public void status(@NotNull final HttpSession session)
-    {
+    public void status(@NotNull final HttpSession session) {
         final Future<?> future = executor.submit(() -> {
             try {
                 session.sendResponse(Response.ok("OK"));
@@ -119,7 +118,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final ByteBuffer value = dao.get(key).duplicate();
             final byte[] valueArray = ByteConvertor.toArray(value);
             session.sendResponse(Response.ok(valueArray));
-        }  catch (IOException ex) {
+        } catch (IOException ex) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         } catch (NoSuchElementException error) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
