@@ -35,10 +35,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * class that provides requests to lsm dao via http.
      *
-     * @param port - port
+     * @param port       - port
      * @param numWorkers - num of threads in executor service
-     * @param queueSize - thread queue size
-     * @param dao - key-value storage
+     * @param queueSize  - thread queue size
+     * @param dao        - key-value storage
      * @throws IOException - ioexception
      */
     public AsyncServiceImpl(final int port,
@@ -75,7 +75,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -123,16 +123,19 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         }
 
-        ByteBuffer buffer = ByteBuffer.allocate(0);
+        final ByteBuffer buffer;
 
         try {
             buffer = dao.get(getBuffer(id.getBytes(UTF_8)));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
         }
 
         session.sendResponse(Response.ok(getArray(buffer)));
@@ -162,14 +165,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         }
 
         try {
             dao.upsert(getBuffer(id.getBytes(UTF_8)), getBuffer(request.getBody()));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
         }
 
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
@@ -200,14 +206,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         log.debug("DELETE request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         }
 
         try {
             dao.remove(getBuffer(id.getBytes(UTF_8)));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
         }
 
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
@@ -218,7 +227,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      *
      * @param id      - key
      * @param session - session
-     *
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
