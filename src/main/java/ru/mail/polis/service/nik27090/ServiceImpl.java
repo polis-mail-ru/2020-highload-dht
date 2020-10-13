@@ -1,5 +1,6 @@
 package ru.mail.polis.service.nik27090;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -19,16 +20,32 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    @NotNull
+    private final ExecutorService executorService;
 
     @NotNull
     private final DAO dao;
 
-    public ServiceImpl(final int port, final @NotNull DAO dao) throws IOException {
+    public ServiceImpl(final int port, final @NotNull DAO dao, final int workers, final int queueSize) throws IOException {
         super(createConfig(port));
         this.dao = dao;
+        executorService = new ThreadPoolExecutor(
+                workers, queueSize,
+                0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder()
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
+                        .setNameFormat("worker_%d")
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
     }
 
     private static HttpServerConfig createConfig(final int port) {
@@ -43,106 +60,144 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     @Path("/v0/status")
-    public Response status() {
-        return Response.ok("OK");
+    public void status(final HttpSession session) {
+        log.debug("Request status.");
+
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(Response.ok("OK"));
+            } catch (IOException e) {
+                log.error("FATAL ERROR STATUS. Can't send response.");
+            }
+        });
     }
 
     /**
      * Get data by key.
      *
-     * @param id - key for storage
-     * @return - code 200 and data,
-     *           code 400 if id is empty,
-     *           code 404 if data not found,
-     *           code 500 if internal error
+     * @param id      - key for storage
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public Response getEntity(final @Param(value = "id", required = true) String id) {
+    public void getEntity(final @Param(value = "id", required = true) String id, final HttpSession session) {
         log.debug("GET request: id = {}", id);
 
-        if (id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
-
-        final ByteBuffer value;
-
-        try {
-            value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-
-        final byte[] response = new byte[value.remaining()];
-        value.get(response);
-
-        return Response.ok(response);
+        executorService.execute(() -> {
+            try {
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
+                final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
+                final byte[] response = new byte[value.remaining()];
+                value.get(response);
+                session.sendResponse(Response.ok(response));
+            } catch (NoSuchElementException e) {
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("FATAL ERROR GET. Can't send response.");
+                }
+            } catch (IOException e) {
+                log.error("Internal error with id = {}", id, e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("FATAL ERROR GET. Can't send response.");
+                }
+            }
+        });
     }
 
     /**
      * Create/overwrite data by key.
      *
-     * @param id - key for storage
+     * @param id      - key for storage
      * @param request - body request
-     * @return - 200 if value has been created/overwritten,
-     *           400 if id is empty,
-     *           500 if internal error
-     *
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public Response putEntity(@Param(value = "id", required = true) final String id, final Request request) {
+    public void putEntity(@Param(value = "id", required = true) final String id, final Request request, final HttpSession session) {
         log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
 
-        if (id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
+        executorService.execute(() -> {
+            try {
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
 
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                final ByteBuffer value = ByteBuffer.wrap(request.getBody());
 
-        try {
-            dao.upsert(key, value);
-        } catch (IOException e) {
-            log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
 
-        return new Response(Response.CREATED, Response.EMPTY);
+                dao.upsert(key, value);
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException e) {
+                log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("FATAL ERROR PUT. Can't send response.");
+                }
+            }
+        });
     }
 
     /**
      * Delete data by key.
      *
-     * @param id - key for storage
-     * @return - 200 if value was remote
-     *           500 if internal error
+     * @param id      - key for storage
+     * @param session - session
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public Response deleteEntity(@Param(value = "id", required = true) final String id) {
+    public void deleteEntity(@Param(value = "id", required = true) final String id, final HttpSession session) {
         log.debug("DELETE request: id = {}", id);
 
-        if (id.isEmpty()) {
-            return new Response(Response.BAD_REQUEST, Response.EMPTY);
-        }
+        executorService.execute(() -> {
+            try {
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
 
-        try {
-            dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
 
-        return new Response(Response.ACCEPTED, Response.EMPTY);
+                dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException e) {
+                log.error("Internal error with id = {}", id, e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("FATAL ERROR PUT. Can't send response.");
+                }
+            }
+
+
+        });
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         log.debug("Can't understand request: {}", request);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        executorService.execute(() -> {
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                log.error("FATAL ERROR. Can't send response.");
+            }
+        });
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(15, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("ERROR. Cant shutdown executor.");
+            Thread.currentThread().interrupt();
+        }
     }
 }
