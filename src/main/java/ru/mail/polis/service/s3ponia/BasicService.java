@@ -11,6 +11,7 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -122,17 +123,8 @@ public final class BasicService extends HttpServer implements Service {
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
                 final Response response;
-                try {
-                    final ByteBuffer value = dao.get(buffer);
-                    session.sendResponse(Response.ok(fromByteBuffer(value)));
-                    return;
-                } catch (NoSuchElementException e) {
-                    logger.error("No such element key(size: {}) in dao", id.length());
-                    response = new Response(Response.NOT_FOUND, EMPTY);
-                } catch (IOException e) {
-                    logger.error("IOException in getting key(size: {}) from dao", id.length());
-                    response = new Response(Response.INTERNAL_ERROR, EMPTY);
-                }
+                response = handlingGetSendingResponse(id, session, buffer);
+                if (response == null) return;
                 sendUserResponse(session, response, ERROR_SEND_MESSAGE);
             });
         } catch (RejectedExecutionException e) {
@@ -143,6 +135,24 @@ public final class BasicService extends HttpServer implements Service {
                 logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
         }
+    }
+
+    @Nullable
+    private Response handlingGetSendingResponse(@Param(value = "id", required = true) final String id,
+                                                final HttpSession session, final ByteBuffer buffer) {
+        Response response;
+        try {
+            final ByteBuffer value = dao.get(buffer);
+            session.sendResponse(Response.ok(fromByteBuffer(value)));
+            return null;
+        } catch (NoSuchElementException e) {
+            logger.error("No such element key(size: {}) in dao", id.length());
+            response = new Response(Response.NOT_FOUND, EMPTY);
+        } catch (IOException e) {
+            logger.error("IOException in getting key(size: {}) from dao", id.length());
+            response = new Response(Response.INTERNAL_ERROR, EMPTY);
+        }
+        return response;
     }
 
     /**
@@ -163,13 +173,7 @@ public final class BasicService extends HttpServer implements Service {
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                try {
-                    dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
-                    session.sendResponse(new Response(Response.CREATED, EMPTY));
-                } catch (IOException e) {
-                    logger.error("IOException in putting key(size: {}) from dao", id.length());
-                    sendResponse(session, Response.INTERNAL_ERROR);
-                }
+                handlingUpsertSendingRequest(id, request, session, buffer);
             });
         } catch (RejectedExecutionException e) {
             logger.error(SCHEDULE_MESSAGE, e);
@@ -178,6 +182,17 @@ public final class BasicService extends HttpServer implements Service {
             } catch (IOException ioException) {
                 logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
+        }
+    }
+
+    private void handlingUpsertSendingRequest(@Param(value = "id", required = true) final String id, final Request request,
+                                              final HttpSession session, final ByteBuffer buffer) {
+        try {
+            dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
+            session.sendResponse(new Response(Response.CREATED, EMPTY));
+        } catch (IOException e) {
+            logger.error("IOException in putting key(size: {}) from dao", id.length());
+            sendResponse(session, Response.INTERNAL_ERROR);
         }
     }
 
@@ -197,13 +212,7 @@ public final class BasicService extends HttpServer implements Service {
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                try {
-                    dao.remove(buffer);
-                    session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
-                } catch (IOException e) {
-                    logger.error("IOException in removing key(size: {}) from dao", id.length());
-                    sendResponse(session, Response.INTERNAL_ERROR);
-                }
+                handlingRemoveResponseSending(id, session, buffer);
 
             });
         } catch (RejectedExecutionException e) {
@@ -213,6 +222,17 @@ public final class BasicService extends HttpServer implements Service {
             } catch (IOException ioException) {
                 logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
+        }
+    }
+
+    private void handlingRemoveResponseSending(@Param(value = "id", required = true) final String id,
+                                               final HttpSession session, final ByteBuffer buffer) {
+        try {
+            dao.remove(buffer);
+            session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
+        } catch (IOException e) {
+            logger.error("IOException in removing key(size: {}) from dao", id.length());
+            sendResponse(session, Response.INTERNAL_ERROR);
         }
     }
 
