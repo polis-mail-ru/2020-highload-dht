@@ -113,11 +113,7 @@ public final class BasicService extends HttpServer implements Service {
             this.es.execute(() -> {
                 if (id.isEmpty()) {
                     logger.error("Empty key in getting");
-                    try {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-                    } catch (IOException e) {
-                        logger.error(ERROR_SEND_MESSAGE, e);
-                    }
+                    sendResponse(session, Response.BAD_REQUEST);
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -163,11 +159,7 @@ public final class BasicService extends HttpServer implements Service {
             this.es.execute(() -> {
                 if (id.isEmpty()) {
                     logger.error("Empty key in putting");
-                    try {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-                    } catch (IOException e) {
-                        logger.error(ERROR_SEND_MESSAGE, e);
-                    }
+                    sendResponse(session, Response.BAD_REQUEST);
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -176,11 +168,7 @@ public final class BasicService extends HttpServer implements Service {
                     session.sendResponse(new Response(Response.CREATED, EMPTY));
                 } catch (IOException e) {
                     logger.error("IOException in putting key(size: {}) from dao", id.length());
-                    try {
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error(ERROR_SEND_MESSAGE, ioException);
-                    }
+                    sendResponse(session, Response.INTERNAL_ERROR);
                 }
             });
         } catch (RejectedExecutionException e) {
@@ -205,28 +193,16 @@ public final class BasicService extends HttpServer implements Service {
             this.es.execute(() -> {
                 if (id.isEmpty()) {
                     logger.error("Empty key in deleting");
-                    try {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-                    } catch (IOException e) {
-                        logger.error(ERROR_SEND_MESSAGE, e);
-                    }
+                    sendResponse(session, Response.BAD_REQUEST);
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
                 try {
                     dao.remove(buffer);
-                    try {
-                        session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error("Error in sending response", ioException);
-                    }
+                    session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
                 } catch (IOException e) {
                     logger.error("IOException in removing key(size: {}) from dao", id.length());
-                    try {
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error(ERROR_SEND_MESSAGE, ioException);
-                    }
+                    sendResponse(session, Response.INTERNAL_ERROR);
                 }
 
             });
@@ -237,6 +213,14 @@ public final class BasicService extends HttpServer implements Service {
             } catch (IOException ioException) {
                 logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
+        }
+    }
+
+    private void sendResponse(HttpSession session, String internalError) {
+        try {
+            session.sendResponse(new Response(internalError, EMPTY));
+        } catch (IOException ioException) {
+            logger.error(ERROR_SEND_MESSAGE, ioException);
         }
     }
 
@@ -254,6 +238,7 @@ public final class BasicService extends HttpServer implements Service {
             this.es.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             logger.error("Can't shutdown executor", e);
+            Thread.currentThread().interrupt();
         }
     }
 }
