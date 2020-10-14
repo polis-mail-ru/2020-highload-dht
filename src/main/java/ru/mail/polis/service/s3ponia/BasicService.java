@@ -185,7 +185,8 @@ public final class BasicService extends HttpServer implements Service {
         }
     }
 
-    private void handlingUpsertSendingRequest(@Param(value = "id", required = true) final String id, final Request request,
+    private void handlingUpsertSendingRequest(@Param(value = "id", required = true) final String id,
+                                              final Request request,
                                               final HttpSession session, final ByteBuffer buffer) {
         try {
             dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));

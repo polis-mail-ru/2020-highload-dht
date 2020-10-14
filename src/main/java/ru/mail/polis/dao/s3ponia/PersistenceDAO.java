@@ -138,6 +138,9 @@ public final class PersistenceDAO implements DAO {
     @Override
     public void close() throws IOException {
         flush();
+        for (final var diskTable : this.tableSet.diskTables.values()) {
+            diskTable.close();
+        }
     }
 
     @Override
