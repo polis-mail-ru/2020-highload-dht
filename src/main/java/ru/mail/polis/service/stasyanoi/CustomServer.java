@@ -205,6 +205,7 @@ public class CustomServer extends HttpServer {
         super.stop();
         try {
             dao.close();
+            executorService.shutdown();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
