@@ -100,15 +100,11 @@ public class ServiceImpl extends HttpServer implements Service {
             executorService.execute(runnable);
         } catch (final RejectedExecutionException e) {
             log.error("Request rejected", e);
-            try {
-                httpSession.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (final IOException ioException) {
-                log.error(RESPONSE_ERROR_STRING, ioException);
-            }
+            sendAnswerOrError(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 
-    private void trySendError(final HttpSession httpSession, final Response response) {
+    private void sendAnswerOrError(final HttpSession httpSession, final Response response) {
         try {
             httpSession.sendResponse(response);
         } catch (final IOException ioException) {
@@ -150,7 +146,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 () -> {
                     if (id.isEmpty()) {
                         log.debug("Get entity method: key is empty");
-                        trySendError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
@@ -160,14 +156,14 @@ public class ServiceImpl extends HttpServer implements Service {
                         result = this.dao.get(key);
                     } catch (final NoSuchElementException e) {
                         log.debug(String.format("Get entity method: key = '%s' not found", id));
-                        trySendError(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
                         return;
                     } catch (final IOException e) {
                         log.error(String.format("Get entity method: key = '%s' error", id), e);
-                        trySendError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                         return;
                     }
-                    trySendError(httpSession, new Response(Response.OK, getBytes(result)));
+                    sendAnswerOrError(httpSession, new Response(Response.OK, getBytes(result)));
                 }
         );
     }
@@ -193,7 +189,8 @@ public class ServiceImpl extends HttpServer implements Service {
                 () -> {
                     if (id.isEmpty()) {
                         log.debug("Put entity method: key is empty");
-                        trySendError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        return;
                     }
 
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
@@ -213,9 +210,10 @@ public class ServiceImpl extends HttpServer implements Service {
                                 ),
                                 e
                         );
-                        trySendError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        return;
                     }
-                    trySendError(httpSession, new Response(Response.CREATED, Response.EMPTY));
+                    sendAnswerOrError(httpSession, new Response(Response.CREATED, Response.EMPTY));
                 }
         );
     }
@@ -240,7 +238,8 @@ public class ServiceImpl extends HttpServer implements Service {
                 () -> {
                     if (id.isEmpty()) {
                         log.debug("Delete entity method: key is empty");
-                        trySendError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        return;
                     }
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
@@ -248,9 +247,10 @@ public class ServiceImpl extends HttpServer implements Service {
                         this.dao.remove(key);
                     } catch (IOException e) {
                         log.error(String.format("Delete entity method: key = '%s' error", id), e);
-                        trySendError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        return;
                     }
-                    trySendError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
+                    sendAnswerOrError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
                 }
         );
     }
