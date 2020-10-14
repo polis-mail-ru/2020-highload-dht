@@ -64,8 +64,8 @@ public class CustomServer extends HttpServer {
             //get id as aligned byte buffer
             final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             //get the response from db
-            ByteBuffer body;
             try {
+                ByteBuffer body;
                 body = dao.get(id);
                 final byte[] bytes = toBytes(body);
                 responseHttp = Response.ok(bytes);
@@ -129,7 +129,6 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-
             final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             final ByteBuffer value = fromBytes(request.getBody());
             dao.upsert(key, value);
