@@ -7,7 +7,6 @@ key = 0;
 request = function()
     path = "/v0/entity?id=" .. key
     wrk.method = "GET"
-    wrk.headers["Content-Type"] = "text/plain"
     key = key + 1
     return wrk.format(nil, path)
 end
