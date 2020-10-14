@@ -170,16 +170,17 @@ public class CustomServer extends HttpServer {
     }
 
     /**
-     * Abracadabra check.
+     * Default handler for unmapped requests
      *
-     * @return Response with status.
+     * @param request - unmapped request
+     * @param session - session object
+     * @throws IOException - if input|output exceptions occur within the method
      */
-    @Path("/abracadabra")
-    @RequestMethod(METHOD_GET)
-    public Response abracadabra() {
+    @Override
+    public void handleDefault(Request request, HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST);
         response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return response;
+        session.sendResponse(response);
     }
 
     /**
