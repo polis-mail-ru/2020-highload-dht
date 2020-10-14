@@ -1,12 +1,10 @@
 package ru.mail.polis.service.stakenschneider;
 
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.*;
+import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -20,46 +18,80 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
+import static one.nio.http.Response.ACCEPTED;
 import static one.nio.http.Response.BAD_REQUEST;
+import static one.nio.http.Response.CREATED;
 import static one.nio.http.Response.EMPTY;
 import static one.nio.http.Response.INTERNAL_ERROR;
 import static one.nio.http.Response.METHOD_NOT_ALLOWED;
+import static one.nio.http.Response.NOT_FOUND;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
     @NotNull
     private final Executor executor;
+    private final Nodes nodes;
+    private final Map<String, HttpClient> clusterClients;
 
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     /**
      * Simple Async HTTP server.
      *
-     * @param port - to accept HTTP connections
+     * @param config -
      * @param dao - storage interface
-     * @param executor - an object that executes submitted tasks
+     * @param nodes -
+     * @param clusterClients -
+     * @throws IOException -
      */
-    public AsyncServiceImpl(final int port, @NotNull final DAO dao,
-                            @NotNull final Executor executor) throws IOException {
-        super(from(port));
+    private AsyncServiceImpl(final HttpServerConfig config, @NotNull final DAO dao,
+                           @NotNull final Nodes nodes,
+                           @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
+        super(config);
         this.dao = dao;
-        this.executor = executor;
+        this.executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder().setNameFormat("worker").build());
+        this.nodes = nodes;
+        this.clusterClients = clusterClients;
     }
 
-    private static HttpServerConfig from(final int port) {
-        final AcceptorConfig ac = new AcceptorConfig();
-        ac.port = port;
-        ac.reusePort = true;
-        ac.deferAccept = true;
-
-        final HttpServerConfig config = new HttpServerConfig();
-        config.acceptors = new AcceptorConfig[]{ac};
-        return config;
+    /**
+     * Create Async HTTP server.
+     */
+    public static Service create(final int port, @NotNull final DAO dao,
+                                 @NotNull final Nodes nodes) throws IOException {
+        final var acceptor = new AcceptorConfig();
+        final var config = new HttpServerConfig();
+        acceptor.port = port;
+        config.acceptors = new AcceptorConfig[]{acceptor};
+        config.maxWorkers = Runtime.getRuntime().availableProcessors();
+        config.queueTime = 10;
+        final Map<String, HttpClient> clusterClients = new HashMap<>();
+        for (final String it : nodes.getNodes()) {
+            if (!nodes.getId().equals(it) && !clusterClients.containsKey(it)) {
+                clusterClients.put(it, new HttpClient(new ConnectionString(it + "?timeout=100")));
+            }
+        }
+        return new AsyncServiceImpl(config, dao, nodes, clusterClients);
     }
+
+//    private static HttpServerConfig from(final int port) {
+//        final AcceptorConfig ac = new AcceptorConfig();
+//        ac.port = port;
+//        ac.reusePort = true;
+//        ac.deferAccept = true;
+//
+//        final HttpServerConfig config = new HttpServerConfig();
+//        config.acceptors = new AcceptorConfig[]{ac};
+//        return config;
+//    }
 
     @Override
     public HttpSession createSession(final Socket socket) {
@@ -96,6 +128,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        final String keyClusterPartition = nodes.primaryFor(key);
+        if (!nodes.getId().equals(keyClusterPartition)) {
+            executeAsync(session, () -> forwardRequestTo(keyClusterPartition, request));
+            return;
+        }
+
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
@@ -178,6 +217,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private Response forwardRequestTo(@NotNull final String cluster, final Request request) throws IOException {
+
+        try {
+            return clusterClients.get(cluster).invoke(request);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            throw new IOException("fail", e);
+        }
+    }
+
     private Response get(final ByteBuffer key) {
         try {
             final ByteBuffer value = dao.get(key);
@@ -186,17 +234,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             duplicate.get(body);
             return new Response(Response.OK, body);
         } catch (NoSuchElementLiteException | IOException ex) {
-            return new Response(Response.NOT_FOUND, EMPTY);
+            return new Response(NOT_FOUND, EMPTY);
         }
     }
 
     private Response put(final ByteBuffer key, final Request request) throws IOException {
         dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-        return new Response(Response.CREATED, EMPTY);
+        return new Response(CREATED, EMPTY);
     }
 
     private Response delete(final ByteBuffer key) throws IOException {
         dao.remove(key);
-        return new Response(Response.ACCEPTED, EMPTY);
+        return new Response(ACCEPTED, EMPTY);
     }
 }
