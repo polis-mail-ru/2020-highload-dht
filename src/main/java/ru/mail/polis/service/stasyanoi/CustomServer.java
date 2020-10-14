@@ -48,7 +48,7 @@ public class CustomServer extends HttpServer {
             try {
                 getInternal(idParam, session);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                sendErrorInternal(session, e);
             }
         });
     }
@@ -65,8 +65,7 @@ public class CustomServer extends HttpServer {
             final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             //get the response from db
             try {
-                ByteBuffer body;
-                body = dao.get(id);
+                ByteBuffer body = dao.get(id);
                 final byte[] bytes = toBytes(body);
                 responseHttp = Response.ok(bytes);
             } catch (NoSuchElementException e) {
@@ -118,7 +117,7 @@ public class CustomServer extends HttpServer {
             try {
                 putInternal(idParam, request, session);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                sendErrorInternal(session, e);
             }
         });
     }
@@ -150,7 +149,7 @@ public class CustomServer extends HttpServer {
             try {
                 deleteInternal(idParam, session);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                sendErrorInternal(session, e);
             }
         });
     }
@@ -167,6 +166,16 @@ public class CustomServer extends HttpServer {
             responseHttp = getResponseWithNoBody(Response.ACCEPTED);
         }
         session.sendResponse(responseHttp);
+    }
+
+    private void sendErrorInternal(final HttpSession session,
+                                   final IOException e) {
+        try {
+            System.err.println(e.getMessage());
+            session.sendError("500", e.getMessage());
+        } catch (IOException exception) {
+            System.err.println(exception.getMessage());
+        }
     }
 
     /**
