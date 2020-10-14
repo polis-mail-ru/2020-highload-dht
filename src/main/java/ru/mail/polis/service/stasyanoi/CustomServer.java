@@ -27,7 +27,7 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class CustomServer extends HttpServer {
 
-     private final static Logger logger = LoggerFactory.getLogger(CustomServer.class);
+     private final Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
     private final DAO dao;
     private final ExecutorService executorService =
