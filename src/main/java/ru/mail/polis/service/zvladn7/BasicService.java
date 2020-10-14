@@ -112,7 +112,7 @@ public class BasicService extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
-        byte[] body = toBytes(value);
+        final byte[] body = toBytes(value);
         return Response.ok(body);
     }
 
