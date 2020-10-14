@@ -58,8 +58,7 @@ public class CustomServer extends HttpServer {
         Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = new Response(Response.BAD_REQUEST);
-            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
 
             //get id as aligned byte buffer
@@ -72,12 +71,18 @@ public class CustomServer extends HttpServer {
                 responseHttp = Response.ok(bytes);
             } catch (NoSuchElementException e) {
                 //if not found then 404
-                responseHttp = new Response(Response.NOT_FOUND);
-                responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+                responseHttp = getResponseWithNoBody(Response.NOT_FOUND);
             }
         }
 
         session.sendResponse(responseHttp);
+    }
+
+    @NotNull
+    private Response getResponseWithNoBody(String requestType) {
+        Response responseHttp = new Response(requestType);
+        responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        return responseHttp;
     }
 
     /**
@@ -122,15 +127,13 @@ public class CustomServer extends HttpServer {
                              final HttpSession session) throws IOException {
         Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = new Response(Response.BAD_REQUEST);
-            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
 
             final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             final ByteBuffer value = fromBytes(request.getBody());
             dao.upsert(key, value);
-            responseHttp = new Response(Response.CREATED);
-            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            responseHttp = getResponseWithNoBody(Response.CREATED);
         }
         session.sendResponse(responseHttp);
     }
@@ -158,13 +161,11 @@ public class CustomServer extends HttpServer {
         Response responseHttp;
 
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = new Response(Response.BAD_REQUEST);
-            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             dao.remove(key);
-            responseHttp = new Response(Response.ACCEPTED);
-            responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+            responseHttp = getResponseWithNoBody(Response.ACCEPTED);
         }
         session.sendResponse(responseHttp);
     }
@@ -178,8 +179,7 @@ public class CustomServer extends HttpServer {
      */
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
-        final Response response = new Response(Response.BAD_REQUEST);
-        response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
+        final Response response = getResponseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
 
@@ -191,9 +191,7 @@ public class CustomServer extends HttpServer {
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
     public Response status() {
-        final Response response = new Response(Response.OK);
-        response.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return response;
+        return getResponseWithNoBody(Response.OK);
     }
 
     @Override
