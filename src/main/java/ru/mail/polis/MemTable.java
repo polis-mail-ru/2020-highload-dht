@@ -4,6 +4,7 @@ import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.concurrent.ThreadSafe;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NavigableMap;
@@ -18,7 +19,7 @@ public class MemTable implements Table {
 
     @NotNull
     @Override
-    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
+    public Iterator<Cell> iterator(@NotNull final ByteBuffer from) throws IOException {
         return Iterators.transform(
                 map.tailMap(from).entrySet().iterator(),
                 e -> new Cell(e.getKey(), e.getValue()));
@@ -53,7 +54,7 @@ public class MemTable implements Table {
         throw new UnsupportedOperationException();
     }
 
-    public int getMapSize() {
+    public int mapSize() {
         return map.size();
     }
 }

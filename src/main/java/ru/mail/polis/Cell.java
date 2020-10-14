@@ -27,7 +27,7 @@ public final class Cell implements Comparable<Cell> {
     }
 
     @Override
-    public int compareTo(@NotNull Cell cell) {
+    public int compareTo(@NotNull final Cell cell) {
         final int cmp = key.compareTo(cell.getKey());
 
         final int result;
