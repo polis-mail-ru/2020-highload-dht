@@ -1,0 +1,5 @@
+wrk2 -t4 -c16 -d2m -R10000 -s 2020-highload-dht/src/main/resources/feature-1/testing-script/put-request.lua --latency http://127.0.0.1:8080 > /tmp/put-10k.txt
+
+wrk2 -t4 -c16 -d2m -R4000 -s 2020-highload-dht/src/main/resources/feature-1/testing-script/get-request.lua --latency http://127.0.0.1:8080 > /tmp/get-4k.txt
+
+sudo ./profiler.sh -d 30 -t -f /tmp/alloc-get.svg -e alloc 4829
