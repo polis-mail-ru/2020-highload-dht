@@ -29,7 +29,6 @@ echo "end analitics"
 
 SYNCHRONOUS 
 -----------
-
 Running 25s test @ http://localhost:8080
  
   1 threads and 65 connections
