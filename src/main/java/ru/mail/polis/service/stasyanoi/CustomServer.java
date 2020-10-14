@@ -79,8 +79,8 @@ public class CustomServer extends HttpServer {
     }
 
     @NotNull
-    private Response getResponseWithNoBody(String requestType) {
-        Response responseHttp = new Response(requestType);
+    private Response getResponseWithNoBody(final String requestType) {
+        final Response responseHttp = new Response(requestType);
         responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return responseHttp;
     }
@@ -171,14 +171,14 @@ public class CustomServer extends HttpServer {
     }
 
     /**
-     * Default handler for unmapped requests
+     * Default handler for unmapped requests.
      *
      * @param request - unmapped request
      * @param session - session object
      * @throws IOException - if input|output exceptions occur within the method
      */
     @Override
-    public void handleDefault(Request request, HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = getResponseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
