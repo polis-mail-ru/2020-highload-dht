@@ -19,20 +19,13 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class BasicService extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(BasicService.class);
-    private static final int CACHE_SIZE = 15;
 
     private final DAO dao;
-    private final Map<String, byte[]> cache = new LinkedHashMap<>();
-    private final ReentrantLock lock = new ReentrantLock();
 
     public BasicService(final int port,
                         @NotNull final DAO dao) throws IOException {
@@ -65,15 +58,6 @@ public class BasicService extends HttpServer implements Service {
         return Response.EMPTY;
     }
 
-    private void updateCache(final String key, final byte[] value) {
-        if (cache.size() >= CACHE_SIZE) {
-            final Iterator<Map.Entry<String, byte[]>> iterator = cache.entrySet().iterator();
-            iterator.next();
-            iterator.remove();
-        }
-        cache.put(key, value);
-    }
-
     private static ByteBuffer wrapString(final String str) {
         return ByteBuffer.wrap(toBytes(str));
     }
@@ -102,6 +86,7 @@ public class BasicService extends HttpServer implements Service {
      * 2. 400 if id is empty
      * 3. 404 if value with id was not found
      * 4. 500 if some io error was happened
+     *
      * @param id - String
      * @return response - Response
      */
@@ -114,36 +99,20 @@ public class BasicService extends HttpServer implements Service {
             return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
 
-        byte[] body;
-        lock.lock();
+        final ByteBuffer key = wrapString(id);
+        final ByteBuffer value;
+
         try {
-            body = cache.get(id);
-        } finally {
-            lock.unlock();
-        }
-        if (body == null) {
-            final ByteBuffer key = wrapString(id);
-            final ByteBuffer value;
-
-            try {
-                value = dao.get(key);
-            } catch (NoSuchElementException e) {
-                log.info("Value with key: {} was not found", id, e);
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (IOException e) {
-                log.error("Internal error. Can't get value with key: {}", id, e);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-
-            body = toBytes(value);
-            lock.lock();
-            try {
-                updateCache(id, body);
-            } finally {
-                lock.unlock();
-            }
+            value = dao.get(key);
+        } catch (NoSuchElementException e) {
+            log.info("Value with key: {} was not found", id, e);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("Internal error. Can't get value with key: {}", id, e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
+        byte[] body = toBytes(value);
         return Response.ok(body);
     }
 
@@ -154,6 +123,7 @@ public class BasicService extends HttpServer implements Service {
      * 1. 202 if value is successfully deleted
      * 2. 400 if id is empty
      * 3. 500 if some io error was happened
+     *
      * @param id - String
      * @return response - Response
      */
@@ -170,12 +140,6 @@ public class BasicService extends HttpServer implements Service {
 
         try {
             dao.remove(key);
-            lock.lock();
-            try {
-                cache.remove(id);
-            } finally {
-                lock.unlock();
-            }
         } catch (IOException e) {
             log.error("Internal error. Can't delete value with key: {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
@@ -191,6 +155,7 @@ public class BasicService extends HttpServer implements Service {
      * 1. 201 if value is successfully inserted and created
      * 2. 400 if id is empty
      * 3. 500 if some io error was happened
+     *
      * @param id - String
      * @return response - Response
      */
@@ -211,12 +176,6 @@ public class BasicService extends HttpServer implements Service {
 
         try {
             dao.upsert(key, value);
-            lock.lock();
-            try {
-                cache.computeIfPresent(id, (k, v) -> request.getBody());
-            } finally {
-                lock.unlock();
-            }
         } catch (IOException e) {
             log.error("Internal error. Can't insert or update value with key: {}", id, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
