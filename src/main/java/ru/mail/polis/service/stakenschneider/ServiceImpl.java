@@ -53,7 +53,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 log.info("id is null or empty");
                 return new Response(Response.BAD_REQUEST, "Id must be not null".getBytes(StandardCharsets.UTF_8));
             }
-            final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
                     return get(key);
@@ -67,8 +67,8 @@ public class ServiceImpl extends HttpServer implements Service {
                 default:
                     return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
-        } catch (IOException ex) {
-            log.error("Internal error", ex);
+        } catch (IOException e) {
+            log.error("Internal error", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
