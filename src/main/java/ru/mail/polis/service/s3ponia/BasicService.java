@@ -85,11 +85,7 @@ public final class BasicService extends HttpServer implements Service {
     public void handleStatus(final HttpSession session) {
         try {
             this.es.execute(() -> {
-                try {
-                    session.sendResponse(Response.ok("OK"));
-                } catch (IOException e) {
-                    logger.error("Error in sending status", e);
-                }
+                sendUserResponse(session, Response.ok("OK"), "Error in sending status");
             });
         } catch (RejectedExecutionException e) {
             logger.error(SCHEDULE_MESSAGE, e);
@@ -98,6 +94,14 @@ public final class BasicService extends HttpServer implements Service {
             } catch (IOException ioException) {
                 logger.error(UNAVAILABLE_MESSAGE, ioException);
             }
+        }
+    }
+
+    private void sendUserResponse(final HttpSession session, final Response ok, final String s) {
+        try {
+            session.sendResponse(ok);
+        } catch (IOException e) {
+            logger.error(s, e);
         }
     }
 
@@ -129,11 +133,7 @@ public final class BasicService extends HttpServer implements Service {
                     logger.error("IOException in getting key(size: {}) from dao", id.length());
                     response = new Response(Response.INTERNAL_ERROR, EMPTY);
                 }
-                try {
-                    session.sendResponse(response);
-                } catch (IOException ioException) {
-                    logger.error(ERROR_SEND_MESSAGE, ioException);
-                }
+                sendUserResponse(session, response, ERROR_SEND_MESSAGE);
             });
         } catch (RejectedExecutionException e) {
             logger.error(SCHEDULE_MESSAGE, e);
@@ -216,7 +216,7 @@ public final class BasicService extends HttpServer implements Service {
         }
     }
 
-    private void sendResponse(HttpSession session, String internalError) {
+    private void sendResponse(final HttpSession session, final String internalError) {
         try {
             session.sendResponse(new Response(internalError, EMPTY));
         } catch (IOException ioException) {
