@@ -65,18 +65,17 @@ public class DAOImpl implements DAO {
 
     @NotNull
     @Override
-    public synchronized ByteBuffer get(final @NotNull ByteBuffer key) throws NoSuchElementException {
-        final Iterator<Record> iter = iterator(key);
-        if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
+    public ByteBuffer get(final @NotNull ByteBuffer key) throws NoSuchElementException {
+        byte[] body;
+        try {
+            body = storageInstance.get(CustomServer.toBytes(key));
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
         }
-
-        final Record next = iter.next();
-        if (next.getKey().equals(key)) {
-            return next.getValue();
-        } else {
-            throw new NoSuchElementException("Not found");
+        if (body == null) {
+            throw new NoSuchElementException("No such key " + key.toString());
         }
+        return CustomServer.fromBytes(body);
     }
 
     @Override
