@@ -58,6 +58,53 @@ Transfer/sec:      0.96MB
 <li>сервер держит заданную нагрузку на уровне 14995.36 запросов в секунду</li>
 </ol>
 
+Выполним профилирование сервера при работе на одном потоке.
+
+![CPU PUT SINGLE](/async-svg/cpu-put-single.svg)
+
+Процессор выделяет 57.44% ресурсов на обработку Java-потока, 37.76% ресурсов - на обработку селектора потоков сервера. Остатки идут на исполнение нативных функций.
+
+![ALLOC PUT SINGLE](/async-svg/alloc-put-single.svg)
+
+Общая память выделяется на Java-поток (51.07%) и селектор потока сервера (48.93%).
+
+![LOCK PUT SINGLE](/async-svg/lock-put-single.svg)
+
+Блокировки Java-потока и селектора потока сервера делятся соответственно на 63.81% и 36.19%.
+
+```
+Running 2m test @ http://127.0.0.1:8080
+  1 threads and 64 connections
+  Thread calibration: mean lat.: 1.513ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.72ms    1.45ms  31.92ms   94.12%
+    Req/Sec    15.83k     2.03k   42.89k    81.46%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    1.48ms
+ 75.000%    2.01ms
+ 90.000%    2.68ms
+ 99.000%    7.64ms
+ 99.900%   18.96ms
+ 99.990%   26.72ms
+ 99.999%   29.87ms
+100.000%   31.93ms
+
+#[Mean    =        1.723, StdDeviation   =        1.451]
+#[Max     =       31.920, Total count    =      1645209]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  1797665 requests in 2.00m, 114.86MB read
+Requests/sec:  14980.40
+Transfer/sec:      0.96MB
+```
+
+Итоги:
+<ol>
+<li>обработано 1797665 запросов</li>
+<li>прочитано 114.86MB данных</li>
+<li>сервер держит заданную нагрузку на уровне 14980.40 запросов в секунду</li>
+</ol>
+
 ### GET
 
 Параметры запуска:
@@ -65,7 +112,7 @@ Transfer/sec:      0.96MB
 <li>4 потока</li>
 <li>64 открытых соединения</li>
 <li>2 минуты работы</li>
-<li>5000 запросов в секунду</li>
+<li>2500 запросов в секунду</li>
 </ol>
 
 ![CPU GET](/async-svg/cpu-get.svg)
@@ -83,35 +130,83 @@ Transfer/sec:      0.96MB
 ```
 Running 2m test @ http://127.0.0.1:8080
   4 threads and 64 connections
-  Thread calibration: mean lat.: 4.433ms, rate sampling interval: 15ms
-  Thread calibration: mean lat.: 4.349ms, rate sampling interval: 16ms
-  Thread calibration: mean lat.: 4.581ms, rate sampling interval: 15ms
-  Thread calibration: mean lat.: 5.849ms, rate sampling interval: 19ms
+  Thread calibration: mean lat.: 2.654ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 2.653ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 2.642ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 2.636ms, rate sampling interval: 10ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.83s     1.66s    5.45s    45.97%
-    Req/Sec   762.62    223.02     2.07k    64.73%
+    Latency   395.28ms  965.20ms   3.35s    86.63%
+    Req/Sec   658.97    208.97     2.56k    81.16%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    1.68s 
- 75.000%    3.36s 
- 90.000%    3.89s 
- 99.000%    5.10s 
- 99.900%    5.31s 
- 99.990%    5.39s 
- 99.999%    5.44s 
-100.000%    5.45s 
+ 50.000%    2.91ms
+ 75.000%    4.11ms
+ 90.000%    2.78s 
+ 99.000%    3.17s 
+ 99.900%    3.27s 
+ 99.990%    3.31s 
+ 99.999%    3.34s 
+100.000%    3.35s 
 
-#[Mean    =     1826.595, StdDeviation   =     1657.288]
-#[Max     =     5447.680, Total count    =       324652]
+#[Mean    =      395.280, StdDeviation   =      965.197]
+#[Max     =     3346.432, Total count    =       274800]
 #[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-  354089 requests in 2.00m, 22.58MB read
-Requests/sec:   2950.69
-Transfer/sec:    192.70KB
+  299936 requests in 2.00m, 19.12MB read
+  Non-2xx or 3xx responses: 3
+Requests/sec:   2499.47
+Transfer/sec:    163.18KB
 ```
 
 Итоги:
 <ol>
-<li>обработано 354089 запросов</li>
-<li>прочитано 22.58MB данных</li>
-<li>сервер выдерживает заданную нагрузку на уровне 2950.69 запросов в секунду</li>
+<li>обработано 299936 запросов</li>
+<li>прочитано 19.12MB данных</li>
+<li>сервер выдерживает заданную нагрузку на уровне 2499.47 запросов в секунду</li>
+</ol>
+
+Выполним профилирование сервера при работе на одном потоке.
+
+![CPU GET SINGLE](/async-svg/cpu-get-single.svg)
+
+Процессор выделяет 95.35% ресурсов на обработку Java-потока, 3.41% ресурсов - на обработку селектора потоков сервера. Остатки идут на исполнение нативных функций.
+
+![ALLOC GET SINGLE](/async-svg/alloc-get-single.svg)
+
+Общая память выделяется на Java-поток (47.11%) и селектор потока сервера (52.89%).
+
+![LOCK GET SINGLE](/async-svg/lock-get-single.svg)
+
+Блокировки исполняются только для Java-потока.
+
+```
+Running 2m test @ http://127.0.0.1:8080
+  1 threads and 64 connections
+  Thread calibration: mean lat.: 2.069ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   337.95ms  974.08ms   5.04s    89.96%
+    Req/Sec     2.64k     0.93k    8.80k    86.79%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    2.38ms
+ 75.000%    3.21ms
+ 90.000%    1.32s 
+ 99.000%    4.54s 
+ 99.900%    4.90s 
+ 99.990%    4.97s 
+ 99.999%    5.03s 
+100.000%    5.04s 
+
+#[Mean    =      337.946, StdDeviation   =      974.079]
+#[Max     =     5038.080, Total count    =       274201]
+#[Buckets =           27, SubBuckets     =         2048]
+----------------------------------------------------------
+  299634 requests in 2.00m, 19.33MB read
+Requests/sec:   2496.95
+Transfer/sec:    164.91KB
+```
+
+Итоги:
+<ol>
+<li>обработано 299634 запросов</li>
+<li>прочитано 19.33MB данных</li>
+<li>сервер держит заданную нагрузку на уровне 2496.95 запросов в секунду</li>
 </ol>

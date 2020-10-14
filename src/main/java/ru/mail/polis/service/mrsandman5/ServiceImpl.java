@@ -175,11 +175,9 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
                 executorService.shutdownNow();
-                if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                    log.error("Can't stop the executor");
-                }
             }
         } catch (InterruptedException ie) {
+            log.error("Can't stop the executor", ie);
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
         }
@@ -192,7 +190,7 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException e) {
-            log.error("GET error : {}", toByteArray(key));
+            log.error("GET error : {}", toByteArray(key), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
@@ -204,7 +202,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.upsert(key, value);
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException e) {
-            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value));
+            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
@@ -215,7 +213,7 @@ public class ServiceImpl extends HttpServer implements Service {
             dao.remove(key);
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException e) {
-            log.error("DELETE error : {}", toByteArray(key));
+            log.error("DELETE error : {}", toByteArray(key), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
