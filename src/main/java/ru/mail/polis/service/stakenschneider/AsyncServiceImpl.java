@@ -116,8 +116,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-
         final String keyClusterPartition = nodes.primaryFor(key);
+
         if (!nodes.getId().equals(keyClusterPartition)) {
             executeAsync(session, () -> forwardRequestTo(keyClusterPartition, request));
             return;
