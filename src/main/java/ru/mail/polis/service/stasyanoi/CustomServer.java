@@ -10,6 +10,8 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
@@ -24,6 +26,8 @@ import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
 
 public class CustomServer extends HttpServer {
+
+     private final static Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
     private final DAO dao;
     private final ExecutorService executorService =
@@ -65,7 +69,7 @@ public class CustomServer extends HttpServer {
             final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             //get the response from db
             try {
-                ByteBuffer body = dao.get(id);
+                final ByteBuffer body = dao.get(id);
                 final byte[] bytes = toBytes(body);
                 responseHttp = Response.ok(bytes);
             } catch (NoSuchElementException e) {
@@ -171,10 +175,10 @@ public class CustomServer extends HttpServer {
     private void sendErrorInternal(final HttpSession session,
                                    final IOException e) {
         try {
-            System.err.println(e.getMessage());
+            logger.error(e.getMessage(), e);
             session.sendError("500", e.getMessage());
         } catch (IOException exception) {
-            System.err.println(exception.getMessage());
+            logger.error(e.getMessage(), e);
         }
     }
 
