@@ -11,8 +11,7 @@ import java.io.IOException;
 
 public class ServiceImpl implements Service {
 
-    private final HttpServerConfig config;
-    private HttpServer server;
+    private final HttpServer server;
 
     /**
      * Конструктор класса ServiceImpl.
@@ -25,7 +24,7 @@ public class ServiceImpl implements Service {
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
         acceptorConfig.deferAccept = true;
-        this.config = new HttpServerConfig();
+        HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
     }

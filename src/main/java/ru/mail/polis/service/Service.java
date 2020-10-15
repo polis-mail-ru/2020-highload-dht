@@ -16,8 +16,6 @@
 
 package ru.mail.polis.service;
 
-import java.io.IOException;
-
 /**
  * A persistent storage with HTTP API.
  * <p>
