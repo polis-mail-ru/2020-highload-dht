@@ -91,8 +91,9 @@ public class ThreadController extends HttpServer implements Service {
             try {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } else {
+                    session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
                 }
-                session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
             } catch (NoSuchElementException e) {
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -126,9 +127,10 @@ public class ThreadController extends HttpServer implements Service {
             try {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } else {
+                    dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
+                    session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                 }
-                dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
             } catch (IOException e) {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -152,9 +154,10 @@ public class ThreadController extends HttpServer implements Service {
             try {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } else {
+                    dao.remove(toByteBuffer(id));
+                    session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
                 }
-                dao.remove(toByteBuffer(id));
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
             } catch (IOException e) {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));

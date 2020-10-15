@@ -33,7 +33,7 @@ public class ServiceImpl implements Service {
 
     @Override
     public void start() throws IOException {
-        this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 16);
+        this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
         this.server.start();
     }
 
