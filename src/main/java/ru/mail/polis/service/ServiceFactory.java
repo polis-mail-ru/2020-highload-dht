@@ -44,6 +44,9 @@ public final class ServiceFactory {
     public static Service create(
             final int port,
             @NotNull final DAO dao) throws IOException {
+
+        final int queueSize = 1024;
+
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -52,6 +55,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceAsyncImpl(port, dao, Runtime.getRuntime().availableProcessors(), 1024);
+        return new ServiceAsyncImpl(port, dao, Runtime.getRuntime().availableProcessors(), queueSize);
     }
 }

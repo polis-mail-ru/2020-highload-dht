@@ -101,6 +101,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 }
                 default:
                     session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    logger.error("Non-supported request type: {}", request.getMethod());
                     break;
             }
         } catch (IOException ex) {
@@ -131,8 +132,10 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.OK, toByteArray(dao.get(key))));
         } catch (NoSuchElementException ex) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            logger.error("Element not found", ex);
         } catch (IOException e) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            logger.error("GET error:", e);
         }
     }
 
@@ -147,6 +150,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
             } catch (IOException e) {
                 this.handleError(session);
+                logger.error("PUT error:", e);
             }
         });
     }
@@ -158,6 +162,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
             } catch (IOException e) {
                 this.handleError(session);
+                logger.error("DELETE error:", e);
             }
         });
     }
@@ -182,10 +187,10 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
 
-        final HttpServerConfig server_config = new HttpServerConfig();
-        server_config.maxWorkers = workersCount;
-        server_config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        return server_config;
+        final HttpServerConfig serverConfig = new HttpServerConfig();
+        serverConfig.maxWorkers = workersCount;
+        serverConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+        return serverConfig;
     }
 
     @Override
