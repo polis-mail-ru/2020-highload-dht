@@ -16,6 +16,8 @@
 
 package ru.mail.polis;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DAOFactory;
 import ru.mail.polis.service.Service;
@@ -32,11 +34,19 @@ import java.io.IOException;
 public final class Server {
     private static final int PORT = 8080;
 
+    private static final Logger logger = LoggerFactory.getLogger(Server.class);
+
     private Server() {
         // Not instantiable
     }
 
-    public static void main(String[] args) throws IOException {
+    /**
+     * Main class.
+     *
+     * @param args - arguments
+     * @throws IOException - IO Exception
+     */
+    public static void main(final String[] args) throws IOException {
         // Temporary storage in the file system
         final File data;
         if (args.length > 0) {
@@ -44,7 +54,7 @@ public final class Server {
         } else {
             data = Files.createTempDirectory();
         }
-        System.out.println("Storing data at " + data);
+        logger.debug("Storing data at {}", data);
 
         // Start the storage
         final DAO dao = DAOFactory.create(data);
