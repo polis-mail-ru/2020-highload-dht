@@ -35,7 +35,6 @@ import ru.mail.polis.dao.DAOFactory;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -79,7 +78,7 @@ class StartStopTest extends TestBase {
         data = Files.createTempDirectory();
         dao = DAOFactory.create(data);
         port = randomPort();
-        kvService = ServiceFactory.create(port, dao, Collections.singleton(endpoint(port)));
+        kvService = ServiceFactory.create(port, dao);
         reset();
     }
 

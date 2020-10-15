@@ -50,7 +50,7 @@ tasks {
 
 application {
     // Define the main class for the application
-    mainClassName = "ru.mail.polis.Cluster"
+    mainClassName = "ru.mail.polis.Server"
 
     // And limit Xmx
     applicationDefaultJvmArgs = listOf("-Xmx256m")
