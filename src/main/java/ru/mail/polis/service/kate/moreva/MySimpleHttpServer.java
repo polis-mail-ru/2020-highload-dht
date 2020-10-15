@@ -43,7 +43,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                               final DAO dao,
                               final int numberOfWorkers,
                               final int queueSize) throws IOException {
-        super(getConfigPort(port, numberOfWorkers));
+        super(getConfig(port, numberOfWorkers));
         this.dao = dao;
         assert numberOfWorkers > 0;
         assert queueSize > 0;
@@ -59,7 +59,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
-    private static HttpServerConfig getConfigPort(final int port, final int numberOfWorkers) {
+    private static HttpServerConfig getConfig(final int port, final int numberOfWorkers) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
@@ -74,14 +74,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        executorService.execute(() -> {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
             }
-        });
-
     }
 
     /**
@@ -117,6 +114,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             log.error("Request with empty id on /v0/entity");
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
             }
