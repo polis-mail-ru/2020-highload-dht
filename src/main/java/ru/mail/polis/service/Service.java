@@ -45,7 +45,7 @@ public interface Service {
      * <p>
      * May be called only once.
      */
-    void start() throws IOException;
+    void start();
 
     /**
      * Stop listening and free all the resources.

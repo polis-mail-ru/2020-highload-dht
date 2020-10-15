@@ -11,7 +11,6 @@ import java.io.IOException;
 
 public class ServiceImpl implements Service {
 
-    private final DAO dao;
     private final HttpServerConfig config;
     private HttpServer server;
 
@@ -21,19 +20,18 @@ public class ServiceImpl implements Service {
      * @param port - порт
      * @param dao  - реализация DAO
      */
-    public ServiceImpl(final int port, @NotNull final DAO dao) {
+    public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
         acceptorConfig.deferAccept = true;
         this.config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        this.dao = dao;
+        this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
     }
 
     @Override
-    public void start() throws IOException {
-        this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
+    public void start() {
         this.server.start();
     }
 
