@@ -82,7 +82,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session HTTP session
      */
     @Path("/v0/entity")
-    public void entity(@Param("id") final String id, @NotNull final Request request,
+    public void entity(@Param("id") final String id,
+                       @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
         try {
 
@@ -90,23 +91,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 log.info("id is null or empty");
                 session.sendResponse(new Response(Response.BAD_REQUEST,
                         "Id must be not null".getBytes(StandardCharsets.UTF_8)));
+                return;
             }
 
-            assert id != null;
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             switch (request.getMethod()) {
-                case Request.METHOD_GET: {
+                case Request.METHOD_GET:
                     executeAsync(session, () -> get(key));
                     break;
-                }
-                case Request.METHOD_PUT: {
+                case Request.METHOD_PUT:
                     executeAsync(session, () -> put(key, request));
                     break;
-                }
-                case Request.METHOD_DELETE: {
+                case Request.METHOD_DELETE:
                     executeAsync(session, () -> delete(key));
                     break;
-                }
                 default:
                     session.sendError(METHOD_NOT_ALLOWED, "Wrong method");
                     break;
@@ -132,7 +130,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendError(INTERNAL_ERROR, e.getMessage());
                 } catch (IOException ex) {
-                    log.info("something has gone terribly wrong", ex);
+                    log.error("something has gone terribly wrong", ex);
                 }
             }
         });
