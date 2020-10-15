@@ -24,7 +24,7 @@ public class ServiceImpl implements Service {
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
         acceptorConfig.deferAccept = true;
-        HttpServerConfig config = new HttpServerConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
     }
