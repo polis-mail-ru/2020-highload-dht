@@ -59,6 +59,6 @@ public final class ServiceFactory {
         final Executor executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
                 new ThreadFactoryBuilder().setNameFormat("worker").build());
 
-        return new AsyncServiceImpl(port,dao,executor);
+        return new AsyncServiceImpl(port, dao, executor);
     }
 }

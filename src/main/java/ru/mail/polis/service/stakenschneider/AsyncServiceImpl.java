@@ -3,6 +3,7 @@ package ru.mail.polis.service.stakenschneider;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
+import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -11,36 +12,33 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.Record;
+import ru.mail.polis.dao.ByteBufferConverter;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
 import java.util.concurrent.Executor;
 
-import static one.nio.http.Response.BAD_REQUEST;
 import static one.nio.http.Response.EMPTY;
 import static one.nio.http.Response.INTERNAL_ERROR;
 import static one.nio.http.Response.METHOD_NOT_ALLOWED;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
+    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+
     @NotNull
     private final DAO dao;
     @NotNull
     private final Executor executor;
 
-    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
-
     /**
      * Simple Async HTTP server.
      *
-     * @param port - to accept HTTP connections
-     * @param dao - storage interface
+     * @param port     - to accept HTTP connections
+     * @param dao      - storage interface
      * @param executor - an object that executes submitted tasks
      */
     public AsyncServiceImpl(final int port, @NotNull final DAO dao,
@@ -77,36 +75,38 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Access to DAO.
+     * Provide access to entities.
      *
-     * @param request - requests: GET, PUT, DELETE
-     * @param session - HttpSession
+     * @param id      key of entity
+     * @param request HTTP request
+     * @param session HTTP session
      */
-    private void entity(@NotNull final Request request, final HttpSession session) throws IOException {
-        final String id = request.getParameter("id=");
-        if (id == null || id.isEmpty()) {
-            try {
-                log.info("id is null or empty");
-                session.sendResponse(new Response(BAD_REQUEST, EMPTY));
-            } catch (IOException e) {
-                log.info("something has gone terribly wrong", e);
-                throw new UncheckedIOException(e);
-            }
-            return;
-        }
-
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+    @Path("/v0/entity")
+    public void entity(@Param("id") final String id, @NotNull final Request request,
+                       @NotNull final HttpSession session) throws IOException {
         try {
+
+            if (id == null || id.isEmpty()) {
+                log.info("id is null or empty");
+                session.sendResponse( new Response(Response.BAD_REQUEST,
+                        "Id must be not null".getBytes(StandardCharsets.UTF_8)));
+            }
+
+            assert id != null;
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             switch (request.getMethod()) {
-                case Request.METHOD_GET:
+                case Request.METHOD_GET: {
                     executeAsync(session, () -> get(key));
                     break;
-                case Request.METHOD_PUT:
+                }
+                case Request.METHOD_PUT: {
                     executeAsync(session, () -> put(key, request));
                     break;
-                case Request.METHOD_DELETE:
+                }
+                case Request.METHOD_DELETE: {
                     executeAsync(session, () -> delete(key));
                     break;
+                }
                 default:
                     session.sendError(METHOD_NOT_ALLOWED, "Wrong method");
                     break;
@@ -118,18 +118,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
-        switch (request.getPath()) {
-            case "/v0/entity":
-                entity(request, session);
-                break;
-            case "/v0/entities":
-                entities(request, session);
-                break;
-            default:
-                session.sendError(BAD_REQUEST, "Wrong path");
-                break;
-        }
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+        final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        log.warn("Can't find handler for {}", request.getPath());
+        session.sendResponse(response);
     }
 
     private void executeAsync(@NotNull final HttpSession session, @NotNull final Action action) {
@@ -151,42 +143,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         Response act() throws IOException;
     }
 
-    private void entities(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
-        final String start = request.getParameter("start=");
-        if (start == null || start.isEmpty()) {
-            session.sendError(BAD_REQUEST, "No start");
-            return;
-        }
-
-        if (request.getMethod() != Request.METHOD_GET) {
-            session.sendError(METHOD_NOT_ALLOWED, "Wrong method");
-            return;
-        }
-
-        String end = request.getParameter("end=");
-        if (end != null && end.isEmpty()) {
-            end = null;
-        }
-
+    private Response get(final ByteBuffer key) throws IOException {
         try {
-            final Iterator<Record> records =
-                    dao.range(ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8)),
-                            end == null ? null : ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8)));
-            ((StorageSession) session).stream(records);
-        } catch (IOException e) {
-            session.sendError(INTERNAL_ERROR, e.getMessage());
-        }
-    }
-
-    private Response get(final ByteBuffer key) {
-        try {
-            final ByteBuffer value = dao.get(key);
-            final ByteBuffer duplicate = value.duplicate();
-            final var body = new byte[duplicate.remaining()];
-            duplicate.get(body);
-            return new Response(Response.OK, body);
-        } catch (NoSuchElementLiteException | IOException ex) {
-            return new Response(Response.NOT_FOUND, EMPTY);
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] valueArray = ByteBufferConverter.toArray(value);
+            return Response.ok(valueArray);
+        } catch (NoSuchElementLiteException e) {
+            log.info("Empty value: ", e);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
