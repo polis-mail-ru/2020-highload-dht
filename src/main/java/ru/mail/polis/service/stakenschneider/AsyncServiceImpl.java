@@ -88,7 +88,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
             if (id == null || id.isEmpty()) {
                 log.info("id is null or empty");
-                session.sendResponse( new Response(Response.BAD_REQUEST,
+                session.sendResponse(new Response(Response.BAD_REQUEST,
                         "Id must be not null".getBytes(StandardCharsets.UTF_8)));
             }
 
@@ -119,7 +119,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        final var response = new Response(Response.BAD_REQUEST, EMPTY);
         log.warn("Can't find handler for {}", request.getPath());
         session.sendResponse(response);
     }
@@ -150,7 +150,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return Response.ok(valueArray);
         } catch (NoSuchElementLiteException e) {
             log.info("Empty value: ", e);
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
+            return new Response(Response.NOT_FOUND, EMPTY);
         }
     }
 
