@@ -2,6 +2,8 @@ package ru.mail.polis.dao.kuzoliza;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
@@ -17,6 +19,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -24,9 +29,11 @@ public class LSM implements DAO {
 
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
+    private static final Logger log = LoggerFactory.getLogger(LSM.class);
 
     private TableSet tables;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final ExecutorService executor;
 
     // Data
     private final File storage;
@@ -65,6 +72,7 @@ public class LSM implements DAO {
             });
         }
         this.tables = TableSet.fromFiles(ssTables, generation + 1);
+        this.executor = Executors.newCachedThreadPool();
     }
 
     @NotNull
@@ -192,24 +200,36 @@ public class LSM implements DAO {
         }
     }
 
-    private void flush() throws IOException {
+    private void flush() {
         // Dump memTable
-        final TableSet snapshot;
-        final File file;
-        lock.writeLock().lock();
-        try {
-            snapshot = this.tables;
-            if (snapshot.mem.size() == 0) {
-                return;
-            }
-            this.tables = snapshot.markedAsFlushing();
-            file = new File(storage, snapshot.generation + TEMP);
-            SStable.serialize(file, snapshot.mem.iterator(ByteBuffer.allocate(0)));
-        } finally {
-            lock.writeLock().unlock();
-        }
+        executor.execute(() -> {
+            final TableSet snapshot;
+            final File file;
+            lock.writeLock().lock();
 
-        moveAndSwitch(file, snapshot);
+            try {
+                snapshot = this.tables;
+                if (snapshot.mem.size() == 0) {
+                    return;
+                }
+                this.tables = snapshot.markedAsFlushing();
+                file = new File(storage, snapshot.generation + TEMP);
+                try {
+                    SStable.serialize(file, snapshot.mem.iterator(ByteBuffer.allocate(0)));
+                } catch (IOException e) {
+                    log.error("Can't write file", e);
+                }
+            } finally {
+                lock.writeLock().unlock();
+            }
+
+            try {
+                moveAndSwitch(file, snapshot);
+            } catch (IOException e) {
+                log.error("Can't move files", e);
+            }
+        });
+
     }
 
     private void moveAndSwitch(final File file, final TableSet snapshot) throws IOException {
@@ -240,6 +260,13 @@ public class LSM implements DAO {
             flush();
         }
 
+        executor.shutdown();
+        try {
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("Can't shutdown executor", e);
+            Thread.currentThread().interrupt();
+        }
         tables.files.values().forEach(SStable::close);
     }
 }
