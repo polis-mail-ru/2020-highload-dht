@@ -53,6 +53,10 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new NewService(port, dao);
+        return new NewService(
+                port,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                1024);
     }
 }
