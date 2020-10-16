@@ -18,10 +18,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * Simple Http Server Service implementation.
@@ -74,11 +71,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error(SERVER_ERROR, session, e);
-            }
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (IOException e) {
+            log.error(SERVER_ERROR, session, e);
+        }
     }
 
     /**
@@ -87,13 +84,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                session.sendResponse(new Response(Response.OK, Response.EMPTY));
-            } catch (IOException e) {
-                log.error(SERVER_ERROR, session, e);
-            }
-        });
+        try {
+            session.sendResponse(new Response(Response.OK, Response.EMPTY));
+        } catch (IOException e) {
+            log.error(SERVER_ERROR, session, e);
+        }
     }
 
     /**
@@ -117,6 +112,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 return;
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
+                return;
             }
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
@@ -148,6 +144,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 getEntity(key, session);
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
+            } catch (RejectedExecutionException e) {
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
             }
         });
     }
@@ -158,6 +160,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 putEntity(key, request, session);
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
+            } catch (RejectedExecutionException e) {
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
             }
         });
     }
@@ -168,6 +176,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 deleteEntity(key, session);
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
+            } catch (RejectedExecutionException e) {
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(SERVER_ERROR, session, e);
+                }
             }
         });
     }
