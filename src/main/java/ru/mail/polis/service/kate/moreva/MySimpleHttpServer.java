@@ -178,7 +178,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         });
     }
 
-    private void handleRejectedExecutionException(HttpSession session, RejectedExecutionException e) {
+    private void handleRejectedExecutionException(final HttpSession session, final RejectedExecutionException e) {
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         } catch (IOException ioException) {
