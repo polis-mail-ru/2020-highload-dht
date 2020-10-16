@@ -17,13 +17,17 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class AsyncService extends HttpServer implements Service {
 
     private final DAO dao;
     private final ExecutorService exec;
-    private final static Logger LOGGER = LoggerFactory.getLogger(AsyncService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AsyncService.class);
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
     private static final String IO_ERROR_LOG = "IO exception raised";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
@@ -109,19 +113,26 @@ public class AsyncService extends HttpServer implements Service {
         exec.execute(() -> {
             try {
                 getAsync(key, session);
+            } catch (NoSuchElementException exc) {
+                LOGGER.info(NOT_FOUND_ERROR_LOG);
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException exc1) {
+                    LOGGER.error("Error sending GET response", exc1);
+                }
             } catch (RejectedExecutionException exc) {
                 LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error responding GET request", exc1);
+                    LOGGER.error("Error sending GET response", exc1);
                 }
             } catch (IOException exc1) {
                 LOGGER.error(IO_ERROR_LOG, exc1);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException exc2) {
-                    LOGGER.error("Error responding GET request", exc2);
+                    LOGGER.error("Error sending GET response", exc2);
                 }
             }
         });
@@ -133,7 +144,9 @@ public class AsyncService extends HttpServer implements Service {
      * @param byteVal key-associate value
      * @param session ongoing session instance
      */
-    private void upsert(@NotNull final ByteBuffer key, @NotNull final byte[] byteVal, @NotNull final HttpSession session) {
+    private void upsert(@NotNull final ByteBuffer key,
+                        @NotNull final byte[] byteVal,
+                        @NotNull final HttpSession session) {
 
         final ByteBuffer val = ByteBuffer.wrap(byteVal);
 
@@ -145,14 +158,14 @@ public class AsyncService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error responding PUT request", exc1);
+                    LOGGER.error("Error sending PUT response", exc1);
                 }
             } catch (IOException exc1) {
                 LOGGER.error(IO_ERROR_LOG, exc1);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException exc2) {
-                    LOGGER.error("Error responding PUT request", exc2);
+                    LOGGER.error("Error sending PUT response", exc2);
                 }
             }
         });
@@ -173,14 +186,14 @@ public class AsyncService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error responding DELETE request", exc1);
+                    LOGGER.error("Error sending DELETE response", exc1);
                 }
             } catch (IOException exc1) {
                 LOGGER.error(IO_ERROR_LOG, exc1);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException exc2) {
-                    LOGGER.error("Error responding DELETE request", exc2);
+                    LOGGER.error("Error sending DELETE response", exc2);
                 }
             }
         });
@@ -197,13 +210,7 @@ public class AsyncService extends HttpServer implements Service {
 
         ByteBuffer buf = null;
 
-        try {
-            buf = dao.get(key);
-        } catch (NoSuchElementException exc) {
-            LOGGER.info(NOT_FOUND_ERROR_LOG);
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            return;
-        }
+        buf = dao.get(key);
 
         session.sendResponse(Response.ok(DAOByteOnlyConverter.readByteArray(buf)));
     }
