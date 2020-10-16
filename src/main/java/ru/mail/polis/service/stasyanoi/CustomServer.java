@@ -59,26 +59,30 @@ public class CustomServer extends HttpServer {
 
     private void getInternal(final String idParam,
                              final HttpSession session) throws IOException {
-        Response responseHttp;
+        final Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-
             //get id as aligned byte buffer
             final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             //get the response from db
-            try {
-                final ByteBuffer body = dao.get(id);
-                final byte[] bytes = Mapper.toBytes(body);
-                responseHttp = Response.ok(bytes);
-            } catch (NoSuchElementException e) {
-                //if not found then 404
-                responseHttp = getResponseWithNoBody(Response.NOT_FOUND);
-            }
+            responseHttp = getResponseIfIdNotNull(id);
         }
 
         session.sendResponse(responseHttp);
+    }
+
+    @NotNull
+    private Response getResponseIfIdNotNull(final ByteBuffer id) throws IOException {
+        try {
+            final ByteBuffer body = dao.get(id);
+            final byte[] bytes = Mapper.toBytes(body);
+            return Response.ok(bytes);
+        } catch (NoSuchElementException e) {
+            //if not found then 404
+            return getResponseWithNoBody(Response.NOT_FOUND);
+        }
     }
 
     @NotNull
