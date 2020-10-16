@@ -20,7 +20,7 @@ import java.util.logging.Logger;
 public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;
-    Logger logger = Logger.getLogger(TaskService.class.getName());
+    private final static Logger LOGGER = Logger.getLogger(TaskService.class.getName());
 
     /**
      * initial (non-async) service impl const.
@@ -53,7 +53,7 @@ public class TaskService extends HttpServer implements Service {
             final HttpSession session) throws IOException, NoSuchMethodException {
         if (id == null || id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,
-                    "Identifier is required as parameter. Error handling request\n");
+                    "Identifier is required as parameter. Error handling request");
             return null;
         }
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -83,7 +83,7 @@ public class TaskService extends HttpServer implements Service {
             copy.get(vals);
             return new Response(Response.OK, vals);
         } catch (NoSuchElementException e) {
-            final String faultMessage = "There is no match key paired with value to be returned. Operation failed\n";
+            final String faultMessage = "There is no match key paired with value to be returned. Operation failed";
             return new Response(Response.NOT_FOUND, faultMessage.getBytes(Charsets.UTF_8));
         }
     }
@@ -98,7 +98,7 @@ public class TaskService extends HttpServer implements Service {
         try {
             dao.upsert(key, ByteBuffer.wrap(req.getBody()));
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Insertion / update operation failed\n", e);
+            LOGGER.log(Level.SEVERE, "Insertion / update operation failed", e);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
@@ -114,7 +114,7 @@ public class TaskService extends HttpServer implements Service {
         } catch (IOException exc) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
-            final String faultMessage = "There is no match key to be removed. Operation failed\n";
+            final String faultMessage = "There is no match key to be removed. Operation failed";
             return new Response(Response.NOT_FOUND, faultMessage.getBytes(Charsets.UTF_8));
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
@@ -140,7 +140,7 @@ public class TaskService extends HttpServer implements Service {
         try {
             copy = dao.get(key).duplicate();
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Copying process denied as match key is missing\n", e);
+            LOGGER.log(Level.SEVERE, "Copying process denied as match key is missing", e);
         }
         return copy;
     }

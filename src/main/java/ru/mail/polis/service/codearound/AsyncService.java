@@ -17,18 +17,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class AsyncService extends HttpServer implements Service {
 
     private final DAO dao;
     private final ExecutorService exec;
-    Logger logger = LoggerFactory.getLogger(TaskService.class);
-    private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved\n";
-    private static final String IO_ERROR_LOG = "IO exception raised\n";
+    private final static Logger LOGGER = LoggerFactory.getLogger(AsyncService.class);
+    private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
+    private static final String IO_ERROR_LOG = "IO exception raised";
+    private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
 
     /**
      * async service impl const.
@@ -36,8 +34,10 @@ public class AsyncService extends HttpServer implements Service {
      * @param dao DAO instance
      * @param workerPoolSize selector pool size
      */
-    public AsyncService(final int port, @NotNull final DAO dao,
-                        final int workerPoolSize, final int queueSize) throws IOException {
+    public AsyncService(final int port,
+                        @NotNull final DAO dao,
+                        final int workerPoolSize,
+                        final int queueSize) throws IOException {
 
         super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
@@ -49,7 +49,7 @@ public class AsyncService extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> logger.error("Worker {} fails running: {}\n", t, e))
+                        .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
@@ -57,16 +57,11 @@ public class AsyncService extends HttpServer implements Service {
 
     /**
      * fires formation request to make sure server is alive.
+     * @param session ongoing session instance
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) throws IOException {
-        exec.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("Server is running...\n"));
-            } catch (IOException exc) {
-                logger.error("Sending request fails, raising exception\n", exc);
-            }
-        });
+           session.sendResponse(Response.ok("Server is running..."));
     }
 
     /**
@@ -82,7 +77,8 @@ public class AsyncService extends HttpServer implements Service {
             @NotNull final HttpSession session) throws NoSuchMethodException, IOException {
 
         if (id.isEmpty()) {
-            session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request\n");
+            session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request");
+            return;
         }
 
         final ByteBuffer buf = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -92,14 +88,14 @@ public class AsyncService extends HttpServer implements Service {
                 get(buf, session);
                 break;
             case Request.METHOD_PUT:
-                upsert(buf, req, session);
+                upsert(buf, req.getBody(), session);
                 break;
             case Request.METHOD_DELETE:
                 delete(buf, session);
                 break;
             default:
                 throw new NoSuchMethodException("No handler is available for request method. "
-                        + "Failed determining response\n");
+                        + "Failed determining response");
         }
     }
 
@@ -113,10 +109,20 @@ public class AsyncService extends HttpServer implements Service {
         exec.execute(() -> {
             try {
                 getAsync(key, session);
-            } catch (NoSuchElementException exc) {
-                logger.error(NOT_FOUND_ERROR_LOG);
-            } catch (IOException exc) {
-                logger.error(IO_ERROR_LOG, exc);
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException exc1) {
+                    LOGGER.error("Error responding GET request", exc1);
+                }
+            } catch (IOException exc1) {
+                LOGGER.error(IO_ERROR_LOG, exc1);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException exc2) {
+                    LOGGER.error("Error responding GET request", exc2);
+                }
             }
         });
     }
@@ -124,18 +130,30 @@ public class AsyncService extends HttpServer implements Service {
     /**
      * PUT request async handler.
      * @param key - key to either add new record or to modify an existing one
-     * @param req client request
+     * @param byteVal key-associate value
      * @param session ongoing session instance
      */
-    private void upsert(@NotNull final ByteBuffer key, @NotNull final Request req, @NotNull final HttpSession session) {
+    private void upsert(@NotNull final ByteBuffer key, @NotNull final byte[] byteVal, @NotNull final HttpSession session) {
 
-        final ByteBuffer val = ByteBuffer.wrap(req.getBody());
+        final ByteBuffer val = ByteBuffer.wrap(byteVal);
 
         exec.execute(() -> {
             try {
                 upsertAsync(key, session, val);
-            } catch (IOException exc) {
-                logger.error(IO_ERROR_LOG, exc);
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException exc1) {
+                    LOGGER.error("Error responding PUT request", exc1);
+                }
+            } catch (IOException exc1) {
+                LOGGER.error(IO_ERROR_LOG, exc1);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException exc2) {
+                    LOGGER.error("Error responding PUT request", exc2);
+                }
             }
         });
     }
@@ -150,10 +168,20 @@ public class AsyncService extends HttpServer implements Service {
         exec.execute(() -> {
             try {
                 removeAsync(key, session);
-            } catch (NoSuchElementException exc) {
-                logger.error(NOT_FOUND_ERROR_LOG);
-            } catch (IOException exc) {
-                logger.error(IO_ERROR_LOG, exc);
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException exc1) {
+                    LOGGER.error("Error responding DELETE request", exc1);
+                }
+            } catch (IOException exc1) {
+                LOGGER.error(IO_ERROR_LOG, exc1);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException exc2) {
+                    LOGGER.error("Error responding DELETE request", exc2);
+                }
             }
         });
     }
@@ -172,11 +200,11 @@ public class AsyncService extends HttpServer implements Service {
         try {
             buf = dao.get(key);
         } catch (NoSuchElementException exc) {
-            logger.error(NOT_FOUND_ERROR_LOG);
+            LOGGER.info(NOT_FOUND_ERROR_LOG);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
         }
 
-        assert buf != null;
         session.sendResponse(Response.ok(DAOByteOnlyConverter.readByteArray(buf)));
     }
 
@@ -193,8 +221,9 @@ public class AsyncService extends HttpServer implements Service {
         try {
             dao.upsert(key, val);
         } catch (IOException exc) {
-            logger.error(IO_ERROR_LOG, exc);
+            LOGGER.error(IO_ERROR_LOG, exc);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return;
         }
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
@@ -208,12 +237,10 @@ public class AsyncService extends HttpServer implements Service {
 
         try {
             dao.remove(key);
-        } catch (NoSuchElementException exc) {
-            logger.error(NOT_FOUND_ERROR_LOG);
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException exc) {
-            logger.error(IO_ERROR_LOG, exc);
+            LOGGER.error(IO_ERROR_LOG, exc);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return;
         }
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
@@ -238,7 +265,7 @@ public class AsyncService extends HttpServer implements Service {
         try {
             exec.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            logger.error("Failed executor termination\n");
+            LOGGER.error("Failed executor termination");
             Thread.currentThread().interrupt();
         }
     }
