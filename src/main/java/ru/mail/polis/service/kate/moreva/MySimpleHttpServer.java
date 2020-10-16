@@ -188,7 +188,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException e) {
-            log.error("GET method failed on /v0/entity for id {}, error{}", key, e);
+            log.error("GET method failed on /v0/entity for id {}", key.get(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
@@ -204,10 +204,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException e) {
-            log.error("PUT method failed on /v0/entity for id {}, request body{}, error{}",
-                    key,
-                    request.getBody(),
-                    e);
+            log.error("PUT method failed on /v0/entity for id {}, request body {}.", key.get(), request.getBody(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
@@ -223,7 +220,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             dao.remove(key);
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException e) {
-            log.error("DELETE method failed on /v0/entity for id {}, error{}", key, e);
+            log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
