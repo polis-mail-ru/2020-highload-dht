@@ -4,9 +4,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public class Mapper {
+public final class Mapper {
 
-    private Mapper(){}
+    private Mapper() {
+
+    }
 
     /**
      * ByteBuffer to byte array.
