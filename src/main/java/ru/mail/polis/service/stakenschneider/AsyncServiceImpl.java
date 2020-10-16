@@ -188,7 +188,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Path("/v0/entities")
-    private void entities(@NotNull final Request request,
+    public void entities(@NotNull final Request request,
                           @NotNull final HttpSession session) throws IOException {
         final String start = request.getParameter("start=");
         if (start == null || start.isEmpty()) {
