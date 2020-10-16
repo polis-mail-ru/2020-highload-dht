@@ -1,6 +1,6 @@
-#Отчет по третьему этапу
+# Отчет по третьему этапу
 
-##PUT
+## PUT
 
     $ wrk2 -t 4 -c 64 -L -d5m -s wrk_scripts/put.lua http://localhost:8080 -R 80000
     
@@ -185,7 +185,7 @@
 Ситуация схожая с прошлым этапом только добавились блокировки на ArrayBlockingQueue - то есть
 на выборку задачи из ExecutorService - 58%
 
-##GET
+## GET
 
     $ wrk2 -t 4 -c 64 -L -d2m -s wrk_scripts/get.lua http://localhost:8080 -R 2000
     
