@@ -404,7 +404,7 @@ Running 3m test @ http://localhost:8080
 Последнее можно сделать за счёт переодического compaction'а. Попробуй это реализовать в последущих этапах.
 
 #### Результаты профилирования async-profiler (ALLOC): 
-![Результаты профилирования async-profiler (ALLOC)](profilingResults/alloc_get_hw2.svg)
+![Результаты профилирования async-profiler (ALLOC)](profilingResults/hw2/alloc_get_hw2.svg)
 
 `./profiler.sh -d 20 -e alloc -f ./hw2/get/alloc_get_hw2.svg 25055`
 
