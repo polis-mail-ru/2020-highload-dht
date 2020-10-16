@@ -6,6 +6,7 @@ import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
+import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -32,6 +33,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
+    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+
     @NotNull
     private final DAO dao;
     @NotNull
@@ -39,18 +42,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final Nodes nodes;
     private final Map<String, HttpClient> clusterClients;
 
-    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
-
     /**
      * Simple Async HTTP server.
      *
-     * @param config -
-     * @param dao - storage interface
-     * @param nodes -
-     * @param clusterClients -
-     * @throws IOException -
+     * @param config         - config
+     * @param dao            - storage interface
+     * @param nodes          - topology
+     * @param clusterClients - clusterClients
+     * @throws IOException - exception
      */
-    private AsyncServiceImpl(final HttpServerConfig config, @NotNull final DAO dao,
+    private AsyncServiceImpl(final HttpServerConfig config,
+                             @NotNull final DAO dao,
                              @NotNull final Nodes nodes,
                              @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
         super(config);
@@ -64,7 +66,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * Create Async HTTP server.
      */
-    public static Service create(final int port, @NotNull final DAO dao,
+    public static Service create(final int port,
+                                 @NotNull final DAO dao,
                                  @NotNull final Nodes nodes) throws IOException {
         final var acceptor = new AcceptorConfig();
         final var config = new HttpServerConfig();
@@ -86,6 +89,43 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return new StorageSession(socket, this);
     }
 
+    private void executeAsync(@NotNull final HttpSession session,
+                              @NotNull final Action action) {
+        executor.execute(() -> {
+            try {
+                session.sendResponse(action.act());
+            } catch (IOException e) {
+                try {
+                    session.sendError(Response.INTERNAL_ERROR, e.getMessage());
+                } catch (IOException ex) {
+                    log.info("something has gone terribly wrong", ex);
+                }
+            }
+        });
+    }
+
+    private Response forwardRequestTo(@NotNull final String cluster,
+                                      final Request request) throws IOException {
+        try {
+            return clusterClients.get(cluster).invoke(request);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            throw new IOException("fail", e);
+        }
+    }
+
+    @FunctionalInterface
+    interface Action {
+        Response act() throws IOException;
+    }
+
+    @Override
+    public void handleDefault(@NotNull final Request request,
+                              @NotNull final HttpSession session) throws IOException {
+        final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        log.warn("Can't find handler for {}", request.getPath());
+        session.sendResponse(response);
+    }
+
     /**
      * Standard response for successful HTTP requests.
      *
@@ -99,17 +139,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * Access to DAO.
      *
+     * @param id      - key of entity
      * @param request - requests: GET, PUT, DELETE
      * @param session - HttpSession
      */
-    private void entity(@NotNull final Request request, final HttpSession session) throws IOException {
-        final String id = request.getParameter("id=");
+    @Path("/v0/entity")
+    public void entity(@Param("id") final String id,
+                       @NotNull final Request request,
+                       final HttpSession session) throws IOException {
         if (id == null || id.isEmpty()) {
             try {
                 log.info("id is null or empty");
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                log.info("something has gone terribly wrong", e);
+                log.error("something has gone terribly wrong", e);
                 throw new UncheckedIOException(e);
             }
             return;
@@ -144,41 +187,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    @Override
-    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
-        switch (request.getPath()) {
-            case "/v0/entity":
-                entity(request, session);
-                break;
-            case "/v0/entities":
-                entities(request, session);
-                break;
-            default:
-                session.sendError(Response.BAD_REQUEST, "Wrong path");
-                break;
-        }
-    }
-
-    private void executeAsync(@NotNull final HttpSession session, @NotNull final Action action) {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(action.act());
-            } catch (IOException e) {
-                try {
-                    session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-                } catch (IOException ex) {
-                    log.info("something has gone terribly wrong", ex);
-                }
-            }
-        });
-    }
-
-    @FunctionalInterface
-    interface Action {
-        Response act() throws IOException;
-    }
-
-    private void entities(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
+    @Path("/v0/entities")
+    private void entities(@NotNull final Request request,
+                          @NotNull final HttpSession session) throws IOException {
         final String start = request.getParameter("start=");
         if (start == null || start.isEmpty()) {
             session.sendError(Response.BAD_REQUEST, "No start");
@@ -202,15 +213,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             ((StorageSession) session).stream(records);
         } catch (IOException e) {
             session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-        }
-    }
-
-    private Response forwardRequestTo(@NotNull final String cluster, final Request request) throws IOException {
-
-        try {
-            return clusterClients.get(cluster).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("fail", e);
         }
     }
 
