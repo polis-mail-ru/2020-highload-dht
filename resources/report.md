@@ -361,7 +361,7 @@ Transfer/sec:      0.96MB
 ![put_cpu_ext](https://user-images.githubusercontent.com/55311053/95623828-9791bd80-0a7e-11eb-984b-fd61321ec7f1.jpg)
 <p align="center">Рис.1. Выделение ресурса CPU при симулировании PUT-запросов (thread safe synchronized)</p>
 
-![async_put_cpu](resources/flamegraphs/async_put_cpu.svg)
+![async_put_cpu](https://github.com/ScriptoMax/2020-highload-dht/blob/test_me_3/resources/flamegraphs/async_put_cpu.svg)
 <p align="center">Рис.2. Выделение ресурса CPU при симулировании PUT-запросов (async-featured)</p>
 
 Структура пользования ЦПУ, представленная на графах, позволяет зафиксировать характерные для асинхронной реализации доли времени, связанные с обеспечением активности пула потоков (<em>ThreadPoolExecutor</em>) и вызовом методов вставки/обновления (<em>upsert</em> и <em>upsertAsync</em>). Дополнительной задачей, решаемой в рамках поддержки асинхронных операций, становится выполнение пары потоков в составе ThreadPool сверх двух, установленных при вводе параметров нагрузки. Вследствие подобной специфики в работе ЦПУ асинхронного сервера достигается усложнение планирования потоков, выполняющих основной объём операций-потребителей ресурса, в частности перемещения и обработку данных, передаваемых через буфер и сокет.                
@@ -369,12 +369,12 @@ Transfer/sec:      0.96MB
 ![put_alloc_ext](https://user-images.githubusercontent.com/55311053/95623757-7b8e1c00-0a7e-11eb-8e04-d06a5f805681.jpg)
 <p align="center">Рис.3. Выделение ресурса RAM при симулировании PUT-запросов (thread safe synchronized)</p>
 
-![async_put_alloc](resources/flamegraphs/async_put_alloc.svg)
+![async_put_alloc](https://github.com/ScriptoMax/2020-highload-dht/blob/test_me_3/resources/flamegraphs/async_put_alloc.svg)
 <p align="center">Рис.4. Выделение ресурса RAM при симулировании PUT-запросов (async-featured)</p>
 
 При сопоставлении профилей памяти проявляются те же особенности асинхронного дизайна, что наблюдались при анализе контроля процессорного времени. Так, на графе, полученном в ходе испытаний асинхронного сервера, продемонстрированы аллокации ресурса, предназначенные для поддержки работы потоков под управлением <em>ThreadPoolExecutor</em>. Для данных потоков устанавливается доступ к памяти, выделяемой при вызовах методов upsert, главным образом для хранения объектов в операциях приведения к различным типам данных (строкам, байтовым массивам, ByteBuffer).                   
 
-![async_put_lock](resources/flamegraphs/async_put_lock.svg)
+![async_put_lock](https://github.com/ScriptoMax/2020-highload-dht/blob/test_me_3/resources/flamegraphs/async_put_lock.svg)
 <p align="center">Рис.5. Профиль lock/monitor при симулировании PUT-запросов (async-featured)</p>
 
 Ввиду отсутствия содержимого актуального профиля для операций на syncronized-сервере в рамках текущего анализа рассмотрен единственный граф, сформированный в процессе испытаний асинхронной реализации. События управления параллелизмом, относимые к потокам <em>ThreadPoolExecutor</em>, проявляются в контроле взаимоисключений при попытке доступа к элементам блокирующей очереди (<em>ArrayBlockingQueue</em>). Для безопасности асинхронных операций в этом случае используется <em>ReentrantLock</em>, образующий механизм регулирования доступа в композиции с <em>AbstractQueuedSynchronizer</em>.<br/>               
@@ -684,7 +684,7 @@ Transfer/sec:      0.98MB
 ![get_cpu_ext](https://user-images.githubusercontent.com/55311053/95623668-60231100-0a7e-11eb-97c3-76c8c4280630.jpg)
 <p align="center">Рис.6. Выделение ресурса CPU при симулировании GET-запросов (thread safe synchronized)</p>
 
-![async_get_cpu](resources/flamegraphs/async_get_cpu.svg)
+![async_get_cpu](https://github.com/ScriptoMax/2020-highload-dht/blob/test_me_3/resources/flamegraphs/async_get_cpu.svg)
 <p align="center">Рис.7. Выделение ресурса CPU при симулировании GET-запросов (async-featured)</p>
 
 Как и результаты PUT-запросов, текущие профили отражают активность потоков, запущенных <em>ThreadPoolExecutor</em>. Часть выделений процессорного времени приходится на вызовы методов <em>get</em> и <em>getAsync</em>, формирующие основную вычислительную нагрузку наряду с операциями чтения ключей и записи связанных значений в сокет.    
@@ -692,12 +692,12 @@ Transfer/sec:      0.98MB
 ![get_alloc_ext](https://user-images.githubusercontent.com/55311053/95623573-2fdb7280-0a7e-11eb-99b8-fad5d51d8f5f.jpg)
 <p align="center">Рис.8. Выделение ресурса RAM при симулировании GET-запросов (thread safe synchronized)</p>
 
-![async_get_alloc](resources/flamegraphs/async_get_alloc.svg)
+![async_get_alloc](https://github.com/ScriptoMax/2020-highload-dht/blob/test_me_3/resources/flamegraphs/async_get_alloc.svg)
 <p align="center">Рис.9. Выделение ресурса RAM при симулировании GET-запросов (async-featured)</p>
 
 Анализируя профиль аллокаций асинхронного сервера, можно обнаружить, что единственные различия с представлением, полученным при обработке PUT-запросов, заключаются в актуализации методов класса AsyncServer, т.е. триггерами выделений памяти выступают специально определённые методы <em>get</em> и <em>getAsync</em>. Как и в режиме добавления/изменения данных, преобладающим фактором нагрузки в процессе чтения является обеспечение хранения объектов реализации <em>ThreadPoolExecutor</em>.          
 
-![async_get_lock](resources/flamegraphs/async_get_lock.svg)
+![async_get_lock](https://github.com/ScriptoMax/2020-highload-dht/blob/test_me_3/resources/flamegraphs/async_put_lock.svg)
 <p align="center">Рис.10. Профиль lock/monitor при симулировании GET-запросов (async-featured)</p>
 
 Для визуализации управления совместным доступом в режиме чтения характерно интенсивное регулирование операций с блокирующей очередью в контексте селекторов. Подобное представление обусловлено логикой запросов на получение, определяющей активность селекторов для записи результата в сокет. Структура и последовательность реализации взаимоисключений при доступе к элементам очереди, сочетающая экземпляры <em>ReentrantLock</em> и <em>AbstractQueuedAynchronizer</em>, аналогична механизму, установленному посредством профилирования для PUT-запросов. 
