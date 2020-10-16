@@ -24,19 +24,20 @@ import java.util.concurrent.Executors;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
+import static ru.mail.polis.service.Mapper.fromBytes;
+import static ru.mail.polis.service.Mapper.toBytes;
 
 public class CustomServer extends HttpServer {
 
-     private final Logger logger = LoggerFactory.getLogger(CustomServer.class);
+     private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
     private final DAO dao;
     private final ExecutorService executorService =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public CustomServer(final DAO dao,
-                             final HttpServerConfig config,
-                             final Object... routers) throws IOException {
-        super(config, routers);
+                             final HttpServerConfig config) throws IOException {
+        super(config);
         this.dao = dao;
     }
 
@@ -86,24 +87,6 @@ public class CustomServer extends HttpServer {
         final Response responseHttp = new Response(requestType);
         responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return responseHttp;
-    }
-
-    /**
-     * ByteBuffer to byte array.
-     *
-     * @param buffer - input buffer.
-     * @return byte array.
-     */
-    @NotNull
-    public static byte[] toBytes(final ByteBuffer buffer) {
-        final byte[] bytes = new byte[buffer.limit()];
-        buffer.get(bytes);
-        buffer.clear();
-        return bytes;
-    }
-
-    public static ByteBuffer fromBytes(final byte[] bytes) {
-        return ByteBuffer.wrap(bytes);
     }
 
     /**
