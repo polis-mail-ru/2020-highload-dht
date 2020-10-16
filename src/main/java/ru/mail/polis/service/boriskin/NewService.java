@@ -1,24 +1,21 @@
 package ru.mail.polis.service.boriskin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.RequestMethod;
-import one.nio.http.Response;
+import one.nio.http.*;
+import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.boriskin.Topology;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -44,6 +41,10 @@ public class NewService extends HttpServer implements Service {
 
     @NotNull
     private final DAO dao;
+    @NotNull
+    private final Topology<String> topology;
+    @NotNull
+    private final Map<String, HttpClient> nodeToClientMap;
 
     /**
      * Конструктор {@link NewService}.
@@ -58,7 +59,8 @@ public class NewService extends HttpServer implements Service {
             final int port,
             @NotNull final DAO dao,
             final int workers,
-            final int queueSize) throws IOException {
+            final int queueSize,
+            @NotNull final Topology<String> topology) throws IOException {
         super(getConfigFrom(port));
 
         assert 0 < workers;
@@ -76,6 +78,20 @@ public class NewService extends HttpServer implements Service {
                                 logger.error("Ошибка в {}, возникла при обработке запроса", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.topology = topology;
+        this.nodeToClientMap = new HashMap<>();
+
+        for (String node : topology.all()) {
+            if (topology.isMyNode(node)) {
+                continue;
+            }
+
+            final HttpClient httpClient = new HttpClient(
+                    new ConnectionString(node + "?timeout=1000"));
+            if (nodeToClientMap.put(node, httpClient) != null) {
+                throw new IllegalStateException("Duplicate Node!");
+            }
+        }
     }
 
     @NotNull
@@ -111,13 +127,15 @@ public class NewService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public void get(
             @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession) {
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) {
         idValidation(id, httpSession);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         getting(
                 key,
-                httpSession);
+                httpSession,
+                request);
     }
 
     /**
@@ -151,14 +169,15 @@ public class NewService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(
             @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession
-    ) {
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) {
         idValidation(id, httpSession);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         removing(
                 key,
-                httpSession);
+                httpSession,
+                request);
     }
 
     private void idValidation(
@@ -175,10 +194,11 @@ public class NewService extends HttpServer implements Service {
 
     private void getting(
             @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) {
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) {
         executorService.execute(() -> {
             try {
-                doGet(key, httpSession);
+                doGet(key, httpSession, request);
             } catch (IOException ioException) {
                 logger.error("Ошибка в getting ", ioException);
             }
@@ -187,31 +207,49 @@ public class NewService extends HttpServer implements Service {
 
     private void doGet(
             @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) throws IOException {
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) throws IOException {
+        final String node = topology.primaryFor(key);
+
+        // Локальный ли запрос?
+        if (topology.isMyNode(node)) {
+            try {
+                httpSession.sendResponse(
+                        Response.ok(
+                                toByteArray(dao.get(key)))
+                );
+            } catch (NoSuchElementException e) {
+                httpSession.sendResponse(resp(Response.NOT_FOUND));
+            } catch (IOException ioException) {
+                logger.error("Ошибка в GET: {}", toByteArray(key));
+                httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            }
+        } else {
+            proxy(node, httpSession, request);
+        }
+    }
+
+    private void proxy(
+            @NotNull final String node,
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) throws IOException {
         try {
-            httpSession.sendResponse(
-                    Response.ok(
-                            toByteArray(dao.get(key)))
-            );
-        } catch (NoSuchElementException e) {
-            httpSession.sendResponse(resp(Response.NOT_FOUND));
-        } catch (IOException ioException) {
-            logger.error("Ошибка в GET: {}", toByteArray(key));
+            request.addHeader("X-Proxy-For: " + node);
+            httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
+        } catch (Exception ioException) {
+            logger.error("Can't proxy request", ioException);
             httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
         }
     }
 
     private void upserting(
             @NotNull final ByteBuffer key,
-            final Request request,
+            @NotNull final Request request,
             @NotNull final HttpSession httpSession) {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         executorService.execute(() -> {
             try {
-                doUpsert(
-                        key,
-                        httpSession,
-                        value);
+                doUpsert(key, httpSession, request, value);
             } catch (IOException ioException) {
                 logger.error("Ошибка в upserting ", ioException);
             }
@@ -221,24 +259,31 @@ public class NewService extends HttpServer implements Service {
     private void doUpsert(
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession,
+            @NotNull final Request request,
             final ByteBuffer value) throws IOException {
-        try {
-            dao.upsert(key, value);
-            httpSession.sendResponse(resp(Response.CREATED));
-        } catch (IOException ioException) {
-            logger.error("Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+        final String node = topology.primaryFor(key);
+
+        // Локальный ли запрос?
+        if (topology.isMyNode(node)) {
+            try {
+                dao.upsert(key, value);
+                httpSession.sendResponse(resp(Response.CREATED));
+            } catch (IOException ioException) {
+                logger.error("Ошибка в PUT: {}, значение: {}", toByteArray(key), toByteArray(value));
+                httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            }
+        } else {
+            proxy(node, httpSession, request);
         }
     }
 
     private void removing(
             @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) {
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) {
         executorService.execute(() -> {
             try {
-                doRemove(
-                        key,
-                        httpSession);
+                doRemove(key, httpSession, request);
             } catch (IOException ioException) {
                 logger.error("Ошибка в removing ", ioException);
             }
@@ -247,15 +292,23 @@ public class NewService extends HttpServer implements Service {
 
     private void doRemove(
             @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) throws IOException {
-        try {
-            dao.remove(key);
-            httpSession.sendResponse(
-                    resp(Response.ACCEPTED)
-            );
-        } catch (IOException ioException) {
-            logger.error("Ошибка в DELETE: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request) throws IOException {
+        final String node = topology.primaryFor(key);
+
+        // Локальный ли запрос?
+        if (topology.isMyNode(node)) {
+            try {
+                dao.remove(key);
+                httpSession.sendResponse(
+                        resp(Response.ACCEPTED)
+                );
+            } catch (IOException ioException) {
+                logger.error("Ошибка в DELETE: {}", toByteArray(key));
+                httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            }
+        } else {
+            proxy(node, httpSession, request);
         }
     }
 
@@ -304,6 +357,10 @@ public class NewService extends HttpServer implements Service {
         } catch (InterruptedException interruptedException) {
             logger.error("Не получилось завершить Executor Service", interruptedException);
             Thread.currentThread().interrupt();
+        }
+
+        for (HttpClient httpClient : nodeToClientMap.values()) {
+            httpClient.clear();
         }
     }
 }
