@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -24,8 +25,6 @@ import java.util.concurrent.Executors;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
-import static ru.mail.polis.service.Mapper.fromBytes;
-import static ru.mail.polis.service.Mapper.toBytes;
 
 public class CustomServer extends HttpServer {
 
@@ -67,11 +66,11 @@ public class CustomServer extends HttpServer {
         } else {
 
             //get id as aligned byte buffer
-            final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             //get the response from db
             try {
                 final ByteBuffer body = dao.get(id);
-                final byte[] bytes = toBytes(body);
+                final byte[] bytes = Mapper.toBytes(body);
                 responseHttp = Response.ok(bytes);
             } catch (NoSuchElementException e) {
                 //if not found then 404
@@ -115,8 +114,8 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
-            final ByteBuffer value = fromBytes(request.getBody());
+            final ByteBuffer key = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = getResponseWithNoBody(Response.CREATED);
         }
@@ -148,7 +147,7 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer key = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             dao.remove(key);
             responseHttp = getResponseWithNoBody(Response.ACCEPTED);
         }

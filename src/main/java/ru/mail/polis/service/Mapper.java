@@ -6,6 +6,8 @@ import java.nio.ByteBuffer;
 
 public class Mapper {
 
+    private Mapper(){}
+
     /**
      * ByteBuffer to byte array.
      *
