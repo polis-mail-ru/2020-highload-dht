@@ -31,6 +31,9 @@ public class AsyncService extends HttpServer implements Service {
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
     private static final String IO_ERROR_LOG = "IO exception raised";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
+    private static final String GET_RESPONSE_ERROR_LOG = "Error sending GET response";
+    private static final String PUT_RESPONSE_ERROR_LOG = "Error sending PUT response";
+    private static final String DELETE_RESPONSE_ERROR_LOG = "Error sending DELETE response";
 
     /**
      * async service impl const.
@@ -118,21 +121,21 @@ public class AsyncService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error sending GET response", exc1);
+                    LOGGER.error(GET_RESPONSE_ERROR_LOG);
                 }
             } catch (RejectedExecutionException exc) {
                 LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error sending GET response", exc1);
+                    LOGGER.error(GET_RESPONSE_ERROR_LOG);
                 }
             } catch (IOException exc1) {
                 LOGGER.error(IO_ERROR_LOG, exc1);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException exc2) {
-                    LOGGER.error("Error sending GET response", exc2);
+                    LOGGER.error(GET_RESPONSE_ERROR_LOG);
                 }
             }
         });
@@ -158,14 +161,14 @@ public class AsyncService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error sending PUT response", exc1);
+                    LOGGER.error(PUT_RESPONSE_ERROR_LOG);
                 }
             } catch (IOException exc1) {
                 LOGGER.error(IO_ERROR_LOG, exc1);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException exc2) {
-                    LOGGER.error("Error sending PUT response", exc2);
+                    LOGGER.error(PUT_RESPONSE_ERROR_LOG);
                 }
             }
         });
@@ -186,14 +189,14 @@ public class AsyncService extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException exc1) {
-                    LOGGER.error("Error sending DELETE response", exc1);
+                    LOGGER.error(DELETE_RESPONSE_ERROR_LOG);
                 }
             } catch (IOException exc1) {
                 LOGGER.error(IO_ERROR_LOG, exc1);
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException exc2) {
-                    LOGGER.error("Error sending DELETE response", exc2);
+                    LOGGER.error(DELETE_RESPONSE_ERROR_LOG);
                 }
             }
         });
