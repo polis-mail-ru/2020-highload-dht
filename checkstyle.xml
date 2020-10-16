@@ -8,7 +8,7 @@
     <property name="severity" value="warning"/>
 
     <property name="fileExtensions" value="java, properties, xml"/>
-    <!-- Excludes all 'module-info.java' files              -->
+    <!-- Excludes all 'module-info.java' ssTables              -->
     <!-- See https://checkstyle.org/config_filefilters.html -->
     <module name="BeforeExecutionExclusionFileFilter">
         <property name="fileNamePattern" value="module\-info\.java$"/>
