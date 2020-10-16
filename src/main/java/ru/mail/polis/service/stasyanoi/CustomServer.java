@@ -110,7 +110,7 @@ public class CustomServer extends HttpServer {
 
     private void putInternal(final String idParam, final Request request,
                              final HttpSession session) throws IOException {
-        Response responseHttp;
+        final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -142,7 +142,7 @@ public class CustomServer extends HttpServer {
 
     private void deleteInternal(final String idParam,
                                 final HttpSession session) throws IOException {
-        Response responseHttp;
+        final Response responseHttp;
 
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
