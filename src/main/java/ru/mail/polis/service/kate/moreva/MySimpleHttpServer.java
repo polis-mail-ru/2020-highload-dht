@@ -18,7 +18,11 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Simple Http Server Service implementation.
@@ -145,11 +149,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
             } catch (RejectedExecutionException e) {
-                try {
-                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error(SERVER_ERROR, session, e);
-                }
+                handleRejectedExecutionException(session, e);
             }
         });
     }
@@ -161,11 +161,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
             } catch (RejectedExecutionException e) {
-                try {
-                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error(SERVER_ERROR, session, e);
-                }
+                handleRejectedExecutionException(session, e);
             }
         });
     }
@@ -177,13 +173,17 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             } catch (IOException e) {
                 log.error(SERVER_ERROR, session, e);
             } catch (RejectedExecutionException e) {
-                try {
-                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error(SERVER_ERROR, session, e);
-                }
+                handleRejectedExecutionException(session, e);
             }
         });
+    }
+
+    private void handleRejectedExecutionException(HttpSession session, RejectedExecutionException e) {
+        try {
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+        } catch (IOException ioException) {
+            log.error(SERVER_ERROR, session, e);
+        }
     }
 
     /**
