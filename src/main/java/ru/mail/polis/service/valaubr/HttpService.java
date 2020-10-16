@@ -28,6 +28,7 @@ public class HttpService extends HttpServer implements Service {
     private final DAO dao;
     private final Logger logger = LoggerFactory.getLogger(HttpService.class);
     private final ExecutorService executor;
+    private static final String UNIVERSAL_MESSAGE = "Empty id && response is dropped";
 
     /**
      * Constructor of the service.
@@ -95,8 +96,9 @@ public class HttpService extends HttpServer implements Service {
             if (id.strip().isEmpty()) {
                 try {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 } catch (IOException e) {
-                    logger.error("Empty id && response is dropped", e);
+                    logger.error(UNIVERSAL_MESSAGE, e);
                 }
             }
             try {
@@ -137,8 +139,9 @@ public class HttpService extends HttpServer implements Service {
             if (id.strip().isEmpty()) {
                 try {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 } catch (IOException e) {
-                    logger.error("Empty id && response is dropped", e);
+                    logger.error(UNIVERSAL_MESSAGE, e);
                 }
             }
             try {
@@ -171,8 +174,9 @@ public class HttpService extends HttpServer implements Service {
             if (id.strip().isEmpty()) {
                 try {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 } catch (IOException e) {
-                    logger.error("Empty id && response is dropped", e);
+                    logger.error(UNIVERSAL_MESSAGE, e);
                 }
             }
             try {
