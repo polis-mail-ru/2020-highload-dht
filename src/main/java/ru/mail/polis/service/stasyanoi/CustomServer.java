@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -27,16 +28,15 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class CustomServer extends HttpServer {
 
-     private final Logger logger = LoggerFactory.getLogger(CustomServer.class);
+     private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
     private final DAO dao;
     private final ExecutorService executorService =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public CustomServer(final DAO dao,
-                             final HttpServerConfig config,
-                             final Object... routers) throws IOException {
-        super(config, routers);
+                             final HttpServerConfig config) throws IOException {
+        super(config);
         this.dao = dao;
     }
 
@@ -59,26 +59,30 @@ public class CustomServer extends HttpServer {
 
     private void getInternal(final String idParam,
                              final HttpSession session) throws IOException {
-        Response responseHttp;
+        final Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-
             //get id as aligned byte buffer
-            final ByteBuffer id = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             //get the response from db
-            try {
-                final ByteBuffer body = dao.get(id);
-                final byte[] bytes = toBytes(body);
-                responseHttp = Response.ok(bytes);
-            } catch (NoSuchElementException e) {
-                //if not found then 404
-                responseHttp = getResponseWithNoBody(Response.NOT_FOUND);
-            }
+            responseHttp = getResponseIfIdNotNull(id);
         }
 
         session.sendResponse(responseHttp);
+    }
+
+    @NotNull
+    private Response getResponseIfIdNotNull(final ByteBuffer id) throws IOException {
+        try {
+            final ByteBuffer body = dao.get(id);
+            final byte[] bytes = Mapper.toBytes(body);
+            return Response.ok(bytes);
+        } catch (NoSuchElementException e) {
+            //if not found then 404
+            return getResponseWithNoBody(Response.NOT_FOUND);
+        }
     }
 
     @NotNull
@@ -86,24 +90,6 @@ public class CustomServer extends HttpServer {
         final Response responseHttp = new Response(requestType);
         responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return responseHttp;
-    }
-
-    /**
-     * ByteBuffer to byte array.
-     *
-     * @param buffer - input buffer.
-     * @return byte array.
-     */
-    @NotNull
-    public static byte[] toBytes(final ByteBuffer buffer) {
-        final byte[] bytes = new byte[buffer.limit()];
-        buffer.get(bytes);
-        buffer.clear();
-        return bytes;
-    }
-
-    public static ByteBuffer fromBytes(final byte[] bytes) {
-        return ByteBuffer.wrap(bytes);
     }
 
     /**
@@ -128,12 +114,12 @@ public class CustomServer extends HttpServer {
 
     private void putInternal(final String idParam, final Request request,
                              final HttpSession session) throws IOException {
-        Response responseHttp;
+        final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
-            final ByteBuffer value = fromBytes(request.getBody());
+            final ByteBuffer key = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = getResponseWithNoBody(Response.CREATED);
         }
@@ -160,12 +146,12 @@ public class CustomServer extends HttpServer {
 
     private void deleteInternal(final String idParam,
                                 final HttpSession session) throws IOException {
-        Response responseHttp;
+        final Response responseHttp;
 
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer key = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
             dao.remove(key);
             responseHttp = getResponseWithNoBody(Response.ACCEPTED);
         }

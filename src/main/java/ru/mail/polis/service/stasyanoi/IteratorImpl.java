@@ -2,6 +2,7 @@ package ru.mail.polis.service.stasyanoi;
 
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
+import ru.mail.polis.service.Mapper;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -12,7 +13,7 @@ public class IteratorImpl implements Iterator<Record> {
 
     public IteratorImpl(final ByteBuffer key, final RocksIterator rocksIterator) {
         this.rocksIterator = rocksIterator;
-        this.rocksIterator.seek(CustomServer.toBytes(key));
+        this.rocksIterator.seek(Mapper.toBytes(key));
     }
 
     @Override
@@ -25,7 +26,7 @@ public class IteratorImpl implements Iterator<Record> {
         final byte[] key = rocksIterator.key();
         final byte[] value = rocksIterator.value();
         rocksIterator.next();
-        return Record.of(CustomServer.fromBytes(key), CustomServer.fromBytes(value));
+        return Record.of(Mapper.fromBytes(key), Mapper.fromBytes(value));
     }
 
     public void close() {

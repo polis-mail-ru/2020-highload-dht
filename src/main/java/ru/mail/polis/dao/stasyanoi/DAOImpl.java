@@ -7,7 +7,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.stasyanoi.CustomServer;
+import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
 
 import java.io.File;
@@ -57,7 +57,7 @@ public class DAOImpl implements DAO {
     @Override
     public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
-            storageInstance.put(CustomServer.toBytes(key), CustomServer.toBytes(value));
+            storageInstance.put(Mapper.toBytes(key), Mapper.toBytes(value));
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
@@ -68,20 +68,20 @@ public class DAOImpl implements DAO {
     public ByteBuffer get(final @NotNull ByteBuffer key) throws NoSuchElementException {
         byte[] body;
         try {
-            body = storageInstance.get(CustomServer.toBytes(key));
+            body = storageInstance.get(Mapper.toBytes(key));
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
         if (body == null) {
             throw new NoSuchElementException("No such key " + key.toString());
         }
-        return CustomServer.fromBytes(body);
+        return Mapper.fromBytes(body);
     }
 
     @Override
     public void remove(final @NotNull ByteBuffer key) {
         try {
-            storageInstance.delete(CustomServer.toBytes(key));
+            storageInstance.delete(Mapper.toBytes(key));
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
