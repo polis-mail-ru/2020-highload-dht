@@ -187,33 +187,38 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Extract entities from start to end.
+     *
+     * @param start   - start key
+     * @param end     - end key (optional)
+     * @param request - request
+     * @param session - HttpSession
+     */
     @Path("/v0/entities")
-    public void entities(@NotNull final Request request,
-                          @NotNull final HttpSession session) throws IOException {
-        final String start = request.getParameter("start=");
-        if (start == null || start.isEmpty()) {
-            session.sendError(Response.BAD_REQUEST, "No start");
-            return;
-        }
-
+    public void entities(@Param("start") final String start,
+                         @Param("end") String end,
+                         @NotNull final Request request,
+                         @NotNull final HttpSession session) throws IOException {
         if (request.getMethod() != Request.METHOD_GET) {
             session.sendError(Response.METHOD_NOT_ALLOWED, "Wrong method");
             return;
         }
 
-        String end = request.getParameter("end=");
+        if (start == null || start.isEmpty()) {
+            session.sendError(Response.BAD_REQUEST, "No start");
+            return;
+        }
+
         if (end != null && end.isEmpty()) {
             end = null;
         }
 
-        try {
-            final Iterator<Record> records =
-                    dao.range(ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8)),
-                            end == null ? null : ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8)));
-            ((StorageSession) session).stream(records);
-        } catch (IOException e) {
-            session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-        }
+        final Iterator<Record> records =
+                dao.range(ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8)),
+                        end == null ? null : ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8)));
+        ((StorageSession) session).stream(records);
+
     }
 
     private Response get(final ByteBuffer key) {
