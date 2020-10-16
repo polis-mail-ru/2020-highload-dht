@@ -13,11 +13,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ThreadSafe
 public class MemoryTable implements Table {
 
-    private final SortedMap<ByteBuffer, Value> map = new ConcurrentSkipListMap<>();
-    private final AtomicInteger currentAmountOfBytes = new AtomicInteger();
+    private final SortedMap<ByteBuffer, Value> map;
+    private final AtomicInteger currentAmountOfBytes;
 
     public int getAmountOfBytes() {
         return currentAmountOfBytes.get();
+    }
+
+    MemoryTable() {
+        this.map = new ConcurrentSkipListMap<>();
+        this.currentAmountOfBytes = new AtomicInteger();
     }
 
     @NotNull

@@ -34,12 +34,12 @@ public class LsmDAOImpl implements LsmDAO {
     private static final String SSTABLE_FILE_POSTFIX = ".dat";
     private static final String SSTABLE_TEMPORARY_FILE_POSTFIX = ".tmp";
 
-    private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+    private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     @NonNull
     private final File storage;
     private final int amountOfBytesToFlush;
-    Map<ByteBuffer, Long> lockTable = new HashMap<>();
+    final Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
     TableSet tableSet;
 
@@ -64,7 +64,7 @@ public class LsmDAOImpl implements LsmDAO {
         this.amountOfBytesToFlush = amountOfBytesToFlush;
         final NavigableMap<Integer, Table> ssTables = new TreeMap<>();
         try (Stream<Path> files = Files.list(storage.toPath())) {
-            files.filter(file -> !file.toFile().isDirectory() && file.toString().endsWith(SSTABLE_FILE_POSTFIX))
+            files.filter(file -> Files.isRegularFile(file) && file.toString().endsWith(SSTABLE_FILE_POSTFIX))
                     .forEach(file -> {
                         final String fileName = file.getFileName().toString();
                         try {
@@ -72,7 +72,6 @@ public class LsmDAOImpl implements LsmDAO {
                             final int gen = Integer.parseInt(stringGen);
                             ssTables.put(gen, new SSTable(file.toFile()));
                         } catch (IOException e) {
-                            e.printStackTrace();
                             logger.error("Something went wrong while the SSTable was created!", e);
                         } catch (NumberFormatException e) {
                             logger.info("Unexpected name of SSTable file: " + fileName, e);
@@ -100,6 +99,7 @@ public class LsmDAOImpl implements LsmDAO {
         readLock.lock();
         try {
             snapshot = this.tableSet;
+            this.tableSet = this.tableSet.startIterating();
         } finally {
             readLock.unlock();
         }
@@ -166,8 +166,10 @@ public class LsmDAOImpl implements LsmDAO {
         try (Stream<Path> files = Files.list(storage.toPath())) {
             files.filter(f -> {
                 final String name = f.getFileName().toFile().toString();
+                final int gen = Integer.parseInt(name.substring(0, name.indexOf('.')));
                 final boolean correctPostfix = name.endsWith(SSTABLE_FILE_POSTFIX);
-                return Integer.parseInt(name.substring(0, name.indexOf('.'))) < snapshot.generation && correctPostfix;
+                final boolean isNotFlushing = snapshot.ssTables.containsKey(gen);
+                return gen < snapshot.generation && correctPostfix && isNotFlushing;
             }).forEach(f -> {
                 try {
                     Files.delete(f);
