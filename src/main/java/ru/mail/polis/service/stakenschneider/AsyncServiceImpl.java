@@ -191,13 +191,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * Extract entities from start to end.
      *
      * @param start   - start key
-     * @param end     - end key (optional)
+     * @param finish  - end key (optional)
      * @param request - request
      * @param session - HttpSession
      */
     @Path("/v0/entities")
     public void entities(@Param("start") final String start,
-                         @Param("end") String end,
+                         @Param("end") String finish,
                          @NotNull final Request request,
                          @NotNull final HttpSession session) throws IOException {
         if (request.getMethod() != Request.METHOD_GET) {
@@ -210,6 +210,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
+        String end = finish;
         if (end != null && end.isEmpty()) {
             end = null;
         }
