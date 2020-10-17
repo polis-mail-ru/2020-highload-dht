@@ -84,6 +84,38 @@ public class CustomServer extends HttpServer {
         });
     }
 
+    @Override
+    public void handleRequest(Request request, HttpSession session) throws IOException {
+        int node = 0;
+        if (hasParam("id", request)) {
+            int[] id = request.getParameter("id").chars().toArray();
+            int hash = Math.abs(Arrays.hashCode(id));
+            node = hash % nodeCount;
+        }
+
+        if (!nodeMapping.containsKey(node)) {
+            super.handleRequest(request, session);
+        } else {
+            routeRequest(request, session, node);
+        }
+    }
+
+    private boolean hasParam(String name, Request request) {
+        return request.getParameter(name) != null;
+    }
+
+    private void routeRequest(Request request, HttpSession session, int node) throws IOException {
+
+        ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
+        HttpClient httpClient = new HttpClient(connectionString);
+        try {
+            Response response = httpClient.invoke(request);
+            session.sendResponse(response);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void getInternal(final String idParam,
                              final HttpSession session) throws IOException {
         final Response responseHttp;
