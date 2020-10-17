@@ -59,9 +59,7 @@ public final class ServiceFactory {
         acceptorConfig.port = port;
 
         final var config = new HttpServerConfig();
-        config.maxWorkers = Runtime.getRuntime().availableProcessors();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        config.queueTime = 10;
 
         return new AsyncServiceImpl(config, dao);
     }

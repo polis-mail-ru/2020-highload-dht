@@ -20,10 +20,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -66,30 +63,39 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_GET)
     public void get(final @Param(value = "id", required = true) String key,
                     @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
-                if (key.isEmpty()) {
-                    logger.info("ServiceImpl.get() method: key is empty");
-                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-                    return;
-                }
-                final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-                session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
-            } catch (NoSuchElementException ex) {
-                try {
-                    session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
-                } catch (IOException ex1) {
-                    logger.error(RESP_ERR, session, ex1);
-                }
-            } catch (IOException ex) {
-                logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
-                try {
-                    session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-                } catch (IOException ex1) {
-                    logger.error(RESP_ERR, session, ex1);
-                }
+        try {
+            service.execute(() -> {
+                getInternal(key, session);
+            });
+        } catch (RejectedExecutionException ex) {
+            logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
+        }
+    }
+
+    private void getInternal(final String key,
+                             final HttpSession session) {
+        try {
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.getInternal() method: key is empty");
+                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                return;
             }
-        });
+            final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
+            session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
+        } catch (NoSuchElementException ex) {
+            try {
+                session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
+        } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.getInternal() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
+        }
     }
 
     /** Insert or change key-data pair.
@@ -102,25 +108,35 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void put(final @Param(value = "id", required = true) String key,
                     final @Param("request") Request request,
                     @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
-                if (key.isEmpty()) {
-                    logger.info("ServiceImpl.put() method: key is empty");
-                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-                    return;
-                }
-                dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                           ByteBufferUtils.toByteBuffer(request.getBody()));
-                session.sendResponse(new ZeroResponse(Response.CREATED));
-                } catch (IOException ex) {
-                    logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
-                    try {
-                        session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-                    } catch (IOException ex1) {
-                        logger.error(RESP_ERR, session, ex1);
-                    }
-                }
+        try {
+            service.execute(() -> {
+                putInternal(key, request, session);
             });
+        } catch (RejectedExecutionException ex) {
+            logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
+        }
+    }
+
+    private void putInternal(final String key,
+                             final Request request,
+                             final HttpSession session) {
+        try {
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.putInternal() method: key is empty");
+                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                return;
+            }
+            dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
+                    ByteBufferUtils.toByteBuffer(request.getBody()));
+            session.sendResponse(new ZeroResponse(Response.CREATED));
+        } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.putInternal() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
+        }
     }
 
     /** Remove key-data pair.
@@ -131,30 +147,33 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_DELETE)
     public void delete(final @Param(value = "id", required = true) String key,
                        @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
-                if (key.isEmpty()) {
-                    logger.info("ServiceImpl.delete() method: key is empty");
-                    session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
-                    return;
-                }
-                dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-                session.sendResponse(new ZeroResponse(Response.ACCEPTED));
-                } catch (NoSuchElementException ex) {
-                    try {
-                    session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
-                    } catch (IOException ex1) {
-                        logger.error(RESP_ERR, session, ex1);
-                    }
-                } catch (IOException ex) {
-                    logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-                    try {
-                        session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-                    } catch (IOException ex1) {
-                        logger.error(RESP_ERR, session, ex1);
-                    }
+        try {
+            service.execute(() -> {
+                deleteInternal(key, session);
+            });
+        } catch (RejectedExecutionException ex) {
+            logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+        }
+    }
+
+    private void deleteInternal(final String key,
+                             final HttpSession session) {
+        try {
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.deleteInternal() method: key is empty");
+                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                return;
             }
-        });
+            dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
+            session.sendResponse(new ZeroResponse(Response.ACCEPTED));
+        } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.deleteInternal() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
+        }
     }
 
     /**
@@ -164,13 +183,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
-                session.sendResponse(new ZeroResponse(Response.OK));
-            } catch (IOException ex) {
-                logger.error(RESP_ERR, session, ex);
-            }
-        });
+        try {
+            session.sendResponse(new ZeroResponse(Response.OK));
+        } catch (IOException ex) {
+            logger.error(RESP_ERR, session, ex);
+        }
     }
 
     @Override

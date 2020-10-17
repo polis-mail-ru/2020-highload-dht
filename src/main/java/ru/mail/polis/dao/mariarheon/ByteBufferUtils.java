@@ -43,10 +43,10 @@ public final class ByteBufferUtils {
      * @return byte[] from buffer.
      */
     @NotNull
-    public static byte[] toArraySpecial(@NotNull final ByteBuffer buffer) {
+    public static byte[] toArrayUnsigned(@NotNull final ByteBuffer buffer) {
         var res = toArray(buffer);
         for (int i = 0; i < res.length; i++) {
-            res[i] = (byte)(Byte.toUnsignedInt(res[i]) - Byte.MIN_VALUE);
+            res[i] ^= Byte.MIN_VALUE;
         }
         return res;
     }
@@ -58,10 +58,10 @@ public final class ByteBufferUtils {
      * @return buffer from byte[].
      */
     @NotNull
-    public static ByteBuffer toByteBufferSpecial(final byte[] array) {
+    public static ByteBuffer toByteBufferUnsigned(final byte[] array) {
         final byte[] cpy = Arrays.copyOf(array, array.length);
         for (int i = 0; i < cpy.length; i++) {
-            cpy[i] = (byte) (Byte.toUnsignedInt(cpy[i]) + Byte.MIN_VALUE);
+            cpy[i] ^= Byte.MIN_VALUE;
         }
         return toByteBuffer(cpy);
     }
