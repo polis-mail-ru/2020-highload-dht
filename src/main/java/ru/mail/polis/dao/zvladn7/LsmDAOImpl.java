@@ -24,6 +24,7 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -31,10 +32,12 @@ public class LsmDAOImpl implements LsmDAO {
 
     private static final Logger logger = LoggerFactory.getLogger(LsmDAOImpl.class);
 
-    private static final String SSTABLE_FILE_POSTFIX = ".dat";
+    static final String SSTABLE_FILE_POSTFIX = ".dat";
+    private static final String SSTABLE_COMPACTED_FILE_POSTFIS = ".compacted";
     private static final String SSTABLE_TEMPORARY_FILE_POSTFIX = ".tmp";
 
     private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+    private static final Integer FILES_TO_COMPACT = 5;
 
     @NonNull
     private final File storage;
@@ -49,6 +52,8 @@ public class LsmDAOImpl implements LsmDAO {
 
     @NotNull
     private final ExecutorService service;
+    private final AtomicInteger allowedCompactions = new AtomicInteger(2);
+    private final AtomicInteger compactedFilePointer = new AtomicInteger();
 
     /**
      * LSM DAO implementation.
@@ -103,27 +108,12 @@ public class LsmDAOImpl implements LsmDAO {
         } finally {
             readLock.unlock();
         }
-        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size() + snapshot.memToFlush.size() + 2);
-        iters.add(snapshot.memTable.iterator(from));
-        snapshot.memToFlush.forEach(mem -> iters.add(mem.iterator(from)));
-        final Iterator<Cell> freshElements = freshCellIterator(from, iters, snapshot);
+        final List<Iterator<Cell>> iters = uniteIters(snapshot, from);
+        snapshot.ssTables.putAll(snapshot.ssTablesToCompact);
+        final Iterator<Cell> freshElements = freshCellIterator(from, iters, snapshot.ssTables);
         final Iterator<Cell> aliveElements = Iterators.filter(freshElements, el -> !el.getValue().isTombstone());
 
         return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
-    }
-
-    private void execute(final Runnable task) {
-        final boolean isReadyToFlush;
-        readLock.lock();
-        try {
-            task.run();
-            isReadyToFlush = tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush;
-        } finally {
-            readLock.unlock();
-        }
-        if (isReadyToFlush) {
-            flush();
-        }
     }
 
     @Override
@@ -137,7 +127,11 @@ public class LsmDAOImpl implements LsmDAO {
     }
 
     @Override
-    public synchronized void compact() throws IOException {
+    public void compact() {
+        compactWithCondition(false);
+    }
+
+    private void compactWithCondition(final boolean inFlush) {
         final boolean isEmptyListOfFiles;
         readLock.lock();
         try {
@@ -149,44 +143,87 @@ public class LsmDAOImpl implements LsmDAO {
             return;
         }
         final TableSet snapshot;
+        final NavigableMap<Integer, Table> ssTablesToCompact;
+        final int genToSave;
         writeLock.lock();
         try {
             snapshot = tableSet;
-            tableSet = tableSet.startCompact();
+            if (inFlush) {
+                ssTablesToCompact = startCompact(compactedFilePointer.get(), 5);
+            } else {
+                ssTablesToCompact = startCompact();
+            }
+            genToSave = ssTablesToCompact.lastEntry().getKey();
         } finally {
             writeLock.unlock();
         }
 
-        logger.debug("Compacting byte(s) to {}", snapshot.generation);
+        service.execute(() -> {
+            logger.debug("Compacting byte(s) to {}", snapshot.generation);
+            try {
+                final List<Iterator<Cell>> iters = new ArrayList<>(ssTablesToCompact.size());
+                final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER, iters, ssTablesToCompact);
+                final File dst = serialize(genToSave, freshElements, SSTABLE_COMPACTED_FILE_POSTFIS);
 
-        final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size());
-        final Iterator<Cell> freshElements = freshCellIterator(EMPTY_BUFFER, iters, snapshot);
-        final File dst = serialize(snapshot.generation, freshElements);
-
-        try (Stream<Path> files = Files.list(storage.toPath())) {
-            files.filter(f -> {
-                final String name = f.getFileName().toFile().toString();
-                final int gen = Integer.parseInt(name.substring(0, name.indexOf('.')));
-                final boolean correctPostfix = name.endsWith(SSTABLE_FILE_POSTFIX);
-                final boolean isNotFlushing = snapshot.ssTables.containsKey(gen);
-                return gen < snapshot.generation && correctPostfix && isNotFlushing;
-            }).forEach(f -> {
-                try {
-                    Files.delete(f);
-                } catch (IOException e) {
-                    logger.warn("Unable to delete file: " + f.getFileName().toFile().toString(), e);
+                try (Stream<Path> files = Files.list(storage.toPath())) {
+                    files.filter(f -> {
+                        final String name = f.getFileName().toFile().toString();
+                        final int gen = Integer.parseInt(name.substring(0, name.indexOf('.')));
+                        final boolean correctPostfix = name.endsWith(SSTABLE_FILE_POSTFIX);
+                        final boolean isCurrentCompact = ssTablesToCompact.containsKey(gen);
+                        return gen < snapshot.generation && correctPostfix && isCurrentCompact;
+                    }).forEach(f -> {
+                        try {
+                            Files.delete(f);
+                        } catch (IOException e) {
+                            logger.warn("Unable to delete file: " + f.getFileName().toFile().toString(), e);
+                        }
+                    });
                 }
-            });
-        }
 
-        logger.debug("Compacted byte(s) to {}", snapshot.generation);
+                logger.debug("Compacted byte(s) to {}", snapshot.generation);
+                writeLock.lock();
+                try {
+                    tableSet = tableSet.finishCompact(ssTablesToCompact, dst, genToSave, storage);
+                    if (allowedCompactions.get() < 2) {
+                        allowedCompactions.incrementAndGet();
+                    }
+                    compactedFilePointer.incrementAndGet();
+                } finally {
+                    writeLock.unlock();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+    }
 
-        writeLock.lock();
-        try {
-            tableSet = tableSet.finishCompact(snapshot.ssTables, dst, snapshot.generation);
-        } finally {
-            writeLock.unlock();
+    private NavigableMap<Integer, Table> startCompact(int startPosition, int amount) {
+        final NavigableMap<Integer, Table> newSSTablesToCompact = new TreeMap<>(tableSet.ssTablesToCompact);
+        final NavigableMap<Integer, Table> toCompact = new TreeMap<>();
+        final NavigableMap<Integer, Table> newSSTable = new TreeMap<>();
+        for (Map.Entry<Integer, Table> next : tableSet.ssTables.entrySet()) {
+            if (startPosition == 0 && amount != 0) {
+                amount--;
+                toCompact.put(next.getKey(), next.getValue());
+            } else {
+                if (startPosition != 0) {
+                    startPosition--;
+                }
+                newSSTable.put(next.getKey(), next.getValue());
+            }
         }
+        newSSTablesToCompact.putAll(toCompact);
+        tableSet = tableSet.startCompact(newSSTablesToCompact, newSSTable);
+        return toCompact;
+    }
+
+    private NavigableMap<Integer, Table> startCompact() {
+        final NavigableMap<Integer, Table> newSSTablesToCompact = new TreeMap<>(tableSet.ssTablesToCompact);
+        final NavigableMap<Integer, Table> toCompact = tableSet.ssTables;
+        newSSTablesToCompact.putAll(toCompact);
+        tableSet = tableSet.startCompact(newSSTablesToCompact, new TreeMap<>());
+        return toCompact;
     }
 
     private void flush() {
@@ -201,41 +238,35 @@ public class LsmDAOImpl implements LsmDAO {
         } finally {
             writeLock.unlock();
         }
-
         service.execute(() -> {
             try {
-
                 logger.debug("Flushing {} bytes(s) to {}", snapshot.memTable.getAmountOfBytes(), snapshot.generation);
-
-                final File dst = serialize(snapshot.generation, snapshot.memTable.iterator(EMPTY_BUFFER));
+                final File dst = serialize(snapshot.generation,
+                        snapshot.memTable.iterator(EMPTY_BUFFER),
+                        SSTABLE_FILE_POSTFIX);
                 writeLock.lock();
                 try {
                     tableSet = tableSet.finishFlushingOnDisk(snapshot.memTable, dst, snapshot.generation);
                 } finally {
                     writeLock.unlock();
                 }
-
                 logger.debug("Flushed {} bytes(s) to {}", snapshot.memTable.getAmountOfBytes(), snapshot.generation);
-
             } catch (IOException e) {
                 logger.error("Cannot flush memory table on disk", e);
                 Runtime.getRuntime().halt(-1);
             }
         });
-    }
-
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
-                                             @NotNull final List<Iterator<Cell>> iters,
-                                             final TableSet snapshot) {
-        snapshot.ssTables.descendingMap().values().forEach(ssTable -> {
-            try {
-                iters.add(ssTable.iterator(from));
-            } catch (IOException e) {
-                logger.error("Something went wrong when the SSTable iterator was added to list iter!", e);
-            }
-        });
-
-        return iters;
+        final int ssTablesSize;
+        writeLock.lock();
+        try {
+            ssTablesSize = tableSet.ssTables.size() - compactedFilePointer.get();
+        } finally {
+            writeLock.unlock();
+        }
+        if (ssTablesSize >= FILES_TO_COMPACT && allowedCompactions.get() > 0) {
+            allowedCompactions.decrementAndGet();
+            compactWithCondition(true);
+        }
     }
 
     @Override
@@ -265,10 +296,15 @@ public class LsmDAOImpl implements LsmDAO {
         }
     }
 
+    @Override
+    public TransactionalDAO beginTransaction() {
+        return new TransactionalDAOImpl(this);
+    }
+
     private Iterator<Cell> freshCellIterator(@NotNull final ByteBuffer from,
                                              @NotNull final List<Iterator<Cell>> itersList,
-                                             final TableSet snapshot) {
-        final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList, snapshot);
+                                             final NavigableMap<Integer, Table> ssTables) {
+        final List<Iterator<Cell>> iters = getAllCellItersList(from, itersList, ssTables);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
                 iters,
@@ -278,19 +314,49 @@ public class LsmDAOImpl implements LsmDAO {
         return Iters.collapseEquals(mergedElements, Cell::getKey);
     }
 
-    private File serialize(final int generation, final Iterator<Cell> iterator) throws IOException {
+    private File serialize(final int generation, final Iterator<Cell> iterator, final String postfix) throws IOException {
         final File file = new File(storage, generation + SSTABLE_TEMPORARY_FILE_POSTFIX);
         SSTable.serialize(file, iterator);
-        final String newFileName = generation + SSTABLE_FILE_POSTFIX;
+        final String newFileName = generation + postfix;
         final File dst = new File(storage, newFileName);
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         return dst;
     }
 
-    @Override
-    public TransactionalDAO beginTransaction() {
-        return new TransactionalDAOImpl(this);
+    static List<Iterator<Cell>> uniteIters(final TableSet snapshot, final ByteBuffer from) {
+        final List<Iterator<Cell>> iters = new ArrayList<>();
+        iters.add(snapshot.memTable.iterator(from));
+        snapshot.memToFlush.forEach(mem -> iters.add(mem.iterator(from)));
+
+        return iters;
     }
 
+    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
+                                             @NotNull final List<Iterator<Cell>> iters,
+                                             final NavigableMap<Integer, Table> ssTables) {
+        ssTables.descendingMap().values().forEach(ssTable -> {
+            try {
+                iters.add(ssTable.iterator(from));
+            } catch (IOException e) {
+                logger.error("Something went wrong when the SSTable iterator was added to list iter!", e);
+            }
+        });
+
+        return iters;
+    }
+
+    private void execute(final Runnable task) {
+        final boolean isReadyToFlush;
+        readLock.lock();
+        try {
+            task.run();
+            isReadyToFlush = tableSet.memTable.getAmountOfBytes() > amountOfBytesToFlush;
+        } finally {
+            readLock.unlock();
+        }
+        if (isReadyToFlush) {
+            flush();
+        }
+    }
 }
