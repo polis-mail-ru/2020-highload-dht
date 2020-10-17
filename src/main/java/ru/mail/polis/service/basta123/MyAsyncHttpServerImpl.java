@@ -78,6 +78,20 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
+     * Send response.
+     *
+     * @param httpSession - httpSession.
+     * @param resultCode  - send resultCode to the user.
+     */
+    private void sendResponse(final HttpSession httpSession, final String resultCode) {
+        try {
+            httpSession.sendResponse(new Response(resultCode));
+        } catch (IOException ioException) {
+            log.error(cantSendResponse, ioException);
+        }
+    }
+
+    /**
      * Get value by key.
      *
      * @param id - key.
@@ -88,11 +102,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                               final HttpSession httpSession) {
         execService.execute(() -> {
                     if (id == null || id.isBlank()) {
-                        try {
-                            httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        } catch (IOException ioException) {
-                            log.error(cantSendResponse, ioException);
-                        }
+                        sendResponse(httpSession, Response.BAD_REQUEST);
                         return;
                     }
                     final byte[] keyBytes = id.getBytes(UTF_8);
@@ -105,18 +115,10 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                         httpSession.sendResponse(new Response(Response.OK, valueBytes));
                     } catch (IOException e) {
                         log.error("get error: ", e);
-                        try {
-                            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR));
-                        } catch (IOException ioException) {
-                            log.error(cantSendResponse, ioException);
-                        }
+                        sendResponse(httpSession, Response.INTERNAL_ERROR);
                         throw new RuntimeException("Error getting value :", e);
                     } catch (NoSuchElementException e) {
-                        try {
-                            httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                        } catch (IOException ioException) {
-                            log.error(cantSendResponse, ioException);
-                        }
+                        sendResponse(httpSession, Response.NOT_FOUND);
                     }
                 }
         );
