@@ -31,7 +31,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(MyAsyncHttpServerImpl.class);
     private final DAO dao;
-    private ExecutorService execService;
+    private final ExecutorService execService;
     String cantSendResponse = "can't send response";
 
     /**
@@ -84,7 +84,8 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void getValueByKey(final @Param("id") String id, final HttpSession httpSession) {
+    public void getValueByKey(final @Param("id") String id,
+                              final HttpSession httpSession) {
         execService.execute(() -> {
                     if (id == null || id.isBlank()) {
                         try {
