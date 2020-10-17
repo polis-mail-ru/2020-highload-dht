@@ -20,7 +20,6 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -30,10 +29,11 @@ import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
 
-    private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final String RESPONSE_ERROR_STRING = "Sending response error";
+
     private final DAO dao;
     private final ExecutorService executorService;
-    private static final String RESPONSE_ERROR_STRING = "Sending response error";
 
     /**
      * Implementation of a persistent storage with HTTP API.
@@ -155,11 +155,11 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         result = this.dao.get(key);
                     } catch (final NoSuchElementException e) {
-                        log.debug(String.format("Get entity method: key = '%s' not found", id));
+                        log.debug("Get entity method: key = '{}' not found", id, e);
                         sendAnswerOrError(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
                         return;
                     } catch (final IOException e) {
-                        log.error(String.format("Get entity method: key = '%s' error", id), e);
+                        log.error("Get entity method: key = '{}' error", id, e);
                         sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                         return;
                     }
@@ -201,13 +201,11 @@ public class ServiceImpl extends HttpServer implements Service {
 
                     try {
                         this.dao.upsert(key, value);
-                    } catch (IOException e) {
+                    } catch (final IOException e) {
                         log.error(
-                                String.format(
-                                        "Put entity method: key = '%s', value = '%s' error",
-                                        id,
-                                        Arrays.toString(body)
-                                ),
+                                "Put entity method: key = '{}', value = '{}' error",
+                                id,
+                                body.length,
                                 e
                         );
                         sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -245,8 +243,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
                     try {
                         this.dao.remove(key);
-                    } catch (IOException e) {
-                        log.error(String.format("Delete entity method: key = '%s' error", id), e);
+                    } catch (final IOException e) {
+                        log.error("Delete entity method: key = '{}' error", id, e);
                         sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                         return;
                     }
@@ -261,7 +259,7 @@ public class ServiceImpl extends HttpServer implements Service {
         executorService.shutdown();
         try {
             executorService.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
+        } catch (final InterruptedException e) {
             log.error("Waiting for a stop is interrupted");
             Thread.currentThread().interrupt();
         }

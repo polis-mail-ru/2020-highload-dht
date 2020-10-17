@@ -16,7 +16,7 @@ import java.util.function.BiConsumer;
 public class Flusher extends Thread {
 
     private static final int FLUSHER_QUEUE_SIZE = 10;
-    private final Logger log = LoggerFactory.getLogger(Flusher.class);
+    private static final Logger log = LoggerFactory.getLogger(Flusher.class);
 
     final BlockingQueue<NumberedTable> tablesQueue;
 

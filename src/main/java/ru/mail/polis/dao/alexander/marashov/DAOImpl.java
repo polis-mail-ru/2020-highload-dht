@@ -38,7 +38,7 @@ public class DAOImpl implements DAO {
     static final String TEMP = ".tmp";
     static final String UNDERSCORE = "_";
 
-    private final Logger log = LoggerFactory.getLogger(DAOImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     private final ReadWriteLock lock = new ReentrantReadWriteLock(false);
 
     @GuardedBy("lock")
