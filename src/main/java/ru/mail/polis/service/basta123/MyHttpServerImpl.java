@@ -84,7 +84,7 @@ public class MyHttpServerImpl extends HttpServer implements Service {
     /**
      * put value in the DB.
      *
-     * @param id - key
+     * @param id      - key
      * @param request with value
      * @return sends status
      * @throws IOException - possible IO exception.

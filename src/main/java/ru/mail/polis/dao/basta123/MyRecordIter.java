@@ -13,9 +13,8 @@ public class MyRecordIter implements Iterator<Record> {
 
     private final RocksIterator rocksIterator;
 
-    public MyRecordIter(final ByteBuffer key, final RocksIterator rocksIterator) {
+    public MyRecordIter(final RocksIterator rocksIterator) {
         this.rocksIterator = rocksIterator;
-        this.rocksIterator.seek(getByteArrayFromByteBuffer(key));
     }
 
     @Override

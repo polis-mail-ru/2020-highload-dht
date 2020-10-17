@@ -374,8 +374,8 @@
 <text x="13.0" y="62.0">ru/mail/polis/dao/basta123/MyDAORocksDB.get</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (6,066 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#50bebe" rx="2" ry="2"/>
-<text x="13.0" y="46.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
+<title>ru.mail.polis.dao.basta123.DAORocksDB (6,066 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="13.0" y="46.0">ru.mail.polis.dao.basta123.DAORocksDB</text>
 </g>
 </g>
 </svg>

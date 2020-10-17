@@ -5,15 +5,15 @@ import org.rocksdb.Comparator;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Slice;
 
-public class MyComparator extends Comparator {
+public class SingedBytesComparator extends Comparator {
 
-    public MyComparator(final ComparatorOptions compOptions) {
+    public SingedBytesComparator(final ComparatorOptions compOptions) {
         super(compOptions);
     }
 
     @Override
     public String name() {
-        return "something";
+        return "SingedBytesComparator";
     }
 
     @Override
