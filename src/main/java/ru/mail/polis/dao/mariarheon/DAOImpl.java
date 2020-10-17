@@ -40,14 +40,14 @@ public class DAOImpl implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final var iter = db.newIterator();
-        iter.seek(ByteBufferUtils.toArraySpecial(from));
+        iter.seek(ByteBufferUtils.toArrayUnsigned(from));
         return new RocksIteratorAdapter(iter);
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws DAOException {
         try {
-            db.put(ByteBufferUtils.toArraySpecial(key), ByteBufferUtils.toArray(value));
+            db.put(ByteBufferUtils.toArrayUnsigned(key), ByteBufferUtils.toArray(value));
         } catch (RocksDBException ex) {
             throw new DAOException("Error: can't upsert record", ex);
         }
@@ -56,7 +56,7 @@ public class DAOImpl implements DAO {
     @Override
     public void remove(@NotNull final ByteBuffer key) throws DAOException {
         try {
-            db.delete(ByteBufferUtils.toArraySpecial(key));
+            db.delete(ByteBufferUtils.toArrayUnsigned(key));
         } catch (RocksDBException ex) {
             throw new DAOException("Error: can't remove record", ex);
         }
@@ -66,7 +66,7 @@ public class DAOImpl implements DAO {
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws DAOException, NoSuchElementException {
         try {
-            final var record = db.get(ByteBufferUtils.toArraySpecial(key));
+            final var record = db.get(ByteBufferUtils.toArrayUnsigned(key));
             if (record == null) {
                 throw new NoSuchElementException("Error finding record with key" + key.toString());
             }
