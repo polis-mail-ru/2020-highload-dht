@@ -211,10 +211,7 @@ public class AsyncService extends HttpServer implements Service {
     private void getAsync(@NotNull final ByteBuffer key,
                           @NotNull final HttpSession session) throws IOException {
 
-        ByteBuffer buf = null;
-
-        buf = dao.get(key);
-
+        ByteBuffer buf = dao.get(key);
         session.sendResponse(Response.ok(DAOByteOnlyConverter.readByteArray(buf)));
     }
 
