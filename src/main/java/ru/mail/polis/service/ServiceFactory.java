@@ -65,6 +65,6 @@ public final class ServiceFactory {
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
 
-        return new ServiceImpl(new CustomServer(dao, httpServerConfig));
+        return new ServiceImpl(new CustomServer(dao, httpServerConfig, topology));
     }
 }

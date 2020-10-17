@@ -1,6 +1,8 @@
 package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.net.HttpHeaders;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,6 +11,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +22,15 @@ import ru.mail.polis.service.Mapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -28,15 +38,32 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class CustomServer extends HttpServer {
 
-     private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
+    private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
+    private final Map<Integer, String> nodeMapping;
+    private final int nodeCount;
     private final DAO dao;
     private final ExecutorService executorService =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public CustomServer(final DAO dao,
-                             final HttpServerConfig config) throws IOException {
+                        final HttpServerConfig config, Set<String> topology) throws IOException {
         super(config);
+        this.nodeCount = topology.size();
+        ArrayList<String> urls = new ArrayList<>(topology);
+        urls.sort(String::compareTo);
+
+        Map<Integer, String> nodeMapping = new HashMap<>();
+
+        for (int i = 0; i < urls.size(); i++) {
+            nodeMapping.put(i, urls.get(i));
+        }
+
+        this.nodeMapping = nodeMapping.entrySet().stream()
+                .filter(integerStringEntry -> !integerStringEntry.getValue()
+                        .contains(String.valueOf(super.port))).collect(Collectors.
+                toMap(Map.Entry::getKey, Map.Entry::getValue));
+
         this.dao = dao;
     }
 
