@@ -99,7 +99,6 @@ public class LsmDAOImpl implements LsmDAO {
         readLock.lock();
         try {
             snapshot = this.tableSet;
-            this.tableSet = this.tableSet.startIterating();
         } finally {
             readLock.unlock();
         }

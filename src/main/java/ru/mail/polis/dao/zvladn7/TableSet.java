@@ -55,8 +55,7 @@ final class TableSet {
     }
 
     TableSet startCompact() {
-        final NavigableMap<Integer, Table> newSSTables = new TreeMap<>(this.ssTables);
-        return new TableSet(memTable, memToFlush, newSSTables, generation + 1);
+        return new TableSet(memTable, memToFlush, ssTables, generation + 1);
     }
 
     TableSet finishCompact(final NavigableMap<Integer, Table> compactedSSTables,
@@ -76,11 +75,5 @@ final class TableSet {
         }
 
         return new TableSet(memTable, memToFlush, newSSTables, this.generation);
-    }
-
-    TableSet startIterating() {
-        final Set<MemoryTable> newMemsToFlush = new HashSet<>(this.memToFlush);
-        final NavigableMap<Integer, Table> newSSTables = new TreeMap<>(this.ssTables);
-        return new TableSet(memTable, newMemsToFlush, newSSTables, this.generation);
     }
 }
