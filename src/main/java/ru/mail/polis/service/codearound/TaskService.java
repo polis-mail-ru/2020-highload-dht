@@ -27,6 +27,7 @@ public class TaskService extends HttpServer implements Service {
      * @param port request listening port
      * @param dao DAO instance
      */
+
     public TaskService(final int port, @NotNull final DAO dao) throws IOException {
         super(TaskServerConfig.getConfig(port));
         this.dao = dao;
@@ -97,8 +98,8 @@ public class TaskService extends HttpServer implements Service {
     private Response upsert(final ByteBuffer key, final Request req) {
         try {
             dao.upsert(key, ByteBuffer.wrap(req.getBody()));
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Insertion / update operation failed", e);
+        } catch (IOException exc) {
+            LOGGER.log(Level.SEVERE, "Insertion / update operation failed", exc);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }

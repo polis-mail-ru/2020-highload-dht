@@ -40,6 +40,7 @@ public final class DAOFactory {
      * @param data local disk folder to persist the data to
      * @return a storage instance
      */
+
     @NotNull
     public static DAO create(@NotNull final File data) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
