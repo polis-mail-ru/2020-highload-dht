@@ -90,15 +90,13 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                     if (id == null || id.isBlank()) {
                         try {
                             httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                            return;
                         } catch (IOException ioException) {
-                           // log.error(cantSendResponse, ioException);
-                            return;
+                            log.error(cantSendResponse, ioException);
                         }
+                        return;
                     }
                     final byte[] keyBytes = id.getBytes(UTF_8);
                     final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
                     ByteBuffer valueByteBuffer;
                     final byte[] valueBytes;
                     try {
@@ -106,13 +104,13 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                         valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
                         httpSession.sendResponse(new Response(Response.OK, valueBytes));
                     } catch (IOException e) {
+                        log.error("get error: ", e);
                         try {
                             httpSession.sendResponse(new Response(Response.INTERNAL_ERROR));
                         } catch (IOException ioException) {
                             log.error(cantSendResponse, ioException);
                         }
                         throw new RuntimeException("Error getting value :", e);
-
                     } catch (NoSuchElementException e) {
                         try {
                             httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
