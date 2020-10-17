@@ -85,7 +85,7 @@ public class CustomServer extends HttpServer {
     }
 
     @Override
-    public void handleRequest(Request request, HttpSession session) throws IOException {
+    public void handleRequest(final Request request, final HttpSession session) throws IOException {
         int node = 0;
         if (hasParam("id", request)) {
             int[] id = request.getParameter("id").chars().toArray();
@@ -100,11 +100,11 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private boolean hasParam(String name, Request request) {
+    private boolean hasParam(final String name, final Request request) {
         return request.getParameter(name) != null;
     }
 
-    private void routeRequest(Request request, HttpSession session, int node) throws IOException {
+    private void routeRequest(final Request request, final HttpSession session, final int node) throws IOException {
 
         ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         HttpClient httpClient = new HttpClient(connectionString);
