@@ -24,7 +24,7 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * serves to evaluation of an element (record) at next step of file reading by iterator.
+     * performs evaluation of an element (record) at next step of file reading by iterator.
      */
     @Override
     public Record next() {

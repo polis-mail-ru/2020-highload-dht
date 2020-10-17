@@ -20,43 +20,43 @@ import java.util.logging.Logger;
 
 public class TaskDAO implements DAO {
 
-        static {
-            RocksDB.loadLibrary();
+    static {
+        RocksDB.loadLibrary();
+    }
+
+    File dbLocalDir;
+    private RocksDB db;
+    private static final Logger LOGGER = Logger.getLogger(TaskDAO.class.getName());
+
+    public TaskDAO(final RocksDB db) {
+        this.db = db;
+    }
+
+    /**
+     * class instance const.
+     * @param data - file to store key-value records
+     */
+    public TaskDAO(@NotNull final File data) throws IOException {
+        final Options opts = new Options();
+        opts.setCreateIfMissing(true); // create db instance if one does not exist
+        opts.setParanoidChecks(false); // drops strict data quality control while searching for corrupt items
+        opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
+        opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
+        opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+
+        opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
+        opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
+                .setCompressionType(CompressionType.LZ4_COMPRESSION); // replaces compression algorithm by default
+
+        dbLocalDir = data;
+        try {
+            Files.createDirectories(dbLocalDir.getParentFile().toPath());
+            Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
+            db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
+        } catch (IOException | RocksDBException exc) {
+            LOGGER.log(Level.SEVERE, "Storage initialization failed", exc);
         }
-
-        File dbLocalDir;
-        private RocksDB db;
-        Logger logger = Logger.getLogger(TaskDAO.class.getName());
-
-        public TaskDAO(final RocksDB db) {
-            this.db = db;
-        }
-
-        /**
-        * class instance const.
-        * @param data - file to store key-value records
-        */
-        public TaskDAO(@NotNull final File data) throws IOException {
-            final Options opts = new Options();
-            opts.setCreateIfMissing(true); // create db instance if one does not exist
-            opts.setParanoidChecks(false); // drops strict data quality control while searching for corrupt items
-            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
-            opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
-            opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
-
-            opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
-            opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
-                    .setCompressionType(CompressionType.LZ4_COMPRESSION); // replaces compression algorithm by default
-
-            dbLocalDir = data;
-            try {
-                Files.createDirectories(dbLocalDir.getParentFile().toPath());
-                Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
-                db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
-            } catch (IOException | RocksDBException exc) {
-                logger.log(Level.SEVERE, "Storage initialization failed", exc);
-            }
-        }
+    }
 
     @NotNull
     @Override
@@ -124,6 +124,9 @@ public class TaskDAO implements DAO {
         db.close();
     }
 
+    /**
+     * implements storage compaction.
+     */
     @Override
     public void compact() throws IOException {
         try {

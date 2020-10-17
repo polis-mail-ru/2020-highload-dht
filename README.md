@@ -230,7 +230,6 @@ Running 7m test @ http://127.0.0.1:8080
 
   Detailed Percentile spectrum:
        Value   Percentile   TotalCount 1/(1-Percentile)
-
        0.096     0.000000            1         1.00
        0.977     0.100000       615919         1.11
        1.310     0.200000      1230927         1.25
@@ -403,7 +402,6 @@ Running 7m test @ http://127.0.0.1:8080
 
   Detailed Percentile spectrum:
        Value   Percentile   TotalCount 1/(1-Percentile)
-
        0.067     0.000000            1         1.00
        0.536     0.100000       615152         1.11
        0.759     0.200000      1230269         1.25
