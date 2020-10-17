@@ -44,7 +44,6 @@ public final class ServiceFactory {
      * @param topology a list of all cluster endpoints {@code http://<host>:<port>} (including this one)
      * @return a storage instance
      */
-    /*
     @NotNull
     public static Service create(
             final int port,
@@ -61,5 +60,4 @@ public final class ServiceFactory {
         return new AsyncService(port, dao,
                 Runtime.getRuntime().availableProcessors(), 1024);
     }
-    */
 }
