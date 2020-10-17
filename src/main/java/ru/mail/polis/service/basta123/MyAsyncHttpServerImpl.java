@@ -85,7 +85,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
      */
     private void sendResponse(final HttpSession httpSession, final String resultCode) {
         try {
-            httpSession.sendResponse(new Response(resultCode));
+            httpSession.sendResponse(new Response(resultCode, Response.EMPTY));
         } catch (IOException ioException) {
             log.error(cantSendResponse, ioException);
         }
