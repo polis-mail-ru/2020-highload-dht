@@ -118,3 +118,65 @@
       342024 requests in 2.87m, 24.02MB read
     Requests/sec:   1988.42
     Transfer/sec:    143.01KB
+    
+###TASK_3
+
+##PUT
+
+    wrk -t4 -c16 -d40s -R10000 --latency -s wrk2/putScript.lua http://127.0.0.1:8080
+    
+    Running 40s test @ http://127.0.0.1:8080
+      4 threads and 16 connections
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Latency   701.20us  398.11us  11.06ms   69.61%
+        Req/Sec     2.58k   146.61     4.55k    77.68%
+      Latency Distribution (HdrHistogram - Recorded Latency)
+     50.000%  684.00us
+     75.000%    0.98ms
+     90.000%    1.15ms
+     99.000%    1.34ms
+     99.900%    4.43ms
+     99.990%    8.06ms
+     99.999%   10.06ms
+    100.000%   11.07ms
+    #[Mean    =        0.701, StdDeviation   =        0.398]
+    #[Max     =       11.064, Total count    =       299791]
+    #[Buckets =           27, SubBuckets     =         2048]
+    ----------------------------------------------------------
+      399919 requests in 40.00s, 25.55MB read
+    Requests/sec:   9998.20
+    Transfer/sec:    654.18KB
+
+![Alt text](./async-profiler/cpu/putCPUv3.svg)
+
+![Alt text](./async-profiler/alloc/putAllocV3.svg)
+
+###GET
+
+    wrk -t4 -c16 -d40s -R10000 --latency -s wrk2/getScript.lua http://127.0.0.1:8080
+    
+    Running 40s test @ http://127.0.0.1:8080
+      4 threads and 16 connections
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Latency    12.12s     4.54s   19.86s    57.85%
+        Req/Sec     1.18k    19.89     1.21k    50.00%
+      Latency Distribution (HdrHistogram - Recorded Latency)
+     50.000%   12.22s 
+     75.000%   16.06s 
+     90.000%   18.35s 
+     99.000%   19.69s 
+     99.900%   19.84s 
+     99.990%   19.86s 
+     99.999%   19.87s 
+    100.000%   19.87s 
+    #[Mean    =    12121.006, StdDeviation   =     4537.780]
+    #[Max     =    19857.408, Total count    =       142173]
+    #[Buckets =           27, SubBuckets     =         2048]
+    ----------------------------------------------------------
+      201494 requests in 40.00s, 13.95MB read
+    Requests/sec:   5037.42
+    Transfer/sec:    357.05KB
+
+![Alt text](./async-profiler/cpu/getCPUv3.svg)
+
+![Alt text](./async-profiler/alloc/getAllocV3.svg)

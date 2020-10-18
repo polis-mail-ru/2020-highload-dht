@@ -19,6 +19,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
@@ -186,7 +188,7 @@ public class DAOImpl implements DAO {
         }
     }
 
-    private void flush() throws IOException {
+    private void flush() {
         final TableSet snapshot;
         final File file;
         lock.writeLock().lock();
@@ -200,11 +202,12 @@ public class DAOImpl implements DAO {
             SSTable.serialize(
                     file,
                     snapshot.mem.iterator(ByteBuffer.allocate(0)));
+            atomicMoveTempToSuffix(file, snapshot);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         } finally {
             lock.writeLock().unlock();
         }
-
-        atomicMoveTempToSuffix(file, snapshot);
     }
 
     private void atomicMoveTempToSuffix(final File file, final TableSet snapshot) throws IOException {

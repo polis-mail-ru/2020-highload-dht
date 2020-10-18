@@ -16,12 +16,14 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
+import javax.mail.Session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -57,7 +59,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
                         .setNameFormat("worker_%d")
                         .build(),
-                new ThreadPoolExecutor.AbortPolicy()
+                new ThreadPoolExecutor.DiscardOldestPolicy()
         );
     }
 
@@ -81,13 +83,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public void status(final HttpSession session) {
         log.debug("Request status.");
 
-        executorService.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException e) {
-                log.error("FATAL ERROR STATUS. Can't send response.");
-            }
-        });
+        sendResponse(session, Response.ok("OK"));
     }
 
     /**
@@ -103,30 +99,29 @@ public class ServiceImpl extends HttpServer implements Service {
             final HttpSession session) {
         log.debug("GET request: id = {}", id);
 
-        executorService.execute(() -> {
-            try {
+        try {
+            executorService.execute(() -> {
                 if (id.isEmpty()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 }
-                final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
-                final byte[] response = new byte[value.remaining()];
-                value.get(response);
-                session.sendResponse(Response.ok(response));
-            } catch (NoSuchElementException e) {
                 try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("FATAL ERROR GET. Can't send response.");
+                    final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
+                    final byte[] response = new byte[value.remaining()];
+                    value.get(response);
+                    sendResponse(session, Response.ok(response));
+                } catch (NoSuchElementException e) {
+                    sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Internal error with id = {}", id, e);
+                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 }
-            } catch (IOException e) {
-                log.error("Internal error with id = {}", id, e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("FATAL ERROR GET. Can't send response.");
-                }
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Executor has been shut down or" +
+                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+        }
     }
 
     /**
@@ -143,25 +138,27 @@ public class ServiceImpl extends HttpServer implements Service {
             final Request request,
             final HttpSession session) {
         log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-
-        executorService.execute(() -> {
-            try {
+        try {
+            executorService.execute(() -> {
                 if (id.isEmpty()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 }
-                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                dao.upsert(key, value);
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("FATAL ERROR PUT. Can't send response.");
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                    dao.upsert(key, value);
+                    sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
+                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 }
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Executor has been shut down or" +
+                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+        }
     }
 
     /**
@@ -174,35 +171,32 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteEntity(@Param(value = "id", required = true) final String id, final HttpSession session) {
         log.debug("DELETE request: id = {}", id);
-
-        executorService.execute(() -> {
-            try {
+        try {
+            executorService.execute(() -> {
                 if (id.isEmpty()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 }
-                dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Internal error with id = {}", id, e);
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("FATAL ERROR PUT. Can't send response.");
+                    dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+                    sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Internal error with id = {}", id, e);
+                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 }
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Executor has been shut down or" +
+                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+        }
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) {
         log.debug("Can't understand request: {}", request);
-        executorService.execute(() -> {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("FATAL ERROR. Can't send response.");
-            }
-        });
+
+        sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
@@ -212,8 +206,16 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             executorService.awaitTermination(15, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            log.error("ERROR. Cant shutdown executor.");
+            log.error("ERROR. Cant shutdown executor.", e);
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private void sendResponse(@NotNull final HttpSession session, @NotNull final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            log.error("Can't send response", e);
         }
     }
 }
