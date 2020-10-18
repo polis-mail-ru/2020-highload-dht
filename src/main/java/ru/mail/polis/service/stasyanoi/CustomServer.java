@@ -114,8 +114,7 @@ public class CustomServer extends HttpServer {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int hash = Math.abs(Arrays.hashCode(idArray));
-            final int node = hash % nodeCount;
+            final int node = getNode(idArray);
             //get id as aligned byte buffer
             final ByteBuffer id = Mapper.fromBytes(idArray);
             //get the response from db
@@ -190,13 +189,17 @@ public class CustomServer extends HttpServer {
     }
 
     private Response putIntermediate(String idParam, Request request) throws IOException {
-        final Response response;
+        final Response responseHttp;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int hash = Math.abs(Arrays.hashCode(idArray));
-        final int node = hash % nodeCount;
+        final int node = getNode(idArray);
+        responseHttp = putProxy(request, idArray, node);
+        return responseHttp;
+    }
 
-        response = putProxy(request, idArray, node);
-        return response;
+    private int getNode(byte[] idArray) {
+        final int hash = Math.abs(Arrays.hashCode(idArray));
+
+        return hash % nodeCount;
     }
 
     private boolean isValid(final String idParam) {
@@ -254,8 +257,7 @@ public class CustomServer extends HttpServer {
     private Response deleteIntermediate(String idParam, Request request) throws IOException {
         final Response responseHttp;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int hash = Math.abs(Arrays.hashCode(idArray));
-        final int node = hash % nodeCount;
+        final int node = getNode(idArray);
         responseHttp = deleteProxy(request, idArray, node);
         return responseHttp;
     }
