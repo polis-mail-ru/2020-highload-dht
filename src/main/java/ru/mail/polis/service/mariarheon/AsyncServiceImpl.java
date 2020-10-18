@@ -91,6 +91,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     case METHOD_DELETE:
                         delete(key, session);
                         break;
+                    default:
+                        break;
                 }
             });
         } catch (RejectedExecutionException ex) {
