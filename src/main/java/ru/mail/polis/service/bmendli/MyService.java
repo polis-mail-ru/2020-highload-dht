@@ -122,13 +122,7 @@ public class MyService extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) {
         try {
-            executorService.execute(() -> {
-                try {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                } catch (final IOException e) {
-                    log.error(SERVER_ERROR_MSG, session, e);
-                }
-            });
+            executorService.execute(() -> handleDefault(session));
         } catch (final RejectedExecutionException e) {
             log.error(EXECUTING_ERROR, e);
             try {
@@ -136,6 +130,14 @@ public class MyService extends HttpServer implements Service {
             } catch (final IOException ioException) {
                 log.error(SERVER_ERROR_MSG, session, e);
             }
+        }
+    }
+
+    private void handleDefault(@NotNull final HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (final IOException e) {
+            log.error(SERVER_ERROR_MSG, session, e);
         }
     }
 
@@ -165,7 +167,7 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
-    private void handleStatus(@NotNull HttpSession session) {
+    private void handleStatus(@NotNull final HttpSession session) {
         try {
             session.sendResponse(Response.ok(Response.EMPTY));
         } catch (final IOException e) {
