@@ -188,7 +188,7 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response putIntermediate(String idParam, Request request) throws IOException {
+    private Response putIntermediate(final String idParam, final Request request) throws IOException {
         final Response responseHttp;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int node = getNode(idArray);
@@ -196,14 +196,10 @@ public class CustomServer extends HttpServer {
         return responseHttp;
     }
 
-    private int getNode(byte[] idArray) {
+    private int getNode(final byte[] idArray) {
         final int hash = Math.abs(Arrays.hashCode(idArray));
 
         return hash % nodeCount;
-    }
-
-    private boolean isValid(final String idParam) {
-        return idParam == null || idParam.isEmpty();
     }
 
     private Response putProxy(final Request request,
@@ -254,7 +250,8 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response deleteIntermediate(String idParam, Request request) throws IOException {
+    private Response deleteIntermediate(final String idParam,
+                                        final Request request) throws IOException {
         final Response responseHttp;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int node = getNode(idArray);
