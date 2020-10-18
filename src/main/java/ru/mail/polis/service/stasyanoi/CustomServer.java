@@ -110,7 +110,7 @@ public class CustomServer extends HttpServer {
                              final Request request) throws IOException {
         final Response responseHttp;
         //check id param
-        if (isValid(idParam)) {
+        if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
@@ -180,7 +180,7 @@ public class CustomServer extends HttpServer {
                              final Request request,
                              final HttpSession session) throws IOException {
         final Response responseHttp;
-        if (isValid(idParam)) {
+        if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             responseHttp = putIntermediate(idParam, request);
@@ -246,7 +246,7 @@ public class CustomServer extends HttpServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
 
-        if (isValid(idParam)) {
+        if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             responseHttp = deleteIntermediate(idParam, request);
