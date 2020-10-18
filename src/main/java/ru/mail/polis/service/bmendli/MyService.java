@@ -93,12 +93,7 @@ public class MyService extends HttpServer implements Service {
         try {
             executorService.execute(() -> handleRequest(id, session, request));
         } catch (final RejectedExecutionException e) {
-            log.error(EXECUTING_ERROR, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (final IOException ioException) {
-                log.error(SERVER_ERROR_MSG, session, e);
-            }
+            handleExecutingError(session, e);
         }
     }
 
@@ -110,12 +105,7 @@ public class MyService extends HttpServer implements Service {
         try {
             executorService.execute(() -> handleStatus(session));
         } catch (final RejectedExecutionException e) {
-            log.error(EXECUTING_ERROR, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (final IOException ioException) {
-                log.error(SERVER_ERROR_MSG, session, e);
-            }
+            handleExecutingError(session, e);
         }
     }
 
@@ -124,12 +114,7 @@ public class MyService extends HttpServer implements Service {
         try {
             executorService.execute(() -> handleDefault(session));
         } catch (final RejectedExecutionException e) {
-            log.error(EXECUTING_ERROR, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (final IOException ioException) {
-                log.error(SERVER_ERROR_MSG, session, e);
-            }
+            handleExecutingError(session, e);
         }
     }
 
@@ -217,6 +202,15 @@ public class MyService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } else {
             session.sendResponse(proxy(node, request));
+        }
+    }
+
+    private void handleExecutingError(@NotNull HttpSession session, RejectedExecutionException e) {
+        log.error(EXECUTING_ERROR, e);
+        try {
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+        } catch (final IOException ioException) {
+            log.error(SERVER_ERROR_MSG, session, e);
         }
     }
 
