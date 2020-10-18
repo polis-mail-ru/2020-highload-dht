@@ -2,6 +2,8 @@ package ru.mail.polis.service.bmendli;
 
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,6 +12,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -20,8 +24,11 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -34,17 +41,34 @@ public class MyService extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
     @NotNull
+    private final Topology<String> topology;
+    @NotNull
     private final ExecutorService executorService;
+    @NotNull
+    private final Map<String, HttpClient> httpClients;
 
     /**
      * My implementation of {@link Service}.
      */
     public MyService(final int port,
                      @NotNull final DAO dao,
+                     @NotNull final Topology<String> topology,
                      final int threadCount,
                      final int queueCapacity) throws IOException {
         super(createConfigFromPort(port, threadCount));
         this.dao = dao;
+        this.topology = topology;
+        this.httpClients = new HashMap<>();
+        for (final String node : topology.all()) {
+            if (topology.isLocal(node)) {
+                continue;
+            }
+            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (httpClients.put(node, client) != null) {
+                throw new IllegalStateException("Duplicate node");
+            }
+        }
+
         this.executorService = new ThreadPoolExecutor(
                 threadCount,
                 queueCapacity,
@@ -65,33 +89,39 @@ public class MyService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@NotNull @Param(required = true, value = "id") final String id,
-                    @NotNull final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                if (id.isBlank()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                final byte[] bytes = id.getBytes(Charsets.UTF_8);
-                final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
-                final ByteBuffer byteBuffer = dao.get(wrappedBytes);
-                session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
-            } catch (NoSuchElementLightException e) {
-                log.error("Does not exist record by id = {}", id, e);
+                    @NotNull final HttpSession session,
+                    @NotNull final Request request) {
+        try {
+            executorService.execute(() -> {
+                if (checkIdIsBlank(id, session)) return;
+
                 try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error(SERVER_ERROR_MSG, session, e);
-                }
-            } catch (IOException ioe) {
-                log.error("Error when trying get record", ioe);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    final byte[] bytes = id.getBytes(Charsets.UTF_8);
+                    final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
+                    final String node = topology.primaryFor(wrappedBytes);
+                    if (topology.isLocal(node)) {
+                        try {
+                            final ByteBuffer byteBuffer = dao.get(wrappedBytes);
+                            session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
+                        } catch (NoSuchElementLightException e) {
+                            log.error("Does not exist record by id = {}", id, e);
+                            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                        }
+                    } else {
+                        session.sendResponse(proxy(node, request));
+                    }
                 } catch (IOException e) {
                     log.error(SERVER_ERROR_MSG, session, e);
                 }
+            });
+        } catch (final RejectedExecutionException e) {
+            log.error("Error executing the task by executor", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (final IOException ioException) {
+                log.error(SERVER_ERROR_MSG, session, e);
             }
-        });
+        }
     }
 
     /**
@@ -103,23 +133,33 @@ public class MyService extends HttpServer implements Service {
     public void put(@NotNull @Param(required = true, value = "id") final String id,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                if (id.isBlank()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        try {
+            executorService.execute(() -> {
+                if (checkIdIsBlank(id, session)) {
                     return;
                 }
-                dao.upsert(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-            } catch (IOException ioe) {
-                log.error("Error when trying put record", ioe);
+
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+                    final String node = topology.primaryFor(key);
+                    if (topology.isLocal(node)) {
+                        dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+                        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+                    } else {
+                        session.sendResponse(proxy(node, request));
+                    }
                 } catch (IOException e) {
                     log.error(SERVER_ERROR_MSG, session, e);
                 }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Error executing the task by executor", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error(SERVER_ERROR_MSG, session, e);
             }
-        });
+        }
     }
 
     /**
@@ -129,24 +169,35 @@ public class MyService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(@NotNull @Param(required = true, value = "id") final String id,
-                           @NotNull final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                if (id.isBlank()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) {
+        try {
+            executorService.execute(() -> {
+                if (checkIdIsBlank(id, session)) {
                     return;
                 }
-                dao.remove(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)));
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-            } catch (IOException ioe) {
-                log.error("Error when trying delete record", ioe);
+
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException e) {
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+                    final String node = topology.primaryFor(key);
+                    if (topology.isLocal(node)) {
+                        dao.remove(key);
+                        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+                    } else {
+                        session.sendResponse(proxy(node, request));
+                    }
+                } catch (final IOException e) {
                     log.error(SERVER_ERROR_MSG, session, e);
                 }
+            });
+        } catch (final RejectedExecutionException e) {
+            log.error("Error executing the task by executor", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (final IOException ioException) {
+                log.error(SERVER_ERROR_MSG, session, e);
             }
-        });
+        }
     }
 
     /**
@@ -154,24 +205,42 @@ public class MyService extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
-        executorService.execute(() -> {
+        try {
+            executorService.execute(() -> {
+                try {
+                    session.sendResponse(Response.ok(Response.EMPTY));
+                } catch (final IOException e) {
+                    log.error(SERVER_ERROR_MSG, session, e);
+                }
+            });
+        } catch (final RejectedExecutionException e) {
+            log.error("Error executing the task by executor", e);
             try {
-                session.sendResponse(Response.ok(Response.EMPTY));
-            } catch (IOException e) {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (final IOException ioException) {
                 log.error(SERVER_ERROR_MSG, session, e);
             }
-        });
+        }
     }
 
     @Override
-    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
-        executorService.execute(() -> {
+    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) {
+        try {
+            executorService.execute(() -> {
+                try {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (final IOException e) {
+                    log.error(SERVER_ERROR_MSG, session, e);
+                }
+            });
+        } catch (final RejectedExecutionException e) {
+            log.error("Error executing the task by executor", e);
             try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (final IOException ioException) {
                 log.error(SERVER_ERROR_MSG, session, e);
             }
-        });
+        }
     }
 
     @NotNull
@@ -198,5 +267,42 @@ public class MyService extends HttpServer implements Service {
         config.maxWorkers = threadCount;
         config.selectors = threadCount;
         return config;
+    }
+
+    private boolean checkIdIsBlank(@Param(required = true, value = "id") @NotNull String id, @NotNull HttpSession session) {
+        if (id.isBlank()) {
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                log.error("Fail send response", e);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private Response proxy(@NotNull final String node, @NotNull final Request request) throws IOException {
+        try {
+            return httpClients.get(node).invoke(request);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            log.error("Fail to proxy request", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(20, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("Fail shutdown executor.", e);
+            Thread.currentThread().interrupt();
+        }
+
+        for (final HttpClient client : httpClients.values()) {
+            client.clear();
+        }
     }
 }
