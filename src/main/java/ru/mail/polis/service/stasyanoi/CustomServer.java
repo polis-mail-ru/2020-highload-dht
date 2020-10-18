@@ -184,13 +184,20 @@ public class CustomServer extends HttpServer {
         if (isValid(idParam)) {
             response = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int hash = Math.abs(Arrays.hashCode(idArray));
-            final int node = hash % nodeCount;
-
-            response = putProxy(request, idArray, node);
+            response = put(idParam, request);
         }
         session.sendResponse(response);
+    }
+
+    private Response put(final String idParam, final Request request) throws IOException {
+        final Response responseHttp;
+
+        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+        final int hash = Math.abs(Arrays.hashCode(idArray));
+        final int node = hash % nodeCount;
+
+        responseHttp = putProxy(request, idArray, node);
+        return responseHttp;
     }
 
     private boolean isValid(final String idParam) {
