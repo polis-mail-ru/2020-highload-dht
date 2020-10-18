@@ -180,20 +180,20 @@ public class CustomServer extends HttpServer {
     private void putInternal(final String idParam,
                              final Request request,
                              final HttpSession session) throws IOException {
-        final Response responseHttp;
+        final Response response;
         if (isValid(idParam)) {
-            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
+            response = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int hash = Math.abs(Arrays.hashCode(idArray));
             final int node = hash % nodeCount;
 
-            responseHttp = putProxy(request, idArray, node);
+            response = putProxy(request, idArray, node);
         }
-        session.sendResponse(responseHttp);
+        session.sendResponse(response);
     }
 
-    private boolean isValid(String idParam) {
+    private boolean isValid(final String idParam) {
         return idParam == null || idParam.isEmpty();
     }
 
