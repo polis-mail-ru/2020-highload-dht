@@ -129,11 +129,11 @@ public class CustomServer extends HttpServer {
                               final int node,
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
-        if (!nodeMapping.containsKey(node)) {
+        if (nodeMapping.containsKey(node)) {
+            responseHttp = routeRequest(request, node);
+        } else {
             //replicate here
             responseHttp = getResponseIfIdNotNull(id);
-        } else {
-            responseHttp = routeRequest(request, node);
         }
         return responseHttp;
     }
@@ -201,14 +201,14 @@ public class CustomServer extends HttpServer {
                               final byte[] idArray,
                               final int node) throws IOException {
         final Response responseHttp;
-        if (!nodeMapping.containsKey(node)) {
+        if (nodeMapping.containsKey(node)) {
+            responseHttp = routeRequest(request, node);
+        } else {
             //replicate here
             final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = getResponseWithNoBody(Response.CREATED);
-        } else {
-            responseHttp = routeRequest(request, node);
         }
         return responseHttp;
     }
@@ -252,13 +252,13 @@ public class CustomServer extends HttpServer {
                                  final byte[] idArray,
                                  final int node) throws IOException {
         final Response responseHttp;
-        if (!nodeMapping.containsKey(node)) {
+        if (nodeMapping.containsKey(node)) {
+            responseHttp = routeRequest(request, node);
+        } else {
             //replicate here
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
             responseHttp = getResponseWithNoBody(Response.ACCEPTED);
-        } else {
-            responseHttp = routeRequest(request, node);
         }
         return responseHttp;
     }
