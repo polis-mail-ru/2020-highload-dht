@@ -58,27 +58,27 @@ public class DAORocksDB implements DAO {
             }
             return ByteBuffer.wrap(valueByte);
         } catch (RocksDBException e) {
-            throw new RuntimeException(e);
+            throw new IOException(e);
         }
     }
 
     @Override
-    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
+    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) throws IOException {
         try {
             final byte[] keyByte = getByteArrayFromByteBuffer(key);
             final byte[] valueByte = getByteArrayFromByteBuffer(value);
             rocksDBInstance.put(keyByte, valueByte);
         } catch (RocksDBException e) {
-            throw new RuntimeException("upsert ex: ", e);
+            throw new IOException("upsert ex: ", e);
         }
     }
 
     @Override
-    public void remove(final @NotNull ByteBuffer key) {
+    public void remove(final @NotNull ByteBuffer key) throws IOException {
         try {
             rocksDBInstance.delete(getByteArrayFromByteBuffer(key));
         } catch (RocksDBException e) {
-            throw new RuntimeException(e);
+            throw new IOException(e);
         }
     }
 
