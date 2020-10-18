@@ -94,7 +94,7 @@ public class CustomServer extends HttpServer {
         try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            throw new RuntimeException(e);
+            return getResponseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
 
