@@ -32,6 +32,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static one.nio.http.Request.METHOD_DELETE;
+import static one.nio.http.Request.METHOD_GET;
+import static one.nio.http.Request.METHOD_PUT;
+
 public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private static final String REJECTED_EXECUTION_EXCEPTION = "Executor has been shut down or"
@@ -111,18 +115,18 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Get data by key.
+     * Get/Delete/Put data by key.
      *
      * @param id      - key for storage
      * @param session - session
+     * @param request - request
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
+    @RequestMethod({METHOD_GET, METHOD_DELETE, METHOD_PUT})
     public void getEntity(
             @NotNull final @Param(value = "id", required = true) String id,
             final HttpSession session,
             final Request request) {
-        log.debug("GET request: id = {}", id);
         try {
             executorService.execute(() -> {
 
@@ -130,8 +134,20 @@ public class ServiceImpl extends HttpServer implements Service {
                     sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
-
-                getEntityExecutor(id, session, request);
+                switch (request.getMethod()) {
+                    case METHOD_GET:
+                        log.debug("GET request: id = {}", id);
+                        getEntityExecutor(id, session, request);
+                        break;
+                    case METHOD_PUT:
+                        log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
+                        putEntityExecutor(id, session, request);
+                        break;
+                    case METHOD_DELETE:
+                        log.debug("DELETE request: id = {}", id);
+                        deleteEntityExecutor(id, session, request);
+                        break;
+                }
             });
         } catch (RejectedExecutionException e) {
             log.error(REJECTED_EXECUTION_EXCEPTION, e);
@@ -159,33 +175,19 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /**
-     * Create/overwrite data by key.
-     *
-     * @param id      - key for storage
-     * @param request - body request
-     * @param session - session
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void putEntity(
-            @Param(value = "id", required = true) final String id,
-            final Request request,
-            final HttpSession session) {
-        log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-
+    private void deleteEntityExecutor(final String id, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-
-                putEntityExecutor(id, session, request);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error(REJECTED_EXECUTION_EXCEPTION, e);
-            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final String node = topology.getRightNodeForKey(key);
+            if (topology.isCurrentNode(node)) {
+                dao.remove(key);
+                sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
+            } else {
+                sendResponse(session, proxy(node, request));
+            }
+        } catch (IOException e) {
+            log.error("Internal error with id = {}", id, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -202,50 +204,6 @@ public class ServiceImpl extends HttpServer implements Service {
             }
         } catch (IOException e) {
             log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-
-    /**
-     * Delete data by key.
-     *
-     * @param id      - key for storage
-     * @param session - session
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void deleteEntity(final Request request,
-            @Param(value = "id", required = true) final String id,
-            final HttpSession session) {
-        log.debug("DELETE request: id = {}", id);
-
-        try {
-            executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-
-                deleteEntityExecutor(id, session, request);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error(REJECTED_EXECUTION_EXCEPTION, e);
-            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
-        }
-    }
-
-    private void deleteEntityExecutor(final String id, final HttpSession session, final Request request) {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final String node = topology.getRightNodeForKey(key);
-        try {
-            if (topology.isCurrentNode(node)) {
-                dao.remove(key);
-                sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
             sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
