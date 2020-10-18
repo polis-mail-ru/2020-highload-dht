@@ -12,6 +12,12 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     private final String[] nodes;
 
+    /**
+     * Constructor of {@link ModularTopology}
+     *
+     * @param nodes cluster
+     * @param local current node
+     */
     public ModularTopology(
             @NotNull final Set<String> nodes,
             @NotNull final String local) {
@@ -25,7 +31,7 @@ public class ModularTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String primaryFor(@NotNull ByteBuffer key) {
+    public String primaryFor(@NotNull final ByteBuffer key) {
         final int hash = key.hashCode();
         final int index = (hash & Integer.MAX_VALUE) % nodes.length;
         return nodes[index];
@@ -43,7 +49,7 @@ public class ModularTopology implements Topology<String> {
     }
 
     @Override
-    public boolean isLocal(@NotNull String node) {
+    public boolean isLocal(@NotNull final String node) {
         return local.equals(node);
     }
 }
