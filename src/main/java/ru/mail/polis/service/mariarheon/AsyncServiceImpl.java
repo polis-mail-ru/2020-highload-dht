@@ -88,7 +88,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                              final HttpSession session) {
         try {
             service.execute(() -> {
-                switch (request.getMethod()){
+                switch (request.getMethod()) {
                     case METHOD_GET:
                         getInternal(key, session);
                         break;
