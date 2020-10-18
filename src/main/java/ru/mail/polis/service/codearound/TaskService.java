@@ -24,6 +24,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * initial (non-async) service impl const.
+     *
      * @param port request listening port
      * @param dao DAO instance
      */
@@ -43,6 +44,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * returns server status info, feed to respective requests as well.
+     *
      * @param id key either to push a new record or to modify existing one
      * @param req client request
      * @return server response
@@ -72,6 +74,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * GET request handler.
+     *
      * @param key - key searched
      * @return server response
      */
@@ -91,6 +94,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * PUT request handler.
+     *
      * @param key - key searched
      * @param req client request
      * @return server response
@@ -106,6 +110,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * DELETE request handler.
+     *
      * @param key - key searched
      * @return server response
      */
@@ -123,6 +128,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * default handler.
+     *
      * @param req client request
      * @param session ongoing session instance
      */
@@ -133,6 +139,7 @@ public class TaskService extends HttpServer implements Service {
 
     /**
      * duplicates key searched.
+     *
      * @param key key searched
      * @return copy of key
      */

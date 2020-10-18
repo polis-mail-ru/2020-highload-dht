@@ -32,7 +32,11 @@ import java.util.Set;
  * @author Vadim Tsesko
  */
 public final class Cluster {
-    private static final int[] PORTS = {8080, 8081, 8082};
+    private static final int[] PORTS = {8080, 8180, 8280};
+    /*
+      PORTS DO MATTER FOR TRAVIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     */
 
     private Cluster() {
         // Not instantiable

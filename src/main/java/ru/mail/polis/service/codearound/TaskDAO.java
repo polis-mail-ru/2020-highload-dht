@@ -68,6 +68,25 @@ public class TaskDAO implements DAO {
     }
 
     /**
+     * returns value by key searched.
+     * @param key - target key
+     */
+    @NotNull
+    @Override
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
+        try {
+            final byte[] keys = DAOByteOnlyConverter.tuneBufToArray(key);
+            final byte[] vals = db.get(keys);
+            if (vals == null) {
+                throw new NoSuchElementException("No record found by key " + key.toString());
+            }
+            return ByteBuffer.wrap(vals);
+        } catch (RocksDBException exc) {
+            throw new IOException(exc);
+        }
+    }
+
+    /**
      * executes insertion/update on record specified.
      * @param key - key that should match for attaching a value to server response
      * @param value - key-bound value
@@ -92,25 +111,6 @@ public class TaskDAO implements DAO {
         try {
             final byte[] byteArray = DAOByteOnlyConverter.tuneBufToArray(key);
             db.delete(byteArray);
-        } catch (RocksDBException e) {
-            throw new IOException(e);
-        }
-    }
-
-    /**
-     * returns value by key searched.
-     * @param key - target key
-     */
-    @NotNull
-    @Override
-    public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
-        try {
-            final byte[] keys = DAOByteOnlyConverter.tuneBufToArray(key);
-            final byte[] vals = db.get(keys);
-            if (vals == null) {
-                throw new NoSuchElementException("No record found by key " + key.toString());
-            }
-            return ByteBuffer.wrap(vals);
         } catch (RocksDBException e) {
             throw new IOException(e);
         }
