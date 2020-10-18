@@ -18,9 +18,9 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.kate.moreva.MySimpleHttpServer;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * Constructs {@link Service} instances.
@@ -29,7 +29,6 @@ import java.io.IOException;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-    private static final int QUEUE_SIZE = 256;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -38,13 +37,16 @@ public final class ServiceFactory {
     /**
      * Construct a storage instance.
      *
-     * @param port port to bind HTTP server to
-     * @param dao  DAO to store the data
+     * @param port     port to bind HTTP server to
+     * @param dao      DAO to store the data
+     * @param topology a list of all cluster endpoints {@code http://<host>:<port>} (including this one)
      * @return a storage instance
      */
     @NotNull
-    public static Service create(final int port, @NotNull final DAO dao) throws IOException {
-
+    public static Service create(
+            final int port,
+            @NotNull final DAO dao,
+            @NotNull final Set<String> topology) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -53,6 +55,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new MySimpleHttpServer(port, dao, Runtime.getRuntime().availableProcessors(), QUEUE_SIZE);
+        throw new UnsupportedOperationException("Implement me!");
     }
 }
