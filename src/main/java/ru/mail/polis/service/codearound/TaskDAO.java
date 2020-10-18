@@ -36,7 +36,7 @@ public class TaskDAO implements DAO {
     * class instance const.
     * @param data - file to store key-value records
     */
-    public TaskDAO(@NotNull final File data) throws IOException {
+    public TaskDAO(@NotNull final File data) {
         final Options opts = new Options();
         opts.setCreateIfMissing(true); // create db instance if one does not exist
         opts.setParanoidChecks(false); // drops strict data quality control while searching for corrupt items

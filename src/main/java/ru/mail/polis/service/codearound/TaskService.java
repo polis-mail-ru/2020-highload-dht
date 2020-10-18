@@ -53,7 +53,7 @@ public class TaskService extends HttpServer implements Service {
     public Response entity(
             @Param(value = "id", required = true) final String id,
             @NotNull final Request req,
-            final HttpSession session) throws IOException, NoSuchMethodException {
+            final HttpSession session) throws IOException {
         if (id == null || id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,
                     "Identifier is required as parameter. Error handling request");
