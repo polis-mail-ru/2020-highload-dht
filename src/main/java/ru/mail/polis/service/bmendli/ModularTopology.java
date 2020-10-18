@@ -1,9 +1,10 @@
 package ru.mail.polis.service.bmendli;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
-import org.jetbrains.annotations.NotNull;
 
 public class ModularTopology implements Topology<String> {
 

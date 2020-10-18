@@ -84,58 +84,41 @@ public class MyService extends HttpServer implements Service {
     }
 
     /**
-     * Get request. Return a data which associated with
+     * Get/Put/Delete request. Return/Put/Delete a data which associated with
      * passed id in path '/v0/entity' from dao.
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public void get(@NotNull @Param(required = true, value = "id") final String id,
-                    @NotNull final HttpSession session,
-                    @NotNull final Request request) {
+    public void entity(@NotNull @Param(required = true, value = "id") final String id,
+                       @NotNull final HttpSession session,
+                       @NotNull final Request request) {
         try {
-            executorService.execute(() -> handleGet(id, session, request));
-        } catch (final RejectedExecutionException e) {
-            log.error(EXECUTING_ERROR, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (final IOException ioException) {
-                log.error(SERVER_ERROR_MSG, session, e);
-            }
-        }
-    }
-
-    /**
-     * Put request. Put data in dao which associated with
-     * passed id in path '/v0/entity'.
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void put(@NotNull @Param(required = true, value = "id") final String id,
-                    @NotNull final Request request,
-                    @NotNull final HttpSession session) {
-        try {
-            executorService.execute(() -> handlePut(id, request, session));
-        } catch (RejectedExecutionException e) {
-            log.error(EXECUTING_ERROR, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (IOException ioException) {
-                log.error(SERVER_ERROR_MSG, session, e);
-            }
-        }
-    }
-
-    /**
-     * Delete request. Delete data from dao which associated with
-     * passed id in path '/v0/entity'.
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@NotNull @Param(required = true, value = "id") final String id,
-                       @NotNull final Request request,
-                       @NotNull final HttpSession session) {
-        try {
-            executorService.execute(() -> handleDelete(id, request, session));
+            executorService.execute(() -> {
+                try {
+                    if (id.isBlank()) {
+                        try {
+                            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        } catch (IOException e) {
+                            log.error("Fail send response", e);
+                        }
+                        return;
+                    }
+                    switch (request.getMethod()) {
+                        case Request.METHOD_GET:
+                            handleGet(id, session, request);
+                            break;
+                        case Request.METHOD_PUT:
+                            handlePut(id, session, request);
+                            break;
+                        case Request.METHOD_DELETE:
+                            handleDelete(id, session, request);
+                            break;
+                        default:
+                            break;
+                    }
+                } catch (IOException e) {
+                    log.error(SERVER_ERROR_MSG, session, e);
+                }
+            });
         } catch (final RejectedExecutionException e) {
             log.error(EXECUTING_ERROR, e);
             try {
@@ -189,61 +172,48 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
-    private void handleGet(@NotNull String id, @NotNull HttpSession session, @NotNull Request request) {
-        if (checkIdIsBlank(id, session)) return;
-        try {
-            final byte[] bytes = id.getBytes(Charsets.UTF_8);
-            final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
-            final String node = topology.primaryFor(wrappedBytes);
-            if (topology.isLocal(node)) {
-                try {
-                    final ByteBuffer byteBuffer = dao.get(wrappedBytes);
-                    session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
-                } catch (NoSuchElementLightException e) {
-                    log.error("Does not exist record by id = {}", id, e);
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                }
-            } else {
-                session.sendResponse(proxy(node, request));
+    private void handleGet(@NotNull final String id,
+                           @NotNull final HttpSession session,
+                           @NotNull final Request request) throws IOException {
+        final byte[] bytes = id.getBytes(Charsets.UTF_8);
+        final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
+        final String node = topology.primaryFor(wrappedBytes);
+        if (topology.isLocal(node)) {
+            try {
+                final ByteBuffer byteBuffer = dao.get(wrappedBytes);
+                session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
+            } catch (NoSuchElementLightException e) {
+                log.error("Does not exist record by id = {}", id, e);
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
             }
-        } catch (IOException e) {
-            log.error(SERVER_ERROR_MSG, session, e);
+        } else {
+            session.sendResponse(proxy(node, request));
         }
     }
 
-    private void handlePut(@NotNull String id, @NotNull Request request, @NotNull HttpSession session) {
-        if (checkIdIsBlank(id, session)) {
-            return;
-        }
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-            final String node = topology.primaryFor(key);
-            if (topology.isLocal(node)) {
-                dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-            } else {
-                session.sendResponse(proxy(node, request));
-            }
-        } catch (IOException e) {
-            log.error(SERVER_ERROR_MSG, session, e);
+    private void handlePut(@NotNull final String id,
+                           @NotNull final HttpSession session,
+                           @NotNull final Request request) throws IOException {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+        final String node = topology.primaryFor(key);
+        if (topology.isLocal(node)) {
+            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        } else {
+            session.sendResponse(proxy(node, request));
         }
     }
 
-    private void handleDelete(@NotNull String id, @NotNull Request request, @NotNull HttpSession session) {
-        if (checkIdIsBlank(id, session)) {
-            return;
-        }
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-            final String node = topology.primaryFor(key);
-            if (topology.isLocal(node)) {
-                dao.remove(key);
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-            } else {
-                session.sendResponse(proxy(node, request));
-            }
-        } catch (final IOException e) {
-            log.error(SERVER_ERROR_MSG, session, e);
+    private void handleDelete(@NotNull final String id,
+                              @NotNull final HttpSession session,
+                              @NotNull final Request request) throws IOException {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+        final String node = topology.primaryFor(key);
+        if (topology.isLocal(node)) {
+            dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } else {
+            session.sendResponse(proxy(node, request));
         }
     }
 
@@ -271,19 +241,6 @@ public class MyService extends HttpServer implements Service {
         config.maxWorkers = threadCount;
         config.selectors = threadCount;
         return config;
-    }
-
-    private boolean checkIdIsBlank(@Param(required = true, value = "id") @NotNull final String id,
-                                   @NotNull final HttpSession session) {
-        if (id.isBlank()) {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Fail send response", e);
-            }
-            return true;
-        }
-        return false;
     }
 
     private Response proxy(@NotNull final String node, @NotNull final Request request) throws IOException {
