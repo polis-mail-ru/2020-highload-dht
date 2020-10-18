@@ -205,7 +205,8 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
-    private void handleExecutingError(@NotNull HttpSession session, RejectedExecutionException e) {
+    private void handleExecutingError(@NotNull final HttpSession session,
+                                      @NotNull final RejectedExecutionException e) {
         log.error(EXECUTING_ERROR, e);
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
