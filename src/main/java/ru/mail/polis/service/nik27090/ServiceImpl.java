@@ -147,6 +147,8 @@ public class ServiceImpl extends HttpServer implements Service {
                         log.debug("DELETE request: id = {}", id);
                         deleteEntityExecutor(id, session, request);
                         break;
+                    default:
+                        break;
                 }
             });
         } catch (RejectedExecutionException e) {
