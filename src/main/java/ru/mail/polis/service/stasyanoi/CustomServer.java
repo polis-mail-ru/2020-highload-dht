@@ -183,11 +183,17 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int node = getNode(idArray);
-            responseHttp = putProxy(request, idArray, node);
+            responseHttp = getPutResponse(idParam, request);
         }
         session.sendResponse(responseHttp);
+    }
+
+    private Response getPutResponse(final String idParam, final Request request) throws IOException {
+        final Response responseHttp;
+        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+        final int node = getNode(idArray);
+        responseHttp = putProxy(request, idArray, node);
+        return responseHttp;
     }
 
     private int getNode(final byte[] idArray) {
