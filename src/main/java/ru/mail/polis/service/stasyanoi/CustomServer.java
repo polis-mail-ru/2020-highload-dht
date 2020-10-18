@@ -74,61 +74,59 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public void get(final @Param("id") String idParam, final HttpSession session) {
+    public void get(final @Param("id") String idParam,
+                    final HttpSession session,
+                    final Request request) {
         executorService.execute(() -> {
             try {
-                getInternal(idParam, session);
+                getInternal(idParam, session, request);
             } catch (IOException e) {
                 sendErrorInternal(session, e);
             }
         });
     }
 
-    @Override
-    public void handleRequest(final Request request, final HttpSession session) throws IOException {
-        int node = 0;
-        if (hasParam("id", request)) {
-            int[] id = request.getParameter("id").chars().toArray();
-            int hash = Math.abs(Arrays.hashCode(id));
-            node = hash % nodeCount;
-        }
-        if (!nodeMapping.containsKey(node)) {
-            super.handleRequest(request, session);
-        } else {
-            routeRequest(request, session, node);
-        }
-    }
 
-    private boolean hasParam(final String name, final Request request) {
-        return request.getParameter(name) != null;
-    }
-
-    private void routeRequest(final Request request, final HttpSession session, final int node) throws IOException {
+    private Response routeRequest(final Request request, final int node) throws IOException {
 
         ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         HttpClient httpClient = new HttpClient(connectionString);
         try {
-            Response response = httpClient.invoke(request);
-            session.sendResponse(response);
+            return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             throw new RuntimeException(e);
         }
     }
 
     private void getInternal(final String idParam,
-                             final HttpSession session) throws IOException {
+                             final HttpSession session,
+                             final Request request) throws IOException {
         final Response responseHttp;
         //check id param
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int hash = Math.abs(Arrays.hashCode(idArray));
+            final int node = hash % nodeCount;
             //get id as aligned byte buffer
-            final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer id = Mapper.fromBytes(idArray);
             //get the response from db
-            responseHttp = getResponseIfIdNotNull(id);
+            responseHttp = getProxy(request, node, id);
         }
 
         session.sendResponse(responseHttp);
+    }
+
+    private Response getProxy(Request request, int node, ByteBuffer id) throws IOException {
+        final Response responseHttp;
+        if (!nodeMapping.containsKey(node)) {
+            //replicate here
+            responseHttp = getResponseIfIdNotNull(id);
+        } else {
+            responseHttp = routeRequest(request, node);
+        }
+        return responseHttp;
     }
 
     @NotNull
@@ -170,18 +168,34 @@ public class CustomServer extends HttpServer {
         });
     }
 
-    private void putInternal(final String idParam, final Request request,
+    private void putInternal(final String idParam,
+                             final Request request,
                              final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int hash = Math.abs(Arrays.hashCode(idArray));
+            final int node = hash % nodeCount;
+
+            responseHttp = putProxy(request, idArray, node);
+        }
+        session.sendResponse(responseHttp);
+    }
+
+    private Response putProxy(Request request, byte[] idArray, int node) throws IOException {
+        final Response responseHttp;
+        if (!nodeMapping.containsKey(node)) {
+            //replicate here
+            final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = getResponseWithNoBody(Response.CREATED);
+        } else {
+            responseHttp = routeRequest(request, node);
         }
-        session.sendResponse(responseHttp);
+        return responseHttp;
     }
 
     /**
@@ -192,10 +206,11 @@ public class CustomServer extends HttpServer {
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public void delete(final @Param("id") String idParam,
+                       final Request request,
                        final HttpSession session) {
         executorService.execute(() -> {
             try {
-                deleteInternal(idParam, session);
+                deleteInternal(idParam, request, session);
             } catch (IOException e) {
                 sendErrorInternal(session, e);
             }
@@ -203,17 +218,32 @@ public class CustomServer extends HttpServer {
     }
 
     private void deleteInternal(final String idParam,
+                                final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
 
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
-            dao.remove(key);
-            responseHttp = getResponseWithNoBody(Response.ACCEPTED);
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int hash = Math.abs(Arrays.hashCode(idArray));
+            final int node = hash % nodeCount;
+            responseHttp = deleteProxy(request, idArray, node);
         }
         session.sendResponse(responseHttp);
+    }
+
+    private Response deleteProxy(Request request, byte[] idArray, int node) throws IOException {
+        final Response responseHttp;
+        if (!nodeMapping.containsKey(node)) {
+            //replicate here
+            final ByteBuffer key = Mapper.fromBytes(idArray);
+            dao.remove(key);
+            responseHttp = getResponseWithNoBody(Response.ACCEPTED);
+        } else {
+            responseHttp = routeRequest(request, node);
+        }
+        return responseHttp;
     }
 
     private void sendErrorInternal(final HttpSession session,
