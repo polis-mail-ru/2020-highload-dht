@@ -180,24 +180,23 @@ public class CustomServer extends HttpServer {
     private void putInternal(final String idParam,
                              final Request request,
                              final HttpSession session) throws IOException {
-        final Response response;
+        final Response responseHttp;
         if (isValid(idParam)) {
-            response = getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            response = put(idParam, request);
+            responseHttp = putIntermediate(idParam, request);
         }
-        session.sendResponse(response);
+        session.sendResponse(responseHttp);
     }
 
-    private Response put(final String idParam, final Request request) throws IOException {
-        final Response responseHttp;
-
+    private Response putIntermediate(String idParam, Request request) throws IOException {
+        final Response response;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int hash = Math.abs(Arrays.hashCode(idArray));
         final int node = hash % nodeCount;
 
-        responseHttp = putProxy(request, idArray, node);
-        return responseHttp;
+        response = putProxy(request, idArray, node);
+        return response;
     }
 
     private boolean isValid(final String idParam) {
@@ -247,12 +246,18 @@ public class CustomServer extends HttpServer {
         if (isValid(idParam)) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int hash = Math.abs(Arrays.hashCode(idArray));
-            final int node = hash % nodeCount;
-            responseHttp = deleteProxy(request, idArray, node);
+            responseHttp = deleteIntermediate(idParam, request);
         }
         session.sendResponse(responseHttp);
+    }
+
+    private Response deleteIntermediate(String idParam, Request request) throws IOException {
+        final Response responseHttp;
+        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+        final int hash = Math.abs(Arrays.hashCode(idArray));
+        final int node = hash % nodeCount;
+        responseHttp = deleteProxy(request, idArray, node);
+        return responseHttp;
     }
 
     private Response deleteProxy(final Request request,
