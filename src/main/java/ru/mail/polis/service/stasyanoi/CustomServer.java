@@ -46,15 +46,24 @@ public class CustomServer extends HttpServer {
     private final ExecutorService executorService =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
+    /**
+     *
+     * Create custom server.
+     *
+     * @param dao - DAO to use.
+     * @param config - config for server.
+     * @param topology - topology of services.
+     * @throws IOException - if an IO exception occurs.
+     */
     public CustomServer(final DAO dao,
                         final HttpServerConfig config,
                         final Set<String> topology) throws IOException {
         super(config);
         this.nodeCount = topology.size();
-        ArrayList<String> urls = new ArrayList<>(topology);
+        final ArrayList<String> urls = new ArrayList<>(topology);
         urls.sort(String::compareTo);
 
-        Map<Integer, String> nodeMappingTemp = new HashMap<>();
+        final Map<Integer, String> nodeMappingTemp = new HashMap<>();
 
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
@@ -62,8 +71,8 @@ public class CustomServer extends HttpServer {
 
         this.nodeMapping = nodeMappingTemp.entrySet().stream()
                 .filter(integerStringEntry -> !integerStringEntry.getValue()
-                        .contains(String.valueOf(super.port))).collect(Collectors.
-                toMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .contains(String.valueOf(super.port)))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         this.dao = dao;
     }
@@ -87,9 +96,7 @@ public class CustomServer extends HttpServer {
         });
     }
 
-
     private Response routeRequest(final Request request, final int node) throws IOException {
-
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         final HttpClient httpClient = new HttpClient(connectionString);
         try {
