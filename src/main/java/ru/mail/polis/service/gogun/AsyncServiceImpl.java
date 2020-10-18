@@ -80,7 +80,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
         } catch (IOException e) {
-            log.error("Can't understand request {}", request, e);
+            log.error("Can't send response {}", request, e);
         }
     }
 
@@ -136,8 +136,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             buffer = dao.get(getBuffer(id.getBytes(UTF_8)));
         } catch (IOException e) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            log.error("Internal server error get");
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Internal server error get", e);
             return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -156,15 +156,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                handleGetRequest(id, session);
-            } catch (IOException e) {
-                log.error("Error sending response in method get {}", e.getMessage());
-            } catch (RejectedExecutionException e) {
-                sendServiceUnavailable(session);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    handleGetRequest(id, session);
+                } catch (IOException e) {
+                    log.error("Error sending response in method get", e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            sendServiceUnavailable(session);
+        }
     }
 
     private void handlePutRequest(final String id,
@@ -179,8 +181,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             dao.upsert(getBuffer(id.getBytes(UTF_8)), getBuffer(request.getBody()));
         } catch (IOException e) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            log.error("Internal server error put");
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Internal server error put", e);
             return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -202,15 +204,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void upsert(@Param(value = "id", required = true) @NotNull final String id,
                        final Request request,
                        final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                handlePutRequest(id, request, session);
-            } catch (IOException e) {
-                log.error("Error sending response in method put {}", e.getMessage());
-            } catch (RejectedExecutionException e) {
-                sendServiceUnavailable(session);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    handlePutRequest(id, request, session);
+                } catch (IOException e) {
+                    log.error("Error sending response in method put", e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            sendServiceUnavailable(session);
+        }
     }
 
     private void handleDelRequest(final String id, final HttpSession session) throws IOException {
@@ -223,8 +227,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             dao.remove(getBuffer(id.getBytes(UTF_8)));
         } catch (IOException e) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            log.error("Internal server error del");
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Internal server error del", e);
             return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -243,15 +247,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                handleDelRequest(id, session);
-            } catch (IOException e) {
-                log.error("Error sending response in method del {}", e.getMessage());
-            } catch (RejectedExecutionException e) {
-                sendServiceUnavailable(session);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    handleDelRequest(id, session);
+                } catch (IOException e) {
+                    log.error("Error sending response in method del", e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            sendServiceUnavailable(session);
+        }
     }
 
     @Override
@@ -261,7 +267,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             executorService.awaitTermination(1, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            log.error("Cant stop executor service");
+            log.error("Cant stop executor service", e);
             Thread.currentThread().interrupt();
         }
     }
