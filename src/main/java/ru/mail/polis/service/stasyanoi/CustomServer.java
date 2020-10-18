@@ -235,7 +235,6 @@ public class CustomServer extends HttpServer {
                                 final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
