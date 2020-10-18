@@ -22,6 +22,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
@@ -30,14 +31,14 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(MyAsyncHttpServerImpl.class);
     private final DAO dao;
-    public ExecutorService execService;
+    private final ExecutorService execService;
     String cantSendResponse = "can't send response";
 
     /**
      * MyAsyncHttpServerImpl.
      *
-     * @param config - has server's parametrs.
-     * @param dao - for interaction with RocksDB.
+     * @param config     - has server's parametrs.
+     * @param dao        - for interaction with RocksDB.
      * @param numWorkers - for executor service.
      */
     public MyAsyncHttpServerImpl(final HttpServerConfig config,
@@ -52,10 +53,10 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(1024),
                 new ThreadFactoryBuilder()
-                        .setUncaughtExceptionHandler((t,e) -> log.error("Error in worker {}", t, e))
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Error in worker {}", t, e))
                         .setNameFormat("worker-%d")
                         .build(),
-                         new ThreadPoolExecutor.AbortPolicy());
+                new ThreadPoolExecutor.AbortPolicy());
 
     }
 
@@ -77,52 +78,59 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     }
 
     /**
+     * Send response.
+     *
+     * @param httpSession - httpSession.
+     * @param resultCode  - send resultCode to the user.
+     */
+    private void sendResponse(final HttpSession httpSession, final String resultCode) {
+        try {
+            httpSession.sendResponse(new Response(resultCode, Response.EMPTY));
+        } catch (IOException ioException) {
+            log.error(cantSendResponse, ioException);
+        }
+    }
+
+    /**
      * Get value by key.
      *
      * @param id - key.
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void getValueByKey(final @Param("id") String id, final HttpSession httpSession) {
+    public void getValueByKey(final @Param("id") String id,
+                              final HttpSession httpSession) {
         execService.execute(() -> {
-            if (id == null || "".equals(id)) {
-                try {
-                    httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error(cantSendResponse, ioException);
+                    if (id == null || id.isEmpty()) {
+                        sendResponse(httpSession, Response.BAD_REQUEST);
+                        return;
+                    }
+
+                    final byte[] keyBytes = id.getBytes(UTF_8);
+                    final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
+                    ByteBuffer valueByteBuffer;
+                    final byte[] valueBytes;
+                    try {
+                        valueByteBuffer = dao.get(keyByteBuffer);
+                        valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
+                        httpSession.sendResponse(new Response(Response.ok(valueBytes)));
+                    } catch (IOException e) {
+                        log.error("get error: ", e);
+                        sendResponse(httpSession, Response.NOT_FOUND);
+                        throw new RuntimeException("Error getting value :", e);
+
+                    } catch (NoSuchElementException e) {
+                        sendResponse(httpSession, Response.NOT_FOUND);
+                    }
                 }
-            }
-
-            final byte[] keyBytes = id.getBytes(UTF_8);
-            final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
-            ByteBuffer valueByteBuffer;
-            final byte[] valueBytes;
-            try {
-                valueByteBuffer = dao.get(keyByteBuffer);
-                valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
-                final Response responseOk = new Response(Response.OK, valueBytes);
-                responseOk.addHeader(HttpHeaders.CONTENT_TYPE + ": " + "text/plain");
-                httpSession.sendResponse(responseOk);
-            } catch (IOException e) {
-                e.printStackTrace();
-                throw new RuntimeException("Error getting value :", e);
-
-            } catch (NoSuchElementException e) {
-                try {
-                    httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error(cantSendResponse, ioException);
-                }
-            }
-        }
         );
     }
 
     /**
      * put value in the DB.
      *
-     * @param id - key.
+     * @param id      - key.
      * @param request with value.
      * @throws IOException - possible IO exception.
      */
@@ -132,14 +140,14 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                               final Request request,
                               final HttpSession httpSession) throws IOException {
         execService.execute(() -> {
-            if ("".equals(id)) {
-            try {
-                httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException ioException) {
-                log.error(cantSendResponse, ioException);
-            }
+            if (id == null || id.isEmpty()) {
+                try {
+                    httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error(cantSendResponse, ioException);
+                }
 
-        }
+            }
 
             final byte[] keyBytes = id.getBytes(UTF_8);
             final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
@@ -155,7 +163,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
             } catch (IOException ioException) {
                 log.error("upsert error", ioException);
             }
-                });
+        });
     }
 
     /**
@@ -168,7 +176,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteValueByKey(final @Param("id") String id, final HttpSession httpSession) throws IOException {
         execService.execute(() -> {
-            if ("".equals(id)) {
+            if (id == null || id.isEmpty()) {
                 try {
                     httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 } catch (IOException ioException) {
@@ -205,6 +213,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
             dao.close();
         } catch (IOException ioException) {
             log.error("can't close DB");
+            throw new RuntimeException(ioException);
         }
     }
 }
