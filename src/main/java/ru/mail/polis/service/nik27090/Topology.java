@@ -6,9 +6,9 @@ import java.nio.ByteBuffer;
 
 public interface Topology<N> {
     @NotNull
-    N primaryFor(@NotNull ByteBuffer key);
+    N getRightNodeForKey(@NotNull ByteBuffer key);
 
-    boolean isMe(@NotNull N node);
+    boolean isCurrentNode(@NotNull N node);
 
     @NotNull
     N[] all();

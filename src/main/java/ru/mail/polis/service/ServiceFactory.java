@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.nik27090.ModularTopology;
+import ru.mail.polis.service.nik27090.RendezvousTopology;
 import ru.mail.polis.service.nik27090.ServiceImpl;
 
 import java.io.IOException;
@@ -61,6 +61,6 @@ public final class ServiceFactory {
                 dao,
                 512,
                 1024,
-                new ModularTopology(topology, "http://localhost:" + port));
+                new RendezvousTopology(topology, "http://localhost:" + port));
     }
 }
