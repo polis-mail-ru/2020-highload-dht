@@ -48,19 +48,17 @@ public class DAORocksDB implements DAO {
         return recordIter;
     }
 
-    @Override
     @NotNull
-    public synchronized ByteBuffer get(final @NotNull ByteBuffer key) throws IOException, NoSuchElementException {
-        final Iterator<Record> iter = iterator(key);
-        if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
-        }
-
-        final Record next = iter.next();
-        if (next.getKey().equals(key)) {
-            return next.getValue();
-        } else {
-            throw new NoSuchElementException("Not found");
+    @Override
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws NoSuchElementException, IOException {
+        try {
+            final byte[] valueByte = rocksDBInstance.get(getByteArrayFromByteBuffer(key));
+            if (valueByte == null) {
+                throw new NoSuchElementException("Not such value by this key");
+            }
+            return ByteBuffer.wrap(valueByte);
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
         }
     }
 
