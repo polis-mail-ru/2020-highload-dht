@@ -30,7 +30,7 @@ public class DAORocksDB implements DAO {
         RocksDB.loadLibrary();
         final ComparatorOptions comOptions = new ComparatorOptions();
         final Options options = new Options().setCreateIfMissing(true)
-                .setComparator(new MyComparator(comOptions));;
+                .setComparator(new MyComparator(comOptions));
         try {
             rocksDBInstance = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException e) {
