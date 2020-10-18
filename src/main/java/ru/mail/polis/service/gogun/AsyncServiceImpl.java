@@ -115,7 +115,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return body;
     }
 
-    private void sendServiceUnavailable(HttpSession session) {
+    private void sendServiceUnavailable(final HttpSession session) {
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         } catch (IOException e) {
