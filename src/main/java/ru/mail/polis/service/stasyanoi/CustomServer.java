@@ -183,17 +183,11 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            responseHttp = putIntermediate(idParam, request);
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = getNode(idArray);
+            responseHttp = putProxy(request, idArray, node);
         }
         session.sendResponse(responseHttp);
-    }
-
-    private Response putIntermediate(final String idParam, final Request request) throws IOException {
-        final Response responseHttp;
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = getNode(idArray);
-        responseHttp = putProxy(request, idArray, node);
-        return responseHttp;
     }
 
     private int getNode(final byte[] idArray) {
@@ -242,21 +236,14 @@ public class CustomServer extends HttpServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
 
-        if (!(idParam == null) && !idParam.isEmpty()) {
-            responseHttp = deleteIntermediate(idParam, request);
-        } else {
+        if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = getNode(idArray);
+            responseHttp = deleteProxy(request, idArray, node);
         }
         session.sendResponse(responseHttp);
-    }
-
-    private Response deleteIntermediate(final String idParam,
-                                        final Request request) throws IOException {
-        final Response responseHttp;
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = getNode(idArray);
-        responseHttp = deleteProxy(request, idArray, node);
-        return responseHttp;
     }
 
     private Response deleteProxy(final Request request,
