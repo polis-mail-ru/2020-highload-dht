@@ -34,7 +34,7 @@ wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R10000 --latency http://
 
 <ins><em>wrk2</em> / GET / multi-node</ins>
 ```
-wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/put.lua -R10000 --latency http://127.0.0.1:8080
+wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R10000 --latency http://127.0.0.1:8080
 ```
 
 **Команды <em>async-profiler</em>**<br/>
