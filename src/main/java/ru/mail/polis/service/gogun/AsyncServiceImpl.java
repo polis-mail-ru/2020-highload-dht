@@ -84,7 +84,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-
     /**
      * provide checking api is alive.
      *
@@ -97,6 +96,29 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private void execute(final int requestType,
+                         final String id,
+                         final HttpSession session,
+                         final Request request) throws RejectedExecutionException{
+        executorService.execute(() -> {
+            try {
+                switch (requestType) {
+                    case Request.METHOD_PUT:
+                        handlePutRequest(id, request, session);
+                        break;
+                    case Request.METHOD_GET:
+                        handleGetRequest(id, session);
+                        break;
+                    case Request.METHOD_DELETE:
+                        handleDelRequest(id, session);
+                        break;
+                }
+            } catch (IOException e) {
+                log.error("Error sending response in method del", e);
+            }
+        });
     }
 
     private ByteBuffer getBuffer(final byte[] bytes) {
@@ -157,13 +179,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session) {
         try {
-            executorService.execute(() -> {
-                try {
-                    handleGetRequest(id, session);
-                } catch (IOException e) {
-                    log.error("Error sending response in method get", e);
-                }
-            });
+            execute(Request.METHOD_GET, id, session, null);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
@@ -205,13 +221,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        final Request request,
                        final HttpSession session) {
         try {
-            executorService.execute(() -> {
-                try {
-                    handlePutRequest(id, request, session);
-                } catch (IOException e) {
-                    log.error("Error sending response in method put", e);
-                }
-            });
+            execute(Request.METHOD_PUT, id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
@@ -248,13 +258,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session) {
         try {
-            executorService.execute(() -> {
-                try {
-                    handleDelRequest(id, session);
-                } catch (IOException e) {
-                    log.error("Error sending response in method del", e);
-                }
-            });
+            execute(Request.METHOD_DELETE, id, session, null);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
