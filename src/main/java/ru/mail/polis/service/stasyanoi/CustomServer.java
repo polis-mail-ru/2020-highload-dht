@@ -47,7 +47,6 @@ public class CustomServer extends HttpServer {
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     /**
-     *
      * Create custom server.
      *
      * @param dao - DAO to use.
@@ -111,7 +110,7 @@ public class CustomServer extends HttpServer {
                              final Request request) throws IOException {
         final Response responseHttp;
         //check id param
-        if (idParam == null || idParam.isEmpty()) {
+        if (isValid(idParam)) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
@@ -182,7 +181,7 @@ public class CustomServer extends HttpServer {
                              final Request request,
                              final HttpSession session) throws IOException {
         final Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
+        if (isValid(idParam)) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
@@ -192,6 +191,10 @@ public class CustomServer extends HttpServer {
             responseHttp = putProxy(request, idArray, node);
         }
         session.sendResponse(responseHttp);
+    }
+
+    private boolean isValid(String idParam) {
+        return idParam == null || idParam.isEmpty();
     }
 
     private Response putProxy(final Request request,
@@ -234,7 +237,7 @@ public class CustomServer extends HttpServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
 
-        if (idParam == null || idParam.isEmpty()) {
+        if (isValid(idParam)) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
