@@ -14,7 +14,7 @@ public class ModularTopology implements Topology<String> {
     private final String[] nodes;
 
     /**
-     * Constructor of {@link ModularTopology}
+     * Constructor of {@link ModularTopology}.
      *
      * @param nodes cluster
      * @param local current node

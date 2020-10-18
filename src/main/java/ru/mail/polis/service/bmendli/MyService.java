@@ -10,7 +10,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
@@ -92,33 +91,7 @@ public class MyService extends HttpServer implements Service {
                        @NotNull final HttpSession session,
                        @NotNull final Request request) {
         try {
-            executorService.execute(() -> {
-                try {
-                    if (id.isBlank()) {
-                        try {
-                            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        } catch (IOException e) {
-                            log.error("Fail send response", e);
-                        }
-                        return;
-                    }
-                    switch (request.getMethod()) {
-                        case Request.METHOD_GET:
-                            handleGet(id, session, request);
-                            break;
-                        case Request.METHOD_PUT:
-                            handlePut(id, session, request);
-                            break;
-                        case Request.METHOD_DELETE:
-                            handleDelete(id, session, request);
-                            break;
-                        default:
-                            break;
-                    }
-                } catch (IOException e) {
-                    log.error(SERVER_ERROR_MSG, session, e);
-                }
-            });
+            executorService.execute(() -> handleRequest(id, session, request));
         } catch (final RejectedExecutionException e) {
             log.error(EXECUTING_ERROR, e);
             try {
@@ -169,6 +142,30 @@ public class MyService extends HttpServer implements Service {
             } catch (final IOException ioException) {
                 log.error(SERVER_ERROR_MSG, session, e);
             }
+        }
+    }
+
+    private void handleRequest(@NotNull String id, @NotNull HttpSession session, @NotNull Request request) {
+        try {
+            if (id.isBlank()) {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    handleGet(id, session, request);
+                    break;
+                case Request.METHOD_PUT:
+                    handlePut(id, session, request);
+                    break;
+                case Request.METHOD_DELETE:
+                    handleDelete(id, session, request);
+                    break;
+                default:
+                    break;
+            }
+        } catch (IOException e) {
+            log.error(SERVER_ERROR_MSG, session, e);
         }
     }
 
