@@ -1,4 +1,4 @@
-# Оценка и анализ производительности сервера с распределённой обработкой запросов (<em>wrk</em> + <em>async-profiler</em>)
+# Оценка и анализ производительности сервера с распределённой обработкой запросов (<em>wrk2</em> + <em>async-profiler</em>)
 
 **Система и программные средства** 
 | | |
@@ -29,7 +29,7 @@ wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R15000 --latency http://
 
 <ins><em>wrk2</em> / PUT / multi-node</ins>
 ```
-wrk -t2 -c16 -d7m -s src/profiling/wrk_scripts/put.lua -R10000 --latency http://127.0.0.1:8080
+wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/put.lua -R10000 --latency http://127.0.0.1:8080
 ```
 
 <ins><em>wrk2</em> / GET / multi-node</ins>
