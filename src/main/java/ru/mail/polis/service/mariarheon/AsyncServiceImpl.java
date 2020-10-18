@@ -59,17 +59,31 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 );
     }
 
-    /** Get data by key.
+    /** Get/set/delete key-value entity.
      * @param key - record id.
      * @param session - session.
+     * @param request - request.
      **/
     @Path("/v0/entity")
-    @RequestMethod(METHOD_GET)
-    public void get(final @Param(value = "id", required = true) String key,
-                    @NotNull final HttpSession session) {
+    @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
+    public void handleEntityRequest(final @Param(value = "id", required = true) String key,
+                                    @NotNull final HttpSession session,
+                                    final @Param("request") Request request) {
         try {
             service.execute(() -> {
-                getInternal(key, session);
+                switch (request.getMethod()) {
+                    case METHOD_GET:
+                        get(key, session);
+                        break;
+                    case METHOD_PUT:
+                        put(key, request, session);
+                        break;
+                    case METHOD_DELETE:
+                        delete(key, session);
+                        break;
+                    default:
+                        break;
+                }
             });
         } catch (RejectedExecutionException ex) {
             logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
@@ -80,6 +94,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
         }
     }
+
+    private void get(final @Param(value = "id", required = true) String key,
+        @NotNull final HttpSession session) {
+            try {
+                service.execute(() -> {
+                    getInternal(key, session);
+                });
+            } catch (RejectedExecutionException ex) {
+                logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
+                try {
+                    session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+                } catch (IOException ex1) {
+                    logger.error(RESP_ERR, session, ex1);
+                }
+            }
+        }
 
     private void getInternal(final String key,
                              final HttpSession session) {
@@ -107,14 +137,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /** Insert or change key-data pair.
-     * @param key - record id.
-     * @param request - record data.
-     * @param session - session.
-     **/
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_PUT)
-    public void put(final @Param(value = "id", required = true) String key,
+    private void put(final @Param(value = "id", required = true) String key,
                     final @Param("request") Request request,
                     @NotNull final HttpSession session) {
         try {
@@ -153,13 +176,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /** Remove key-data pair.
-     * @param key - record id.
-     * @param session - session.
-     **/
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_DELETE)
-    public void delete(final @Param(value = "id", required = true) String key,
+    private void delete(final @Param(value = "id", required = true) String key,
                        @NotNull final HttpSession session) {
         try {
             service.execute(() -> {
