@@ -82,7 +82,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             }
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final Future<?> future = executor.submit(() -> requestHandler(request, session, key));
+            final Future<?> future = executor.submit(() -> handleRequest(request, session, key));
 
             if (future.isCancelled()) {
                 log.error("Executor error!");
@@ -101,7 +101,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - http-session
      * @param key - input key
      */
-    private void requestHandler(@NotNull final Request request, @NotNull final HttpSession session,
+    private void handleRequest(@NotNull final Request request, @NotNull final HttpSession session,
                                 final ByteBuffer key) {
         try {
             switch (request.getMethod()) {
@@ -129,13 +129,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - http-session
      * @param response - response object on input request
      */
-    private void responseSender(@NotNull final HttpSession session,
+    private void sendResponse(@NotNull final HttpSession session,
                                 @NotNull final Response response) throws IOException {
         try {
             session.sendResponse(response);
         } catch (IOException error) {
             log.error("Sending response error: ", error);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -144,7 +143,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final ByteBuffer value = dao.get(key).duplicate();
             final byte[] valueArray = ByteConvertor.toArray(value);
 
-            responseSender(session, Response.ok(valueArray));
+            sendResponse(session, Response.ok(valueArray));
 
         } catch (IOException error) {
             log.error("IO get error: ", error);
@@ -159,7 +158,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                      final HttpSession session) throws IOException {
         try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-            responseSender(session, new Response(Response.CREATED, Response.EMPTY));
+            sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException error) {
             log.error("IO put error: ", error);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -169,7 +168,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private void delete(final ByteBuffer key, final HttpSession session) throws IOException {
         try {
             dao.remove(key);
-            responseSender(session, new Response(Response.ACCEPTED, Response.EMPTY));
+            sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException error) {
             log.error("IO delete error: ", error);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
