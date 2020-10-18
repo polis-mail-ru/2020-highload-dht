@@ -21,15 +21,17 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
+    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+
     @NotNull
     private final DAO dao;
-    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     private final ExecutorService executorService;
 
     /**
@@ -47,8 +49,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                             final DAO dao) throws IOException {
         super(makeConfig(port, numWorkers));
         this.dao = dao;
-        executorService = new ThreadPoolExecutor(numWorkers,
-                queueSize,
+        this.executorService = new ThreadPoolExecutor(numWorkers,
+                numWorkers,
                 0L,
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
@@ -69,20 +71,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         config.selectors = numWorkers;
-        config.maxWorkers = numWorkers;
-        config.minWorkers = numWorkers;
+
         return config;
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Can't understand request {}", request);
-            }
-        });
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Can't understand request {}", request, e);
+        }
     }
 
 
@@ -93,13 +92,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException e) {
-                log.error(e.getMessage());
-            }
-        });
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
     }
 
     private ByteBuffer getBuffer(final byte[] bytes) {
@@ -118,6 +115,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return body;
     }
 
+    private void sendServiceUnavailable(HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Error sending response in method get {}", e.getMessage());
+        }
+    }
+
     private void handleGetRequest(final String id, final HttpSession session) throws IOException {
         log.debug("GET request with id: {}", id);
 
@@ -132,6 +137,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             buffer = dao.get(getBuffer(id.getBytes(UTF_8)));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            log.error("Internal server error get");
             return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -155,6 +161,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 handleGetRequest(id, session);
             } catch (IOException e) {
                 log.error("Error sending response in method get {}", e.getMessage());
+            } catch (RejectedExecutionException e) {
+                sendServiceUnavailable(session);
             }
         });
     }
@@ -172,6 +180,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             dao.upsert(getBuffer(id.getBytes(UTF_8)), getBuffer(request.getBody()));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            log.error("Internal server error put");
             return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -198,6 +207,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 handlePutRequest(id, request, session);
             } catch (IOException e) {
                 log.error("Error sending response in method put {}", e.getMessage());
+            } catch (RejectedExecutionException e) {
+                sendServiceUnavailable(session);
             }
         });
     }
@@ -213,6 +224,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             dao.remove(getBuffer(id.getBytes(UTF_8)));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            log.error("Internal server error del");
             return;
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -236,7 +248,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 handleDelRequest(id, session);
             } catch (IOException e) {
                 log.error("Error sending response in method del {}", e.getMessage());
+            } catch (RejectedExecutionException e) {
+                sendServiceUnavailable(session);
             }
         });
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("Cant stop executor service");
+            Thread.currentThread().interrupt();
+        }
     }
 }
