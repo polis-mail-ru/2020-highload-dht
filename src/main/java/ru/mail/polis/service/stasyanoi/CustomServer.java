@@ -92,7 +92,6 @@ public class CustomServer extends HttpServer {
             int hash = Math.abs(Arrays.hashCode(id));
             node = hash % nodeCount;
         }
-
         if (!nodeMapping.containsKey(node)) {
             super.handleRequest(request, session);
         } else {
