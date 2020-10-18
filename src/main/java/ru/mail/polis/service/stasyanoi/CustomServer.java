@@ -242,10 +242,10 @@ public class CustomServer extends HttpServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
 
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
-        } else {
+        if (!(idParam == null) && !idParam.isEmpty()) {
             responseHttp = deleteIntermediate(idParam, request);
+        } else {
+            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
         }
         session.sendResponse(responseHttp);
     }
