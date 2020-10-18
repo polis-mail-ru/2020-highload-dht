@@ -1,5 +1,6 @@
 package ru.mail.polis.service.mrsandman5;
 
+import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -7,46 +8,67 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.mrsandman5.clustering.ResponseSupplier;
+import ru.mail.polis.service.mrsandman5.clustering.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private static final Response ERROR = new Response(Response.BAD_REQUEST, Response.EMPTY);
-    private static final String NO_RESPONSE = "Can't send response";
     @NotNull
     private final DAO dao;
+    private final Topology<String> topology;
+    private final Map<String, HttpClient> httpClients;
+
     @NotNull
-    private final ExecutorService executorService;
+    public static Service create(
+            final int port,
+            @NotNull final Topology<String> topology,
+            @NotNull final DAO dao,
+            final int workersCount) throws IOException {
+        final var acceptor = new AcceptorConfig();
+        acceptor.port = port;
+        acceptor.deferAccept = true;
+        acceptor.reusePort = true;
+
+        final var config = new HttpServerConfig();
+        config.acceptors = new AcceptorConfig[]{acceptor};
+        config.minWorkers = 1;
+        config.maxWorkers = workersCount;
+
+        return new ServiceImpl(config, topology, dao);
+    }
 
     /** Service constructor.
-     * @param port - target port.
+     * @param config - http-server config.
+     * @param topology - cluster topology
      * @param dao - custom LSM DAO.
-     * @param pools - count of workers
      * */
-    public ServiceImpl(final int port,
-                       @NotNull final DAO dao,
-                       final int pools,
-                       final int queueSize) throws IOException {
-        super(config(port));
+    private ServiceImpl(@NotNull final HttpServerConfig config,
+                       @NotNull final Topology<String> topology,
+                       @NotNull final DAO dao) throws IOException {
+        super(config);
+        this.topology = topology;
         this.dao = dao;
-        this.executorService = new ThreadPoolExecutor(pools, pools,
-                0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(queueSize));
+        this.httpClients = topology.all()
+                .stream()
+                .filter(topology::isNotMe)
+                .collect(toMap(identity(), ServiceImpl::createHttpClient));
     }
 
     /** Request method for HTTP server.
@@ -60,101 +82,84 @@ public class ServiceImpl extends HttpServer implements Service {
                              @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
         if (id.isEmpty()) {
-            try {
-                session.sendResponse(ERROR);
-            } catch (IOException e) {
-                log.error(NO_RESPONSE, e);
-            }
+            sendEmptyResponse(session, Response.BAD_REQUEST);
+            return;
         }
 
         final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final var node = topology.primaryFor(key);
+        if (topology.isNotMe(node)) {
+            asyncExecute(session, () -> proxy(node, request));
+            return;
+        }
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                get(key, session);
+                asyncExecute(session, () -> get(key));
                 break;
             case Request.METHOD_PUT:
-                put(key, request.getBody(), session);
+                asyncExecute(session, () -> put(key, request.getBody()));
                 break;
             case Request.METHOD_DELETE:
-                delete(key, session);
+                asyncExecute(session, () -> delete(key));
                 break;
             default:
                 log.error("Non-supported request : {}", id);
-                try {
-                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error(NO_RESPONSE, e);
-                }
+                sendEmptyResponse(session, Response.METHOD_NOT_ALLOWED);
                 break;
         }
     }
 
-    private void get(@NotNull final ByteBuffer key,
-                     @NotNull final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                getValue(key, session);
-            } catch (IOException ex) {
-                log.error(NO_RESPONSE, ex);
-            }
-        });
+    private Response get(@NotNull final ByteBuffer key) throws IOException {
+        try {
+            final var value = dao.get(key);
+            return new Response(Response.OK, toByteArray(value));
+        } catch (NoSuchElementException e) {
+            return emptyResponse(Response.NOT_FOUND);
+        }
     }
 
-    private void put(@NotNull final ByteBuffer key,
-                          final byte[] body,
-                     @NotNull final HttpSession session) {
-        final ByteBuffer value = ByteBuffer.wrap(body);
-        executorService.execute(() -> {
-            try {
-                putValue(key, session, value);
-            } catch (IOException ex) {
-                log.error(NO_RESPONSE, ex);
-            }
-        });
+    private Response put(@NotNull final ByteBuffer key,
+                         final byte[] bytes) throws IOException {
+        if (bytes == null) {
+            return emptyResponse(Response.BAD_REQUEST);
+        }
+        final var body = ByteBuffer.wrap(bytes);
+        dao.upsert(key, body);
+        return emptyResponse(Response.CREATED);
     }
 
-    private void delete(@NotNull final ByteBuffer key,
-                        @NotNull final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                deleteKey(key, session);
-            } catch (IOException ex) {
-                log.error(NO_RESPONSE, ex);
-            }
-        });
+    private Response delete(@NotNull final ByteBuffer key) throws IOException {
+        dao.remove(key);
+        return emptyResponse(Response.ACCEPTED);
     }
 
     /** Request method for status return.
      * @param session - current HTTP session.
      * */
     @Path("/v0/status")
-    public void status(@NotNull final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException e) {
-                log.error(NO_RESPONSE, e);
-            }
-        });
+    public Response status(@NotNull final HttpSession session) {
+        return emptyResponse(Response.OK);
+    }
+
+    private Response proxy(@NotNull final String node,
+            @NotNull final Request request) {
+        try {
+            return httpClients.get(node).invoke(request);
+        } catch (Exception e) {
+            log.error("Unable to proxy request", e);
+            return emptyResponse(Response.INTERNAL_ERROR);
+        }
+    }
+
+    @NotNull
+    private static HttpClient createHttpClient(@NotNull final String node) {
+        return new HttpClient(new ConnectionString(node + "?timout=100"));
     }
 
     @Override
     public void handleDefault(@NotNull final Request request,
-                              @NotNull final HttpSession session) throws IOException {
-        log.error("Invalid request : {}", request);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    @NotNull
-    private static HttpServerConfig config(final int port) {
-        final var acceptor = new AcceptorConfig();
-        acceptor.port = port;
-        acceptor.deferAccept = true;
-        acceptor.reusePort = true;
-
-        final var config = new HttpServerConfig();
-        config.acceptors = new AcceptorConfig[]{acceptor};
-        return config;
+                              @NotNull final HttpSession session) {
+        sendEmptyResponse(session, Response.BAD_REQUEST);
     }
 
     @NotNull
@@ -162,59 +167,46 @@ public class ServiceImpl extends HttpServer implements Service {
         if (!buffer.hasRemaining()) {
             return Response.EMPTY;
         }
-
         final var bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
     }
 
-    @Override
-    public synchronized void stop() {
-        super.stop();
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
+    private void asyncExecute(
+            @NotNull final HttpSession session,
+            @NotNull final ResponseSupplier supplier) {
+        asyncExecute(() -> {
+            try {
+                sendResponse(session, supplier.supply());
+            } catch (IOException e) {
+                log.error("Unable to create response", e);
             }
-        } catch (InterruptedException ie) {
-            log.error("Can't stop the executor", ie);
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
+        });
+    }
+
+    private static void sendResponse(
+            @NotNull final HttpSession session,
+            @NotNull final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            try {
+                log.error("Unable to send response", e);
+                session.sendError(Response.INTERNAL_ERROR, null);
+            } catch (IOException ex) {
+                log.error("Unable to send error", e);
+            }
         }
     }
 
-    private void getValue(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession session) throws IOException {
-        try {
-            session.sendResponse(Response.ok(toByteArray(dao.get(key))));
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("GET error : {}", toByteArray(key), e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
+    private static void sendEmptyResponse(
+            @NotNull final HttpSession session,
+            @NotNull final String code) {
+        sendResponse(session, emptyResponse(code));
     }
 
-    private void putValue(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession session,
-                          final ByteBuffer value) throws IOException {
-        try {
-            dao.upsert(key, value);
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("PUT error : {} with value {}", toByteArray(key), toByteArray(value), e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-
-    private void deleteKey(@NotNull final ByteBuffer key,
-                           @NotNull final HttpSession session) throws IOException {
-        try {
-            dao.remove(key);
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("DELETE error : {}", toByteArray(key), e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
+    @NotNull
+    private static Response emptyResponse(@NotNull final String code) {
+        return new Response(code, Response.EMPTY);
     }
 }

@@ -16,7 +16,8 @@ public class Value {
      * @param timestamp that represents time of creation
      * @param data buffer to get data to value
      */
-    public Value(final long timestamp, @NotNull final ByteBuffer data) {
+    public Value(final long timestamp,
+                 @NotNull final ByteBuffer data) {
         this.timestamp = timestamp;
         this.data = data;
     }
@@ -31,7 +32,7 @@ public class Value {
         this.data = null;
     }
 
-    public static Value of(final ByteBuffer data) {
+    public static Value of(@NotNull final ByteBuffer data) {
         return new Value(System.currentTimeMillis(), data.duplicate().asReadOnlyBuffer());
     }
 

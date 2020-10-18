@@ -78,8 +78,8 @@ public final class TableSet {
      * */
     @NotNull
     public TableSet replaceCompactedFiles(@NotNull final NavigableMap<Long, Table> source,
-                                                 @NotNull final Table dest,
-                                                 final long generation) {
+                                          @NotNull final Table dest,
+                                          final long generation) {
         final NavigableMap<Long, Table> files = new TreeMap<>(this.ssTables);
         for (final var entry : source.entrySet()) {
             if (!files.remove(entry.getKey(), entry.getValue())) {

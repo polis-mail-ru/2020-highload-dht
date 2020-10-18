@@ -11,7 +11,8 @@ public class Cell implements Comparable<Cell> {
     @NotNull
     private final Value value;
 
-    public Cell(@NotNull final ByteBuffer key, @NotNull final Value value) {
+    public Cell(@NotNull final ByteBuffer key,
+                @NotNull final Value value) {
         this.key = key;
         this.value = value;
     }

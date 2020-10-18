@@ -122,7 +122,8 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key,
+                       @NotNull final ByteBuffer value) throws IOException {
         final boolean isToFlush;
         lock.readLock().lock();
         try {
@@ -269,7 +270,7 @@ public class DAOImpl implements DAO {
     }
 
     private File serialize(final long generation,
-                           final Iterator<Cell> iterator) throws IOException {
+                           @NotNull final Iterator<Cell> iterator) throws IOException {
         final File temp = new File(storage, generation + TEMP);
         SSTable.write(iterator, temp);
         final File file = new File(storage, generation + SUFFIX);
