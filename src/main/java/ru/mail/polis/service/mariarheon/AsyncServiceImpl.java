@@ -64,14 +64,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 );
     }
 
-    /** Get data by key.
+    /** Get/set/delete key-value entity.
      * @param key - record id.
-     * @param session - session for getting.
-     * @param request - request for getting.
+     * @param session - session.
+     * @param request - request.
      **/
     @Path("/v0/entity")
-    @RequestMethod(METHOD_GET)
-    public void get(final @Param(value = "id", required = true) String key,
+    @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
+    public void handleEntityRequest(final @Param(value = "id", required = true) String key,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
         final String reqNode = sharding.getResponsibleNode(key);
@@ -81,15 +81,25 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         try {
             service.execute(() -> {
-                getInternal(key, session);
+                switch (request.getMethod()) {
+                    case METHOD_GET:
+                        get(key, session);
+                        break;
+                    case METHOD_PUT:
+                        put(key, request, session);
+                        break;
+                    case METHOD_DELETE:
+                        delete(key, session);
+                        break;
+                }
             });
         } catch (RejectedExecutionException ex) {
             logger.error(SERV_UN, ex);
         }
     }
 
-    private void getInternal(final String key,
-                             final HttpSession session) {
+    private void get(final String key,
+                     final HttpSession session) {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.getInternal() method: key is empty");
@@ -114,33 +124,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /** Insert or change key-data pair.
-     * @param key - record id.
-     * @param request - record data.
-     * @param session - session.
-     **/
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_PUT)
-    public void put(final @Param(value = "id", required = true) String key,
-                    final @Param("request") Request request,
-                    @NotNull final HttpSession session) {
-        final String reqNode = sharding.getResponsibleNode(key);
-        if (!sharding.isMe(reqNode)) {
-            passOn(reqNode, request, session);
-            return;
-        }
-        try {
-            service.execute(() -> {
-                putInternal(key, request, session);
-            });
-        } catch (RejectedExecutionException ex) {
-            logger.error(SERV_UN, ex);
-        }
-    }
-
-    private void putInternal(final String key,
-                             final Request request,
-                             final HttpSession session) {
+    private void put(final String key,
+                     final Request request,
+                     final HttpSession session) {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.putInternal() method: key is empty");
@@ -157,30 +143,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             } catch (IOException ex1) {
                 logger.error(RESP_ERR, session, ex1);
             }
-        }
-    }
-
-    /** Remove key-data pair.
-     * @param key - record id.
-     * @param session - session for deletion.
-     * @param request - request for deletion.
-     **/
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_DELETE)
-    public void delete(final @Param(value = "id", required = true) String key,
-                       @NotNull final HttpSession session,
-                       @Param("request") final Request request) {
-        final String reqNode = sharding.getResponsibleNode(key);
-        if (!sharding.isMe(reqNode)) {
-            passOn(reqNode, request, session);
-            return;
-        }
-        try {
-            service.execute(() -> {
-                deleteInternal(key, session);
-            });
-        } catch (RejectedExecutionException ex) {
-            logger.error(SERV_UN, ex);
         }
     }
 
@@ -217,8 +179,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void deleteInternal(final String key,
-                             final HttpSession session) {
+    private void delete(final String key,
+                        final HttpSession session) {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.deleteInternal() method: key is empty");
