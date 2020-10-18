@@ -21,6 +21,7 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.mariarheon.AsyncServiceImpl;
+import ru.mail.polis.service.mariarheon.RendezvousSharding;
 
 import java.io.IOException;
 import java.util.Set;
@@ -64,6 +65,9 @@ public final class ServiceFactory {
         final var config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
 
-        return new AsyncServiceImpl(config, dao);
+        String nodeURL = "http://localhost:" + port;
+        final var sharding = new RendezvousSharding(topology, nodeURL);
+
+        return new AsyncServiceImpl(config, dao, sharding);
     }
 }

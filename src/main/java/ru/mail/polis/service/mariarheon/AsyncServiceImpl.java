@@ -1,6 +1,7 @@
 package ru.mail.polis.service.mariarheon;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,6 +10,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private final DAO dao;
     private final ExecutorService service;
+    private final RendezvousSharding sharding;
     private static final String RESP_ERR = "Response can't be sent: ";
 
     /**
@@ -45,10 +48,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param dao - dao
      */
     public AsyncServiceImpl(final HttpServerConfig config,
-                       @NotNull final DAO dao) throws IOException {
+                            @NotNull final DAO dao,
+                            @NotNull final RendezvousSharding sharding) throws IOException {
         super(config);
         this.dao = dao;
-
+        this.sharding = sharding;
         final int workers = Runtime.getRuntime().availableProcessors();
         service = new ThreadPoolExecutor(workers, workers, 0L,
                 TimeUnit.SECONDS,
@@ -66,7 +70,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public void get(final @Param(value = "id", required = true) String key,
-                    @NotNull final HttpSession session) {
+                    @NotNull final HttpSession session,
+                    final @Param("request") Request request) {
+        String reqNode = sharding.getResponsibleNode(key);
+        if (!sharding.isMe(reqNode)) {
+            passOn(reqNode, request, session);
+            return;
+        }
         try {
             service.execute(() -> {
                 getInternal(key, session);
@@ -112,6 +122,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void put(final @Param(value = "id", required = true) String key,
                     final @Param("request") Request request,
                     @NotNull final HttpSession session) {
+        String reqNode = sharding.getResponsibleNode(key);
+        if (!sharding.isMe(reqNode)) {
+            passOn(reqNode, request, session);
+            return;
+        }
         try {
             service.execute(() -> {
                 putInternal(key, request, session);
@@ -150,13 +165,50 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public void delete(final @Param(value = "id", required = true) String key,
-                       @NotNull final HttpSession session) {
+                       @NotNull final HttpSession session,
+                       @Param("request") final Request request) {
+        String reqNode = sharding.getResponsibleNode(key);
+        if (!sharding.isMe(reqNode)) {
+            passOn(reqNode, request, session);
+            return;
+        }
         try {
             service.execute(() -> {
                 deleteInternal(key, session);
             });
         } catch (RejectedExecutionException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+        }
+    }
+
+    private void passOn(@NotNull final String reqNode,
+                        @NotNull final Request request,
+                        @NotNull final HttpSession session) {
+        try {
+            service.execute(() -> {
+                passOnInternal(reqNode, request, session);
+            });
+        } catch (RejectedExecutionException ex) {
+            logger.error("Error in ServiceImpl.passOn() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException e) {
+            }
+        }
+    }
+
+    private void passOnInternal(@NotNull final String reqNode,
+                                @NotNull final Request request,
+                                @NotNull final HttpSession session) {
+        try {
+            var resp = sharding.passOn(reqNode, request);
+            session.sendResponse(resp);
+        } catch (InterruptedException | IOException | HttpException | PoolException e) {
+            logger.error("Failed to pass on the request: ", e);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException e2) {
+            }
         }
     }
 
