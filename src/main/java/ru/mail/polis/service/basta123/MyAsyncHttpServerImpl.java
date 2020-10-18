@@ -117,7 +117,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                         httpSession.sendResponse(new Response(Response.ok(valueBytes)));
                     } catch (IOException e) {
                         log.error("get error: ", e);
-                        sendResponse(httpSession, Response.NOT_FOUND);
+                        sendResponse(httpSession, Response.INTERNAL_ERROR);
                         throw new RuntimeException("Error getting value :", e);
 
                     } catch (NoSuchElementException e) {
