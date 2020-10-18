@@ -38,9 +38,8 @@ public class AsyncService extends HttpServer implements Service {
     private static final int CACHE_SIZE = 1024;
     private static final int CONCURRENT_LEVEL = 8;
 
-
     private final DAO dao;
-    private Cache<String, byte[]> cache = CacheBuilder.newBuilder()
+    private final Cache<String, byte[]> cache = CacheBuilder.newBuilder()
             .initialCapacity(CACHE_SIZE)
             .concurrencyLevel(CONCURRENT_LEVEL)
             .removalListener((RemovalListener<String, byte[]>) notification -> {
@@ -261,7 +260,7 @@ public class AsyncService extends HttpServer implements Service {
         return ByteBuffer.wrap(arr);
     }
 
-    private static void sendServiceUnavailableResponse(final HttpSession session, RejectedExecutionException e) {
+    private static void sendServiceUnavailableResponse(final HttpSession session, final RejectedExecutionException e) {
         log.error("Cannot complete request", e);
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
