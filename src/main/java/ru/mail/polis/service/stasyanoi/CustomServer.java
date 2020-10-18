@@ -47,19 +47,20 @@ public class CustomServer extends HttpServer {
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     public CustomServer(final DAO dao,
-                        final HttpServerConfig config, Set<String> topology) throws IOException {
+                        final HttpServerConfig config,
+                        final Set<String> topology) throws IOException {
         super(config);
         this.nodeCount = topology.size();
         ArrayList<String> urls = new ArrayList<>(topology);
         urls.sort(String::compareTo);
 
-        Map<Integer, String> nodeMapping = new HashMap<>();
+        Map<Integer, String> nodeMappingTemp = new HashMap<>();
 
         for (int i = 0; i < urls.size(); i++) {
-            nodeMapping.put(i, urls.get(i));
+            nodeMappingTemp.put(i, urls.get(i));
         }
 
-        this.nodeMapping = nodeMapping.entrySet().stream()
+        this.nodeMapping = nodeMappingTemp.entrySet().stream()
                 .filter(integerStringEntry -> !integerStringEntry.getValue()
                         .contains(String.valueOf(super.port))).collect(Collectors.
                 toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -89,8 +90,8 @@ public class CustomServer extends HttpServer {
 
     private Response routeRequest(final Request request, final int node) throws IOException {
 
-        ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        HttpClient httpClient = new HttpClient(connectionString);
+        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
+        final HttpClient httpClient = new HttpClient(connectionString);
         try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
@@ -118,7 +119,9 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response getProxy(Request request, int node, ByteBuffer id) throws IOException {
+    private Response getProxy(final Request request,
+                              final int node,
+                              final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (!nodeMapping.containsKey(node)) {
             //replicate here
@@ -184,7 +187,9 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response putProxy(Request request, byte[] idArray, int node) throws IOException {
+    private Response putProxy(final Request request,
+                              final byte[] idArray,
+                              final int node) throws IOException {
         final Response responseHttp;
         if (!nodeMapping.containsKey(node)) {
             //replicate here
@@ -233,7 +238,9 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response deleteProxy(Request request, byte[] idArray, int node) throws IOException {
+    private Response deleteProxy(final Request request,
+                                 final byte[] idArray,
+                                 final int node) throws IOException {
         final Response responseHttp;
         if (!nodeMapping.containsKey(node)) {
             //replicate here
