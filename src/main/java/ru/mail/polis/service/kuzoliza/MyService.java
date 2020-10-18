@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -52,13 +53,11 @@ public class MyService extends HttpServer {
     @Path("/v0/status")
     @RequestMethod(Request.METHOD_GET)
     public void status(final HttpSession session) {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException e) {
-                log.error("Can't send OK response", e);
-            }
-        });
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            log.error("Can't send OK response", e);
+        }
     }
 
     /**
@@ -77,7 +76,7 @@ public class MyService extends HttpServer {
      */
     @Path("/v0/entity")
     public void entity(final @Param(value = "id", required = true) String id, final Request request,
-                       final HttpSession session) {
+                       final HttpSession session) throws RejectedExecutionException {
         executor.execute(() -> {
             if (id.isEmpty()) {
                 try {
@@ -92,29 +91,27 @@ public class MyService extends HttpServer {
     }
 
     private void response(final ByteBuffer key, final Request request, final HttpSession session) {
-        executor.execute(() -> {
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    getResponse(key, session);
-                    break;
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                getResponse(key, session);
+                break;
 
-                case Request.METHOD_PUT:
-                    putResponse(key, request, session);
-                    break;
+            case Request.METHOD_PUT:
+                putResponse(key, request, session);
+                break;
 
-                case Request.METHOD_DELETE:
-                    deleteResponse(key, session);
-                    break;
+            case Request.METHOD_DELETE:
+                deleteResponse(key, session);
+                break;
 
-                default:
-                    try {
-                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                    } catch (IOException e) {
-                        log.error("Can't send 405 response", e);
-                    }
-                    break;
-            }
-        });
+            default:
+                try {
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Can't send 405 response", e);
+                }
+                break;
+        }
     }
 
     private void getResponse(final ByteBuffer key, final HttpSession session) {
@@ -130,6 +127,11 @@ public class MyService extends HttpServer {
             }
         } catch (IOException e) {
             log.error("Can't send response", e);
+            try {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response (get)", ex);
+            }
         }
     }
 
@@ -146,6 +148,11 @@ public class MyService extends HttpServer {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
         } catch (IOException e) {
             log.error("Can't upsert element", e);
+            try {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response (put)", ex);
+            }
         }
         try {
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
@@ -159,6 +166,11 @@ public class MyService extends HttpServer {
             dao.remove(key);
         } catch (IOException e) {
             log.error("Can't remove element", e);
+            try {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (IOException ex) {
+                log.error("Can't send 500 response (delete)", ex);
+            }
         }
         try {
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
@@ -179,13 +191,11 @@ public class MyService extends HttpServer {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Can't send bad response", e);
-            }
-        });
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Can't send bad response", e);
+        }
     }
 
     @Override
