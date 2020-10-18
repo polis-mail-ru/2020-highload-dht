@@ -8,6 +8,7 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.Iters;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
@@ -54,19 +55,13 @@ final class TransactionalDAOImpl implements TransactionalDAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final TableSet snapshot;
-        dao.readLock.lock();
-        try {
-            snapshot = dao.tableSet;
-            dao.tableSet = dao.tableSet.startIterating();
-        } finally {
-            dao.readLock.unlock();
-        }
-        final List<Iterator<Cell>> iters = LsmDAOImpl.uniteIters(snapshot, from);
-        final List<Iterator<Cell>> itersList = dao.getAllCellItersList(from, iters, snapshot.ssTablesToCompact);
+        final TableSet snapshot = dao.getSnapshot();
+        final List<Iterator<Cell>> iters = new ArrayList<>();
+        iters.add(memoryTable.iterator(from));
+        dao.getAllCellItersList(from, iters, snapshot);
 
         final Iterator<Cell> mergedElements = Iterators.mergeSorted(
-                itersList,
+                iters,
                 Cell.BY_KEY_AND_VALUE_CREATION_TIME_COMPARATOR
         );
 

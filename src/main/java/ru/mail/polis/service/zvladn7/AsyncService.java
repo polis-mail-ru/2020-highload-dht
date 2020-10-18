@@ -35,16 +35,19 @@ public class AsyncService extends HttpServer implements Service {
     private static final String ERROR_SENDING_RESPONSE = "Error when sending response";
     private static final String ERROR_SERVICE_UNAVAILABLE = "Cannot send SERVICE_UNAVAILABLE response";
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
+    private static final int CACHE_SIZE = 1024;
+    private static final int CONCURRENT_LEVEL = 8;
+
 
     private final DAO dao;
     private Cache<String, byte[]> cache = CacheBuilder.newBuilder()
-            .initialCapacity(1024)
-            .concurrencyLevel(8)
+            .initialCapacity(CACHE_SIZE)
+            .concurrencyLevel(CONCURRENT_LEVEL)
             .removalListener((RemovalListener<String, byte[]>) notification -> {
                 log.debug("Remove from cache with key: " + notification.getKey());
                 log.debug("Cause: " + notification.getCause().name());
             })
-            .maximumSize(1024)
+            .maximumSize(CACHE_SIZE)
             .expireAfterAccess(1, TimeUnit.MINUTES)
             .build();
     private final ExecutorService es;
@@ -76,7 +79,7 @@ public class AsyncService extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        log.error("Unsupported mapping request.\n Cannot understand it: {} {}",
+        log.info("Unsupported mapping request.\n Cannot understand it: {} {}",
                 request.getMethodName(), request.getPath());
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
@@ -84,11 +87,11 @@ public class AsyncService extends HttpServer implements Service {
     /**
      * Return status of the server instance.
      *
-     * @param session - server session
+     * @return Response - OK if service is available
      */
     @Path("/v0/status")
-    public void status(final HttpSession session) {
-        processRequest(() -> session.sendResponse(Response.ok("Status: OK")), session);
+    public Response status() {
+        return Response.ok("Status: OK");
     }
 
     /**
@@ -162,7 +165,7 @@ public class AsyncService extends HttpServer implements Service {
             @NotNull final HttpSession session) throws IOException {
         log.debug("GET request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
-            sendEmptyIdResponse(session);
+            sendEmptyIdResponse(session, "GET");
             return;
         }
         byte[] body = cache.getIfPresent(id);
@@ -190,7 +193,7 @@ public class AsyncService extends HttpServer implements Service {
             @NotNull final HttpSession session) throws IOException {
         log.debug("DELETE request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
-            sendEmptyIdResponse(session);
+            sendEmptyIdResponse(session, "DELETE");
             return;
         }
         final ByteBuffer key = wrapString(id);
@@ -211,7 +214,7 @@ public class AsyncService extends HttpServer implements Service {
         log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
                 id, new String(request.getBody(), StandardCharsets.UTF_8));
         if (id.isEmpty()) {
-            sendEmptyIdResponse(session);
+            sendEmptyIdResponse(session, "UPSERT");
             return;
         }
 
@@ -258,8 +261,8 @@ public class AsyncService extends HttpServer implements Service {
         return ByteBuffer.wrap(arr);
     }
 
-    private static void sendServiceUnavailableResponse(final HttpSession session) {
-        log.error("Cannot complete request");
+    private static void sendServiceUnavailableResponse(final HttpSession session, RejectedExecutionException e) {
+        log.error("Cannot complete request", e);
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
         } catch (IOException ex) {
@@ -267,8 +270,8 @@ public class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private static void sendEmptyIdResponse(final HttpSession session) throws IOException {
-        log.error("Empty key was provided in DELETE method!");
+    private static void sendEmptyIdResponse(final HttpSession session, final String methodName) throws IOException {
+        log.info("Empty key was provided in {} method!", methodName);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
@@ -291,7 +294,7 @@ public class AsyncService extends HttpServer implements Service {
         try {
             es.execute(() -> process(processor));
         } catch (RejectedExecutionException e) {
-            sendServiceUnavailableResponse(session);
+            sendServiceUnavailableResponse(session, e);
         }
     }
 }
