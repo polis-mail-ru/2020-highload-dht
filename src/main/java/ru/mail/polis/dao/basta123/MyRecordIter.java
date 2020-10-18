@@ -6,14 +6,16 @@ import ru.mail.polis.Record;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
+import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
 public class MyRecordIter implements Iterator<Record> {
 
     private final RocksIterator rocksIterator;
 
-    public MyRecordIter(final RocksIterator rocksIterator) {
+    public MyRecordIter(final ByteBuffer key, final RocksIterator rocksIterator) {
         this.rocksIterator = rocksIterator;
+        this.rocksIterator.seek(getByteArrayFromByteBuffer(key));
     }
 
     @Override

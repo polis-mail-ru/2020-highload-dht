@@ -5,7 +5,6 @@ import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
@@ -17,21 +16,21 @@ import java.util.NoSuchElementException;
 
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 
-public class DAORocksDB implements DAO {
+public class MyDAORocksDB implements DAO {
 
-    private final RocksDB rocksDBInstance;
+    private RocksDB rocksDBInstance;
+    private MyRecordIter recordIter;
 
     /**
      * database initialization.
      *
      * @param path DB location path
      */
-    public DAORocksDB(final File path) {
+    public MyDAORocksDB(final File path) {
         RocksDB.loadLibrary();
         final ComparatorOptions comOptions = new ComparatorOptions();
-        final Options options = new Options()
-                .setCreateIfMissing(true)
-                .setComparator(new SingedBytesComparator(comOptions));
+        final Options options = new Options().setCreateIfMissing(true);
+        options.setComparator(new MyComparator(comOptions));
         try {
             rocksDBInstance = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException e) {
@@ -42,38 +41,42 @@ public class DAORocksDB implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(final @NotNull ByteBuffer from) {
-        final RocksIterator rocksIterator = rocksDBInstance.newIterator();
-        rocksIterator.seek(getByteArrayFromByteBuffer(from));
-        return new MyRecordIter(rocksIterator);
+        if (recordIter != null) {
+            recordIter.close();
+        }
+        recordIter = new MyRecordIter(from, rocksDBInstance.newIterator());
+        return recordIter;
     }
 
-    @NotNull
     @Override
-    public ByteBuffer get(@NotNull final ByteBuffer key) throws NoSuchElementException, IOException {
-        try {
-            final byte[] valueByte = rocksDBInstance.get(getByteArrayFromByteBuffer(key));
-            if (valueByte == null) {
-                throw new NoSuchElementException("Not such value by this key");
-            }
-            return ByteBuffer.wrap(valueByte);
-        } catch (RocksDBException e) {
-            throw new RuntimeException(e);
+    @NotNull
+    public synchronized ByteBuffer get(final @NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Record> iter = iterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        final Record next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next.getValue();
+        } else {
+            throw new NoSuchElementException("Not found");
         }
     }
 
     @Override
-    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) throws IOException {
+    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
-            final byte[] keyByte = getByteArrayFromByteBuffer(key);
-            final byte[] valueByte = getByteArrayFromByteBuffer(value);
+            final byte [] keyByte = getByteArrayFromByteBuffer(key);
+            final byte [] valueByte = getByteArrayFromByteBuffer(value);
             rocksDBInstance.put(keyByte, valueByte);
         } catch (RocksDBException e) {
-            throw new RuntimeException("upsert ex: ",e);
+            throw new RuntimeException("upsert ex: ", e);
         }
     }
 
     @Override
-    public void remove(final @NotNull ByteBuffer key) throws IOException {
+    public void remove(final @NotNull ByteBuffer key) {
         try {
             rocksDBInstance.delete(getByteArrayFromByteBuffer(key));
         } catch (RocksDBException e) {
@@ -83,7 +86,11 @@ public class DAORocksDB implements DAO {
 
     @Override
     public void close() {
-            rocksDBInstance.close();
+        try {
+            rocksDBInstance.closeE();
+        } catch (RocksDBException e) {
+            throw new RuntimeException("Error on closing:", e);
+        }
     }
 
     @Override

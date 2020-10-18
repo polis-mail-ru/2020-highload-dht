@@ -398,7 +398,7 @@
 <text x="19.2" y="62.0">ru/mail/polis/dao/basta123/M..</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.DAORocksDB (1,065 samples, 17.94%)</title><rect x="16.2" y="35.0" width="211.7" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,065 samples, 17.94%)</title><rect x="16.2" y="35.0" width="211.7" height="15" fill="#66d4d4" rx="2" ry="2"/>
 <text x="19.2" y="46.0">ru.mail.polis.dao.basta123.M..</text>
 </g>
 <g>
@@ -442,8 +442,8 @@
 <text x="230.9" y="62.0">ru/mail/polis/dao/basta123/MyDAORocksDB.get</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.DAORocksDB (1,521 samples, 25.63%)</title><rect x="227.9" y="35.0" width="302.4" height="15" fill="#6ddbdb" rx="2" ry="2"/>
-<text x="230.9" y="46.0">ru.mail.polis.dao.basta123.DAORocksDB</text>
+<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,521 samples, 25.63%)</title><rect x="227.9" y="35.0" width="302.4" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<text x="230.9" y="46.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
 </g>
 <g>
 <title>[NIO Selector #2 tid=6054] (1,573 samples, 26.50%)</title><rect x="530.3" y="195.0" width="312.8" height="15" fill="#f77777" rx="2" ry="2"/>
@@ -486,8 +486,8 @@
 <text x="533.3" y="62.0">ru/mail/polis/dao/basta123/MyDAORocksDB.get</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.DAORocksDB (1,573 samples, 26.50%)</title><rect x="530.3" y="35.0" width="312.8" height="15" fill="#6ddbdb" rx="2" ry="2"/>
-<text x="533.3" y="46.0">ru.mail.polis.dao.basta123.DAORocksDB</text>
+<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,573 samples, 26.50%)</title><rect x="530.3" y="35.0" width="312.8" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<text x="533.3" y="46.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
 </g>
 <g>
 <title>[NIO Selector #3 tid=6055] (1,714 samples, 28.88%)</title><rect x="843.1" y="195.0" width="340.7" height="15" fill="#e76262" rx="2" ry="2"/>
@@ -530,8 +530,8 @@
 <text x="846.1" y="62.0">ru/mail/polis/dao/basta123/MyDAORocksDB.get</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.DAORocksDB (1,714 samples, 28.88%)</title><rect x="843.1" y="35.0" width="340.7" height="15" fill="#51bfbf" rx="2" ry="2"/>
-<text x="846.1" y="46.0">ru.mail.polis.dao.basta123.DAORocksDB</text>
+<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,714 samples, 28.88%)</title><rect x="843.1" y="35.0" width="340.7" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="846.1" y="46.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
 </g>
 <g>
 <title>[Reference Handler tid=6010] (31 samples, 0.52%)</title><rect x="1183.8" y="195.0" width="6.2" height="15" fill="#e76262" rx="2" ry="2"/>

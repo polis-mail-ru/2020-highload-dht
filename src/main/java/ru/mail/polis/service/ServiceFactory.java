@@ -20,7 +20,6 @@ import one.nio.http.HttpServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.basta123.MyAsyncHttpServerImpl;
-
 import java.io.IOException;
 
 import static ru.mail.polis.service.basta123.Utils.getHttpServerConfig;
@@ -46,7 +45,7 @@ public final class ServiceFactory {
      */
     @NotNull
     public static Service create(
-            final int port,
+            @NotNull final int port,
             @NotNull final DAO dao) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");

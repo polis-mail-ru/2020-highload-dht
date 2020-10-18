@@ -5,9 +5,9 @@ import org.rocksdb.Comparator;
 import org.rocksdb.ComparatorOptions;
 import org.rocksdb.Slice;
 
-public class SingedBytesComparator extends Comparator {
+public class MyComparator extends Comparator {
 
-    public SingedBytesComparator(final ComparatorOptions compOptions) {
+    public MyComparator(final ComparatorOptions compOptions) {
         super(compOptions);
     }
 

@@ -2,7 +2,6 @@ package ru.mail.polis.service.basta123;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
-
 import java.nio.ByteBuffer;
 
 public final class Utils {
@@ -21,7 +20,7 @@ public final class Utils {
      * @return bytes array
      */
     public static byte[] getByteArrayFromByteBuffer(final ByteBuffer buffer) {
-        final byte[] bytes = new byte[buffer.remaining()];
+        final byte[] bytes = new byte[buffer.limit()];
         buffer.get(bytes);
         buffer.clear();
         return bytes;
@@ -37,9 +36,10 @@ public final class Utils {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.acceptors = new AcceptorConfig[1];
+        httpServerConfig.acceptors[0] = acceptorConfig;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
-        httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
         return httpServerConfig;
     }

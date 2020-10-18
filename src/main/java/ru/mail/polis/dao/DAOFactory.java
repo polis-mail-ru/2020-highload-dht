@@ -17,7 +17,7 @@
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.basta123.DAORocksDB;
+import ru.mail.polis.dao.basta123.MyDAORocksDB;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,6 +54,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new DAORocksDB(data);
+        return new MyDAORocksDB(data);
     }
 }
