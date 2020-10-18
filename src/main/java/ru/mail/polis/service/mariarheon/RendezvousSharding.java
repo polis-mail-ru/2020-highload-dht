@@ -15,9 +15,9 @@ import java.util.Objects;
 import java.util.Set;
 
 public class RendezvousSharding {
-    final private Set<String> nodes;
-    final private String currentNode;
-    final private Map<String, HttpClient> clients;
+    private final Set<String> nodes;
+    private final String currentNode;
+    private final Map<String, HttpClient> clients;
 
     /**
      * Constructor for RendezvousSharding.
