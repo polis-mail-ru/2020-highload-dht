@@ -65,7 +65,7 @@ public final class ServiceFactory {
         final var config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
 
-        String nodeURL = "http://localhost:" + port;
+        final String nodeURL = "http://localhost:" + port;
         final var sharding = new RendezvousSharding(topology, nodeURL);
 
         return new AsyncServiceImpl(config, dao, sharding);

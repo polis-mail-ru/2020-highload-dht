@@ -15,27 +15,38 @@ import java.util.Objects;
 import java.util.Set;
 
 public class RendezvousSharding {
-    private Set<String> nodes;
-    private String currentNode;
-    private Map<String, HttpClient> clients;
+    final private Set<String> nodes;
+    final private String currentNode;
+    final private Map<String, HttpClient> clients;
 
+    /**
+     * Constructor for RendezvousSharding.
+     *
+     * @param topology - topology.
+     * @param currentNode - current node.
+     */
     public RendezvousSharding(@NotNull final Set<String> topology,
                               @NotNull final String currentNode) {
         this.nodes = topology;
         this.currentNode = currentNode;
         clients = new HashMap<>();
-        for (String node : nodes) {
-            if (!isMe(node)) {
+        for (final String node : nodes) {
+            if (!node.equals(currentNode)) {
                 clients.put(node, new HttpClient(new ConnectionString(node + "?timeout=10")));
             }
         }
     }
 
+    /**
+     * get responsible node.
+     * @param key - key.
+     * @return reuired node.
+     */
     public String getResponsibleNode(@NotNull final String key) {
         String requiredNode = null;
         int max = Integer.MIN_VALUE;
-        for (String node : nodes) {
-            int hashCode = Objects.hash(key, node);
+        for (final String node : nodes) {
+            final int hashCode = Objects.hash(key, node);
             if (hashCode > max) {
                 max = hashCode;
                 requiredNode = node;
@@ -44,11 +55,14 @@ public class RendezvousSharding {
         return requiredNode;
     }
 
-    public boolean isMe(String node) {
+    public boolean isMe(final String node) {
         return node.equals(currentNode);
     }
 
-    public Response passOn(String to, Request request) throws InterruptedException, IOException, HttpException, PoolException {
+    public Response passOn(final String to, final Request request) throws InterruptedException,
+                                                              IOException,
+                                                              HttpException,
+                                                              PoolException {
         return clients.get(to).invoke(request, 100000);
     }
 }

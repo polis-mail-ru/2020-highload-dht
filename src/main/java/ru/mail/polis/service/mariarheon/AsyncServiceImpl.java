@@ -40,6 +40,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final ExecutorService service;
     private final RendezvousSharding sharding;
     private static final String RESP_ERR = "Response can't be sent: ";
+    private static final String SERV_UN = "Service unavailable: ";
 
     /**
      * Asynchronous Service Implementation.
@@ -65,14 +66,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     /** Get data by key.
      * @param key - record id.
-     * @param session - session.
+     * @param session - session for getting.
+     * @param request - request for getting.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public void get(final @Param(value = "id", required = true) String key,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
-        String reqNode = sharding.getResponsibleNode(key);
+        final String reqNode = sharding.getResponsibleNode(key);
         if (!sharding.isMe(reqNode)) {
             passOn(reqNode, request, session);
             return;
@@ -82,7 +84,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 getInternal(key, session);
             });
         } catch (RejectedExecutionException ex) {
-            logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
+            logger.error(SERV_UN, ex);
         }
     }
 
@@ -122,7 +124,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void put(final @Param(value = "id", required = true) String key,
                     final @Param("request") Request request,
                     @NotNull final HttpSession session) {
-        String reqNode = sharding.getResponsibleNode(key);
+        final String reqNode = sharding.getResponsibleNode(key);
         if (!sharding.isMe(reqNode)) {
             passOn(reqNode, request, session);
             return;
@@ -132,7 +134,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 putInternal(key, request, session);
             });
         } catch (RejectedExecutionException ex) {
-            logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
+            logger.error(SERV_UN, ex);
         }
     }
 
@@ -160,14 +162,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     /** Remove key-data pair.
      * @param key - record id.
-     * @param session - session.
+     * @param session - session for deletion.
+     * @param request - request for deletion.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
     public void delete(final @Param(value = "id", required = true) String key,
                        @NotNull final HttpSession session,
                        @Param("request") final Request request) {
-        String reqNode = sharding.getResponsibleNode(key);
+        final String reqNode = sharding.getResponsibleNode(key);
         if (!sharding.isMe(reqNode)) {
             passOn(reqNode, request, session);
             return;
@@ -177,7 +180,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 deleteInternal(key, session);
             });
         } catch (RejectedExecutionException ex) {
-            logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+            logger.error(SERV_UN, ex);
         }
     }
 
@@ -189,10 +192,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 passOnInternal(reqNode, request, session);
             });
         } catch (RejectedExecutionException ex) {
-            logger.error("Error in ServiceImpl.passOn() method; internal error: ", ex);
+            logger.error(SERV_UN, ex);
             try {
                 session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
             } catch (IOException e) {
+                logger.error("Error in ServiceImpl.passOn() method; internal error: ", e);
             }
         }
     }
@@ -201,13 +205,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                 @NotNull final Request request,
                                 @NotNull final HttpSession session) {
         try {
-            var resp = sharding.passOn(reqNode, request);
+            final var resp = sharding.passOn(reqNode, request);
             session.sendResponse(resp);
         } catch (InterruptedException | IOException | HttpException | PoolException e) {
             logger.error("Failed to pass on the request: ", e);
             try {
                 session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
             } catch (IOException e2) {
+                logger.error("Error in ServiceImpl.passOnInternal() method; internal error: ", e);
             }
         }
     }
