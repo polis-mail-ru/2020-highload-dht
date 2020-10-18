@@ -20,17 +20,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
 
     private final DAO dao;
     private final ExecutorService executor;
-    private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     /**
      * AsyncService initialization.
@@ -38,13 +34,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param port - to accept HTTP server
      * @param dao - storage interface
      */
-    public AsyncServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
+    public AsyncServiceImpl(final int port, @NotNull final DAO dao, final int countOfWorkers,
+                            final int queueSize) throws IOException {
+
         super(getConfig(port));
         this.dao = dao;
-        final int countOfWorkers = Runtime.getRuntime().availableProcessors();
-        this.executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 10L,
-                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1024),
-                new ThreadFactoryBuilder().setNameFormat("async_worker-%d").build());
+        this.executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
+                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder().setNameFormat("async_worker-%d").setUncaughtExceptionHandler((t, e) ->
+                        log.error("Error in {} when procesing request", t, e)
+                ).build(),
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
 
@@ -55,16 +55,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
-        final Future<?> future = executor.submit(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException error) {
-                log.error("Can't send response. Error: " + error);
-            }
-        });
-
-        if (future.isCancelled()) {
-            log.error("Error in executor");
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException error) {
+            log.error("Can't send response. Error: ", error);
         }
     }
 
@@ -78,49 +72,63 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
-                       @NotNull final Request request, final HttpSession session) {
+                       @NotNull final Request request, final HttpSession session) throws IOException {
 
-        final Future<?> future = executor.submit(() -> {
-            try {
-                if (id.isEmpty()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        try {
+            final Future<?> future = executor.submit(() -> {
+                try {
+                    if (id.isEmpty()) {
+                        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    }
+
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+                    switch (request.getMethod()) {
+                        case Request.METHOD_GET:
+                            get(key, session);
+                            break;
+                        case Request.METHOD_PUT:
+                            put(key, request, session);
+                            break;
+                        case Request.METHOD_DELETE:
+                            delete(key, session);
+                            break;
+                        default:
+                            session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                            break;
+                    }
+                } catch (IOException error) {
+                    log.error("Response error: ", error);
                 }
+            });
 
-                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-
-                switch (request.getMethod()) {
-                    case Request.METHOD_GET:
-                        get(key, session);
-                        break;
-                    case Request.METHOD_PUT:
-                        put(key, request, session);
-                        break;
-                    case Request.METHOD_DELETE:
-                        delete(key, session);
-                        break;
-                    default:
-                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                        break;
-                }
-            } catch (IOException error) {
-                log.error("Response error: " + error);
+            if (future.isCancelled()) {
+                log.error("Executor error!");
             }
-        });
 
-        if (future.isCancelled()) {
-            log.error("Executor error!");
+        } catch (RejectedExecutionException error) {
+            log.error("RejectedExecution error: ", error);
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
-
     }
 
     private void get(final ByteBuffer key, final HttpSession session) throws IOException {
         try {
             final ByteBuffer value = dao.get(key).duplicate();
             final byte[] valueArray = ByteConvertor.toArray(value);
-            session.sendResponse(Response.ok(valueArray));
-        } catch (IOException ex) {
+
+            try {
+                session.sendResponse(Response.ok(valueArray));
+            } catch (IOException error) {
+                log.error("Sending get response error: ", error);
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+
+        } catch (IOException error) {
+            log.error("IO get error: ", error);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         } catch (NoSuchElementException error) {
+            log.error("NoSuchElement get error: ", error);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
@@ -129,7 +137,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                      final HttpSession session) throws IOException {
         try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+
+            try {
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } catch (IOException error) {
+                log.error("Sending put response error: ", error);
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+
         } catch (IOException error) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
@@ -138,7 +153,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private void delete(final ByteBuffer key, final HttpSession session) throws IOException {
         try {
             dao.remove(key);
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+
+            try {
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (IOException error) {
+                log.error("Sending delete response error: ", error);
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+
         } catch (IOException error) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
@@ -146,24 +168,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        final Future<?> future = executor.submit(() -> {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException error) {
-                log.error("Response error: " + error);
-            }
-        });
-
-        if (future.isCancelled()) {
-            log.error("Executor error!");
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (IOException error) {
+            log.error("Handle error: ", error);
         }
     }
 
     private static HttpServerConfig getConfig(final int port) {
-        if (port <= 1024 || 65536 <= port) {
-            throw new IllegalArgumentException("invalid port!");
-        }
-
         final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
@@ -177,13 +189,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public synchronized void stop() {
         super.stop();
         executor.shutdown();
+
         try {
             executor.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException error) {
-            log.error("Can't stop server! Error: " + error);
+            log.error("Can't stop server! Error: ", error);
             Thread.currentThread().interrupt();
         }
     }
-
 }
 

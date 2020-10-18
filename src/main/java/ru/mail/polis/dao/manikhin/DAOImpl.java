@@ -53,7 +53,7 @@ public final class DAOImpl implements DAO {
 
             if (result == null) {
                 final String stringKey = StandardCharsets.UTF_8.decode(key).toString();
-                throw new NoSuchElementException("No such element " + stringKey);
+                throw new NoSuchElementException(String.format("No such element: %s", stringKey));
             }
 
             return ByteBuffer.wrap(result);

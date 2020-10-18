@@ -53,6 +53,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new AsyncServiceImpl(port, dao);
+        return new AsyncServiceImpl(port, dao, Runtime.getRuntime().availableProcessors(), 1024);
     }
 }
