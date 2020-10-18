@@ -223,7 +223,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         final boolean doFlush;
         lock.readLock().lock();
         try {

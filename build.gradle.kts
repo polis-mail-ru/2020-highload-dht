@@ -32,6 +32,8 @@ dependencies {
     // Guava primitives
     compile("com.google.guava:guava:27.0.1-jre")
 
+        compile("commons-codec:commons-codec:1.15")
+
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")
