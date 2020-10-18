@@ -16,9 +16,9 @@ import java.util.NoSuchElementException;
 
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 
-public class MyDAORocksDB implements DAO {
+public class DAORocksDB implements DAO {
 
-    private RocksDB rocksDBInstance;
+    private final RocksDB rocksDBInstance;
     private MyRecordIter recordIter;
 
     /**
@@ -26,11 +26,11 @@ public class MyDAORocksDB implements DAO {
      *
      * @param path DB location path
      */
-    public MyDAORocksDB(final File path) {
+    public DAORocksDB(final File path) {
         RocksDB.loadLibrary();
         final ComparatorOptions comOptions = new ComparatorOptions();
-        final Options options = new Options().setCreateIfMissing(true);
-        options.setComparator(new MyComparator(comOptions));
+        final Options options = new Options().setCreateIfMissing(true)
+                .setComparator(new MyComparator(comOptions));;
         try {
             rocksDBInstance = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException e) {
@@ -67,8 +67,8 @@ public class MyDAORocksDB implements DAO {
     @Override
     public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) {
         try {
-            final byte [] keyByte = getByteArrayFromByteBuffer(key);
-            final byte [] valueByte = getByteArrayFromByteBuffer(value);
+            final byte[] keyByte = getByteArrayFromByteBuffer(key);
+            final byte[] valueByte = getByteArrayFromByteBuffer(value);
             rocksDBInstance.put(keyByte, valueByte);
         } catch (RocksDBException e) {
             throw new RuntimeException("upsert ex: ", e);

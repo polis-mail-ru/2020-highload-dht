@@ -730,8 +730,8 @@
 <text x="69.6" y="222.0">ru/mail/polis/dao/basta123/MyDAORocksDB.get</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,736 samples, 27.74%)</title><rect x="66.6" y="195.0" width="327.4" height="15" fill="#5dcbcb" rx="2" ry="2"/>
-<text x="69.6" y="206.0">ru.mail.polis.dao.basta123.MyDAORocksDB</text>
+<title>ru.mail.polis.dao.basta123.DAORocksDB (1,736 samples, 27.74%)</title><rect x="66.6" y="195.0" width="327.4" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="69.6" y="206.0">ru.mail.polis.dao.basta123.DAORocksDB</text>
 </g>
 <g>
 <title>[worker-1 tid=5670] (1,364 samples, 21.80%)</title><rect x="394.2" y="307.0" width="257.2" height="15" fill="#f37272" rx="2" ry="2"/>
@@ -770,7 +770,7 @@
 <text x="397.5" y="222.0">ru/mail/polis/dao/basta123/MyDAORo..</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,362 samples, 21.77%)</title><rect x="394.5" y="195.0" width="256.9" height="15" fill="#67d5d5" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.DAORocksDB (1,362 samples, 21.77%)</title><rect x="394.5" y="195.0" width="256.9" height="15" fill="#67d5d5" rx="2" ry="2"/>
 <text x="397.5" y="206.0">ru.mail.polis.dao.basta123.MyDAORo..</text>
 </g>
 <g>
@@ -862,7 +862,7 @@
 <text x="655.5" y="222.0">ru/mail/polis/dao/basta123/MyDAORock..</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,446 samples, 23.11%)</title><rect x="652.5" y="195.0" width="272.7" height="15" fill="#65d3d3" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.DAORocksDB (1,446 samples, 23.11%)</title><rect x="652.5" y="195.0" width="272.7" height="15" fill="#65d3d3" rx="2" ry="2"/>
 <text x="655.5" y="206.0">ru.mail.polis.dao.basta123.MyDAORock..</text>
 </g>
 <g>
@@ -926,7 +926,7 @@
 <text x="930.3" y="222.0">ru/mail/polis/dao/basta123/MyDAORoc..</text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyDAORocksDB (1,393 samples, 22.26%)</title><rect x="927.3" y="195.0" width="262.7" height="15" fill="#5bc9c9" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.DAORocksDB (1,393 samples, 22.26%)</title><rect x="927.3" y="195.0" width="262.7" height="15" fill="#5bc9c9" rx="2" ry="2"/>
 <text x="930.3" y="206.0">ru.mail.polis.dao.basta123.MyDAORoc..</text>
 </g>
 </g>

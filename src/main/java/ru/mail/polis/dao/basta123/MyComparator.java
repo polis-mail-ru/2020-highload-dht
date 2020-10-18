@@ -13,7 +13,7 @@ public class MyComparator extends Comparator {
 
     @Override
     public String name() {
-        return "Somm";
+        return "SingedBytesComparator";
     }
 
     @Override
