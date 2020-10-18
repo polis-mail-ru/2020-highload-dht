@@ -101,7 +101,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private void execute(final int requestType,
                          final String id,
                          final HttpSession session,
-                         final Request request) throws RejectedExecutionException{
+                         final Request request) throws RejectedExecutionException {
         executorService.execute(() -> {
             try {
                 switch (requestType) {
@@ -113,6 +113,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         break;
                     case Request.METHOD_DELETE:
                         handleDelRequest(id, session);
+                        break;
+                    default:
                         break;
                 }
             } catch (IOException e) {
