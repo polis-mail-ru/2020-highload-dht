@@ -101,22 +101,25 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     public void getValueByKey(final @Param("id") String id,
                               final HttpSession httpSession) {
         execService.execute(() -> {
-                    if (id == null || id.isBlank()) {
+                    if (id == null || id.isEmpty()) {
                         sendResponse(httpSession, Response.BAD_REQUEST);
                         return;
                     }
+
                     final byte[] keyBytes = id.getBytes(UTF_8);
                     final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
                     ByteBuffer valueByteBuffer;
                     final byte[] valueBytes;
                     try {
                         valueByteBuffer = dao.get(keyByteBuffer);
                         valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
-                        httpSession.sendResponse(new Response(Response.OK, valueBytes));
+                        httpSession.sendResponse(new Response(Response.ok(valueBytes)));
                     } catch (IOException e) {
                         log.error("get error: ", e);
-                        sendResponse(httpSession, Response.INTERNAL_ERROR);
+                        sendResponse(httpSession, Response.NOT_FOUND);
                         throw new RuntimeException("Error getting value :", e);
+
                     } catch (NoSuchElementException e) {
                         sendResponse(httpSession, Response.NOT_FOUND);
                     }
@@ -137,7 +140,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
                               final Request request,
                               final HttpSession httpSession) throws IOException {
         execService.execute(() -> {
-            if (id.isBlank()) {
+            if (id == null || id.isEmpty()) {
                 try {
                     httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 } catch (IOException ioException) {
@@ -173,7 +176,7 @@ public class MyAsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteValueByKey(final @Param("id") String id, final HttpSession httpSession) throws IOException {
         execService.execute(() -> {
-            if (id.isBlank()) {
+            if (id == null || id.isEmpty()) {
                 try {
                     httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 } catch (IOException ioException) {

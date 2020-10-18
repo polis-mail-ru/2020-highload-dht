@@ -84,7 +84,6 @@ public class DAORocksDB implements DAO {
     @Override
     public void close() {
         try {
-            rocksDBInstance.syncWal();
             rocksDBInstance.closeE();
         } catch (RocksDBException e) {
             throw new RuntimeException("Error on closing:", e);
