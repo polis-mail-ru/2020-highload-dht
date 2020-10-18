@@ -73,6 +73,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException ex) {
             logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
         }
     }
 
@@ -118,6 +123,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException ex) {
             logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
         }
     }
 
@@ -157,6 +167,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+            try {
+                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
+            } catch (IOException ex1) {
+                logger.error(RESP_ERR, session, ex1);
+            }
         }
     }
 
