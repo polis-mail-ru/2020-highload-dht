@@ -118,7 +118,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
              return nodesClient.get(targetNode).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
             log.error("Proxy don't work ", e);
-            throw new RuntimeException(e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
