@@ -24,7 +24,6 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -92,12 +91,15 @@ public class NewService extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
         this.topology = topology;
         this.nodeToClientMap = new HashMap<>();
-        Arrays.stream(topology.all()).filter(node -> !topology.isMyNode(node)).forEach(node -> {
+        for (final String node : topology.all()) {
+            if (topology.isMyNode(node)) {
+                continue;
+            }
             final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=1000"));
             if (nodeToClientMap.put(node, httpClient) != null) {
                 throw new IllegalStateException("Duplicate Node!");
             }
-        });
+        }
     }
 
     @NotNull
