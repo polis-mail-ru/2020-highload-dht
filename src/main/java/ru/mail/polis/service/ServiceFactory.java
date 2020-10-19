@@ -19,6 +19,7 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.zvladn7.AsyncService;
+import ru.mail.polis.service.zvladn7.ServiceTopology;
 
 import java.io.IOException;
 import java.util.Set;
@@ -42,7 +43,7 @@ public final class ServiceFactory {
      *
      * @param port     port to bind HTTP server to
      * @param dao      DAO to store the data
-     * @param topology a list of all cluster endpoints {@code http://<host>:<port>} (including this one)
+     * @param topology a nodes of all cluster endpoints {@code http://<host>:<port>} (including this one)
      * @return a storage instance
      */
     @NotNull
@@ -58,10 +59,12 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
+        final String me = "http://localhost:" + port;
         return new AsyncService(port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),
                 EXECUTOR_QUEUE_SIZE,
-                CACHE_SIZE);
+                CACHE_SIZE,
+                new ServiceTopology(topology, me));
     }
 }

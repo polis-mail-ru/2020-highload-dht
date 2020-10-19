@@ -4,6 +4,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -12,6 +13,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import one.nio.util.Utf8;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +25,8 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -37,8 +41,10 @@ public class AsyncService extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
 
     private final DAO dao;
+    private final Topology<String> topology;
     private final Cache<String, byte[]> cache;
     private final ExecutorService es;
+    private final Map<String, HttpClient> clients;
 
     /**
      * Asynchronous server implementation.
@@ -52,9 +58,11 @@ public class AsyncService extends HttpServer implements Service {
                         @NotNull final DAO dao,
                         final int amountOfWorkers,
                         final int queueSize,
-                        final int cacheSize) throws IOException {
+                        final int cacheSize,
+                        @NotNull final Topology<String> topology) throws IOException {
         super(provideConfig(port));
         this.dao = dao;
+        this.topology = topology;
         this.es = new ThreadPoolExecutor(amountOfWorkers, amountOfWorkers,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
@@ -64,6 +72,7 @@ public class AsyncService extends HttpServer implements Service {
                         ).build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
+
         this.cache = CacheBuilder.newBuilder()
                 .initialCapacity(cacheSize)
                 .concurrencyLevel(amountOfWorkers)
@@ -74,6 +83,20 @@ public class AsyncService extends HttpServer implements Service {
                 .maximumSize(cacheSize)
                 .expireAfterAccess(1, TimeUnit.MINUTES)
                 .build();
+
+        this.clients = new HashMap<>();
+        for (final String node : topology.nodes()) {
+            if (topology.isLocal(node)) {
+                continue;
+            }
+
+            final ConnectionString connectionString = new ConnectionString(node + "?timeout=1000");
+            final HttpClient client = new HttpClient(connectionString);
+            if (clients.put(node, client) != null) {
+                log.error("Cannot start server. Duplicate node with connection string: {}", node);
+                throw new IllegalStateException("Duplicate node");
+            }
+        }
     }
 
     @Override
@@ -107,8 +130,9 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
-                    final HttpSession session) {
-        processRequest(() -> handleGet(id, session), session);
+                    final HttpSession session,
+                    final Request request) {
+        processRequest(() -> handleGet(id, session, request), session);
     }
 
     /**
@@ -124,8 +148,9 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void remove(@Param(value = "id", required = true) final String id,
-                       final HttpSession session) {
-        processRequest(() -> handleDelete(id, session), session);
+                       final HttpSession session,
+                       final Request request) {
+        processRequest(() -> handleDelete(id, session, request), session);
     }
 
     /**
@@ -159,52 +184,78 @@ public class AsyncService extends HttpServer implements Service {
         }
     }
 
+    private void proxy(@NotNull final String nodeForResponse,
+                           @NotNull final Request request,
+                           @NotNull final HttpSession session) throws IOException {
+        log.info("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodeForResponse);
+        try {
+            request.addHeader("X-Proxy-For: " + nodeForResponse);
+            session.sendResponse(clients.get(nodeForResponse).invoke(request));
+        } catch (Exception e) {
+            log.error("Cannot proxy request!", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
     private void handleGet(
             @NotNull final String id,
-            @NotNull final HttpSession session) throws IOException {
+            @NotNull final HttpSession session,
+            @NotNull final Request request) throws IOException {
         log.debug("GET request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
             sendEmptyIdResponse(session, "GET");
             return;
         }
-        byte[] body = cache.getIfPresent(id);
-        if (body == null) {
-            log.debug("Not from cache with id: {}", id);
-            final ByteBuffer key = wrapString(id);
-            final ByteBuffer value;
-            try {
-                value = dao.get(key);
-            } catch (NoSuchElementException e) {
-                log.info("Value with key: {} was not found", id, e);
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                return;
-            } catch (IOException e) {
-                sendInternalErrorResponse(session, id, e);
-                return;
+
+        final ByteBuffer key = wrapString(id);
+        final String nodeForResponse = topology.nodeFor(key);
+        if (topology.isLocal(nodeForResponse)) {
+            byte[] body = cache.getIfPresent(id);
+            if (body == null) {
+                log.debug("Not from cache with id: {}", id);
+                final ByteBuffer value;
+                try {
+                    value = dao.get(key);
+                } catch (NoSuchElementException e) {
+                    log.info("Value with key: {} was not found", id, e);
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
+                } catch (IOException e) {
+                    sendInternalErrorResponse(session, id, e);
+                    return;
+                }
+                body = toBytes(value);
+                cache.put(id, body);
             }
-            body = toBytes(value);
-            cache.put(id, body);
+            session.sendResponse(Response.ok(body));
+        } else {
+            proxy(nodeForResponse, request, session);
         }
-        session.sendResponse(Response.ok(body));
     }
 
     private void handleDelete(
             @NotNull final String id,
-            @NotNull final HttpSession session) throws IOException {
+            @NotNull final HttpSession session,
+            @NotNull final Request request) throws IOException {
         log.debug("DELETE request with mapping: /v0/entity and key={}", id);
         if (id.isEmpty()) {
             sendEmptyIdResponse(session, "DELETE");
             return;
         }
         final ByteBuffer key = wrapString(id);
-        try {
-            dao.remove(key);
-            cache.invalidate(id);
-        } catch (IOException e) {
-            sendInternalErrorResponse(session, id, e);
-            return;
+        final String nodeForResponse = topology.nodeFor(key);
+        if (topology.isLocal(nodeForResponse)) {
+            try {
+                dao.remove(key);
+                cache.invalidate(id);
+            } catch (IOException e) {
+                sendInternalErrorResponse(session, id, e);
+                return;
+            }
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } else {
+            proxy(nodeForResponse, request, session);
         }
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
     private void handleUpsert(
@@ -219,15 +270,20 @@ public class AsyncService extends HttpServer implements Service {
         }
 
         final ByteBuffer key = wrapString(id);
-        final ByteBuffer value = wrapArray(request.getBody());
-        try {
-            dao.upsert(key, value);
-            cache.asMap().computeIfPresent(id, (k, v) -> request.getBody());
-        } catch (IOException e) {
-            sendInternalErrorResponse(session, id, e);
-            return;
+        final String nodeForResponse = topology.nodeFor(key);
+        if (topology.isLocal(nodeForResponse)) {
+            final ByteBuffer value = wrapArray(request.getBody());
+            try {
+                dao.upsert(key, value);
+                cache.asMap().computeIfPresent(id, (k, v) -> request.getBody());
+            } catch (IOException e) {
+                sendInternalErrorResponse(session, id, e);
+                return;
+            }
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        } else {
+            proxy(nodeForResponse, request, session);
         }
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
     private static HttpServerConfig provideConfig(final int port) {
