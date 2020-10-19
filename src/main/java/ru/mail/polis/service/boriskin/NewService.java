@@ -24,6 +24,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -91,16 +92,12 @@ public class NewService extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
         this.topology = topology;
         this.nodeToClientMap = new HashMap<>();
-        for (final String node : topology.all()) {
-            if (topology.isMyNode(node)) {
-                continue;
-            }
-            final HttpClient httpClient = new HttpClient(
-                    new ConnectionString(node + "?timeout=1000"));
+        Arrays.stream(topology.all()).filter(node -> !topology.isMyNode(node)).forEach(node -> {
+            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=1000"));
             if (nodeToClientMap.put(node, httpClient) != null) {
                 throw new IllegalStateException("Duplicate Node!");
             }
-        }
+        });
     }
 
     @NotNull
@@ -181,7 +178,7 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
             try {
-                httpSession.sendResponse(resp(Response.BAD_REQUEST));
+                httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException ioException) {
                 logger.error("Не плучается отправить запрос", ioException);
             }
@@ -226,10 +223,10 @@ public class NewService extends HttpServer implements Service {
         try {
             httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
         } catch (NoSuchElementException noSuchElementException) {
-            httpSession.sendResponse(resp(Response.NOT_FOUND));
+            httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException ioException) {
             logger.error("Ошибка в GET: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -239,10 +236,10 @@ public class NewService extends HttpServer implements Service {
             final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
-            httpSession.sendResponse(resp(Response.CREATED));
+            httpSession.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException ioException) {
             logger.error("Ошибка в PUT: {}, значение: {}", toByteArray(key), toByteArray(value));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -251,10 +248,10 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) throws IOException {
         try {
             dao.remove(key);
-            httpSession.sendResponse(resp(Response.ACCEPTED));
+            httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException ioException) {
             logger.error("Ошибка в DELETE: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -267,7 +264,7 @@ public class NewService extends HttpServer implements Service {
             httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
         } catch (IOException | InterruptedException | HttpException | PoolException exception) {
             logger.error("Can't proxy request", exception);
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -300,11 +297,7 @@ public class NewService extends HttpServer implements Service {
             final HttpSession httpSession
     ) throws IOException {
         logger.error("Непонятный запрос: {}", request);
-        httpSession.sendResponse(resp(Response.BAD_REQUEST));
-    }
-
-    private Response resp(final String response) {
-        return new Response(response, Response.EMPTY);
+        httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
