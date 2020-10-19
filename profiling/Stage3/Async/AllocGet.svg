@@ -418,7 +418,7 @@
 <text x="36.6" y="126.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$68 (1 samples, 0.29%)</title><rect x="33.6" y="99.0" width="3.4" height="15" fill="#52c0c0" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$68 (1 samples, 0.29%)</title><rect x="33.6" y="99.0" width="3.4" height="15" fill="#52c0c0" rx="2" ry="2"/>
 <text x="36.6" y="110.0"></text>
 </g>
 <g>
@@ -586,7 +586,7 @@
 <text x="147.9" y="126.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$68 (3 samples, 0.86%)</title><rect x="144.9" y="99.0" width="10.1" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$68 (3 samples, 0.86%)</title><rect x="144.9" y="99.0" width="10.1" height="15" fill="#58c6c6" rx="2" ry="2"/>
 <text x="147.9" y="110.0"></text>
 </g>
 <g>
@@ -758,7 +758,7 @@
 <text x="255.7" y="126.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$68 (1 samples, 0.29%)</title><rect x="252.7" y="99.0" width="3.4" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$68 (1 samples, 0.29%)</title><rect x="252.7" y="99.0" width="3.4" height="15" fill="#5dcbcb" rx="2" ry="2"/>
 <text x="255.7" y="110.0"></text>
 </g>
 <g>
@@ -902,7 +902,7 @@
 <text x="323.2" y="126.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$68 (4 samples, 1.14%)</title><rect x="320.2" y="99.0" width="13.5" height="15" fill="#63d1d1" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$68 (4 samples, 1.14%)</title><rect x="320.2" y="99.0" width="13.5" height="15" fill="#63d1d1" rx="2" ry="2"/>
 <text x="323.2" y="110.0"></text>
 </g>
 <g>
@@ -1130,7 +1130,7 @@
 <text x="437.8" y="46.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyRecordIter (1 samples, 0.29%)</title><rect x="438.2" y="163.0" width="3.3" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.RecordIter (1 samples, 0.29%)</title><rect x="438.2" y="163.0" width="3.3" height="15" fill="#55c3c3" rx="2" ry="2"/>
 <text x="441.2" y="174.0"></text>
 </g>
 <g>
@@ -1626,7 +1626,7 @@
 <text x="812.0" y="46.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyRecordIter (1 samples, 0.29%)</title><rect x="815.8" y="163.0" width="3.3" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.RecordIter (1 samples, 0.29%)</title><rect x="815.8" y="163.0" width="3.3" height="15" fill="#5fcdcd" rx="2" ry="2"/>
 <text x="818.8" y="174.0"></text>
 </g>
 <g>

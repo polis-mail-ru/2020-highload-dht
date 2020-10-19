@@ -490,7 +490,7 @@
 <text x="69.7" y="46.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyRecordIter (3 samples, 1.44%)</title><rect x="72.4" y="163.0" width="17.0" height="15" fill="#6ddbdb" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.RecordIter (3 samples, 1.44%)</title><rect x="72.4" y="163.0" width="17.0" height="15" fill="#6ddbdb" rx="2" ry="2"/>
 <text x="75.4" y="174.0"></text>
 </g>
 <g>
@@ -1126,7 +1126,7 @@
 <text x="631.4" y="158.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyRecordIter (2 samples, 0.96%)</title><rect x="634.0" y="163.0" width="11.4" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.RecordIter (2 samples, 0.96%)</title><rect x="634.0" y="163.0" width="11.4" height="15" fill="#58c6c6" rx="2" ry="2"/>
 <text x="637.0" y="174.0"></text>
 </g>
 <g>
@@ -1458,7 +1458,7 @@
 <text x="932.0" y="46.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.dao.basta123.MyRecordIter (3 samples, 1.44%)</title><rect x="934.7" y="163.0" width="17.0" height="15" fill="#69d7d7" rx="2" ry="2"/>
+<title>ru.mail.polis.dao.basta123.RecordIter (3 samples, 1.44%)</title><rect x="934.7" y="163.0" width="17.0" height="15" fill="#69d7d7" rx="2" ry="2"/>
 <text x="937.7" y="174.0"></text>
 </g>
 <g>

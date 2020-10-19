@@ -19,7 +19,7 @@ package ru.mail.polis.service;
 import one.nio.http.HttpServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.basta123.MyAsyncHttpServerImpl;
+import ru.mail.polis.service.basta123.AsyncHttpServerImpl;
 
 import java.io.IOException;
 import java.util.Set;
@@ -60,7 +60,7 @@ public final class ServiceFactory {
         }
 
         final HttpServerConfig httpServerConfig = getHttpServerConfig(port);
-        return new MyAsyncHttpServerImpl(httpServerConfig, dao, httpServerConfig.maxWorkers);
+        return new AsyncHttpServerImpl(httpServerConfig, dao, httpServerConfig.maxWorkers);
     }
 
 }

@@ -386,7 +386,7 @@
 <text x="13.0" y="94.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$66 (1 samples, 0.37%)</title><rect x="10.0" y="67.0" width="4.4" height="15" fill="#67d5d5" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$66 (1 samples, 0.37%)</title><rect x="10.0" y="67.0" width="4.4" height="15" fill="#67d5d5" rx="2" ry="2"/>
 <text x="13.0" y="78.0"></text>
 </g>
 <g>
@@ -566,7 +566,7 @@
 <text x="109.1" y="94.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$66 (1 samples, 0.37%)</title><rect x="106.1" y="67.0" width="4.4" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$66 (1 samples, 0.37%)</title><rect x="106.1" y="67.0" width="4.4" height="15" fill="#54c2c2" rx="2" ry="2"/>
 <text x="109.1" y="78.0"></text>
 </g>
 <g>
@@ -758,7 +758,7 @@
 <text x="200.9" y="94.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.basta123.MyAsyncHttpServerImpl$$Lambda$66 (1 samples, 0.37%)</title><rect x="197.9" y="67.0" width="4.4" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<title>ru.mail.polis.service.basta123.AsyncHttpServerImpl$$Lambda$66 (1 samples, 0.37%)</title><rect x="197.9" y="67.0" width="4.4" height="15" fill="#54c2c2" rx="2" ry="2"/>
 <text x="200.9" y="78.0"></text>
 </g>
 <g>

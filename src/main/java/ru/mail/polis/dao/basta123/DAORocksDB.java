@@ -1,10 +1,7 @@
 package ru.mail.polis.dao.basta123;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ComparatorOptions;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
+import org.rocksdb.*;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
@@ -19,7 +16,6 @@ import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 public class DAORocksDB implements DAO {
 
     private final RocksDB rocksDBInstance;
-    private MyRecordIter recordIter;
 
     /**
      * database initialization.
@@ -30,7 +26,7 @@ public class DAORocksDB implements DAO {
         RocksDB.loadLibrary();
         final ComparatorOptions comOptions = new ComparatorOptions();
         final Options options = new Options().setCreateIfMissing(true)
-                .setComparator(new MyComparator(comOptions));
+                .setComparator(new SingedBytesComparator(comOptions));
         try {
             rocksDBInstance = RocksDB.open(options, path.getAbsolutePath());
         } catch (RocksDBException e) {
@@ -41,11 +37,9 @@ public class DAORocksDB implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(final @NotNull ByteBuffer from) {
-        if (recordIter != null) {
-            recordIter.close();
-        }
-        recordIter = new MyRecordIter(from, rocksDBInstance.newIterator());
-        return recordIter;
+        final RocksIterator rocksIterator = rocksDBInstance.newIterator();
+        rocksIterator.seek(getByteArrayFromByteBuffer(from));
+        return new RecordIter(rocksIterator);
     }
 
     @NotNull
@@ -58,7 +52,7 @@ public class DAORocksDB implements DAO {
             }
             return ByteBuffer.wrap(valueByte);
         } catch (RocksDBException e) {
-            throw new IOException(e);
+            throw new IOException("get exception:", e);
         }
     }
 
@@ -78,7 +72,7 @@ public class DAORocksDB implements DAO {
         try {
             rocksDBInstance.delete(getByteArrayFromByteBuffer(key));
         } catch (RocksDBException e) {
-            throw new IOException(e);
+            throw new IOException("remove exception:", e);
         }
     }
 
