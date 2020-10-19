@@ -10,6 +10,12 @@ public class SimpleTopology {
     private final String[] nodes;
     private final String me;
 
+    /**
+     * Constructor
+     *
+     * @param topology - topology.
+     * @param me - current node.
+     */
     public SimpleTopology(@NotNull final Set<String> topology,
                           @NotNull final String me) {
         this.nodes = new String[topology.size()];

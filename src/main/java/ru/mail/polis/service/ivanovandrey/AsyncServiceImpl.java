@@ -1,7 +1,16 @@
 package ru.mail.polis.service.ivanovandrey;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
@@ -90,6 +99,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Get, Delete or Put data by key.
+     *
+     * @param id      - key.
+     * @param session - session.
+     * @param request - request.
+     */
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void entity(@NotNull @Param(value = "id", required = true) final String id,
@@ -156,6 +172,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /**
+     * Get data by key.
+     *
+     * @param id      - key.
+     * @param session - session.
+     */
     public void get(@NotNull @Param(value = "id", required = true) final ByteBuffer id,
                     final HttpSession session) {
         service.execute(() -> {
@@ -180,6 +202,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /**
+     * Put data by key.
+     *
+     * @param id      - key.
+     * @param session - session.
+     * @param request - request.
+     */
     public void put(@NotNull @Param(value = "id", required = true) final ByteBuffer id,
                     @NotNull @Param(value = "request", required = true) final Request request,
                     @NotNull final HttpSession session) {
@@ -199,6 +228,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /**
+     * Delete data by key.
+     *
+     * @param id      - key.
+     * @param session - session.
+     */
     public void delete(@NotNull @Param(value = "id", required = true) final ByteBuffer id,
                        @NotNull final HttpSession session) {
         service.execute(() -> {
