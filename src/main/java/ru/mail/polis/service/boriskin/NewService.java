@@ -83,10 +83,8 @@ public class NewService extends HttpServer implements Service {
                 workers,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> logger.error("Ошибка в {}, возникла при обработке запроса", t, e))
-                        .build(),
+                new ThreadFactoryBuilder().setNameFormat("worker-%d").setUncaughtExceptionHandler((t, e) ->
+                        logger.error("Ошибка в {}, возникла при обработке запроса", t, e)).build(),
                 new ThreadPoolExecutor.AbortPolicy());
         this.topology = topology;
         this.nodeToClientMap = new HashMap<>();
