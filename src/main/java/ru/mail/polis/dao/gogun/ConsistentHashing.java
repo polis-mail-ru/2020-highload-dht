@@ -55,6 +55,11 @@ public class ConsistentHashing implements Hashing<String> {
         return circle.size();
     }
 
+    /**
+     * add node to circle.
+     *
+     * @param node - node to add
+     */
     public void add(@NotNull final String node) {
         for (int i = 0; i < numOfNodes; i++) {
             circle.put((node + i).hashCode(), node);

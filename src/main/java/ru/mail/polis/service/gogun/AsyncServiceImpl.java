@@ -127,19 +127,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                          final Request request) throws RejectedExecutionException {
         executorService.execute(() -> {
             try {
-                switch (requestType) {
-                    case Request.METHOD_PUT:
-                        handlePutRequest(id, request, session);
-                        break;
-                    case Request.METHOD_GET:
-                        handleGetRequest(id, request, session);
-                        break;
-                    case Request.METHOD_DELETE:
-                        handleDelRequest(id, request, session);
-                        break;
-                    default:
-                        break;
-                }
+                handleRequest(id, request, session, requestType);
             } catch (IOException e) {
                 log.error("Error sending response", e);
             }
@@ -170,13 +158,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void handleGetRequest(final String id,
-                                  final Request request,
-                                  final HttpSession session) throws IOException {
+    private void handleRequest(final String id,
+                               final Request request,
+                               final HttpSession session,
+                               final int requestType) throws IOException {
         final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
 
-        log.debug("GET request with id: {}", id);
-
+        log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
@@ -188,21 +176,63 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             proxy(node, request, session);
             return;
         }
+        switch (requestType) {
+            case Request.METHOD_PUT:
+                try {
+                    dao.upsert(key, getBuffer(request.getBody()));
+                } catch (IOException e) {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    log.error("Internal server error put", e);
+                    return;
+                } catch (NoSuchElementException e) {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
+                }
 
-        final ByteBuffer buffer;
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+                break;
+            case Request.METHOD_GET:
+                final ByteBuffer buffer;
+                try {
+                    buffer = dao.get(key);
+                } catch (IOException e) {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    log.error("Internal server error get", e);
+                    return;
+                } catch (NoSuchElementException e) {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
+                }
 
-        try {
-            buffer = dao.get(key);
-        } catch (IOException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            log.error("Internal server error get", e);
-            return;
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            return;
+                session.sendResponse(Response.ok(getArray(buffer)));
+                break;
+            case Request.METHOD_DELETE:
+                try {
+                    dao.remove(key);
+                } catch (IOException e) {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    log.error("Internal server error del", e);
+                    return;
+                } catch (NoSuchElementException e) {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
+                }
+
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+                break;
+            default:
+                break;
         }
 
-        session.sendResponse(Response.ok(getArray(buffer)));
+    }
+
+    private void proxy(final String node, final Request request, final HttpSession session) throws IOException {
+        try {
+            request.addHeader("X-Proxy-For: " + node);
+            session.sendResponse(nodeClients.get(node).invoke(request));
+        } catch (IOException | InterruptedException | PoolException | HttpException e) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
     }
 
     /**
@@ -216,43 +246,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void get(@Param(value = "id", required = true) @NotNull final String id,
                     final HttpSession session,
                     final Request request) {
-
         try {
             execute(Request.METHOD_GET, id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
-    }
-
-    private void handlePutRequest(final String id,
-                                  final Request request,
-                                  final HttpSession session) throws IOException {
-        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
-        final String node = topology.get(key);
-
-        log.debug("PUT request with id: {}", id);
-        if (id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return;
-        }
-
-        if (!topology.isMe(node)) {
-            proxy(node, request, session);
-            return;
-        }
-
-        try {
-            dao.upsert(key, getBuffer(request.getBody()));
-        } catch (IOException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            log.error("Internal server error put", e);
-            return;
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            return;
-        }
-
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
     /**
@@ -271,47 +269,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             execute(Request.METHOD_PUT, id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
-        }
-    }
-
-    private void handleDelRequest(final String id,
-                                  final Request request,
-                                  final HttpSession session) throws IOException {
-        log.debug("DELETE request with id: {}", id);
-
-        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
-        final String node = topology.get(key);
-
-        if (id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return;
-        }
-
-        if (!topology.isMe(node)) {
-            proxy(node, request, session);
-            return;
-        }
-
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            log.error("Internal server error del", e);
-            return;
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            return;
-        }
-
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-    }
-
-    private void proxy(final String node, final Request request, final HttpSession session) throws IOException {
-        try {
-            request.addHeader("X-Proxy-For: " + node);
-            session.sendResponse(nodeClients.get(node).invoke(request));
-        } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
