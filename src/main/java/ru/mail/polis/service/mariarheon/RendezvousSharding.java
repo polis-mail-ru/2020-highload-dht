@@ -63,6 +63,10 @@ public class RendezvousSharding {
                                                               IOException,
                                                               HttpException,
                                                               PoolException {
-        return clients.get(to).invoke(request);
+        HttpClient client;
+        synchronized (this) {
+            client = clients.get(to);
+        }
+        return client.invoke(request);
     }
 }
