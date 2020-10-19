@@ -239,9 +239,9 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     }
 
     private void forwardRequest(
-            String keyClusterPartition,
-            Request request,
-            HttpSession session
+            final String keyClusterPartition,
+            final Request request,
+            final HttpSession session
     ) {
         try {
             final Response response = proxy(keyClusterPartition, request);
