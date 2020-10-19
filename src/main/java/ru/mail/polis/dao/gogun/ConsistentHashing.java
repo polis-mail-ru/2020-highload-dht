@@ -28,7 +28,7 @@ public class ConsistentHashing implements Hashing<String> {
         this.me = me;
 
         for (final String node : nodes) {
-            add(node);
+            this.add(node);
         }
     }
 

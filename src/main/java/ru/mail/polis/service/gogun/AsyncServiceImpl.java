@@ -162,14 +162,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                final Request request,
                                final HttpSession session,
                                final int requestType) throws IOException {
-        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
-
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
 
+        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
         final String node = topology.get(key);
 
         if (!topology.isMe(node)) {
