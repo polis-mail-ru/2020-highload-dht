@@ -32,7 +32,7 @@ public class RendezvousSharding {
         clients = new HashMap<>();
         for (final String node : nodes) {
             if (!node.equals(currentNode)) {
-                clients.put(node, new HttpClient(new ConnectionString(node + "?timeout=10")));
+                clients.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
             }
         }
     }
