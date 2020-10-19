@@ -23,7 +23,7 @@ public class ConsistentHashing implements Hashing<String> {
     public ConsistentHashing(
             @NotNull final Collection<String> nodes,
             @NotNull final String me) {
-        int numOfNodes = nodes.size();
+        final int numOfNodes = nodes.size();
         this.me = me;
 
         for (final String node : nodes) {
