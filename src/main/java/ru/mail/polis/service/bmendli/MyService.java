@@ -176,30 +176,43 @@ public class MyService extends HttpServer implements Service {
         } catch (NoSuchElementLightException e) {
             log.error("Does not exist record by key = {}", key, e);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("fail handle get request by key = {}", key, e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
     private void handlePut(@NotNull final ByteBuffer key,
                            @NotNull final HttpSession session,
                            @NotNull final Request request) throws IOException {
-        final String node = topology.primaryFor(key);
-        if (topology.isLocal(node)) {
-            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        } else {
-            session.sendResponse(proxy(node, request));
+        try {
+            final String node = topology.primaryFor(key);
+            if (topology.isLocal(node)) {
+                dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            } else {
+                session.sendResponse(proxy(node, request));
+            }
+        } catch (IOException e) {
+            log.error("fail handle put request by key = {}", key, e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
     private void handleDelete(@NotNull final ByteBuffer key,
                               @NotNull final HttpSession session,
                               @NotNull final Request request) throws IOException {
-        final String node = topology.primaryFor(key);
-        if (topology.isLocal(node)) {
-            dao.remove(key);
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        } else {
-            session.sendResponse(proxy(node, request));
+        try {
+            final String node = topology.primaryFor(key);
+            if (topology.isLocal(node)) {
+                dao.remove(key);
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            } else {
+                session.sendResponse(proxy(node, request));
+            }
+        } catch (IOException e) {
+            log.error("fail handle delete request by key = {}", key, e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
