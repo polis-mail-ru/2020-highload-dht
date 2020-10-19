@@ -1,6 +1,8 @@
 package ru.mail.polis.service.gogun;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,15 +11,20 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.gogun.Hashing;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -32,7 +39,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private final DAO dao;
+    private final Hashing<String> topology;
     private final ExecutorService executorService;
+    private final Map<String, HttpClient> nodeClients;
 
     /**
      * class that provides requests to lsm dao via http.
@@ -46,9 +55,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public AsyncServiceImpl(final int port,
                             final int numWorkers,
                             final int queueSize,
-                            final DAO dao) throws IOException {
+                            @NotNull final DAO dao,
+                            @NotNull final Hashing<String> topology) throws IOException {
         super(makeConfig(port, numWorkers));
         this.dao = dao;
+        this.topology = topology;
         this.executorService = new ThreadPoolExecutor(numWorkers,
                 numWorkers,
                 0L,
@@ -59,6 +70,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error {} in {}", e, t))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.nodeClients = new HashMap<>();
+        for (final String node : topology.all()) {
+            if (topology.isMe(node)) {
+                continue;
+            }
+            final HttpClient client = new HttpClient(new ConnectionString(node));
+            if (nodeClients.get(node) != null) {
+                continue;
+            }
+
+            nodeClients.put(node, client);
+        }
     }
 
     @NotNull
@@ -109,16 +132,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         handlePutRequest(id, request, session);
                         break;
                     case Request.METHOD_GET:
-                        handleGetRequest(id, session);
+                        handleGetRequest(id, request, session);
                         break;
                     case Request.METHOD_DELETE:
-                        handleDelRequest(id, session);
+                        handleDelRequest(id, request, session);
                         break;
                     default:
                         break;
                 }
             } catch (IOException e) {
-                log.error("Error sending response in method del", e);
+                log.error("Error sending response", e);
             }
         });
     }
@@ -147,7 +170,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void handleGetRequest(final String id, final HttpSession session) throws IOException {
+    private void handleGetRequest(final String id,
+                                  final Request request,
+                                  final HttpSession session) throws IOException {
+        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
+        final String node = topology.get(key);
+
         log.debug("GET request with id: {}", id);
 
         if (id.isEmpty()) {
@@ -155,10 +183,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
+        if (!topology.isMe(node)) {
+            proxy(node, request, session);
+            return;
+        }
+
         final ByteBuffer buffer;
 
         try {
-            buffer = dao.get(getBuffer(id.getBytes(UTF_8)));
+            buffer = dao.get(key);
         } catch (IOException e) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             log.error("Internal server error get", e);
@@ -179,9 +212,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session) {
+    public void get(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session, final Request request) {
+
         try {
-            execute(Request.METHOD_GET, id, session, null);
+            execute(Request.METHOD_GET, id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
@@ -190,14 +224,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private void handlePutRequest(final String id,
                                   final Request request,
                                   final HttpSession session) throws IOException {
+        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
+        final String node = topology.get(key);
+
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
 
+        if (!topology.isMe(node)) {
+            proxy(node, request, session);
+            return;
+        }
+
         try {
-            dao.upsert(getBuffer(id.getBytes(UTF_8)), getBuffer(request.getBody()));
+            dao.upsert(key, getBuffer(request.getBody()));
         } catch (IOException e) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             log.error("Internal server error put", e);
@@ -229,15 +271,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void handleDelRequest(final String id, final HttpSession session) throws IOException {
+    private void handleDelRequest(final String id,
+                                  final Request request,
+                                  final HttpSession session) throws IOException {
         log.debug("DELETE request with id: {}", id);
+
+        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
+        final String node = topology.get(key);
+
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
 
+        if (!topology.isMe(node)) {
+            proxy(node, request, session);
+            return;
+        }
+
         try {
-            dao.remove(getBuffer(id.getBytes(UTF_8)));
+            dao.remove(key);
         } catch (IOException e) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             log.error("Internal server error del", e);
@@ -250,6 +303,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
+    private void proxy(final String node, final Request request, final HttpSession session) throws IOException {
+        try {
+            request.addHeader("X-Proxy-For: " + node);
+            session.sendResponse(nodeClients.get(node).invoke(request));
+        } catch (IOException | InterruptedException | PoolException | HttpException e) {
+            throw new IOException("Cant proxy request", e);
+        }
+    }
+
     /**
      * Provide deleting by id.
      *
@@ -258,9 +320,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session) {
+    public void delete(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session, final Request request) {
         try {
-            execute(Request.METHOD_DELETE, id, session, null);
+            execute(Request.METHOD_DELETE, id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
@@ -275,6 +337,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         } catch (InterruptedException e) {
             log.error("Cant stop executor service", e);
             Thread.currentThread().interrupt();
+        }
+        for (final HttpClient client : nodeClients.values()) {
+            client.clear();
         }
     }
 }

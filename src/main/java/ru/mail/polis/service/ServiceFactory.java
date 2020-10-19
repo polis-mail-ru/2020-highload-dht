@@ -18,6 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.gogun.ConsistentHashing;
 import ru.mail.polis.service.gogun.AsyncServiceImpl;
 
 import java.io.IOException;
@@ -56,6 +57,11 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new AsyncServiceImpl(port, Runtime.getRuntime().availableProcessors(), 32, dao);
+        return new AsyncServiceImpl(
+                port,
+                Runtime.getRuntime().availableProcessors(),
+                32,
+                dao,
+                new ConsistentHashing(topology, "http://localhost:" + port));
     }
 }
