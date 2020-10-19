@@ -193,11 +193,6 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                     action.act();
                 } catch (IOException e) {
                     log.error("act throws ex: ", e);
-                    try {
-                        httpSession.sendError(Response.INTERNAL_ERROR, e.getMessage());
-                    } catch (IOException ex) {
-                        log.error("can't send excep which act threw: ", e);
-                    }
                 }
             });
         } catch (RejectedExecutionException e) {
