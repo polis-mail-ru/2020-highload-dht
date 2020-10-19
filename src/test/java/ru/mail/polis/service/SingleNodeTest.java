@@ -31,6 +31,7 @@ import ru.mail.polis.dao.DAOFactory;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -45,6 +46,7 @@ class SingleNodeTest extends TestBase {
     private static File data;
     private static DAO dao;
     private static int port;
+    private static String endpoint;
     private static Service storage;
     private static HttpClient client;
 
@@ -53,7 +55,8 @@ class SingleNodeTest extends TestBase {
         port = randomPort();
         data = Files.createTempDirectory();
         dao = DAOFactory.create(data);
-        storage = ServiceFactory.create(port, dao);
+        endpoint = endpoint(port);
+        storage = ServiceFactory.create(port, dao, Collections.singleton(endpoint));
         storage.start();
         Thread.sleep(TimeUnit.SECONDS.toMillis(1));
         reset();
@@ -242,7 +245,8 @@ class SingleNodeTest extends TestBase {
             java.nio.file.Files.createDirectory(data.toPath());
             dao = DAOFactory.create(data);
             port = randomPort();
-            storage = ServiceFactory.create(port, dao);
+            endpoint = endpoint(port);
+            storage = ServiceFactory.create(port, dao, Collections.singleton(endpoint));
             storage.start();
             Thread.sleep(TimeUnit.SECONDS.toMillis(1));
             reset();
