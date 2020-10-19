@@ -214,7 +214,8 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteEntity(final Request request,
+    public void deleteEntity(
+            final Request request,
             @Param(value = "id", required = true) final String id,
             final HttpSession session) {
         log.debug("DELETE request: id = {}", id);
