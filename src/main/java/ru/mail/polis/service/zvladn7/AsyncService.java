@@ -24,7 +24,6 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -185,8 +184,8 @@ public class AsyncService extends HttpServer implements Service {
     }
 
     private void proxy(@NotNull final String nodeForResponse,
-                           @NotNull final Request request,
-                           @NotNull final HttpSession session) throws IOException {
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) throws IOException {
         log.info("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodeForResponse);
         try {
             request.addHeader("X-Proxy-For: " + nodeForResponse);
@@ -201,15 +200,8 @@ public class AsyncService extends HttpServer implements Service {
             @NotNull final String id,
             @NotNull final HttpSession session,
             @NotNull final Request request) throws IOException {
-        log.debug("GET request with mapping: /v0/entity and key={}", id);
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, "GET");
-            return;
-        }
-
         final ByteBuffer key = wrapString(id);
-        final String nodeForResponse = topology.nodeFor(key);
-        if (topology.isLocal(nodeForResponse)) {
+        handleOrProxy(key, id, request, session, "GET", () -> {
             byte[] body = cache.getIfPresent(id);
             if (body == null) {
                 log.debug("Not from cache with id: {}", id);
@@ -228,23 +220,15 @@ public class AsyncService extends HttpServer implements Service {
                 cache.put(id, body);
             }
             session.sendResponse(Response.ok(body));
-        } else {
-            proxy(nodeForResponse, request, session);
-        }
+        });
     }
 
     private void handleDelete(
             @NotNull final String id,
             @NotNull final HttpSession session,
             @NotNull final Request request) throws IOException {
-        log.debug("DELETE request with mapping: /v0/entity and key={}", id);
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, "DELETE");
-            return;
-        }
         final ByteBuffer key = wrapString(id);
-        final String nodeForResponse = topology.nodeFor(key);
-        if (topology.isLocal(nodeForResponse)) {
+        handleOrProxy(key, id, request, session, "DELETE", () -> {
             try {
                 dao.remove(key);
                 cache.invalidate(id);
@@ -253,25 +237,15 @@ public class AsyncService extends HttpServer implements Service {
                 return;
             }
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        } else {
-            proxy(nodeForResponse, request, session);
-        }
+        });
     }
 
     private void handleUpsert(
             @NotNull final String id,
             @NotNull final Request request,
             @NotNull final HttpSession session) throws IOException {
-        log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
-                id, new String(request.getBody(), StandardCharsets.UTF_8));
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, "UPSERT");
-            return;
-        }
-
         final ByteBuffer key = wrapString(id);
-        final String nodeForResponse = topology.nodeFor(key);
-        if (topology.isLocal(nodeForResponse)) {
+        handleOrProxy(key, id, request, session, "UPSERT", () -> {
             final ByteBuffer value = wrapArray(request.getBody());
             try {
                 dao.upsert(key, value);
@@ -281,6 +255,23 @@ public class AsyncService extends HttpServer implements Service {
                 return;
             }
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        });
+    }
+
+    private void handleOrProxy(final ByteBuffer key,
+                               final String id,
+                               final Request request,
+                               final HttpSession session,
+                               final String methodName,
+                               final Processor processor) throws IOException {
+        log.debug("{} request with mapping: /v0/entity with: key={}", methodName, id);
+        if (id.isEmpty()) {
+            sendEmptyIdResponse(session, methodName);
+            return;
+        }
+        final String nodeForResponse = topology.nodeFor(key);
+        if (topology.isLocal(nodeForResponse)) {
+            processor.process();
         } else {
             proxy(nodeForResponse, request, session);
         }

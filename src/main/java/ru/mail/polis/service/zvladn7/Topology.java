@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 
 /**
+ * Topology to represent the node of cluster.
  * @param <N> - identifier of node
  */
 public interface Topology<N> {
