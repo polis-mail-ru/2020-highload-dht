@@ -60,14 +60,10 @@ public class RendezvousSharding {
     }
 
     /**
-     * Pass request to another node
-     * @param to node where request should be sent
-     * @param request the request
-     * @return response from node
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws HttpException
-     * @throws PoolException
+     * Pass request to another node.
+     * @param to node where request should be sent.
+     * @param request the request.
+     * @return response from node. 
      */
     public Response passOn(final String to, final Request request) throws InterruptedException,
                                                               IOException,
