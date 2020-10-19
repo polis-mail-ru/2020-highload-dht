@@ -1,7 +1,6 @@
 package ru.mail.polis.dao.suhova;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.Service;
 
 import java.util.Set;
 

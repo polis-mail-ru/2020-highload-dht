@@ -98,7 +98,6 @@ public class MoribundService extends HttpServer implements Service {
         }
     }
 
-
     private Response put(final String id, final Request request) {
         try {
             if (id.isEmpty()) {
@@ -112,7 +111,6 @@ public class MoribundService extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
-
 
     private Response delete(final String id) {
         try {
@@ -129,7 +127,7 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     /**
-     * Request to delete/put/get in DAO
+     * Request to delete/put/get in DAO.
      * Path /v0/entity
      *
      * @param id      - key

@@ -40,6 +40,12 @@ public final class Cluster {
         // Not instantiable
     }
 
+    /**
+     * I am not going to write javadoc for the main class.
+     *
+     * @param args - args
+     * @throws IOException - why not
+     */
     public static void main(final String[] args) throws IOException {
         // Fill the topology
         final Set<String> topology = new HashSet<>(3);
