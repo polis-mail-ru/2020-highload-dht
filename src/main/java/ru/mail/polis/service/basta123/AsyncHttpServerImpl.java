@@ -166,7 +166,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
             final Response responseCreated = new Response(Response.CREATED, Response.EMPTY);
             httpSession.sendResponse(responseCreated);
         } catch (IOException e) {
-            log.error("upsert error", e);
+            log.error("upsert error: ", e);
         }
     }
 
@@ -201,7 +201,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
             dao.remove(keyByteBuffer);
             httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException e) {
-            log.error("can't remove value", e);
+            log.error("can't remove value: ", e);
             sendResponse(httpSession, Response.INTERNAL_ERROR);
         }
     }
