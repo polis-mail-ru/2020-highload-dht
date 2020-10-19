@@ -41,7 +41,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     private final ExecutorService executor;
 
     private final Topology topology;
-    private Map<String, HttpClient> nodeToClient;
+    private final Map<String, HttpClient> nodeToClient;
 
     ServiceAsyncImpl(
             final int port,
@@ -64,13 +64,13 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         );
 
         this.topology = topology;
-        final Map<String, HttpClient> nodeToClient = new HashMap<>();
+        final Map<String, HttpClient> clientMap = new HashMap<>();
         for (final String node : topology.getNodes()) {
-            if (!topology.isSelfId(node) && !nodeToClient.containsKey(node)) {
-                nodeToClient.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+            if (!topology.isSelfId(node) && !clientMap.containsKey(node)) {
+                clientMap.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
             }
         }
-        this.nodeToClient = nodeToClient;
+        this.nodeToClient = clientMap;
     }
 
     /**
@@ -109,16 +109,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
 
             if (!topology.isSelfId(keyClusterPartition)) {
                 executor.execute(() -> {
-                    try {
-                        Response response = proxy(keyClusterPartition, request);
-                        session.sendResponse(response);
-                    } catch (IOException e) {
-                        try {
-                            session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-                        } catch (IOException ex) {
-                            this.handleError(session);
-                        }
-                    }
+                    forwardRequest(keyClusterPartition, request, session);
                 });
                 return;
             }
@@ -231,7 +222,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     }
 
     /**
-     * This forwards request to other nodes in the cluster
+     * This forwards request to other nodes in the cluster.
      * @param nodeId - id of target node
      * @param request - request to forward
      * @return response from forwarded request
@@ -244,6 +235,19 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         } catch (IOException | InterruptedException | PoolException | HttpException exc) {
             logger.error("Error sending request via proxy", exc);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    private void forwardRequest(
+            String keyClusterPartition,
+            Request request,
+            HttpSession session
+    ) {
+        try {
+            final Response response = proxy(keyClusterPartition, request);
+            session.sendResponse(response);
+        } catch (IOException e) {
+            this.handleError(session);
         }
     }
 
