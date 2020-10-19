@@ -1,14 +1,9 @@
 package ru.mail.polis.service.codearound;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +37,7 @@ public class AsyncService extends HttpServer implements Service {
     private static final String IO_ERROR_LOG = "IO exception raised";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
+    private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
 
     /**
      * async service impl const.
@@ -73,15 +69,16 @@ public class AsyncService extends HttpServer implements Service {
         this.topology = topology;
         this.nodeToClient = new HashMap<>();
 
-        for(final String node : topology.getNodes()) {
-            if(topology.isSelfId(node))
+        for (final String node : topology.getNodes()) {
+            if (topology.isSelfId(node)) {
                 continue;
+            }
 
             final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
 
-            if(nodeToClient.put(node, client) != null)
+            if(nodeToClient.put(node, client) != null) {
                 throw new IllegalStateException("Multiple nodes found by same ID");
-
+            }
         }
     }
 
@@ -139,7 +136,7 @@ public class AsyncService extends HttpServer implements Service {
      * @return HTTP response
      */
     private Response get(@NotNull final ByteBuffer key,
-                         @NotNull final Request req) throws IOException {
+                         @NotNull final Request req) {
 
         final String owner = topology.primaryFor(key);
         ByteBuffer buf;
@@ -157,8 +154,9 @@ public class AsyncService extends HttpServer implements Service {
                 LOGGER.error(IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        } else
+        } else {
             return proxy(owner, req);
+        }
     }
 
     /**
@@ -171,12 +169,12 @@ public class AsyncService extends HttpServer implements Service {
      */
     private Response upsert(@NotNull final ByteBuffer key,
                              final byte[] byteVal,
-                             @NotNull final Request req) throws IOException {
+                             @NotNull final Request req) {
 
         final String owner = topology.primaryFor(key);
-        ByteBuffer val = ByteBuffer.wrap(byteVal);
+        final ByteBuffer val = ByteBuffer.wrap(byteVal);
 
-        if(topology.isSelfId(owner)) {
+        if (topology.isSelfId(owner)) {
             try {
                 dao.upsert(key, val);
                 return new Response(Response.CREATED, Response.EMPTY);
@@ -187,8 +185,9 @@ public class AsyncService extends HttpServer implements Service {
                 LOGGER.error(IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        } else
+        } else {
             return proxy(owner, req);
+        }
     }
 
     /**
@@ -199,10 +198,10 @@ public class AsyncService extends HttpServer implements Service {
      * @return HTTP response
      */
     private Response delete(@NotNull final ByteBuffer key,
-                            @NotNull final Request req) throws IOException {
+                            @NotNull final Request req) {
 
         final String owner = topology.primaryFor(key);
-        if(topology.isSelfId(owner)) {
+        if (topology.isSelfId(owner)) {
             try {
                 dao.remove(key);
                 return new Response(Response.ACCEPTED, Response.EMPTY);
@@ -213,8 +212,9 @@ public class AsyncService extends HttpServer implements Service {
                 LOGGER.error(IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        } else
+        } else {
             return proxy(owner, req);
+        }
     }
 
     /**
@@ -245,12 +245,13 @@ public class AsyncService extends HttpServer implements Service {
      * @param req HTTP request
      */
     private Response proxy(@NotNull final String nodeId,
-                           @NotNull final Request req) throws IOException {
+                           @NotNull final Request req) {
         try {
             req.addHeader("X-Proxy-For: " + nodeId);
             return nodeToClient.get(nodeId).invoke(req);
-        } catch (Exception exc) {
-            throw new IOException("Error forwarding request via proxy");
+        } catch (IOException | InterruptedException | HttpException | PoolException exc) {
+            LOGGER.error(CASE_FORWARDING_ERROR_LOG, exc);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 

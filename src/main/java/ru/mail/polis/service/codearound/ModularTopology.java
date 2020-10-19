@@ -38,7 +38,7 @@ public class ModularTopology implements Topology<String> {
      */
     @NotNull
     @Override
-    public String primaryFor(@NotNull ByteBuffer key) {
+    public String primaryFor(@NotNull final ByteBuffer key) {
         return nodeArray[(key.hashCode() & Integer.MAX_VALUE) % nodeArray.length];
     }
 
@@ -49,7 +49,7 @@ public class ModularTopology implements Topology<String> {
      * @return true if ID match found, otherwise false
      */
     @Override
-    public boolean isSelfId(@NotNull String nodeId) {
+    public boolean isSelfId(@NotNull final String nodeId) {
         return nodeId.equals(self);
     }
 
