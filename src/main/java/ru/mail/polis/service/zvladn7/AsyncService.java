@@ -152,7 +152,6 @@ public class AsyncService extends HttpServer implements Service {
         return config;
     }
 
-
     private static void sendServiceUnavailableResponse(final HttpSession session, final RejectedExecutionException e) {
         log.error("Cannot complete request", e);
         try {
