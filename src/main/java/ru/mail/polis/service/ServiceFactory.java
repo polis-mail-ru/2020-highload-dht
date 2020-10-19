@@ -57,6 +57,12 @@ public final class ServiceFactory {
 
         final int queueSize = 1024;
 
-        return new ServiceAsyncImpl(port, dao, Runtime.getRuntime().availableProcessors(), queueSize);
+        return new ServiceAsyncImpl(
+                port,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                queueSize,
+                new Topology(topology, "http://localhost:" + port)
+        );
     }
 }

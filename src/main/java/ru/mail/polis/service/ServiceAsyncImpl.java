@@ -1,6 +1,8 @@
 package ru.mail.polis.service;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -8,6 +10,8 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -17,6 +21,8 @@ import ru.mail.polis.dao.DAO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -34,11 +40,15 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     @NotNull
     private final ExecutorService executor;
 
+    private final Topology topology;
+    private Map<String, HttpClient> nodeToClient;
+
     ServiceAsyncImpl(
             final int port,
             @NotNull final DAO dao,
             final int workersCount,
-            final int queueSize
+            final int queueSize,
+            @NotNull final Topology topology
     ) throws IOException {
         super(getConfig(port, workersCount));
         this.dao = dao;
@@ -52,6 +62,15 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
+
+        this.topology = topology;
+        final Map<String, HttpClient> nodeToClient = new HashMap<>();
+        for (final String node : topology.getNodes()) {
+            if (!topology.isSelfId(node) && !nodeToClient.containsKey(node)) {
+                nodeToClient.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+            }
+        }
+        this.nodeToClient = nodeToClient;
     }
 
     /**
@@ -86,6 +105,24 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
             }
 
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
+            final String keyClusterPartition = topology.primaryFor(key);
+
+            if (!topology.isSelfId(keyClusterPartition)) {
+                executor.execute(() -> {
+                    try {
+                        Response response = proxy(keyClusterPartition, request);
+                        session.sendResponse(response);
+                    } catch (IOException e) {
+                        try {
+                            session.sendError(Response.INTERNAL_ERROR, e.getMessage());
+                        } catch (IOException ex) {
+                            this.handleError(session);
+                        }
+                    }
+                });
+                return;
+            }
+
             switch (request.getMethod()) {
                 case Request.METHOD_GET: {
                     get(key, session);
@@ -191,6 +228,23 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         serverConfig.maxWorkers = workersCount;
         serverConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return serverConfig;
+    }
+
+    /**
+     * This forwards request to other nodes in the cluster
+     * @param nodeId - id of target node
+     * @param request - request to forward
+     * @return response from forwarded request
+     */
+    private Response proxy(@NotNull final String nodeId,
+                           @NotNull final Request request) {
+        try {
+            request.addHeader("X-Proxy-For: " + nodeId);
+            return nodeToClient.get(nodeId).invoke(request);
+        } catch (IOException | InterruptedException | PoolException | HttpException exc) {
+            logger.error("Error sending request via proxy", exc);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
     }
 
     @Override
