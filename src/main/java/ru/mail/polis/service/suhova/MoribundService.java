@@ -1,6 +1,7 @@
 package ru.mail.polis.service.suhova;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,16 +10,20 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.suhova.Topology;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -26,11 +31,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class MoribundService extends HttpServer implements Service {
-
     @NotNull
     private final DAO dao;
     @NotNull
     private final ExecutorService executor;
+    @NotNull
+    private final Topology<String> topology;
+    @NotNull
+    private final Map<String, HttpClient> clients;
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
 
     /**
@@ -44,11 +52,26 @@ public class MoribundService extends HttpServer implements Service {
     public MoribundService(final int port,
                            @NotNull final DAO dao,
                            final int workersCount,
-                           final int queueSize) throws IOException {
+                           final int queueSize,
+                           @NotNull final Topology<String> topology) throws IOException {
         super(getConfig(port));
         assert workersCount > 0;
         assert queueSize > 0;
         this.dao = dao;
+        this.topology = topology;
+        this.clients = new HashMap<>();
+        for (final String node : topology.allNodes()) {
+            logger.debug(node);
+            if (topology.isMe(node)) {
+                continue;
+            }
+            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (clients.put(node, client) != null) {
+                throw new IllegalArgumentException("Duplicate node!");
+            }
+            logger.debug("NODE {}, CLIENT {}", node, client.name());
+        }
+
         executor = new ThreadPoolExecutor(
             workersCount, queueSize,
             0L, TimeUnit.MILLISECONDS,
@@ -61,38 +84,64 @@ public class MoribundService extends HttpServer implements Service {
         );
     }
 
+    private Response get(final String id) {
+        try {
+            if (id.isEmpty()) {
+                logger.warn("FAIL GET! Id is empty!");
+                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+            }
+            return new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id))));
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            logger.error("FAIL GET! id: {}, error: {}", id, e.getMessage());
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
     /**
      * Request to get a value by id.
      * Path /v0/entity
      *
      * @param id      - key
      * @param session - session
+     * @param request - request
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) final String id, final HttpSession session) {
+    public void get(@Param(value = "id", required = true) final String id,
+                    final HttpSession session,
+                    final Request request) {
         executor.execute(() -> {
-            try {
-                if (id.isEmpty()) {
-                    logger.warn("FAIL GET! Id is empty!");
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                }
-                session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
-            } catch (NoSuchElementException e) {
+            final String node = topology.getNodeByKey(id);
+            if (topology.isMe(node)) {
                 try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    session.sendResponse(get(id));
                 } catch (IOException ioException) {
                     logger.error("FAIL GET! Can't send response.", ioException);
                 }
-            } catch (IOException e) {
-                logger.error("FAIL GET! id: {}, error: {}", id, e.getMessage());
+            } else {
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    session.sendResponse(proxy(node, request));
                 } catch (IOException ioException) {
                     logger.error("FAIL GET! Can't send response.", ioException);
                 }
             }
         });
+    }
+
+    private Response put(final String id, final Request request) {
+        try {
+            if (id.isEmpty()) {
+                logger.warn("FAIL PUT! Id is empty!");
+                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+            }
+            dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (IOException e) {
+            logger.error("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
     }
 
     /**
@@ -101,6 +150,7 @@ public class MoribundService extends HttpServer implements Service {
      *
      * @param id      - key
      * @param session - session
+     * @param request - request
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -108,22 +158,35 @@ public class MoribundService extends HttpServer implements Service {
                     final HttpSession session,
                     final Request request) {
         executor.execute(() -> {
-            try {
-                if (id.isEmpty()) {
-                    logger.warn("FAIL PUT! Id is empty!");
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                }
-                dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-            } catch (IOException e) {
-                logger.error("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
+            final String node = topology.getNodeByKey(id);
+            if (topology.isMe(node)) {
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    session.sendResponse(put(id, request));
+                } catch (IOException ioException) {
+                    logger.error("FAIL PUT! Can't send response.", ioException);
+                }
+            } else {
+                try {
+                    session.sendResponse(proxy(node, request));
                 } catch (IOException ioException) {
                     logger.error("FAIL PUT! Can't send response.", ioException);
                 }
             }
         });
+    }
+
+    private Response delete(final String id) {
+        try {
+            if (id.isEmpty()) {
+                logger.warn("FAIL DELETE! Id is empty!");
+                return new Response(Response.BAD_REQUEST, Response.EMPTY);
+            }
+            dao.remove(toByteBuffer(id));
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (IOException e) {
+            logger.error("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
     }
 
     /**
@@ -135,21 +198,22 @@ public class MoribundService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id, final HttpSession session) {
+    public void delete(@Param(value = "id", required = true) final String id,
+                       final HttpSession session,
+                       final Request request) {
         executor.execute(() -> {
-            try {
-                if (id.isEmpty()) {
-                    logger.warn("FAIL DELETE! Id is empty!");
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                }
-                dao.remove(toByteBuffer(id));
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-            } catch (IOException e) {
-                logger.error("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
+            final String node = topology.getNodeByKey(id);
+            if (topology.isMe(node)) {
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    session.sendResponse(delete(id));
                 } catch (IOException ioException) {
                     logger.error("FAIL DELETE! Can't send response.", ioException);
+                }
+            } else {
+                try {
+                    session.sendResponse(proxy(node, request));
+                } catch (IOException ioException) {
+                    logger.error("FAIL PUT! Can't send response.", ioException);
                 }
             }
         });
@@ -172,7 +236,7 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+    public void handleDefault(final Request request, final HttpSession session) {
         executor.execute(() -> {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -214,6 +278,20 @@ public class MoribundService extends HttpServer implements Service {
         } catch (InterruptedException e) {
             logger.error("Can't shutdown execution");
             Thread.currentThread().interrupt();
+        }
+        for (final HttpClient client : clients.values()) {
+            client.close();
+        }
+    }
+
+    @NotNull
+    private Response proxy(@NotNull final String node,
+                           @NotNull final Request request) {
+        try {
+            return clients.get(node).invoke(request);
+        } catch (Exception e) {
+            logger.error("Can't proxy request! ", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 }
