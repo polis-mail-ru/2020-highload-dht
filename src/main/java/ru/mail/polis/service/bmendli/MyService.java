@@ -134,17 +134,19 @@ public class MyService extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 return;
             }
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    handleGet(id, session, request);
+                    handleGet(key, session, request);
                     break;
                 case Request.METHOD_PUT:
-                    handlePut(id, session, request);
+                    handlePut(key, session, request);
                     break;
                 case Request.METHOD_DELETE:
-                    handleDelete(id, session, request);
+                    handleDelete(key, session, request);
                     break;
                 default:
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                     break;
             }
         } catch (IOException e) {
@@ -160,29 +162,26 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
-    private void handleGet(@NotNull final String id,
+    private void handleGet(@NotNull final ByteBuffer key,
                            @NotNull final HttpSession session,
                            @NotNull final Request request) throws IOException {
-        final byte[] bytes = id.getBytes(Charsets.UTF_8);
-        final ByteBuffer wrappedBytes = ByteBuffer.wrap(bytes);
-        final String node = topology.primaryFor(wrappedBytes);
-        if (topology.isLocal(node)) {
-            try {
-                final ByteBuffer byteBuffer = dao.get(wrappedBytes);
+        try {
+            final String node = topology.primaryFor(key);
+            if (topology.isLocal(node)) {
+                final ByteBuffer byteBuffer = dao.get(key);
                 session.sendResponse(Response.ok(getBytesFromByteBuffer(byteBuffer)));
-            } catch (NoSuchElementLightException e) {
-                log.error("Does not exist record by id = {}", id, e);
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } else {
+                session.sendResponse(proxy(node, request));
             }
-        } else {
-            session.sendResponse(proxy(node, request));
+        } catch (NoSuchElementLightException e) {
+            log.error("Does not exist record by key = {}", key, e);
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
 
-    private void handlePut(@NotNull final String id,
+    private void handlePut(@NotNull final ByteBuffer key,
                            @NotNull final HttpSession session,
                            @NotNull final Request request) throws IOException {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
         final String node = topology.primaryFor(key);
         if (topology.isLocal(node)) {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
@@ -192,10 +191,9 @@ public class MyService extends HttpServer implements Service {
         }
     }
 
-    private void handleDelete(@NotNull final String id,
+    private void handleDelete(@NotNull final ByteBuffer key,
                               @NotNull final HttpSession session,
                               @NotNull final Request request) throws IOException {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
         final String node = topology.primaryFor(key);
         if (topology.isLocal(node)) {
             dao.remove(key);
@@ -243,6 +241,7 @@ public class MyService extends HttpServer implements Service {
 
     private Response proxy(@NotNull final String node, @NotNull final Request request) throws IOException {
         try {
+            request.addHeader("X-Proxy-For: " + node);
             return httpClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             log.error("Fail to proxy request", e);

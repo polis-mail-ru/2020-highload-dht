@@ -33,9 +33,7 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
-        final int hash = key.hashCode();
-        final int index = (hash & Integer.MAX_VALUE) % nodes.length;
-        return nodes[index];
+        return nodes[(key.hashCode() & Integer.MAX_VALUE) % nodes.length];
     }
 
     @NotNull
