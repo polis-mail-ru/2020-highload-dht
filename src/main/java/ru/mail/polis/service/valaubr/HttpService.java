@@ -2,9 +2,16 @@ package ru.mail.polis.service.valaubr;
 
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -19,7 +26,10 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class HttpService extends HttpServer implements Service {
     private static final String UNIVERSAL_MESSAGE = "Empty id && response is dropped";
@@ -60,7 +70,8 @@ public class HttpService extends HttpServer implements Service {
         this.executor = new ThreadPoolExecutor(
                 threadPool,
                 queueSize,
-                0L, TimeUnit.MILLISECONDS,
+                0L,
+                TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("Worker-%d")
@@ -220,17 +231,23 @@ public class HttpService extends HttpServer implements Service {
         });
     }
 
-    private void proxy(@NotNull String node,
-                       @NotNull Request request,
-                       @NotNull HttpSession session) {
+    private void proxy(@NotNull final String node,
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) {
         try {
+            request.addHeader("X-Proxy-For: " + node);
             session.sendResponse(nodeToClient.get(node).invoke(request));
         } catch (Exception e) {
             logger.error("Can`t proxy request: ", e);
+            try {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (IOException ioException) {
+                logger.error("Socket go to sleep", e);
+            }
         }
     }
 
-    private boolean checkId(String id, HttpSession session) {
+    private boolean checkId(@NotNull final String id, @NotNull final HttpSession session) {
         if (id.strip().isEmpty()) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -244,8 +261,7 @@ public class HttpService extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws
-            IOException {
+    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) {
         executor.execute(() -> {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
