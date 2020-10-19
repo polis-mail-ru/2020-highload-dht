@@ -9,6 +9,7 @@ public interface Topology<N> {
     N primaryFor(@NotNull ByteBuffer key);
 
     int size();
+
     boolean isMe(@NotNull N node);
 
     @NotNull

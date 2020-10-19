@@ -61,8 +61,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         assert numberOfWorkers > 0;
         assert queueSize > 0;
         this.nodeClients = new HashMap<>();
-        for (final String node: topology.all()) {
-            if (topology.isMe(node)){
+        for (final String node : topology.all()) {
+            if (topology.isMe(node)) {
                 continue;
             }
             final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
@@ -135,13 +135,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             executorService.execute(() -> {
                 if (id.isBlank()) {
                     log.error("Request with empty id on /v0/entity");
-                    try {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        return;
-                    } catch (IOException e) {
-                        log.error(SERVER_ERROR, session, e);
-                        return;
-                    }
+                    handleError(session, Response.BAD_REQUEST);
+                    return;
                 }
                 final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
 
@@ -157,16 +152,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                         break;
                     default:
                         log.error("Not allowed method on /v0/entity");
-                        try {
-                            session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                        } catch (IOException e) {
-                            log.error(SERVER_ERROR, session, e);
-                        }
+                        handleError(session, Response.METHOD_NOT_ALLOWED);
                         break;
                 }
             });
         } catch (RejectedExecutionException e) {
-            handleRejectedExecutionException(session, e);
+           handleError(session, Response.SERVICE_UNAVAILABLE);
         }
     }
 
@@ -177,7 +168,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             log.error(SERVER_ERROR, session, e);
         }
     }
-
 
     private Response proxy(final String node, final Request request) throws IOException {
         try {
@@ -201,14 +191,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             deleteEntity(key, request, session);
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
-        }
-    }
-
-    private void handleRejectedExecutionException(final HttpSession session, final RejectedExecutionException e) {
-        try {
-            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-        } catch (IOException ioException) {
             log.error(SERVER_ERROR, session, e);
         }
     }
@@ -267,7 +249,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * {@code 202} (data deleted).
      * {@code 500} (internal server error occurred).
      */
-    private void deleteEntity(final ByteBuffer key, final Request request, final HttpSession session) throws IOException {
+    private void deleteEntity(final ByteBuffer key,
+                              final Request request,
+                              final HttpSession session) throws IOException {
         try {
             final String node = topology.primaryFor(key);
             if (topology.isMe(node)) {
@@ -279,6 +263,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         } catch (IOException e) {
             log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
+    private void handleError(HttpSession session, String response) {
+        try {
+            session.sendResponse(new Response(response, Response.EMPTY));
+        } catch (IOException e) {
+            log.error(SERVER_ERROR, session, e);
         }
     }
 

@@ -23,7 +23,7 @@ public class ModuleTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String primaryFor(@NotNull ByteBuffer key) {
+    public String primaryFor(@NotNull final ByteBuffer key) {
         return nodes[(key.hashCode() & Integer.MAX_VALUE) % nodes.length];
     }
 
@@ -33,7 +33,7 @@ public class ModuleTopology implements Topology<String> {
     }
 
     @Override
-    public boolean isMe(@NotNull String node) {
+    public boolean isMe(@NotNull final String node) {
         return node.equals(me);
     }
 
