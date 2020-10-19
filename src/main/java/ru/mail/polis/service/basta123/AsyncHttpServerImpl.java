@@ -9,6 +9,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -30,11 +31,11 @@ import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncHttpServerImpl.class);
-    private final DAO dao;
-    private final ExecutorService execService;
     private static final String CANT_SEND_RESPONSE = "can't send response";
     private static final String ARRAY_IS_FULL = "array is full";
     private static final int QUEUE_SIZE = 1024;
+    private final DAO dao;
+    private final ExecutorService execService;
 
     /**
      * AsyncHttpServerImpl.
@@ -91,18 +92,11 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public void getValueByKey(final @Param("id") String id,
                               final HttpSession httpSession) {
-        try {
-            execService.execute(() -> {
-                if (id == null || id.isEmpty()) {
-                    sendResponse(httpSession, Response.BAD_REQUEST);
-                    return;
-                }
-                get(id, httpSession);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error(ARRAY_IS_FULL, e);
-            sendResponse(httpSession, Response.INTERNAL_ERROR);
+        if(!isIdValid(id, httpSession))
+        {
+            return;
         }
+        executeAsync(httpSession,() -> get(id, httpSession));
 
     }
 
@@ -138,18 +132,11 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     public void putValueByKey(final @Param("id") String id,
                               final Request request,
                               final HttpSession httpSession) throws IOException {
-        try {
-            execService.execute(() -> {
-                if (id == null || id.isEmpty()) {
-                    sendResponse(httpSession, Response.BAD_REQUEST);
-                    return;
-                }
-                put(id, request, httpSession);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error(ARRAY_IS_FULL, e);
-            sendResponse(httpSession, Response.INTERNAL_ERROR);
+        if(!isIdValid(id, httpSession))
+        {
+            return;
         }
+        executeAsync(httpSession,() -> put(id, request, httpSession));
     }
 
     private void put(final String id,
@@ -180,24 +167,18 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteValueByKey(final @Param("id") String id,
                                  final HttpSession httpSession) throws IOException {
-        try {
-            execService.execute(() -> {
-                if (id == null || id.isEmpty()) {
-                    sendResponse(httpSession, Response.BAD_REQUEST);
-                    return;
-                }
-                final byte[] keyBytes = id.getBytes(UTF_8);
-                final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-                delete(keyByteBuffer, httpSession);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error(ARRAY_IS_FULL, e);
-            sendResponse(httpSession, Response.INTERNAL_ERROR);
+        if(!isIdValid(id, httpSession))
+        {
+            return;
         }
+        executeAsync(httpSession,() -> delete(id, httpSession));
+
     }
 
-    private void delete(final ByteBuffer keyByteBuffer, final HttpSession httpSession) {
+    private void delete(@NotNull final String id, @NotNull final HttpSession httpSession) {
         try {
+            final byte[] keyBytes = id.getBytes(UTF_8);
+            final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
             dao.remove(keyByteBuffer);
             httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException e) {
@@ -206,14 +187,44 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         }
     }
 
-    @Override
-    public void handleDefault(final Request request, final HttpSession httpSession) throws IOException {
-        httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    private void executeAsync(@NotNull final HttpSession httpSession,
+                              @NotNull final Action action) {
+
+        try {
+            execService.execute(() -> {
+                try {
+                    action.act();
+                } catch (IOException e) {
+                    log.error("act throws ex: ", e);
+                    try {
+                        httpSession.sendError(Response.INTERNAL_ERROR, e.getMessage());
+                    } catch (IOException ex) {
+                        log.error("can't send excep which act threw: ", e);
+                    }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error(ARRAY_IS_FULL, e);
+            sendResponse(httpSession, Response.INTERNAL_ERROR);
+        }
+
+    }
+
+    private boolean isIdValid(@NotNull final String id,
+                              @NotNull final HttpSession httpSession)
+    {
+        if (id == null || id.isEmpty()) {
+            sendResponse(httpSession, Response.BAD_REQUEST);
+            return false;
+        }
+        else {
+            return true;
+        }
     }
 
     @Override
-    public synchronized void start() {
-        super.start();
+    public void handleDefault(final Request request, final HttpSession httpSession) throws IOException {
+        httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
@@ -227,4 +238,10 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
             throw new RuntimeException(e);
         }
     }
+
+    @FunctionalInterface
+    interface Action {
+        void act() throws IOException;
+    }
+
 }
