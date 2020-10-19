@@ -174,7 +174,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                   final Request request,
                                   final HttpSession session) throws IOException {
         final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
-        final String node = topology.get(key);
 
         log.debug("GET request with id: {}", id);
 
@@ -182,6 +181,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
+
+        final String node = topology.get(key);
 
         if (!topology.isMe(node)) {
             proxy(node, request, session);
@@ -212,7 +213,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session, final Request request) {
+    public void get(@Param(value = "id", required = true) @NotNull final String id,
+                    final HttpSession session,
+                    final Request request) {
 
         try {
             execute(Request.METHOD_GET, id, session, request);
@@ -320,7 +323,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) @NotNull final String id, final HttpSession session, final Request request) {
+    public void delete(@Param(value = "id", required = true) @NotNull final String id,
+                       final HttpSession session,
+                       final Request request) {
         try {
             execute(Request.METHOD_DELETE, id, session, request);
         } catch (RejectedExecutionException e) {

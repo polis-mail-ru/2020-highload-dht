@@ -14,8 +14,6 @@ public interface Hashing<T> {
 
     int size();
 
-    void add(@NotNull T node);
-
     @NotNull
     Collection<T> all();
 }
