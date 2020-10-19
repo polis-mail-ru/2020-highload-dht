@@ -17,7 +17,11 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
@@ -93,29 +97,33 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 sendResponse(httpSession, Response.BAD_REQUEST);
                 return;
             }
-            final byte[] keyBytes = id.getBytes(UTF_8);
-            final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
-            ByteBuffer valueByteBuffer;
-            final byte[] valueBytes;
-            try {
-                valueByteBuffer = dao.get(keyByteBuffer);
-                valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
-                httpSession.sendResponse(new Response(Response.ok(valueBytes)));
-
-            } catch (IOException e) {
-                log.error("get error: ", e);
-                sendResponse(httpSession, Response.INTERNAL_ERROR);
-
-            } catch (NoSuchElementException e) {
-                sendResponse(httpSession, Response.NOT_FOUND);
-            }
+            get(id, httpSession);
         });
     } catch (RejectedExecutionException e) {
         log.error(ARRAY_IS_FULL, e);
         sendResponse(httpSession, Response.INTERNAL_ERROR);
     }
 
+}
+
+private void get(final String id, final HttpSession httpSession)
+{
+    final byte[] keyBytes = id.getBytes(UTF_8);
+    final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+    ByteBuffer valueByteBuffer;
+    final byte[] valueBytes;
+    try {
+        valueByteBuffer = dao.get(keyByteBuffer);
+        valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
+        httpSession.sendResponse(new Response(Response.ok(valueBytes)));
+
+    } catch (IOException e) {
+        log.error("get error: ", e);
+        sendResponse(httpSession, Response.INTERNAL_ERROR);
+
+    } catch (NoSuchElementException e) {
+        sendResponse(httpSession, Response.NOT_FOUND);
+    };
 }
 
     /**
