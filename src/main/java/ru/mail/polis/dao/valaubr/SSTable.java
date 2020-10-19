@@ -157,7 +157,7 @@ public class SSTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        throw new UnsupportedOperationException("Sorry, operation upsert doesn`t exit, read-only table.");
+        throw new UnsupportedOperationException("Sorry, operation upsert doesn't exit, read-only table.");
     }
 
     @Override

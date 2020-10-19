@@ -43,7 +43,7 @@ public class LsmDAO implements DAO {
     private static final String TEMP_FILE_POSTFIX = ".tmp";
     private static final String LSM_TEMP_FILE = "temp.tmp";
     private static final int POOL_SIZE = 2;
-    private static final int NUMBER_OF_THREADS = 4;
+    private static final int NUMBER_OF_THREADS = 2;
 
     @NotNull
     private final File storage;
