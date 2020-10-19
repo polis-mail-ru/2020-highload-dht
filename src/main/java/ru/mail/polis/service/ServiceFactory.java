@@ -18,7 +18,6 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.nik27090.ModularTopology;
 import ru.mail.polis.service.nik27090.ServiceImpl;
 
 import java.io.IOException;
@@ -57,10 +56,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImpl(port,
-                dao,
-                512,
-                1024,
-                new ModularTopology(topology, "http://localhost:" + port));
+        return new ServiceImpl(port, dao, 512, 1024);
     }
 }

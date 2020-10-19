@@ -1,8 +1,6 @@
 package ru.mail.polis.service.nik27090;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -11,8 +9,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -24,11 +20,7 @@ import javax.mail.Session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.SortedSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -39,12 +31,9 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     @NotNull
     private final ExecutorService executorService;
+
     @NotNull
     private final DAO dao;
-    @NotNull
-    private final Topology<String> topology;
-    @NotNull
-    private final Map<String, HttpClient> nodeToClient;
 
     /**
      * Service constructor.
@@ -59,22 +48,9 @@ public class ServiceImpl extends HttpServer implements Service {
             final int port,
             final @NotNull DAO dao,
             final int workers,
-            final int queueCapacity,
-            @NotNull final Topology<String> topology) throws IOException {
+            final int queueCapacity) throws IOException {
         super(createConfig(port));
         this.dao = dao;
-        this.topology = topology;
-        this.nodeToClient = new HashMap<>();
-        for (final String node : topology.all()) {
-            if (topology.isMe(node)) {
-                continue;
-            }
-
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
-            if (nodeToClient.put(node, client) != null) {
-                throw new IllegalStateException("Duplicate node");
-            }
-        }
         executorService = new ThreadPoolExecutor(
                 workers, queueCapacity,
                 0L, TimeUnit.MILLISECONDS,
@@ -119,29 +95,21 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void getEntity(
-            @NotNull final @Param(value = "id", required = true) String id,
-            final HttpSession session,
-            final Request request) {
+            final @Param(value = "id", required = true) String id,
+            final HttpSession session) {
         log.debug("GET request: id = {}", id);
+
         try {
             executorService.execute(() -> {
-
                 if (id.isEmpty()) {
                     sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
-
-                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                final String node = topology.primaryFor(key);
                 try {
-                    if (topology.isMe(node)) {
-                        final ByteBuffer value = dao.get(key).duplicate();
-                        final byte[] response = new byte[value.remaining()];
-                        value.get(response);
-                        sendResponse(session, Response.ok(response));
-                    } else {
-                        sendResponse(session, proxy(node, request));
-                    }
+                    final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
+                    final byte[] response = new byte[value.remaining()];
+                    value.get(response);
+                    sendResponse(session, Response.ok(response));
                 } catch (NoSuchElementException e) {
                     sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException e) {
@@ -170,24 +138,17 @@ public class ServiceImpl extends HttpServer implements Service {
             final Request request,
             final HttpSession session) {
         log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-
         try {
             executorService.execute(() -> {
                 if (id.isEmpty()) {
                     sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
-
-                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                final String node = topology.primaryFor(key);
                 try {
-                    if (topology.isMe(node)) {
-                        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                        dao.upsert(key, value);
-                        sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
-                    } else {
-                        sendResponse(session, proxy(node, request));
-                    }
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                    dao.upsert(key, value);
+                    sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
                 } catch (IOException e) {
                     log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
                     sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -208,28 +169,17 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteEntity(
-            @Param(value = "id", required = true) final String id,
-            final HttpSession session,
-            final Request request) {
+    public void deleteEntity(@Param(value = "id", required = true) final String id, final HttpSession session) {
         log.debug("DELETE request: id = {}", id);
-
         try {
             executorService.execute(() -> {
                 if (id.isEmpty()) {
                     sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
-
-                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                final String node = topology.primaryFor(key);
                 try {
-                    if (topology.isMe(node)) {
-                        dao.remove(key);
-                        sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
-                    } else {
-                        sendResponse(session, proxy(node, request));
-                    }
+                    dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+                    sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
                 } catch (IOException e) {
                     log.error("Internal error with id = {}", id, e);
                     sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -239,18 +189,6 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Executor has been shut down or" +
                     "executor uses finite bounds for both maximum threads and work queue capacity", e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
-        }
-    }
-
-    @NotNull
-    private Response proxy(
-            @NotNull final String node,
-            @NotNull final Request request) throws IOException {
-        try {
-            request.addHeader("X-Proxy-For: " + node);
-            return nodeToClient.get(node).invoke(request);
-        } catch (Exception e) {
-            throw new IOException("Can't proxy request", e);
         }
     }
 
@@ -270,10 +208,6 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (InterruptedException e) {
             log.error("ERROR. Cant shutdown executor.", e);
             Thread.currentThread().interrupt();
-        }
-
-        for (final HttpClient client: nodeToClient.values()) {
-            client.clear();
         }
     }
 
