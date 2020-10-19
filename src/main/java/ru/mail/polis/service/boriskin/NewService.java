@@ -1,7 +1,16 @@
 package ru.mail.polis.service.boriskin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
@@ -47,7 +56,7 @@ public class NewService extends HttpServer implements Service {
     @NotNull
     private final Map<String, HttpClient> nodeToClientMap;
 
-    private enum OPERATIONS{ GETTING, UPSERTING, REMOVING };
+    private enum Operations {GETTING, UPSERTING, REMOVING}
 
     /**
      * Конструктор {@link NewService}.
@@ -128,7 +137,7 @@ public class NewService extends HttpServer implements Service {
             @NotNull final Request request) {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        operation(key, httpSession, request, OPERATIONS.GETTING);
+        operation(key, httpSession, request, Operations.GETTING);
     }
 
     /**
@@ -146,7 +155,7 @@ public class NewService extends HttpServer implements Service {
     ) {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        operation(key, httpSession, request, OPERATIONS.UPSERTING);
+        operation(key, httpSession, request, Operations.UPSERTING);
     }
 
     /**
@@ -162,7 +171,7 @@ public class NewService extends HttpServer implements Service {
             @NotNull final Request request) {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        operation(key, httpSession, request, OPERATIONS.REMOVING);
+        operation(key, httpSession, request, Operations.REMOVING);
     }
 
     private void idValidation(
@@ -181,7 +190,7 @@ public class NewService extends HttpServer implements Service {
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession,
             @NotNull final Request request,
-            @NotNull final OPERATIONS operation) {
+            @NotNull final Operations operation) {
         executorService.execute(() -> {
             try {
                 switch (operation) {
@@ -209,13 +218,9 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession,
             @NotNull final Request request) throws IOException {
         final String node = topology.primaryFor(key);
-        // Локальный ли запрос?
-        if (topology.isMyNode(node)) {
+        if (topology.isMyNode(node)) { // локальный ли запрос?
             try {
-                httpSession.sendResponse(
-                        Response.ok(
-                                toByteArray(dao.get(key)))
-                );
+                httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
             } catch (NoSuchElementException noSuchElementException) {
                 httpSession.sendResponse(resp(Response.NOT_FOUND));
             } catch (IOException ioException) {
@@ -246,7 +251,6 @@ public class NewService extends HttpServer implements Service {
             @NotNull final Request request,
             final ByteBuffer value) throws IOException {
         final String node = topology.primaryFor(key);
-        // Локальный ли запрос?
         if (topology.isMyNode(node)) {
             try {
                 dao.upsert(key, value);
@@ -265,13 +269,10 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession,
             @NotNull final Request request) throws IOException {
         final String node = topology.primaryFor(key);
-        // Локальный ли запрос?
         if (topology.isMyNode(node)) {
             try {
                 dao.remove(key);
-                httpSession.sendResponse(
-                        resp(Response.ACCEPTED)
-                );
+                httpSession.sendResponse(resp(Response.ACCEPTED));
             } catch (IOException ioException) {
                 logger.error("Ошибка в DELETE: {}", toByteArray(key));
                 httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
