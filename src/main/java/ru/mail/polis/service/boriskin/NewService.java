@@ -48,7 +48,6 @@ public class NewService extends HttpServer implements Service {
 
     @NotNull
     private final ExecutorService executorService;
-
     @NotNull
     private final DAO dao;
     @NotNull
@@ -56,7 +55,9 @@ public class NewService extends HttpServer implements Service {
     @NotNull
     private final Map<String, HttpClient> nodeToClientMap;
 
-    private enum Operations {GETTING, UPSERTING, REMOVING}
+    private enum Operations {
+        GETTING, UPSERTING, REMOVING
+    }
 
     /**
      * Конструктор {@link NewService}.
@@ -191,45 +192,48 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession,
             @NotNull final Request request,
             @NotNull final Operations operation) {
+        final String node = topology.primaryFor(key);
         executorService.execute(() -> {
-            try {
-                switch (operation) {
-                    case GETTING:
-                        doGet(key, httpSession, request);
-                        break;
-                    case UPSERTING:
-                        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                        doUpsert(key, httpSession, request, value);
-                        break;
-                    case REMOVING:
-                        doRemove(key, httpSession, request);
-                        break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + operation);
+            if (topology.isMyNode(node)) { // локальный ли запрос?
+                try {
+                    switch (operation) {
+                        case GETTING:
+                            httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
+                            break;
+                        case UPSERTING:
+                            final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                            dao.upsert(key, value);
+                            httpSession.sendResponse(resp(Response.CREATED));
+                            break;
+                        case REMOVING:
+                            dao.remove(key);
+                            httpSession.sendResponse(resp(Response.ACCEPTED));
+                            break;
+                        default:
+                            throw new IllegalStateException("Unexpected value: " + operation);
+                    }
+                } catch (NoSuchElementException noSuchElementException) {
+                    try {
+                        httpSession.sendResponse(resp(Response.NOT_FOUND));
+                    } catch (IOException ioException) {
+                        logger.error("Не получается проксировать запрос: ", ioException);
+                    }
+                } catch (IOException ioException) {
+                    logger.error("Ошибка в {}: ", operation, ioException);
+                    try {
+                        httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+                    } catch (IOException ioException1) {
+                        logger.error("Ошибка: ", ioException);
+                    }
                 }
-            } catch (IOException ioException) {
-                logger.error("Ошибка в {}: ", operation, ioException);
+            } else {
+                try {
+                    proxy(node, httpSession, request);
+                } catch (IOException ioException) {
+                    logger.error("Не получается проксировать запрос: ", ioException);
+                }
             }
         });
-    }
-
-    private void doGet(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request) throws IOException {
-        final String node = topology.primaryFor(key);
-        if (topology.isMyNode(node)) { // локальный ли запрос?
-            try {
-                httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
-            } catch (NoSuchElementException noSuchElementException) {
-                httpSession.sendResponse(resp(Response.NOT_FOUND));
-            } catch (IOException ioException) {
-                logger.error("Ошибка в GET: {}", toByteArray(key));
-                httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
-            }
-        } else {
-            proxy(node, httpSession, request);
-        }
     }
 
     private void proxy(
@@ -242,43 +246,6 @@ public class NewService extends HttpServer implements Service {
         } catch (IOException | InterruptedException | HttpException | PoolException exception) {
             logger.error("Can't proxy request", exception);
             httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
-        }
-    }
-
-    private void doUpsert(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request,
-            final ByteBuffer value) throws IOException {
-        final String node = topology.primaryFor(key);
-        if (topology.isMyNode(node)) {
-            try {
-                dao.upsert(key, value);
-                httpSession.sendResponse(resp(Response.CREATED));
-            } catch (IOException ioException) {
-                logger.error("Ошибка в PUT: {}, значение: {}", toByteArray(key), toByteArray(value));
-                httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
-            }
-        } else {
-            proxy(node, httpSession, request);
-        }
-    }
-
-    private void doRemove(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request) throws IOException {
-        final String node = topology.primaryFor(key);
-        if (topology.isMyNode(node)) {
-            try {
-                dao.remove(key);
-                httpSession.sendResponse(resp(Response.ACCEPTED));
-            } catch (IOException ioException) {
-                logger.error("Ошибка в DELETE: {}", toByteArray(key));
-                httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
-            }
-        } else {
-            proxy(node, httpSession, request);
         }
     }
 
