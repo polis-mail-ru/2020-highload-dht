@@ -13,10 +13,8 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -38,9 +36,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService service;
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-   // private final SimpleTopology simpleTopology;
-    //@NotNull
-   // private final Map<String, HttpClient> clients;
+    private final SimpleTopology simpleTopology;
+    @NotNull
+    private final Map<String, HttpClient> clients;
 
     /**
      * Constructor.
@@ -60,14 +58,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 new ThreadFactoryBuilder()
                         .setNameFormat("async_worker-%d")
                         .build());
-        /*this.simpleTopology = simpleTopology;
+        this.simpleTopology = simpleTopology;
         final Map<String, HttpClient> clients = new HashMap<>();
         for (final String it : simpleTopology.getNodes()) {
             if (!simpleTopology.getMe().equals(it) && !clients.containsKey(it)) {
                 clients.put(it, new HttpClient(new ConnectionString(it + "?timeout=100")));
             }
         }
-        this.clients = clients;*/
+        this.clients = clients;
     }
 
     private static HttpServerConfig createConfig(final int port) {
@@ -83,18 +81,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-    /*private Response forwardRequest(@NotNull final String cluster,
+    private Response forwardRequest(@NotNull final String cluster,
                                       final Request request) throws IOException {
         try {
             return clients.get(cluster).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             throw new IOException("fail", e);
         }
-    }*/
+    }
 
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
-    public void entity(@NotNull @Param("id") final String id,
+    public void entity(@NotNull @Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
                        final HttpSession session) throws IOException {
         if (id.isEmpty()) {
@@ -103,9 +101,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ByteBuffer key = strToByteBuffer(id, UTF_8);
-        //final String keyCluster = simpleTopology.primaryFor(key);
+        final String keyCluster = simpleTopology.primaryFor(key);
 
-       /* if (!simpleTopology.getMe().equals(keyCluster)) {
+        if (!simpleTopology.getMe().equals(keyCluster)) {
             service.execute(() -> {
                 try {
                     final var resp = forwardRequest(keyCluster, request);
@@ -119,7 +117,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 }
             });
             return;
-        }*/
+        }
 
         try {
                 switch (request.getMethod()) {
