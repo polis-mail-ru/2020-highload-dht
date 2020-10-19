@@ -83,7 +83,7 @@ public class AsyncService extends HttpServer implements Service {
 
             final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
 
-            if(nodeToClient.put(node, client) != null) {
+            if (nodeToClient.put(node, client) != null) {
                 throw new IllegalStateException("Multiple nodes found by same ID");
             }
         }
