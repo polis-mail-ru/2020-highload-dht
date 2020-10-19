@@ -28,7 +28,9 @@ public class ConsistentHashing implements Hashing<String> {
         this.me = me;
 
         for (final String node : nodes) {
-            this.add(node);
+            for (int i = 0; i < numOfNodes; i++) {
+                circle.put((node + i).hashCode(), node);
+            }
         }
     }
 
@@ -53,17 +55,6 @@ public class ConsistentHashing implements Hashing<String> {
     @Override
     public int size() {
         return circle.size();
-    }
-
-    /**
-     * add node to circle.
-     *
-     * @param node - node to add
-     */
-    public void add(@NotNull final String node) {
-        for (int i = 0; i < numOfNodes; i++) {
-            circle.put((node + i).hashCode(), node);
-        }
     }
 
     @NotNull
