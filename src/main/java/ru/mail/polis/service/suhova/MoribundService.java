@@ -2,15 +2,16 @@ package ru.mail.polis.service.suhova;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -61,7 +62,6 @@ public class MoribundService extends HttpServer implements Service {
         this.topology = topology;
         this.clients = new HashMap<>();
         for (final String node : topology.allNodes()) {
-            logger.debug(node);
             if (topology.isMe(node)) {
                 continue;
             }
@@ -69,7 +69,6 @@ public class MoribundService extends HttpServer implements Service {
             if (clients.put(node, client) != null) {
                 throw new IllegalArgumentException("Duplicate node!");
             }
-            logger.debug("NODE {}, CLIENT {}", node, client.name());
         }
 
         executor = new ThreadPoolExecutor(
@@ -99,36 +98,6 @@ public class MoribundService extends HttpServer implements Service {
         }
     }
 
-    /**
-     * Request to get a value by id.
-     * Path /v0/entity
-     *
-     * @param id      - key
-     * @param session - session
-     * @param request - request
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) final String id,
-                    final HttpSession session,
-                    final Request request) {
-        executor.execute(() -> {
-            final String node = topology.getNodeByKey(id);
-            if (topology.isMe(node)) {
-                try {
-                    session.sendResponse(get(id));
-                } catch (IOException ioException) {
-                    logger.error("FAIL GET! Can't send response.", ioException);
-                }
-            } else {
-                try {
-                    session.sendResponse(proxy(node, request));
-                } catch (IOException ioException) {
-                    logger.error("FAIL GET! Can't send response.", ioException);
-                }
-            }
-        });
-    }
 
     private Response put(final String id, final Request request) {
         try {
@@ -144,36 +113,6 @@ public class MoribundService extends HttpServer implements Service {
         }
     }
 
-    /**
-     * Request to put a value by id.
-     * Path /v0/entity
-     *
-     * @param id      - key
-     * @param session - session
-     * @param request - request
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id,
-                    final HttpSession session,
-                    final Request request) {
-        executor.execute(() -> {
-            final String node = topology.getNodeByKey(id);
-            if (topology.isMe(node)) {
-                try {
-                    session.sendResponse(put(id, request));
-                } catch (IOException ioException) {
-                    logger.error("FAIL PUT! Can't send response.", ioException);
-                }
-            } else {
-                try {
-                    session.sendResponse(proxy(node, request));
-                } catch (IOException ioException) {
-                    logger.error("FAIL PUT! Can't send response.", ioException);
-                }
-            }
-        });
-    }
 
     private Response delete(final String id) {
         try {
@@ -190,30 +129,42 @@ public class MoribundService extends HttpServer implements Service {
     }
 
     /**
-     * Request to delete a value by id.
+     * Request to delete/put/get in DAO
      * Path /v0/entity
      *
      * @param id      - key
      * @param session - session
+     * @param request - request
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id,
-                       final HttpSession session,
-                       final Request request) {
+    public void sendResponse(@Param(value = "id", required = true) final String id,
+                             final HttpSession session,
+                             final Request request) {
         executor.execute(() -> {
             final String node = topology.getNodeByKey(id);
             if (topology.isMe(node)) {
                 try {
-                    session.sendResponse(delete(id));
+                    switch (request.getMethod()) {
+                        case Request.METHOD_GET:
+                            session.sendResponse(get(id));
+                            break;
+                        case Request.METHOD_PUT:
+                            session.sendResponse(put(id, request));
+                            break;
+                        case Request.METHOD_DELETE:
+                            session.sendResponse(delete(id));
+                            break;
+                        default:
+                            break;
+                    }
                 } catch (IOException ioException) {
-                    logger.error("FAIL DELETE! Can't send response.", ioException);
+                    logger.error("Can't send response.", ioException);
                 }
             } else {
                 try {
                     session.sendResponse(proxy(node, request));
                 } catch (IOException ioException) {
-                    logger.error("FAIL PUT! Can't send response.", ioException);
+                    logger.error("Can't send response by proxy.", ioException);
                 }
             }
         });
@@ -289,7 +240,7 @@ public class MoribundService extends HttpServer implements Service {
                            @NotNull final Request request) {
         try {
             return clients.get(node).invoke(request);
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException | PoolException | HttpException e) {
             logger.error("Can't proxy request! ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
