@@ -18,6 +18,9 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.kate.moreva.ModuleTopology;
+import ru.mail.polis.dao.kate.moreva.Topology;
+import ru.mail.polis.service.kate.moreva.MySimpleHttpServer;
 
 import java.io.IOException;
 import java.util.Set;
@@ -29,6 +32,7 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    private static final int QUEUE_SIZE = 256;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -43,7 +47,7 @@ public final class ServiceFactory {
      * @return a storage instance
      */
     @NotNull
-    public static Service create(
+    public static MySimpleHttpServer create(
             final int port,
             @NotNull final DAO dao,
             @NotNull final Set<String> topology) throws IOException {
@@ -54,7 +58,13 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-
-        throw new UnsupportedOperationException("Implement me!");
+        final Topology<String> moduleTopology = new ModuleTopology(topology,
+                String.format("http://localhost:%d",
+                        port));
+        return new MySimpleHttpServer(port,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                QUEUE_SIZE,
+                moduleTopology);
     }
 }
