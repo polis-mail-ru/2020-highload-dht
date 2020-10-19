@@ -19,9 +19,10 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
@@ -123,7 +124,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         } catch (NoSuchElementException e) {
             sendResponse(httpSession, Response.NOT_FOUND);
         }
-        ;
+
     }
 
     /**
@@ -154,8 +155,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     private void put(final String id,
                      final Request request,
-                     final HttpSession httpSession)
-    {
+                     final HttpSession httpSession) {
         final byte[] keyBytes = id.getBytes(UTF_8);
         final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
 
@@ -179,14 +179,17 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteValueByKey(final @Param("id") String id, final HttpSession httpSession) throws IOException {
+    public void deleteValueByKey(final @Param("id") String id,
+                                 final HttpSession httpSession) throws IOException {
         try {
             execService.execute(() -> {
                 if (id == null || id.isEmpty()) {
                     sendResponse(httpSession, Response.BAD_REQUEST);
                     return;
                 }
-                delete(id, httpSession);
+                final byte[] keyBytes = id.getBytes(UTF_8);
+                final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+                delete(keyByteBuffer, httpSession);
             });
         } catch (RejectedExecutionException e) {
             log.error(ARRAY_IS_FULL, e);
@@ -194,11 +197,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         }
     }
 
-    private void delete(final String id, final HttpSession httpSession)
-    {
-        final byte[] keyBytes = id.getBytes(UTF_8);
-        final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
+    private void delete(final ByteBuffer keyByteBuffer, final HttpSession httpSession) {
         try {
             dao.remove(keyByteBuffer);
             httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
