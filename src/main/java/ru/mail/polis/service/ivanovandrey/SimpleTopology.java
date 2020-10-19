@@ -11,7 +11,7 @@ public class SimpleTopology {
     private final String me;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param topology - topology.
      * @param me - current node.
