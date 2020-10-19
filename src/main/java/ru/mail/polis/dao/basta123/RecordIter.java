@@ -6,7 +6,6 @@ import ru.mail.polis.Record;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
 import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
 
 public class RecordIter implements Iterator<Record> {

@@ -1,6 +1,5 @@
 package ru.mail.polis.service.basta123;
 
-import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -18,10 +17,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
@@ -33,6 +29,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService execService;
     private static final String CANT_SEND_RESPONSE = "can't send response";
+    private static final String ARRAY_IS_FULL = "array is full";
     private static final int QUEUE_SIZE = 1024;
 
     /**
@@ -114,8 +111,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 sendResponse(httpSession, Response.NOT_FOUND);
             }
         });
-    } catch (Exception e) {
-        log.error("our array is full", e);
+    } catch (RejectedExecutionException e) {
+        log.error(ARRAY_IS_FULL, e);
         sendResponse(httpSession, Response.INTERNAL_ERROR);
     }
 
@@ -154,8 +151,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                     log.error("upsert error", e);
                 }
             });
-        } catch (Exception e) {
-            log.error("our array is full", e);
+        } catch (RejectedExecutionException e) {
+            log.error(ARRAY_IS_FULL, e);
             sendResponse(httpSession, Response.INTERNAL_ERROR);
         }
     }
@@ -186,8 +183,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                     sendResponse(httpSession, Response.INTERNAL_ERROR);
                 }
             });
-        } catch (Exception e) {
-            log.error("our array is full", e);
+        } catch (RejectedExecutionException e) {
+            log.error(ARRAY_IS_FULL, e);
             sendResponse(httpSession, Response.INTERNAL_ERROR);
         }
     }
