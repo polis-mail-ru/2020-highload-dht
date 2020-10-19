@@ -308,7 +308,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             request.addHeader("X-Proxy-For: " + node);
             session.sendResponse(nodeClients.get(node).invoke(request));
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            throw new IOException("Cant proxy request", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
