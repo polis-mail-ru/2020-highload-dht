@@ -37,7 +37,7 @@ public class ServiceTopology implements Topology<String> {
     public String nodeFor(@NotNull final ByteBuffer key) {
         int hash = key.hashCode();
         if (!hashRing.containsKey(hash)) {
-            SortedMap<Integer, String> tailMap = hashRing.tailMap(hash);
+            final SortedMap<Integer, String> tailMap = hashRing.tailMap(hash);
             hash = tailMap.isEmpty() ? hashRing.firstKey() : tailMap.firstKey();
         }
         return hashRing.get(hash);
