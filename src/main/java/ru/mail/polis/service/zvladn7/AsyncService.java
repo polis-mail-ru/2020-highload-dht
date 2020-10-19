@@ -35,20 +35,9 @@ public class AsyncService extends HttpServer implements Service {
     private static final String ERROR_SENDING_RESPONSE = "Error when sending response";
     private static final String ERROR_SERVICE_UNAVAILABLE = "Cannot send SERVICE_UNAVAILABLE response";
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
-    private static final int CACHE_SIZE = 1024;
-    private static final int CONCURRENT_LEVEL = 8;
 
     private final DAO dao;
-    private final Cache<String, byte[]> cache = CacheBuilder.newBuilder()
-            .initialCapacity(CACHE_SIZE)
-            .concurrencyLevel(CONCURRENT_LEVEL)
-            .removalListener((RemovalListener<String, byte[]>) notification -> {
-                log.debug("Remove from cache with key: " + notification.getKey());
-                log.debug("Cause: " + notification.getCause().name());
-            })
-            .maximumSize(CACHE_SIZE)
-            .expireAfterAccess(1, TimeUnit.MINUTES)
-            .build();
+    private final Cache<String, byte[]> cache;
     private final ExecutorService es;
 
     /**
@@ -62,7 +51,8 @@ public class AsyncService extends HttpServer implements Service {
     public AsyncService(final int port,
                         @NotNull final DAO dao,
                         final int amountOfWorkers,
-                        final int queueSize) throws IOException {
+                        final int queueSize,
+                        final int cacheSize) throws IOException {
         super(provideConfig(port));
         this.dao = dao;
         this.es = new ThreadPoolExecutor(amountOfWorkers, amountOfWorkers,
@@ -74,6 +64,16 @@ public class AsyncService extends HttpServer implements Service {
                         ).build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
+        this.cache = CacheBuilder.newBuilder()
+                .initialCapacity(cacheSize)
+                .concurrencyLevel(amountOfWorkers)
+                .removalListener((RemovalListener<String, byte[]>) notification -> {
+                    log.debug("Remove from cache with key: " + notification.getKey());
+                    log.debug("Cause: " + notification.getCause().name());
+                })
+                .maximumSize(cacheSize)
+                .expireAfterAccess(1, TimeUnit.MINUTES)
+                .build();
     }
 
     @Override
@@ -169,6 +169,7 @@ public class AsyncService extends HttpServer implements Service {
         }
         byte[] body = cache.getIfPresent(id);
         if (body == null) {
+            log.debug("Not from cache with id: {}", id);
             final ByteBuffer key = wrapString(id);
             final ByteBuffer value;
             try {
@@ -198,7 +199,7 @@ public class AsyncService extends HttpServer implements Service {
         final ByteBuffer key = wrapString(id);
         try {
             dao.remove(key);
-            cache.asMap().remove(id);
+            cache.invalidate(id);
         } catch (IOException e) {
             sendInternalErrorResponse(session, id, e);
             return;
