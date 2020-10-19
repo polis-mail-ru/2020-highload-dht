@@ -20,8 +20,8 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
@@ -91,40 +91,40 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public void getValueByKey(final @Param("id") String id,
                               final HttpSession httpSession) {
-    try {
-        execService.execute(() -> {
-            if (id == null || id.isEmpty()) {
-                sendResponse(httpSession, Response.BAD_REQUEST);
-                return;
-            }
-            get(id, httpSession);
-        });
-    } catch (RejectedExecutionException e) {
-        log.error(ARRAY_IS_FULL, e);
-        sendResponse(httpSession, Response.INTERNAL_ERROR);
+        try {
+            execService.execute(() -> {
+                if (id == null || id.isEmpty()) {
+                    sendResponse(httpSession, Response.BAD_REQUEST);
+                    return;
+                }
+                get(id, httpSession);
+            });
+        } catch (RejectedExecutionException e) {
+            log.error(ARRAY_IS_FULL, e);
+            sendResponse(httpSession, Response.INTERNAL_ERROR);
+        }
+
     }
 
-}
+    private void get(final String id, final HttpSession httpSession) {
+        final byte[] keyBytes = id.getBytes(UTF_8);
+        final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+        ByteBuffer valueByteBuffer;
+        final byte[] valueBytes;
+        try {
+            valueByteBuffer = dao.get(keyByteBuffer);
+            valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
+            httpSession.sendResponse(new Response(Response.ok(valueBytes)));
 
-private void get(final String id, final HttpSession httpSession)
-{
-    final byte[] keyBytes = id.getBytes(UTF_8);
-    final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-    ByteBuffer valueByteBuffer;
-    final byte[] valueBytes;
-    try {
-        valueByteBuffer = dao.get(keyByteBuffer);
-        valueBytes = getByteArrayFromByteBuffer(valueByteBuffer);
-        httpSession.sendResponse(new Response(Response.ok(valueBytes)));
+        } catch (IOException e) {
+            log.error("get error: ", e);
+            sendResponse(httpSession, Response.INTERNAL_ERROR);
 
-    } catch (IOException e) {
-        log.error("get error: ", e);
-        sendResponse(httpSession, Response.INTERNAL_ERROR);
-
-    } catch (NoSuchElementException e) {
-        sendResponse(httpSession, Response.NOT_FOUND);
-    };
-}
+        } catch (NoSuchElementException e) {
+            sendResponse(httpSession, Response.NOT_FOUND);
+        }
+        ;
+    }
 
     /**
      * put value in the DB.
@@ -144,24 +144,30 @@ private void get(final String id, final HttpSession httpSession)
                     sendResponse(httpSession, Response.BAD_REQUEST);
                     return;
                 }
-
-                final byte[] keyBytes = id.getBytes(UTF_8);
-                final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
-                final byte[] valueByte = request.getBody();
-                final ByteBuffer valueByteBuffer = getByteBufferFromByteArray(valueByte);
-
-                try {
-                    dao.upsert(keyByteBuffer, valueByteBuffer);
-                    final Response responseCreated = new Response(Response.CREATED, Response.EMPTY);
-                    httpSession.sendResponse(responseCreated);
-                } catch (IOException e) {
-                    log.error("upsert error", e);
-                }
+                put(id, request, httpSession);
             });
         } catch (RejectedExecutionException e) {
             log.error(ARRAY_IS_FULL, e);
             sendResponse(httpSession, Response.INTERNAL_ERROR);
+        }
+    }
+
+    private void put(final String id,
+                     final Request request,
+                     final HttpSession httpSession)
+    {
+        final byte[] keyBytes = id.getBytes(UTF_8);
+        final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
+        final byte[] valueByte = request.getBody();
+        final ByteBuffer valueByteBuffer = getByteBufferFromByteArray(valueByte);
+
+        try {
+            dao.upsert(keyByteBuffer, valueByteBuffer);
+            final Response responseCreated = new Response(Response.CREATED, Response.EMPTY);
+            httpSession.sendResponse(responseCreated);
+        } catch (IOException e) {
+            log.error("upsert error", e);
         }
     }
 
@@ -180,19 +186,24 @@ private void get(final String id, final HttpSession httpSession)
                     sendResponse(httpSession, Response.BAD_REQUEST);
                     return;
                 }
-                final byte[] keyBytes = id.getBytes(UTF_8);
-                final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
-
-                try {
-                    dao.remove(keyByteBuffer);
-                    httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("can't remove value", e);
-                    sendResponse(httpSession, Response.INTERNAL_ERROR);
-                }
+                delete(id, httpSession);
             });
         } catch (RejectedExecutionException e) {
             log.error(ARRAY_IS_FULL, e);
+            sendResponse(httpSession, Response.INTERNAL_ERROR);
+        }
+    }
+
+    private void delete(final String id, final HttpSession httpSession)
+    {
+        final byte[] keyBytes = id.getBytes(UTF_8);
+        final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
+
+        try {
+            dao.remove(keyByteBuffer);
+            httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("can't remove value", e);
             sendResponse(httpSession, Response.INTERNAL_ERROR);
         }
     }
