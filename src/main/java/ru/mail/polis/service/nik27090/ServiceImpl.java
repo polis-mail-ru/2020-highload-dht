@@ -1,6 +1,8 @@
 package ru.mail.polis.service.nik27090;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,6 +11,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -16,10 +20,11 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
-import javax.mail.Session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -27,13 +32,23 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static one.nio.http.Request.METHOD_DELETE;
+import static one.nio.http.Request.METHOD_GET;
+import static one.nio.http.Request.METHOD_PUT;
+
 public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    @NotNull
-    private final ExecutorService executorService;
+    private static final String REJECTED_EXECUTION_EXCEPTION = "Executor has been shut down or"
+            + "executor uses finite bounds for both maximum threads and work queue capacity";
 
     @NotNull
+    private final ExecutorService executorService;
+    @NotNull
     private final DAO dao;
+    @NotNull
+    private final Topology<String> topology;
+    @NotNull
+    private final Map<String, HttpClient> nodeToClient;
 
     /**
      * Service constructor.
@@ -48,9 +63,22 @@ public class ServiceImpl extends HttpServer implements Service {
             final int port,
             final @NotNull DAO dao,
             final int workers,
-            final int queueCapacity) throws IOException {
+            final int queueCapacity,
+            @NotNull final Topology<String> topology) throws IOException {
         super(createConfig(port));
         this.dao = dao;
+        this.topology = topology;
+        this.nodeToClient = new HashMap<>();
+        for (final String node : topology.all()) {
+            if (topology.isCurrentNode(node)) {
+                continue;
+            }
+
+            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (nodeToClient.put(node, client) != null) {
+                throw new IllegalStateException("Duplicate node");
+            }
+        }
         executorService = new ThreadPoolExecutor(
                 workers, queueCapacity,
                 0L, TimeUnit.MILLISECONDS,
@@ -87,108 +115,108 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Get data by key.
+     * Get/Delete/Put data by key.
      *
      * @param id      - key for storage
      * @param session - session
+     * @param request - request
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
+    @RequestMethod({METHOD_GET, METHOD_DELETE, METHOD_PUT})
     public void getEntity(
-            final @Param(value = "id", required = true) String id,
-            final HttpSession session) {
-        log.debug("GET request: id = {}", id);
-
+            @NotNull final @Param(value = "id", required = true) String id,
+            final HttpSession session,
+            final Request request) {
         try {
             executorService.execute(() -> {
+
                 if (id.isEmpty()) {
                     sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
-                try {
-                    final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
-                    final byte[] response = new byte[value.remaining()];
-                    value.get(response);
-                    sendResponse(session, Response.ok(response));
-                } catch (NoSuchElementException e) {
-                    sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Internal error with id = {}", id, e);
-                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                switch (request.getMethod()) {
+                    case METHOD_GET:
+                        log.debug("GET request: id = {}", id);
+                        getEntityExecutor(id, session, request);
+                        break;
+                    case METHOD_PUT:
+                        log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
+                        putEntityExecutor(id, session, request);
+                        break;
+                    case METHOD_DELETE:
+                        log.debug("DELETE request: id = {}", id);
+                        deleteEntityExecutor(id, session, request);
+                        break;
                 }
             });
         } catch (RejectedExecutionException e) {
-            log.error("Executor has been shut down or" +
-                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            log.error(REJECTED_EXECUTION_EXCEPTION, e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
         }
     }
 
-    /**
-     * Create/overwrite data by key.
-     *
-     * @param id      - key for storage
-     * @param request - body request
-     * @param session - session
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void putEntity(
-            @Param(value = "id", required = true) final String id,
-            final Request request,
-            final HttpSession session) {
-        log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
+    private void getEntityExecutor(final String id, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                try {
-                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                    dao.upsert(key, value);
-                    sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
-                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("Executor has been shut down or" +
-                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
-            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final String node = topology.getRightNodeForKey(key);
+            if (topology.isCurrentNode(node)) {
+                final ByteBuffer value = dao.get(key).duplicate();
+                final byte[] response = new byte[value.remaining()];
+                value.get(response);
+                sendResponse(session, Response.ok(response));
+            } else {
+                sendResponse(session, proxy(node, request));
+            }
+        } catch (NoSuchElementException e) {
+            sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Internal error with id = {}", id, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
-    /**
-     * Delete data by key.
-     *
-     * @param id      - key for storage
-     * @param session - session
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void deleteEntity(@Param(value = "id", required = true) final String id, final HttpSession session) {
-        log.debug("DELETE request: id = {}", id);
+    private void deleteEntityExecutor(final String id, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                try {
-                    dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                    sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Internal error with id = {}", id, e);
-                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("Executor has been shut down or" +
-                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
-            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final String node = topology.getRightNodeForKey(key);
+            if (topology.isCurrentNode(node)) {
+                dao.remove(key);
+                sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
+            } else {
+                sendResponse(session, proxy(node, request));
+            }
+        } catch (IOException e) {
+            log.error("Internal error with id = {}", id, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
+    private void putEntityExecutor(final String id, final HttpSession session, final Request request) {
+        try {
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final String node = topology.getRightNodeForKey(key);
+            if (topology.isCurrentNode(node)) {
+                final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                dao.upsert(key, value);
+                sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
+            } else {
+                sendResponse(session, proxy(node, request));
+            }
+        } catch (IOException e) {
+            log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
+    @NotNull
+    private Response proxy(
+            @NotNull final String node,
+            @NotNull final Request request) throws IOException {
+        request.addHeader("X-Proxy-For: " + node);
+        try {
+            return nodeToClient.get(node).invoke(request);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            throw new IOException("Can't proxy request", e);
         }
     }
 
@@ -208,6 +236,10 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (InterruptedException e) {
             log.error("ERROR. Cant shutdown executor.", e);
             Thread.currentThread().interrupt();
+        }
+
+        for (final HttpClient client : nodeToClient.values()) {
+            client.clear();
         }
     }
 
