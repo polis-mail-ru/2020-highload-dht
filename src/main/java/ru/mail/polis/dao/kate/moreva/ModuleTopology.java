@@ -6,6 +6,11 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
 
+/**
+ * Modular topology.
+ *
+ * @author kate
+ */
 public class ModuleTopology implements Topology<String> {
     private final String[] nodes;
     private final String me;

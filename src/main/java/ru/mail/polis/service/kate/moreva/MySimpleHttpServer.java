@@ -266,7 +266,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    private void handleError(HttpSession session, String response) {
+    private void handleError(final HttpSession session, final String response) {
         try {
             session.sendResponse(new Response(response, Response.EMPTY));
         } catch (IOException e) {
