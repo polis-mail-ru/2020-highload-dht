@@ -92,11 +92,10 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public void getValueByKey(final @Param("id") String id,
                               final HttpSession httpSession) {
-        if(!isIdValid(id, httpSession))
-        {
+        if (!isIdValid(id, httpSession)) {
             return;
         }
-        executeAsync(httpSession,() -> get(id, httpSession));
+        executeAsync(httpSession, () -> get(id, httpSession));
 
     }
 
@@ -132,11 +131,10 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     public void putValueByKey(final @Param("id") String id,
                               final Request request,
                               final HttpSession httpSession) throws IOException {
-        if(!isIdValid(id, httpSession))
-        {
+        if (!isIdValid(id, httpSession)) {
             return;
         }
-        executeAsync(httpSession,() -> put(id, request, httpSession));
+        executeAsync(httpSession, () -> put(id, request, httpSession));
     }
 
     private void put(final String id,
@@ -167,11 +165,10 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteValueByKey(final @Param("id") String id,
                                  final HttpSession httpSession) throws IOException {
-        if(!isIdValid(id, httpSession))
-        {
+        if (!isIdValid(id, httpSession)) {
             return;
         }
-        executeAsync(httpSession,() -> delete(id, httpSession));
+        executeAsync(httpSession, () -> delete(id, httpSession));
 
     }
 
@@ -211,13 +208,11 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     }
 
     private boolean isIdValid(@NotNull final String id,
-                              @NotNull final HttpSession httpSession)
-    {
+                              @NotNull final HttpSession httpSession) {
         if (id == null || id.isEmpty()) {
             sendResponse(httpSession, Response.BAD_REQUEST);
             return false;
-        }
-        else {
+        } else {
             return true;
         }
     }
