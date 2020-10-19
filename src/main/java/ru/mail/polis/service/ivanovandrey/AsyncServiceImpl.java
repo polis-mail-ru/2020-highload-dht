@@ -149,7 +149,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     default:
                         session.sendError(Response.METHOD_NOT_ALLOWED, "Wrong method");
                         break;
-                };
+                }
         } catch (IOException ex) {
             log.error("Error in ServiceImpl.get() method; internal error: ", ex);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
