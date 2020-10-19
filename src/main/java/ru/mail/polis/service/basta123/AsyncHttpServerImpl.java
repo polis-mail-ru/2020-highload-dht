@@ -225,8 +225,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         }
     }
 
-    private void makeAct(@NotNull final Action action)
-    {
+    private void makeAct(@NotNull final Action action) {
         try {
             action.act();
         } catch (IOException e) {
