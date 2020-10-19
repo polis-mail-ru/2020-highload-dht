@@ -189,11 +189,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
         try {
             execService.execute(() -> {
-                try {
-                    action.act();
-                } catch (IOException e) {
-                    log.error("act throws ex: ", e);
-                }
+                makeAct(action);
             });
         } catch (RejectedExecutionException e) {
             log.error(ARRAY_IS_FULL, e);
@@ -226,6 +222,15 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         } catch (IOException e) {
             log.error("can't close DB");
             throw new RuntimeException(e);
+        }
+    }
+
+    private void makeAct(@NotNull final Action action)
+    {
+        try {
+            action.act();
+        } catch (IOException e) {
+            log.error("act throws ex: ", e);
         }
     }
 
