@@ -20,12 +20,15 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
+import javax.mail.Session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -34,9 +37,6 @@ import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private static final String REJECTED_EXECUTION_EXCEPTION = "Executor has been shut down or"
-            + "executor uses finite bounds for both maximum threads and work queue capacity";
-
     @NotNull
     private final ExecutorService executorService;
     @NotNull
@@ -66,7 +66,7 @@ public class ServiceImpl extends HttpServer implements Service {
         this.topology = topology;
         this.nodeToClient = new HashMap<>();
         for (final String node : topology.all()) {
-            if (topology.isCurrentNode(node)) {
+            if (topology.isMe(node)) {
                 continue;
             }
 
@@ -131,31 +131,28 @@ public class ServiceImpl extends HttpServer implements Service {
                     return;
                 }
 
-                getEntityExecutor(id, session, request);
+                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                final String node = topology.primaryFor(key);
+                try {
+                    if (topology.isMe(node)) {
+                        final ByteBuffer value = dao.get(key).duplicate();
+                        final byte[] response = new byte[value.remaining()];
+                        value.get(response);
+                        sendResponse(session, Response.ok(response));
+                    } else {
+                        sendResponse(session, proxy(node, request));
+                    }
+                } catch (NoSuchElementException e) {
+                    sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Internal error with id = {}", id, e);
+                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
             });
         } catch (RejectedExecutionException e) {
-            log.error(REJECTED_EXECUTION_EXCEPTION, e);
+            log.error("Executor has been shut down or" +
+                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
-        }
-    }
-
-    private void getEntityExecutor(final String id, final HttpSession session, final Request request) {
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final String node = topology.getRightNodeForKey(key);
-            if (topology.isCurrentNode(node)) {
-                final ByteBuffer value = dao.get(key).duplicate();
-                final byte[] response = new byte[value.remaining()];
-                value.get(response);
-                sendResponse(session, Response.ok(response));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (NoSuchElementException e) {
-            sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -181,28 +178,25 @@ public class ServiceImpl extends HttpServer implements Service {
                     return;
                 }
 
-                putEntityExecutor(id, session, request);
+                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                final String node = topology.primaryFor(key);
+                try {
+                    if (topology.isMe(node)) {
+                        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                        dao.upsert(key, value);
+                        sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
+                    } else {
+                        sendResponse(session, proxy(node, request));
+                    }
+                } catch (IOException e) {
+                    log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
+                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
             });
         } catch (RejectedExecutionException e) {
-            log.error(REJECTED_EXECUTION_EXCEPTION, e);
+            log.error("Executor has been shut down or" +
+                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
-        }
-    }
-
-    private void putEntityExecutor(final String id, final HttpSession session, final Request request) {
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final String node = topology.getRightNodeForKey(key);
-            if (topology.isCurrentNode(node)) {
-                final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                dao.upsert(key, value);
-                sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (IOException e) {
-            log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -227,27 +221,24 @@ public class ServiceImpl extends HttpServer implements Service {
                     return;
                 }
 
-                deleteEntityExecutor(id, session, request);
+                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                final String node = topology.primaryFor(key);
+                try {
+                    if (topology.isMe(node)) {
+                        dao.remove(key);
+                        sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
+                    } else {
+                        sendResponse(session, proxy(node, request));
+                    }
+                } catch (IOException e) {
+                    log.error("Internal error with id = {}", id, e);
+                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
             });
         } catch (RejectedExecutionException e) {
-            log.error(REJECTED_EXECUTION_EXCEPTION, e);
+            log.error("Executor has been shut down or" +
+                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
-        }
-    }
-
-    private void deleteEntityExecutor(final String id, final HttpSession session, final Request request) {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final String node = topology.getRightNodeForKey(key);
-        try {
-            if (topology.isCurrentNode(node)) {
-                dao.remove(key);
-                sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -255,10 +246,10 @@ public class ServiceImpl extends HttpServer implements Service {
     private Response proxy(
             @NotNull final String node,
             @NotNull final Request request) throws IOException {
-        request.addHeader("X-Proxy-For: " + node);
         try {
+            request.addHeader("X-Proxy-For: " + node);
             return nodeToClient.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
+        } catch (Exception e) {
             throw new IOException("Can't proxy request", e);
         }
     }
@@ -281,7 +272,7 @@ public class ServiceImpl extends HttpServer implements Service {
             Thread.currentThread().interrupt();
         }
 
-        for (final HttpClient client : nodeToClient.values()) {
+        for (final HttpClient client: nodeToClient.values()) {
             client.clear();
         }
     }
