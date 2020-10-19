@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
-import javax.mail.Session;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 
 public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final String REJECTED_EXECUTION_EXCEPTION = "Executor has been shut down or"
+            + "executor uses finite bounds for both maximum threads and work queue capacity";
     @NotNull
     private final ExecutorService executorService;
 
@@ -59,7 +60,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
                         .setNameFormat("worker_%d")
                         .build(),
-                new ThreadPoolExecutor.DiscardOldestPolicy()
+                new ThreadPoolExecutor.AbortPolicy()
         );
     }
 
@@ -101,28 +102,32 @@ public class ServiceImpl extends HttpServer implements Service {
 
         try {
             executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                try {
-                    final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
-                    final byte[] response = new byte[value.remaining()];
-                    value.get(response);
-                    sendResponse(session, Response.ok(response));
-                } catch (NoSuchElementException e) {
-                    sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Internal error with id = {}", id, e);
-                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
+                getEntityExecutor(id, session);
             });
         } catch (RejectedExecutionException e) {
-            log.error("Executor has been shut down or" +
-                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            log.error(REJECTED_EXECUTION_EXCEPTION, e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
         }
     }
+
+    private void getEntityExecutor(String id, HttpSession session) {
+        if (id.isEmpty()) {
+            sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        try {
+            final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8))).duplicate();
+            final byte[] response = new byte[value.remaining()];
+            value.get(response);
+            sendResponse(session, Response.ok(response));
+        } catch (NoSuchElementException e) {
+            sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Internal error with id = {}", id, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
 
     /**
      * Create/overwrite data by key.
@@ -140,26 +145,30 @@ public class ServiceImpl extends HttpServer implements Service {
         log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
         try {
             executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                try {
-                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                    dao.upsert(key, value);
-                    sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
-                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
+                putEntityExecutor(id, request, session);
             });
         } catch (RejectedExecutionException e) {
-            log.error("Executor has been shut down or" +
-                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            log.error(REJECTED_EXECUTION_EXCEPTION, e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
         }
     }
+
+    private void putEntityExecutor(String id, Request request, HttpSession session) {
+        if (id.isEmpty()) {
+            sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        try {
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+            dao.upsert(key, value);
+            sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
 
     /**
      * Delete data by key.
@@ -173,22 +182,25 @@ public class ServiceImpl extends HttpServer implements Service {
         log.debug("DELETE request: id = {}", id);
         try {
             executorService.execute(() -> {
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                try {
-                    dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                    sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Internal error with id = {}", id, e);
-                    sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                }
+                deleteEntityExecutor(id, session);
             });
         } catch (RejectedExecutionException e) {
-            log.error("Executor has been shut down or" +
-                    "executor uses finite bounds for both maximum threads and work queue capacity", e);
+            log.error(REJECTED_EXECUTION_EXCEPTION, e);
             sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+        }
+    }
+
+    private void deleteEntityExecutor(String id, HttpSession session) {
+        if (id.isEmpty()) {
+            sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        try {
+            dao.remove(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+            sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Internal error with id = {}", id, e);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
