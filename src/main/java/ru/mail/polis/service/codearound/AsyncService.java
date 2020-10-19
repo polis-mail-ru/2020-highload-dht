@@ -1,7 +1,14 @@
 package ru.mail.polis.service.codearound;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
@@ -76,7 +83,7 @@ public class AsyncService extends HttpServer implements Service {
 
             final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
 
-            if(nodeToClient.put(node, client) != null) {
+            if (nodeToClient.put(node, client) != null) {
                 throw new IllegalStateException("Multiple nodes found by same ID");
             }
         }
