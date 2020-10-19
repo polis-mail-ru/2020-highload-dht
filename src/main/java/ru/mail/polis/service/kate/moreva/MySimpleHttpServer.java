@@ -175,7 +175,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             return nodeClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             log.error("Proxy request error", e);
-            throw new IOException("Cannot proxy request" + e);
+            throw new IOException("Cannot proxy request", e);
         }
     }
 
