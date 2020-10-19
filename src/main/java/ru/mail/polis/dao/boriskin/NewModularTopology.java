@@ -13,6 +13,12 @@ public class NewModularTopology implements Topology<String> {
     @NotNull
     private final String myNode;
 
+    /**
+     * Конструктор {@link NewModularTopology}.
+     *
+     * @param nodeSet узлы
+     * @param myNode нужно знать себя
+     */
     public NewModularTopology(
             @NotNull final Set<String> nodeSet,
             @NotNull final String myNode) {

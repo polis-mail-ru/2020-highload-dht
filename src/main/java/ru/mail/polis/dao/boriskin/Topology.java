@@ -4,15 +4,15 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public interface Topology<Node> {
+public interface Topology<N> {
 
     @NotNull
-    Node primaryFor(@NotNull ByteBuffer key);
+    N primaryFor(@NotNull ByteBuffer key);
 
-    boolean isMyNode(@NotNull Node node);
+    boolean isMyNode(@NotNull N node);
 
     int sizeOfAllNodesInCluster();
 
     @NotNull
-    Node[] all();
+    N[] all();
 }
