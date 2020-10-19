@@ -1,6 +1,8 @@
 package ru.mail.polis.service.manikhin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,6 +11,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +23,8 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +37,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private final DAO dao;
     private final ExecutorService executor;
+    private final Topology nodes;
+    final Map<String, HttpClient> clusterClients;
     private final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     /**
@@ -39,7 +47,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param port - to accept HTTP server
      * @param dao - storage interface
      */
-    public AsyncServiceImpl(final int port, @NotNull final DAO dao, final int countOfWorkers,
+    public AsyncServiceImpl(final int port, @NotNull final DAO dao,
+                            @NotNull final Topology nodes, final int countOfWorkers,
                             final int queueSize) throws IOException {
 
         super(getConfig(port));
@@ -50,6 +59,41 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         log.error("Error in {} when processing request", t, e)
                 ).build(),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.nodes = nodes;
+        this.clusterClients = new HashMap<>();
+
+        for (final String node : nodes.getNodes()) {
+            if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
+                clusterClients.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+            }
+        }
+    }
+
+    /**
+     * Request forwarder on specified node.
+     *
+     * @param session - http-session
+     * @param keyCluster - input key cluster
+     * @param request - input http-request
+     */
+    private void forwardRequest(@NotNull final HttpSession session,
+                                  @NotNull final String keyCluster,
+                                  @NotNull final Request request) {
+
+        request.addHeader("X-Proxy-For: " + keyCluster);
+
+        final Future<?> futureProxy = executor.submit(() -> {
+            try {
+                sendResponse(session, clusterClients.get(keyCluster).invoke(request));
+            } catch (IOException | InterruptedException | PoolException | HttpException error) {
+                log.error("Sending response error: ", error);
+                sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        });
+
+        if (futureProxy.isCancelled()) {
+            log.error("Proxy executor error!");
+        }
     }
 
     /**
@@ -75,13 +119,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
-                       @NotNull final Request request, final HttpSession session) throws IOException {
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) throws IOException {
 
         try {
             if (id.isEmpty()) {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             }
+
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            final String keyCluster = nodes.primaryFor(key);
+
+            if (!nodes.getId().equals(keyCluster)) {
+               forwardRequest(session, keyCluster, request);
+               return;
+            }
+
             final Future<?> future = executor.submit(() -> handleRequest(request, session, key));
 
             if (future.isCancelled()) {
@@ -101,25 +154,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - http-session
      * @param key - input key
      */
-    private void handleRequest(@NotNull final Request request, @NotNull final HttpSession session,
-                                final ByteBuffer key) {
-        try {
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    get(key, session);
-                    break;
-                case Request.METHOD_PUT:
-                    put(key, request, session);
-                    break;
-                case Request.METHOD_DELETE:
-                    delete(key, session);
-                    break;
-                default:
-                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                    break;
-            }
-        } catch (IOException error) {
-            log.error("Request error: ", error);
+    private void handleRequest(@NotNull final Request request,
+                               @NotNull final HttpSession session,
+                               @NotNull final ByteBuffer key) {
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                get(key, session);
+                break;
+            case Request.METHOD_PUT:
+                put(key, request, session);
+                break;
+            case Request.METHOD_DELETE:
+                delete(key, session);
+                break;
+            default:
+                sendResponse(session, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                break;
         }
     }
 
@@ -130,7 +180,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param response - response object on input request
      */
     private void sendResponse(@NotNull final HttpSession session,
-                                @NotNull final Response response) throws IOException {
+                              @NotNull final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException error) {
@@ -138,7 +188,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void get(final ByteBuffer key, final HttpSession session) throws IOException {
+    private void get(@NotNull final ByteBuffer key, @NotNull final HttpSession session) {
         try {
             final ByteBuffer value = dao.get(key).duplicate();
             final byte[] valueArray = ByteConvertor.toArray(value);
@@ -147,36 +197,38 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         } catch (IOException error) {
             log.error("IO get error: ", error);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         } catch (NoSuchElementException error) {
             log.error("NoSuchElement get error: ", error);
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
 
     private void put(final ByteBuffer key, final Request request,
-                     final HttpSession session) throws IOException {
+                     final HttpSession session) {
         try {
             dao.upsert(key, ByteBuffer.wrap(request.getBody()));
             sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException error) {
             log.error("IO put error: ", error);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
-    private void delete(final ByteBuffer key, final HttpSession session) throws IOException {
+    private void delete(@NotNull final ByteBuffer key,
+                        @NotNull final HttpSession session) {
         try {
             dao.remove(key);
             sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException error) {
             log.error("IO delete error: ", error);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) {
+    public void handleDefault(@NotNull final Request request,
+                              @NotNull final HttpSession session) {
         try {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
         } catch (IOException error) {
@@ -204,6 +256,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         } catch (InterruptedException error) {
             log.error("Can't stop server! Error: ", error);
             Thread.currentThread().interrupt();
+        }
+
+        for (final HttpClient client : clusterClients.values()) {
+            client.clear();
         }
     }
 }
