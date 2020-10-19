@@ -211,7 +211,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 value.get(body);
                 session.sendResponse(new Response(Response.OK, body));
             } else {
-                session.sendResponse(proxy(node, request));
+                proxyRequest(session, proxy(node, request));
             }
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -234,9 +234,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 dao.upsert(key, ByteBuffer.wrap(request.getBody()));
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
             } else {
-                session.sendResponse(proxy(node, request));
+                proxyRequest(session, proxy(node, request));
             }
-
         } catch (IOException e) {
             log.error("PUT method failed on /v0/entity for id {}, request body {}.", key.get(), request.getBody(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -258,7 +257,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 dao.remove(key);
                 session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
             } else {
-                session.sendResponse(proxy(node, request));
+                proxyRequest(session, proxy(node, request));
             }
         } catch (IOException e) {
             log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
@@ -269,6 +268,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private void handleError(final HttpSession session, final String response) {
         try {
             session.sendResponse(new Response(response, Response.EMPTY));
+        } catch (IOException e) {
+            log.error(SERVER_ERROR, session, e);
+        }
+    }
+
+    private void proxyRequest(final HttpSession session, final Response response) {
+        try {
+            session.sendResponse(response);
         } catch (IOException e) {
             log.error(SERVER_ERROR, session, e);
         }

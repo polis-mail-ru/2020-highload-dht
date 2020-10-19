@@ -15,6 +15,12 @@ public class ModuleTopology implements Topology<String> {
     private final String[] nodes;
     private final String me;
 
+    /**
+     * Modular topology constructor.
+     *
+     * @param nodes - cluster.
+     * @param me - name of the current node.
+     */
     public ModuleTopology(
             @NotNull final Set<String> nodes,
             @NotNull final String me) {
