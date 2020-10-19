@@ -9,7 +9,6 @@ import java.util.TreeMap;
 
 public class ConsistentHashing implements Hashing<String> {
 
-    private final int numOfNodes;
     @NotNull
     private final String me;
     @NotNull
@@ -24,7 +23,7 @@ public class ConsistentHashing implements Hashing<String> {
     public ConsistentHashing(
             @NotNull final Collection<String> nodes,
             @NotNull final String me) {
-        this.numOfNodes = nodes.size();
+        int numOfNodes = nodes.size();
         this.me = me;
 
         for (final String node : nodes) {
