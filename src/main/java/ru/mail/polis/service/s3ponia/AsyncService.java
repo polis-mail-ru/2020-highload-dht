@@ -163,15 +163,18 @@ public final class AsyncService extends HttpServer implements Service {
                     @NotNull final HttpSession httpSession) throws IOException {
         if (validateId(gettingKey, httpSession, "Empty key in getting")) return;
 
-        chooseNode(urlFromKey(byteBufferFromString(gettingKey)), httpSession,
-                request,
-                () -> {
+        final String node = urlFromKey(byteBufferFromString(gettingKey));
+        if (this.policy.homeNode().equals(node)) {
+            this.es.execute(() -> {
                     try {
                         get(byteBufferFromString(gettingKey), httpSession);
                     } catch (IOException e) {
                         logger.error("Error in sending get request", e);
                     }
                 });
+        } else {
+            proxy(node, httpSession, request);
+        }
     }
 
     private boolean validateId(@NotNull final String id,
@@ -214,18 +217,6 @@ public final class AsyncService extends HttpServer implements Service {
         return this.policy.getNode(key);
     }
 
-    private void chooseNode(
-            @NotNull final String node,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request,
-            @NotNull final Runnable runFunction) throws IOException {
-        if (this.policy.homeNode().equals(node)) {
-            this.es.execute(runFunction);
-        } else {
-            proxy(node, httpSession, request);
-        }
-    }
-
     /**
      * Basic implementation of http put handling.
      *
@@ -239,9 +230,9 @@ public final class AsyncService extends HttpServer implements Service {
                     @NotNull final HttpSession session) throws IOException {
         if (validateId(id, session, "Empty key in putting")) return;
 
-        chooseNode(urlFromKey(byteBufferFromString(id)), session,
-                request,
-                () -> {
+        final String node = urlFromKey(byteBufferFromString(id));
+        if (this.policy.homeNode().equals(node)) {
+            this.es.execute(() -> {
                     try {
                         upsert(byteBufferFromString(id),
                                 ByteBuffer.wrap(request.getBody()), session);
@@ -249,6 +240,9 @@ public final class AsyncService extends HttpServer implements Service {
                         logger.error("Error in sending put request", e);
                     }
                 });
+        } else {
+            proxy(node, session, request);
+        }
     }
 
     /**
@@ -280,15 +274,18 @@ public final class AsyncService extends HttpServer implements Service {
                        @NotNull final HttpSession session) throws IOException {
         if (validateId(id, session, "Empty key in deleting")) return;
 
-        chooseNode(urlFromKey(byteBufferFromString(id)), session,
-                request,
-                () -> {
+        final String node = urlFromKey(byteBufferFromString(id));
+        if (this.policy.homeNode().equals(node)) {
+            this.es.execute(() -> {
                     try {
                         delete(byteBufferFromString(id), session);
                     } catch (IOException e) {
                         logger.error("Error in sending delete request", e);
                     }
                 });
+        } else {
+            proxy(node, session, request);
+        }
     }
 
     @Override
