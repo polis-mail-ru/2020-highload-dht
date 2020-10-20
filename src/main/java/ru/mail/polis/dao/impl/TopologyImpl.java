@@ -11,6 +11,11 @@ public class TopologyImpl implements Topology<String> {
     @NotNull
     private final String url;
 
+    /**
+     *
+     * @param topology
+     * @param url
+     */
     public TopologyImpl(
             @NotNull final Set<String> topology,
             @NotNull final String url) {
@@ -22,11 +27,11 @@ public class TopologyImpl implements Topology<String> {
 
     @NotNull
     @Override
-    public String getNodeByKey(@NotNull String key) {
+    public String getNodeByKey(@NotNull final String key) {
         int minHash = Integer.MAX_VALUE;
         String currentNode = url;
-        for (String node : topology) {
-            int hash = (node + key).hashCode();
+        for (final String node : topology) {
+            final int hash = (node + key).hashCode();
             if (hash < minHash) {
                 minHash = hash;
                 currentNode = node;
@@ -37,7 +42,7 @@ public class TopologyImpl implements Topology<String> {
 
     @NotNull
     @Override
-    public boolean equalsUrl(@NotNull String node) {
+    public boolean equalsUrl(@NotNull final String node) {
         return node.equals(url);
     }
 

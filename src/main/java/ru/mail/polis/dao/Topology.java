@@ -2,15 +2,15 @@ package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 
-public interface Topology<Node> {
+public interface Topology<T> {
     @NotNull
-    Node getNodeByKey(@NotNull String key);
+    T getNodeByKey(@NotNull String key);
 
     @NotNull
-    boolean equalsUrl(@NotNull Node node);
+    boolean equalsUrl(@NotNull T node);
 
     int getSize();
 
     @NotNull
-    Node[] getAllNodes();
+    T[] getAllNodes();
 }

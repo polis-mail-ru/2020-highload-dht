@@ -117,8 +117,7 @@ public class ThreadController extends HttpServer implements Service {
             final HttpSession session,
             final Request request) {
         executor.execute(() -> {
-            final String node = topology.getNodeByKey(id);
-            if (topology.equalsUrl(node)) {
+            if (equalsUrlNode(id)) {
                 try {
                     if (id.isEmpty()) {
                         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -126,24 +125,12 @@ public class ThreadController extends HttpServer implements Service {
                         session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
                     }
                 } catch (NoSuchElementException e) {
-                    try {
-                        session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                    }
+                    sendNotFound(session);
                 } catch (IOException e) {
-                    try {
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                    }
+                    sendInternalServerError(session);
                 }
             } else {
-                try {
-                    session.sendResponse(proxy(node, request));
-                } catch (IOException ioException) {
-                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                }
+                sendResponseProxy(session, request, id);
             }
         });
     }
@@ -162,8 +149,7 @@ public class ThreadController extends HttpServer implements Service {
             final HttpSession session,
             final Request request) {
         executor.execute(() -> {
-            final String node = topology.getNodeByKey(id);
-            if (topology.equalsUrl(node)) {
+            if (equalsUrlNode(id)) {
                 try {
                     if (id.isEmpty()) {
                         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -172,18 +158,10 @@ public class ThreadController extends HttpServer implements Service {
                         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                     }
                 } catch (IOException e) {
-                    try {
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                    }
+                    sendInternalServerError(session);
                 }
             } else {
-                try {
-                    session.sendResponse(proxy(node, request));
-                } catch (IOException ioException) {
-                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                }
+                sendResponseProxy(session, request, id);
             }
         });
     }
@@ -201,8 +179,7 @@ public class ThreadController extends HttpServer implements Service {
             final HttpSession session,
             final Request request) {
         executor.execute(() -> {
-            final String node = topology.getNodeByKey(id);
-            if (topology.equalsUrl(node)) {
+            if (equalsUrlNode(id)) {
                 try {
                     if (id.isEmpty()) {
                         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -211,18 +188,10 @@ public class ThreadController extends HttpServer implements Service {
                         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
                     }
                 } catch (IOException e) {
-                    try {
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    } catch (IOException ioException) {
-                        logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                    }
+                    sendInternalServerError(session);
                 }
             } else {
-                try {
-                    session.sendResponse(proxy(node, request));
-                } catch (IOException ioException) {
-                    logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-                }
+                sendResponseProxy(session, request, id);
             }
         });
     }
@@ -274,6 +243,36 @@ public class ThreadController extends HttpServer implements Service {
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
             logger.error("Proxy unavailable: ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    private boolean equalsUrlNode(@NotNull final String id) {
+        final String node = topology.getNodeByKey(id);
+        return topology.equalsUrl(node);
+    }
+
+    private void sendResponseProxy(final HttpSession session, final Request request, final String id) {
+        try {
+            final String node = topology.getNodeByKey(id);
+            session.sendResponse(proxy(node, request));
+        } catch (IOException ioException) {
+            logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+        }
+    }
+
+    private void sendInternalServerError(final HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+        }
+    }
+
+    private void sendNotFound(final HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
         }
     }
 }
