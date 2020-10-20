@@ -145,26 +145,39 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Get value by key.
+     * Get, Put, Delete etc.
      *
      * @param id - key.
      * @param session - current session
      * @param request - request from client or other node
      */
     @Path("/v0/entity")
-    @RequestMethod(METHOD_GET)
-    public void get(@NotNull @Param(value = "id", required = true) final String id,
-                    @NotNull final HttpSession session, @NotNull final Request request) {
-        final String ownerNode = checkIdAndReturnTargetNode(id, session, "get");
-        if (topology.isMe(ownerNode)) {
-            asyncGet(id, session);
-        } else {
+    public void entity(@Param(value = "id",required = true) @NotNull final String id,
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) {
+        final String ownerNode = checkIdAndReturnTargetNode(id, session);
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+        if (!topology.isMe(ownerNode)) {
             proxyForwarding(request, session, ownerNode);
-            return;
+        } else {
+            try {
+                switch (request.getMethod()) {
+                    case METHOD_GET: asyncGet(key, session); break;
+                    case METHOD_PUT: asyncPut(key, request ,session); break;
+                    case METHOD_DELETE: asyncDelete(key, session);
+                        break;
+                    default:
+                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                        log.error("Unsupported method");
+                }
+            } catch (IOException e) {
+                log.error("IO exception in entity ",e);
+                throw new RuntimeException(e);
+            }
         }
     }
 
-    private void asyncGet(@NotNull final String id, @NotNull final HttpSession session) {
+    private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 getInternal(id, session);
@@ -182,35 +195,14 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private void getInternal(@NotNull final String id,
+    private void getInternal(@NotNull final ByteBuffer key,
                              @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
         final ByteBuffer value = dao.get(key);
         final byte[] bytes = BufferConverter.unfoldToBytes(value);
         session.sendResponse(Response.ok(bytes));
     }
 
-    /**
-     * Put key and value to LSM.
-     *
-     * @param id - key.
-     * @param request - contains value in the body.
-     * @param session - current session
-     */
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_PUT)
-    public void put(@Param(value = "id", required = true) @NotNull final String id,
-                    @NotNull final Request request, @NotNull final HttpSession session) {
-        final String ownerNode = checkIdAndReturnTargetNode(id, session, "put");
-        if (topology.isMe(ownerNode)) {
-            asyncPut(id, request, session);
-        } else {
-            proxyForwarding(request, session, ownerNode);
-            return;
-        }
-    }
-
-    private void asyncPut(@NotNull final String id,
+    private void asyncPut(@NotNull final ByteBuffer id,
                           @NotNull final Request request, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
@@ -222,36 +214,15 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private void putInternal(@NotNull final String id,
+    private void putInternal(@NotNull final ByteBuffer key,
                              @NotNull final Request request,
                              @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         dao.upsert(key, value);
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
-    /**
-     * Delete by key.
-     *
-     * @param id - key
-     * @param session - current session
-     * @param request - request from client or other node
-     */
-    @Path("/v0/entity")
-    @RequestMethod(METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) @NotNull final String id,
-                       @NotNull final HttpSession session, @NotNull final Request request) {
-        final String ownerNode = checkIdAndReturnTargetNode(id, session, "delete");
-        if (topology.isMe(ownerNode)) {
-            asyncDelete(id, session);
-        } else {
-            proxyForwarding(request, session, ownerNode);
-            return;
-        }
-    }
-
-    private void asyncDelete(@NotNull final String id, @NotNull final HttpSession session) {
+    private void asyncDelete(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 deleteInternal(id, session);
@@ -262,8 +233,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private void deleteInternal(@NotNull final String id,@NotNull final HttpSession session) throws IOException {
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+    private void deleteInternal(@NotNull final ByteBuffer key,
+                                @NotNull final HttpSession session) throws IOException {
         dao.remove(key);
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
@@ -273,16 +244,15 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      *
      * @param id - key of data
      * @param session - current session
-     * @param method - method, using for logs
      * @return - data owner
      */
     private String checkIdAndReturnTargetNode(@Param(value = "id", required = true) final String id,
-                                              final HttpSession session, final String method) {
+                                              @NotNull final HttpSession session) {
         if (id.isEmpty()) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                log.error("Method {}. IO exception in mapping occurred. ", method, e);
+                log.error("Method has empty id. IO exception in mapping occurred. ", e);
                 throw new RuntimeException(e);
             }
         }
