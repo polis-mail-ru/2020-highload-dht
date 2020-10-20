@@ -188,7 +188,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 final Response responseCreated = new Response(Response.CREATED, Response.EMPTY);
                 httpSession.sendResponse(responseCreated);
             } catch (IOException e) {
-                log.error("upsert error:", e);
+                log.error("upsert error: ", e);
             }
         } else {
             final Response response = proxying(endNode, request);
