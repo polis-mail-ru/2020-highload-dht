@@ -19,17 +19,17 @@ public class RendezvousHashingImpl implements Topology<String> {
     /**
      * Constructor for modular topology implementation.
      *
-     * @param allNodes - sets with all nodes.
+     * @param nodes - sets with all nodes.
      * @param currentNode - this node.
      */
-    public RendezvousHashingImpl(final String currentNode, final Set<String> allNodes) {
-        if (!allNodes.contains(currentNode)) {
-            log.error("This node - {} is not a part of cluster {}", currentNode, allNodes);
-            throw new RuntimeException("Current not is invalid.");
+    public RendezvousHashingImpl(final String currentNode, final Set<String> nodes) {
+        if (!nodes.contains(currentNode)) {
+            log.error("This node - {} is not a part of nodes: {}", currentNode, nodes);
+            throw new RuntimeException("Current node is invalid.");
         }
         this.currentNode = currentNode;
-        this.allNodes = new String[allNodes.size()];
-        allNodes.toArray(this.allNodes);
+        this.allNodes = new String[nodes.size()];
+        nodes.toArray(this.allNodes);
         Arrays.sort(this.allNodes);
     }
 
@@ -45,7 +45,12 @@ public class RendezvousHashingImpl implements Topology<String> {
             hashes[i] = murmur3_32().newHasher().putInt(nodeIdentifier[i]).putBytes(keyBytes).hash().hashCode();
             nodesAndHashes.put(hashes[i],allNodes[i]);
         }
-        return nodesAndHashes.get(nodesAndHashes.keySet().stream().findFirst().get());
+        String ownerNode = nodesAndHashes.get(nodesAndHashes.keySet().stream().findFirst().orElse(null));
+        if (ownerNode == null) {
+            log.error("Hash is null");
+            throw new RuntimeException("Hash code can't be equals null");
+        }
+        return ownerNode;
     }
 
     @Override
