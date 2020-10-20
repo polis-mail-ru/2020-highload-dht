@@ -116,7 +116,7 @@ public final class AsyncService extends HttpServer implements Service {
      * @param session current Session
      */
     @Path("/v0/status")
-    public void handleStatus(final HttpSession session) throws IOException {
+    public void status(final HttpSession session) throws IOException {
         try {
             this.es.execute(() -> handlingStatusError(session));
         } catch (RejectedExecutionException e) {
@@ -159,13 +159,9 @@ public final class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
-                    final Request request,
-                    final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-            logger.error("Empty key in getting");
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
+                    @NotNull final Request request,
+                    @NotNull final HttpSession session) throws IOException {
+        if (validateId(id, session, "Empty key in getting")) return;
         chooseNode(urlFromKey(byteBufferFromString(id)), session,
                 request,
                 () -> {
@@ -175,6 +171,17 @@ public final class AsyncService extends HttpServer implements Service {
                         logger.error("Error in sending get request", e);
                     }
                 });
+    }
+
+    private boolean validateId(@NotNull final String id,
+                               @NotNull final HttpSession session,
+                               @NotNull final String s) throws IOException {
+        if (id.isEmpty()) {
+            logger.error(s);
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -272,11 +279,7 @@ public final class AsyncService extends HttpServer implements Service {
     public void delete(@Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-            logger.error("Empty key in deleting");
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
+        if (validateId(id, session, "Empty key in deleting")) return;
 
         chooseNode(urlFromKey(byteBufferFromString(id)), session, request,
                 () -> {
