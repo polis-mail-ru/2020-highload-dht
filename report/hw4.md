@@ -193,7 +193,7 @@ Running 3m test @ http://localhost:8080
 
 
 #### Результаты профилирования async-profiler (ALLOC): 
-![Результаты профилирования async-profiler (ALLOC)](profilingResults/hw3/alloc_put.svg)
+![Результаты профилирования async-profiler (ALLOC)](profilingResults/hw4/alloc_put.svg)
 
 `./profiler.sh -d 20 -e alloc -f ./hw4/alloc_put.svg 12385`
 
