@@ -14,8 +14,14 @@ public class TopologyImpl implements Topology<String> {
     @NotNull
     private final String localNode;
 
-   public TopologyImpl(@NotNull Set<String> nodes,
-                       @NotNull String localNode) {
+    /**
+     * Initialization and preparation of nodes.
+     *
+     * @param nodes - cluster nodes.
+     * @param localNode - our node.
+     */
+   public TopologyImpl(@NotNull final Set<String> nodes,
+                       @NotNull final String localNode) {
 
       assert nodes.contains(localNode);
 
@@ -35,13 +41,13 @@ public class TopologyImpl implements Topology<String> {
     @NotNull
     @Override
     public String getNode(@NotNull final ByteBuffer key) {
-        return nodes[(key.hashCode() & Integer.MAX_VALUE) % nodes.length];
+        return this.nodes[(key.hashCode() & Integer.MAX_VALUE) % this.nodes.length];
     }
 
     @NotNull
     @Override
     public boolean isLocal(@NotNull final String node) {
-        return node.equals(localNode);
+        return node.equals(this.localNode);
     }
 
     @NotNull

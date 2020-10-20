@@ -1,6 +1,5 @@
 package ru.mail.polis.service;
 
-
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;

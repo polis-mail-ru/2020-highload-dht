@@ -59,7 +59,7 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-        Topology<String> t = new TopologyImpl(topology, "http://localhost:" + port);
+        final Topology<String> t = new TopologyImpl(topology, "http://localhost:" + port);
         final HttpServerConfig httpServerConfig = getHttpServerConfig(port);
         return new AsyncHttpServerImpl(httpServerConfig,
                 dao,

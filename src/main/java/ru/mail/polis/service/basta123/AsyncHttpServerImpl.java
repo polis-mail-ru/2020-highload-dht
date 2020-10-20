@@ -1,7 +1,16 @@
 package ru.mail.polis.service.basta123;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.HttpClient;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
+import one.nio.http.HttpException;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
@@ -11,12 +20,12 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.Topology;
 
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -38,7 +47,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     @NotNull
     private final Topology<String> topology;
     @NotNull
-    private final Map<String, HttpClient> ClientAndNode;
+    private final Map<String, HttpClient> clientAndNode;
     @NotNull
     private final ExecutorService execService;
 
@@ -57,12 +66,12 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         super(config);
         this.dao = dao;
         this.topology = topology;
-        this.ClientAndNode = new HashMap<>();
+        this.clientAndNode = new HashMap<>();
 
         for (final String node: topology.getAllNodes()) {
-            if (!topology.isLocal(node) && !this.ClientAndNode.containsKey(node)) {
+            if (!topology.isLocal(node) && !this.clientAndNode.containsKey(node)) {
                 final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
-                this.ClientAndNode.put(node, client);
+                this.clientAndNode.put(node, client);
             }
         }
 
@@ -117,7 +126,9 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     }
 
-    private void get(@NotNull final String id, final Request request, final HttpSession httpSession) throws IOException {
+    private void get(@NotNull final String id,
+                     final Request request,
+                     final HttpSession httpSession) throws IOException {
 
         final byte[] keyBytes = id.getBytes(UTF_8);
         final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
@@ -139,7 +150,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 sendResponse(httpSession, Response.NOT_FOUND);
             }
         } else {
-           final Response response = proxying(endNode, request);
+            final Response response = proxying(endNode, request);
             httpSession.sendResponse(response);
         }
     }
@@ -220,8 +231,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 sendResponse(httpSession, Response.INTERNAL_ERROR);
             }
         } else {
-           final Response response = proxying(endNode, request);
-           httpSession.sendResponse(response);
+            final Response response = proxying(endNode, request);
+            httpSession.sendResponse(response);
         }
     }
 
@@ -229,7 +240,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                               @NotNull final Request request) throws IOException {
         try {
             request.addHeader("Forwarding");
-            return ClientAndNode.get(node).invoke(request);
+            return clientAndNode.get(node).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
             log.error("error when proxying the request: ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
