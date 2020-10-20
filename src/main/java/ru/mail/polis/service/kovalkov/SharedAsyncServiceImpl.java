@@ -127,7 +127,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-
     /**
      * Forwarding requests using proxy.
      *
@@ -249,7 +248,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param method - method, using for logs
      * @return - data owner
      */
-    private String checkIdAndReturnTargetNode(@Param(value = "id", required = true) final String id, final HttpSession session, final String method) {
+    private String checkIdAndReturnTargetNode(@Param(value = "id", required = true) final String id,
+                                              final HttpSession session, final String method) {
         if (id.isEmpty()) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
