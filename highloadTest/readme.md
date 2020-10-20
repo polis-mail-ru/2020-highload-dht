@@ -265,3 +265,9 @@
 ![Alt text](./async-profiler/alloc/getAllocV4.svg)
 
 ![Alt text](./async-profiler/alloc/getAllocWithThreadsV4.svg)
+
+###LOCK
+
+![Alt text](./async-profiler/lock/getLockV4.svg)
+
+![Alt text](./async-profiler/lock/putLockV4.svg)
