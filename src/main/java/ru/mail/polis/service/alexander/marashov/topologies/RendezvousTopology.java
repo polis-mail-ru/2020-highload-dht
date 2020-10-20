@@ -6,7 +6,6 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.SortedSet;
 import java.util.stream.Stream;
 
