@@ -237,7 +237,7 @@ public final class AsyncService extends HttpServer implements Service {
     public void put(@Param(value = "id", required = true) final String id,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (validateId(id, session, "Empty key in deleting")) return;
+        if (validateId(id, session, "Empty key in putting")) return;
 
         chooseNode(urlFromKey(byteBufferFromString(id)), session,
                 request,
