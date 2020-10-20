@@ -2,6 +2,7 @@ package ru.mail.polis.service.alexander.marashov;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -11,6 +12,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
@@ -134,11 +136,11 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     private boolean sendErrorOnWrongId(final String id, final HttpSession sessionToSendError) {
-        if (id.isEmpty()) {
+        final boolean isEmpty = id.isEmpty();
+        if (isEmpty) {
             sendAnswerOrError(sessionToSendError, new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return true;
         }
-        return false;
+        return isEmpty;
     }
 
     private boolean proxyIfNotLocal(
@@ -152,7 +154,7 @@ public class ServiceImpl extends HttpServer implements Service {
             try {
                 final Response response = nodeToClient.get(node).invoke(request);
                 sendAnswerOrError(session, response);
-            } catch (final Exception e) {
+            } catch (final InterruptedException | PoolException | IOException | HttpException e) {
                 log.error("Can't proxy request", e);
                 sendAnswerOrError(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
@@ -209,7 +211,6 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         result = this.dao.get(key);
                     } catch (final NoSuchElementException e) {
-                        log.debug("Get entity method: key = '{}' not found", id, e);
                         sendAnswerOrError(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
                         return;
                     } catch (final IOException e) {
@@ -257,12 +258,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         this.dao.upsert(key, value);
                     } catch (final IOException e) {
-                        log.error(
-                                "Put entity method: key = '{}', value = '{}' error",
-                                id,
-                                body.length,
-                                e
-                        );
+                        log.error("Put entity method: key = '{}', value = '{}' error", id, body.length, e);
                         sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                         return;
                     }
