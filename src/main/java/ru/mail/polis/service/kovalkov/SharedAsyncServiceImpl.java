@@ -154,31 +154,40 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public void get(@NotNull @Param(value = "id", required = true) final String id,
-                    final HttpSession session, final Request request) {
+                    @NotNull final HttpSession session, @NotNull final Request request) {
         final String ownerNode = checkIdAndReturnTargetNode(id, session, "get");
         if (topology.isMe(ownerNode)) {
-            service.execute(() -> {
-                try {
-                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-                    final ByteBuffer value = dao.get(key);
-                    final byte[] bytes = BufferConverter.unfoldToBytes(value);
-                    session.sendResponse(Response.ok(bytes));
-                } catch (IOException e) {
-                    log.error("Method get. IO exception. ", e);
-                    throw new RuntimeException(e);
-                } catch (NoSuchElementException e) {
-                    log.error("Method get. Can't find value by this key ", e);
-                    try {
-                        session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    } catch (IOException ioException) {
-                        log.error("Method get. Id is empty. Can't send response:", e);
-                    }
-                }
-            });
+            asyncGet(id, session);
         } else {
             proxyForwarding(request, session, ownerNode);
             return;
         }
+    }
+
+    private void asyncGet(@NotNull String id, @NotNull HttpSession session) {
+        service.execute(() -> {
+            try {
+                getInternal(id, session);
+            } catch (IOException e) {
+                log.error("Method get. IO exception. ", e);
+                throw new RuntimeException(e);
+            } catch (NoSuchElementException e) {
+                log.error("Method get. Can't find value by this key ", e);
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException ioException) {
+                    log.error("Method get. Id is empty. Can't send response:", e);
+                }
+            }
+        });
+    }
+
+    private void getInternal(@NotNull final String id,
+                             @NotNull final HttpSession session) throws IOException {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+        final ByteBuffer value = dao.get(key);
+        final byte[] bytes = BufferConverter.unfoldToBytes(value);
+        session.sendResponse(Response.ok(bytes));
     }
 
     /**
@@ -190,25 +199,35 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id,
-                    final Request request, final HttpSession session) {
+    public void put(@Param(value = "id", required = true) @NotNull final String id,
+                    @NotNull final Request request, @NotNull final HttpSession session) {
         final String ownerNode = checkIdAndReturnTargetNode(id, session, "put");
         if (topology.isMe(ownerNode)) {
-            service.execute(() -> {
-                try {
-                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                    dao.upsert(key, value);
-                    session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Method put. IO exception.", e);
-                    throw new RuntimeException(e);
-                }
-            });
+            asyncPut(id, request, session);
         } else {
             proxyForwarding(request, session, ownerNode);
             return;
         }
+    }
+
+    private void asyncPut(@NotNull String id, @NotNull Request request, @NotNull HttpSession session) {
+        service.execute(() -> {
+            try {
+                putInternal(id, request, session);
+            } catch (IOException e) {
+                log.error("Method put. IO exception.", e);
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private void putInternal(@NotNull final String id,
+                             @NotNull final Request request,
+                             @NotNull final HttpSession session) throws IOException {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+        dao.upsert(key, value);
+        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
     /**
@@ -220,24 +239,32 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id,
-                       final HttpSession session, final Request request) {
+    public void delete(@Param(value = "id", required = true) @NotNull final String id,
+                       @NotNull final HttpSession session, @NotNull final Request request) {
         final String ownerNode = checkIdAndReturnTargetNode(id, session, "delete");
         if (topology.isMe(ownerNode)) {
-            service.execute(() -> {
-                try {
-                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-                    dao.remove(key);
-                    session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (IOException e) {
-                    log.error("Method delete. IO exception. ", e);
-                    throw new RuntimeException(e);
-                }
-            });
+            asyncDelete(id, session);
         } else {
             proxyForwarding(request, session, ownerNode);
             return;
         }
+    }
+
+    private void asyncDelete(@NotNull String id, @NotNull HttpSession session) {
+        service.execute(() -> {
+            try {
+                deleteInternal(id, session);
+            } catch (IOException e) {
+                log.error("Method delete. IO exception. ", e);
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private void deleteInternal(@NotNull final String id,@NotNull final HttpSession session) throws IOException {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+        dao.remove(key);
+        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
     /**
