@@ -18,7 +18,8 @@ public class RendezvousTopology implements Topology<String> {
 
     /**
      * Approach to distribute user's keys according to rendezvous hashing.
-     *     An algorithm hashes the key and the node's identifier together and then pick the one with the highest hash value.
+     *     An algorithm hashes the key and the node's identifier together
+     *     and then pick the one with the highest hash value.
      * @param nodes - sorted set with all the nodes in the cluster.
      * @param local - local node identifier.
      */
@@ -45,12 +46,10 @@ public class RendezvousTopology implements Topology<String> {
                 })
                 .sorted(Map.Entry.comparingByKey());
 
-        final Optional<Map.Entry<Integer, String>> optionalEntry = sortedStream.findFirst();
-        if (optionalEntry.isEmpty()) {
-            throw new IllegalStateException("No node for key");
-        }
-
-        return optionalEntry.get().getValue();
+        return sortedStream
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No node for key"))
+                .getValue();
     }
 
     @NotNull
