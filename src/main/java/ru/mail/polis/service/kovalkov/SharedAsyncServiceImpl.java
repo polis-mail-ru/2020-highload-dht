@@ -49,18 +49,20 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      *
      * @param config - service configuration.
      * @param dao - dao implementation.
+     * @param topology  - cluster configuration
      */
-    public SharedAsyncServiceImpl(final HttpServerConfig config, final DAO dao, final Topology<String> topology) throws IOException {
+    public SharedAsyncServiceImpl(final HttpServerConfig config,
+                                  final DAO dao, final Topology<String> topology) throws IOException {
         super(config);
         this.dao = dao;
         this.topology = topology;
         this.nodesClient = new HashMap<>();
         for (final String n: topology.allNodes()) {
-            if(topology.isMe(n)){
+            if(topology.isMe(n)) {
                 continue;
             }
             final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=1000"));
-            if(nodesClient.put(n, client) != null){
+            if(nodesClient.put(n, client) != null) {
                 log.error("This node - {} is duplicated", n);
                 throw new IllegalStateException("Duplicate node");
             }
@@ -94,6 +96,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     /**
      * Check status.
      *
+     * @param session - current session
      */
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
@@ -108,10 +111,12 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         if (future.isCancelled()) log.error("Status. Task cancelled");
     }
 
-    /*
-     * Redirecting to target node.
+    /**
+     * Proxy nodes.
      *
-     * @return - return Response
+     * @param targetNode - nodes who have target key
+     * @param request - request from user or target node
+     * @return - response
      */
     private Response proxy(final String targetNode, final Request request) {
         try {
@@ -123,12 +128,15 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     }
 
 
-    /*
-     * Redirecting to target node using proxy.
+    /**
+     * Forwarding requests using proxy.
      *
+     * @param request - request from user or target node
+     * @param session - current connection
+     * @param owner - nodes who have target key
      */
     private void proxyForwarding(final Request request, final HttpSession session, final String owner) {
-        service.execute(()-> {
+        service.execute(() -> {
             try {
                 session.sendResponse(proxy(owner, request));
             } catch (IOException e) {
@@ -147,9 +155,10 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public void get(@NotNull @Param(value = "id", required = true) final String id, final HttpSession session, final Request request) {
+    public void get(@NotNull @Param(value = "id", required = true) final String id,
+                    final HttpSession session, final Request request) {
         final String ownerNode = checkIdAndReturnTargetNode(id, session, "get");
-        if(topology.isMe(ownerNode)) {
+        if (topology.isMe(ownerNode)) {
             service.execute(() -> {
                 try {
                     final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
@@ -184,8 +193,9 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id, final Request request, final HttpSession session) {
-        String ownerNode = checkIdAndReturnTargetNode(id, session, "put");
+    public void put(@Param(value = "id", required = true) final String id,
+                    final Request request, final HttpSession session) {
+        final String ownerNode = checkIdAndReturnTargetNode(id, session, "put");
         if (topology.isMe(ownerNode)) {
             service.execute(() -> {
                 try {
@@ -206,15 +216,16 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     /**
      * Delete by key.
      *
-     * @param id - key.
+     * @param id - key
      * @param session - current session
      * @param request - request from client or other node
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id, final HttpSession session, final Request request) {
-        String ownerNode = checkIdAndReturnTargetNode(id, session, "delete");
-        if(topology.isMe(ownerNode)) {
+    public void delete(@Param(value = "id", required = true) final String id,
+                       final HttpSession session, final Request request) {
+        final String ownerNode = checkIdAndReturnTargetNode(id, session, "delete");
+        if (topology.isMe(ownerNode)) {
             service.execute(() -> {
                 try {
                     final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
@@ -230,6 +241,14 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Checking id, and get data owner.
+     *
+     * @param id - key of data
+     * @param session - current session
+     * @param method - method, using for logs
+     * @return - data owner
+     */
     private String checkIdAndReturnTargetNode(@Param(value = "id", required = true) final String id, final HttpSession session, final String method) {
         if (id.isEmpty()) {
             try {

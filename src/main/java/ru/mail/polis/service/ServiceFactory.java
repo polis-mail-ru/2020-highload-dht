@@ -58,6 +58,6 @@ public final class ServiceFactory {
         }
 
         return new SharedAsyncServiceImpl(SharedAsyncServiceImpl.getConfig(port), dao,
-                new ModHashingTopologyImpl("http://localhost:"+port, topology));
+                new ModHashingTopologyImpl("http://localhost:" + port, topology));
     }
 }
