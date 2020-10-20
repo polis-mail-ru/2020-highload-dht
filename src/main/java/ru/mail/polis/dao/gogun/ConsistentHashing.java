@@ -13,7 +13,7 @@ public class ConsistentHashing implements Hashing<String> {
     private final String me;
     @NotNull
     private final SortedMap<Integer, String> circle = new TreeMap<>();
-
+    private final int numOfNodes;
     /**
      * Class provides sharding via consistent hashing.
      *
@@ -23,13 +23,11 @@ public class ConsistentHashing implements Hashing<String> {
     public ConsistentHashing(
             @NotNull final Collection<String> nodes,
             @NotNull final String me) {
-        final int numOfNodes = nodes.size();
+        numOfNodes = nodes.size();
         this.me = me;
 
         for (final String node : nodes) {
-            for (int i = 0; i < numOfNodes; i++) {
-                circle.put((node + i).hashCode(), node);
-            }
+            add(node);
         }
     }
 
@@ -49,6 +47,12 @@ public class ConsistentHashing implements Hashing<String> {
         }
 
         return circle.get(hash);
+    }
+
+    private void add(final String node) {
+        for (int i = 0; i < numOfNodes; i++) {
+            circle.put((node + i).hashCode(), node);
+        }
     }
 
     @Override
