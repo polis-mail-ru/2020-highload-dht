@@ -8,7 +8,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
@@ -28,10 +27,6 @@ import java.util.NoSuchElementException;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-
-import static one.nio.http.Request.METHOD_DELETE;
-import static one.nio.http.Request.METHOD_GET;
-import static one.nio.http.Request.METHOD_PUT;
 
 public final class ServiceImpl extends HttpServer implements Service {
 
@@ -88,7 +83,6 @@ public final class ServiceImpl extends HttpServer implements Service {
      * @param session - current HTTP session.
      * */
     @Path("/v0/entity")
-    @RequestMethod({METHOD_GET, METHOD_DELETE, METHOD_PUT})
     public void response(@Param(value = "id", required = true) final String id,
                          @NotNull final Request request,
                          @NotNull final HttpSession session) {
