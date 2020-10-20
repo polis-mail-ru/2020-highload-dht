@@ -38,6 +38,7 @@ import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
 
 public class SharedAsyncServiceImpl extends HttpServer implements Service {
+    private static final String IO_EX = "IO exception. Internal error response";
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final Map<String,HttpClient> nodesClient = new HashMap<>();
     private final Topology<String> topology;
@@ -141,7 +142,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
-                    log.error("IO exception. Internal error response", ex);
+                    log.error(IO_EX, ex);
                 }
             }
         });
@@ -182,7 +183,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
-                    log.error("IO exception. Internal error response", ex);
+                    log.error(IO_EX, ex);
                 }
             }
             return;
@@ -201,7 +202,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
-                    log.error("IO exception. Internal error response", ex);
+                    log.error(IO_EX, ex);
                 }
             } catch (NoSuchElementException e) {
                 log.error("Method get. Can't find value by this key ", e);
@@ -231,7 +232,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
-                    log.error("IO exception. Internal error response", ex);
+                    log.error(IO_EX, ex);
                 }
             }
         });
@@ -254,7 +255,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
-                    log.error("IO exception. Internal error response", ex);
+                    log.error(IO_EX, ex);
                 }
             }
         });
@@ -283,7 +284,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 try {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException ex) {
-                    log.error("IO exception. Internal error response", ex);
+                    log.error(IO_EX, ex);
                 }
             }
         }
