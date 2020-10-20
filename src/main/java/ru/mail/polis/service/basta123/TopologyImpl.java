@@ -35,13 +35,13 @@ public class TopologyImpl implements Topology<String> {
     @NotNull
     @Override
     public String getNode(@NotNull final ByteBuffer key) {
-        return this.nodes[(key.hashCode() & Integer.MAX_VALUE) % this.nodes.length];
+        return nodes[(key.hashCode() & Integer.MAX_VALUE) % nodes.length];
     }
 
     @NotNull
     @Override
     public boolean isLocal(@NotNull final String node) {
-        return node.equals(this.localNode);
+        return node.equals(localNode);
     }
 
     @NotNull

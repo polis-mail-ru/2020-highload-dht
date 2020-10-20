@@ -60,14 +60,9 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         this.ClientAndNode = new HashMap<>();
 
         for (final String node: topology.getAllNodes()) {
-            if(topology.isLocal(node))
-            {
-                continue;
-            }
-            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=1000"));
-            if(ClientAndNode.put(node,httpClient) != null)
-            {
-                throw new IllegalStateException("error duplicate");
+            if (!topology.isLocal(node) && !this.ClientAndNode.containsKey(node)) {
+                final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+                this.ClientAndNode.put(node, client);
             }
         }
 
@@ -144,7 +139,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 sendResponse(httpSession, Response.NOT_FOUND);
             }
         } else {
-            proxying(endNode, request);
+           final Response response = proxying(endNode, request);
+            httpSession.sendResponse(response);
         }
     }
 
@@ -185,7 +181,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 log.error("upsert error: ", e);
             }
         } else {
-            proxying(endNode, request);
+            final Response response = proxying(endNode, request);
+            httpSession.sendResponse(response);
         }
 
     }
@@ -223,7 +220,19 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
                 sendResponse(httpSession, Response.INTERNAL_ERROR);
             }
         } else {
-            proxying(endNode, request);
+           final Response response = proxying(endNode, request);
+           httpSession.sendResponse(response);
+        }
+    }
+
+    private Response proxying(@NotNull final String node,
+                              @NotNull final Request request) throws IOException {
+        try {
+            request.addHeader("Forwarding");
+            return ClientAndNode.get(node).invoke(request);
+        } catch (IOException | HttpException | InterruptedException | PoolException e) {
+            log.error("error when proxying the request: ", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -248,17 +257,6 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
             return false;
         } else {
             return true;
-        }
-    }
-
-    private void proxying(@NotNull final String node,
-                          @NotNull final Request request) throws IOException {
-        try {
-            request.addHeader("Forwarding");
-            ClientAndNode.get(node).invoke(request);
-        } catch (IOException | HttpException | InterruptedException | PoolException e) {
-            //log.error("error when proxying the request: ", e);
-            throw new IOException("error when proxying the request: ", e);
         }
     }
 
