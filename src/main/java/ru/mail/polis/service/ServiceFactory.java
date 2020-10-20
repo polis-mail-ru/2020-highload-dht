@@ -20,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.alexander.marashov.ServiceImpl;
 import ru.mail.polis.service.alexander.marashov.topologies.RendezvousTopology;
+import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.util.Set;
@@ -34,6 +35,7 @@ public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
     private static final int QUEUE_SIZE = 100;
     private static final int WORKERS_COUNT = Runtime.getRuntime().availableProcessors();
+    private static final int PROXY_TIMEOUT_VALUE = 1000;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -60,12 +62,16 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
+        final Topology<String> serviceTopology =
+                new RendezvousTopology(new TreeSet<>(topology), "http://localhost:" + port);
+
         return new ServiceImpl(
                 port,
                 dao,
-                new RendezvousTopology(new TreeSet<>(topology), "http://localhost:" + port),
+                serviceTopology,
                 WORKERS_COUNT,
-                QUEUE_SIZE
+                QUEUE_SIZE,
+                PROXY_TIMEOUT_VALUE
         );
     }
 }

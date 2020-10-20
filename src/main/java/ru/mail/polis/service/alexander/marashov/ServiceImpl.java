@@ -14,7 +14,6 @@ import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
-import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,10 +54,10 @@ public class ServiceImpl extends HttpServer implements Service {
             @NotNull final DAO dao,
             final Topology<String> topology,
             final int workersCount,
-            final int queueSize
+            final int queueSize,
+            final int proxyTimeoutValue
     ) throws IOException {
         super(configFrom(port));
-        BasicConfigurator.configure();
         this.dao = dao;
         this.executorService = new ThreadPoolExecutor(
                 workersCount,
@@ -75,11 +74,11 @@ public class ServiceImpl extends HttpServer implements Service {
 
         this.topology = topology;
         this.nodeToClient = new HashMap<>();
-        this.topology.iterator().forEachRemaining(node -> {
+        this.topology.all().forEach(node -> {
             if (this.topology.isLocal(node)) {
                 return;
             }
-            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=100"));
+            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=" + proxyTimeoutValue));
             if (nodeToClient.put(node, httpClient) != null) {
                 throw new IllegalStateException("Duplicate node");
             }

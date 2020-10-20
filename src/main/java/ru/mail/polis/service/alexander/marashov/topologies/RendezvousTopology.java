@@ -4,16 +4,17 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 public class RendezvousTopology implements Topology<String> {
 
     @NotNull
-    final Collection<String> nodes;
-    final String local;
+    private final Collection<String> nodes;
+    @NotNull
+    private final String local;
 
     /**
      * Approach to distribute user's keys according to rendezvous hashing.
@@ -38,9 +39,15 @@ public class RendezvousTopology implements Topology<String> {
     @NotNull
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
+        final int keyHashCode = key.hashCode();
         final Stream<Map.Entry<Integer, String>> sortedStream = nodes.stream()
                 .map((nodeString) -> {
-                    final int hashCode = key.hashCode() + nodeString.hashCode();
+
+                    int hashCode = keyHashCode;
+                    for (int i = nodeString.length() - 1; i >= 0; --i) {
+                        hashCode = 31 * hashCode + nodeString.charAt(i);
+                    }
+
                     return Map.entry(hashCode & Integer.MAX_VALUE, nodeString);
                 })
                 .sorted(Map.Entry.comparingByKey());
@@ -53,8 +60,8 @@ public class RendezvousTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public Iterator<String> iterator() {
-        return nodes.iterator();
+    public SortedSet<String> all() {
+        return new TreeSet<>(nodes);
     }
 
     @Override
