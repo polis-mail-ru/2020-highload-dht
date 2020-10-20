@@ -12,7 +12,7 @@ public class TopologyImpl implements Topology<String> {
     private final String url;
 
     /**
-     * Implementation Topology interface
+     * Implementation Topology interface.
      *
      * @param topology - topology
      * @param url - node url
