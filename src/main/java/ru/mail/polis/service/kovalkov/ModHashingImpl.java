@@ -7,8 +7,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
 
-import static com.google.common.hash.Hashing.murmur3_32;
-
 public class ModHashingImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(ModHashingImpl.class);
     private final String[] allNodes;
