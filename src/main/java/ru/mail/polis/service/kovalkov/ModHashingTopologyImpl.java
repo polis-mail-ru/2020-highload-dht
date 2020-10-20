@@ -15,7 +15,7 @@ public class ModHashingTopologyImpl implements Topology<String> {
     private final String currentNode;
 
     /**
-     * Constructor for topology implementation.
+     * Constructor for modular topology implementation.
      *
      * @param allNodes - sets with all nodes.
      * @param currentNode - this node.
