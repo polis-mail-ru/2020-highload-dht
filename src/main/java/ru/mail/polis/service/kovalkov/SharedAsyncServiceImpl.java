@@ -164,7 +164,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                         asyncGet(key, session);
                         break;
                     case METHOD_PUT:
-                        asyncPut(key, request ,session);
+                        asyncPut(key, request, session);
                         break;
                     case METHOD_DELETE:
                         asyncDelete(key, session);
