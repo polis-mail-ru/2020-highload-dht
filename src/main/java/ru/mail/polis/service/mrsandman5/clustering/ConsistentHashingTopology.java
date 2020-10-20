@@ -16,17 +16,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConsistentHashingTopology<T> implements Topology<T> {
 
     private final T me;
-    private final Set<T> topologies;
+    @NotNull
+    private final Set<T> topology;
     private final NavigableMap<Long, VirtualNode<T>> ring = new TreeMap<>();
     @SuppressWarnings("UnstableApiUsage")
     private final HashFunction hashFunction = Hashing.murmur3_128();
 
-    public ConsistentHashingTopology(@NotNull final Set<T> topologies,
+    /** Consistent hashing cluster topology.
+     * @param topology - nodes of the cluster
+     * @param me       - name of the current node
+     * @param virtualNodeCount - virtual nodes for hash ring
+     */
+    public ConsistentHashingTopology(@NotNull final Set<T> topology,
                                      @NotNull final T me,
-                                     final int vNodeCount) {
+                                     final int virtualNodeCount) {
         this.me = me;
-        this.topologies = topologies;
-        this.topologies.forEach(topology -> addNode(topology, vNodeCount));
+        this.topology = topology;
+        this.topology.forEach(node -> addNode(node, virtualNodeCount));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -48,13 +54,17 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public Set<T> all() {
-        return topologies;
+        return topology;
     }
 
+    /** Add new node to hash ring.
+     * @param node - current node
+     * @param virtualNodeCount - virtual nodes for hash ring
+     */
     @SuppressWarnings("UnstableApiUsage")
     public void addNode(@NotNull final T node,
-                        final int vNodeCount) {
-        for (var i = 0; i < vNodeCount; i++) {
+                        final int virtualNodeCount) {
+        for (var i = 0; i < virtualNodeCount; i++) {
             final var vnode = new VirtualNode<>(node, i);
             final var vnodeBytes = vnode.getName().getBytes(Charsets.UTF_8);
             final var hash = hashFunction.hashBytes(vnodeBytes).asLong();
@@ -62,17 +72,20 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
         }
     }
 
+    /** Find all replicas in hash ring.
+     * @param node - current node
+     */
     public int getExistingReplicas(@NotNull final T node) {
         final AtomicInteger replicas = new AtomicInteger(0);
-        ring.values().forEach(tVirtualNode -> {
-            if (tVirtualNode.isVirtualNodeOf(node)) {
+        ring.values().forEach(virtualNode -> {
+            if (virtualNode.isVirtualNodeOf(node)) {
                 replicas.addAndGet(1);
             }
         });
         return replicas.get();
     }
 
-    private static class VirtualNode<T>{
+    private static class VirtualNode<T> {
         private final T physicalNode;
         private final int replicaIndex;
 
@@ -86,8 +99,8 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
             return physicalNode + "-" + replicaIndex;
         }
 
-        boolean isVirtualNodeOf(@NotNull final T pNode) {
-            return physicalNode.equals(pNode);
+        boolean isVirtualNodeOf(@NotNull final T node) {
+            return physicalNode.equals(node);
         }
 
         T getPhysicalNode() {

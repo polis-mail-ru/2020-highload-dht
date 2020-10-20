@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" width="1200" height="214" onload="init(evt)" viewBox="0 0 1200 214" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg version="1.1" width="1200" height="278" onload="init(evt)" viewBox="0 0 1200 278" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <style type="text/css">
 	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
 	#search { opacity:0.1; cursor:pointer; }
@@ -328,46 +328,74 @@
 </script>
 <rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
 <text id="title" x="600" y="24">Flame Graph</text>
-<text id="details" x="10" y="197"> </text>
+<text id="details" x="10" y="261"> </text>
 <text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
 <text id="search" x="1090" y="24">Search</text>
-<text id="matched" x="1090" y="197"> </text>
+<text id="matched" x="1090" y="261"> </text>
 <g id="frames">
 <g>
-<title>all (13 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#f57575" rx="2" ry="2"/>
-<text x="13.0" y="174.0">all</text>
+<title>all (5 samples, 100.00%)</title><rect x="10.0" y="227.0" width="1180.0" height="15" fill="#e96565" rx="2" ry="2"/>
+<text x="13.0" y="238.0">all</text>
 </g>
 <g>
-<title>java/lang/Thread.run (13 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="13.0" y="158.0">java/lang/Thread.run</text>
+<title>java/lang/Thread.run (5 samples, 100.00%)</title><rect x="10.0" y="211.0" width="1180.0" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="13.0" y="222.0">java/lang/Thread.run</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (13 samples, 100.00%)</title><rect x="10.0" y="131.0" width="1180.0" height="15" fill="#50e150" rx="2" ry="2"/>
-<text x="13.0" y="142.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (5 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="13.0" y="206.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor.runWorker (13 samples, 100.00%)</title><rect x="10.0" y="115.0" width="1180.0" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="13.0" y="126.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (5 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="13.0" y="190.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$75/1913289223.run (13 samples, 100.00%)</title><rect x="10.0" y="99.0" width="1180.0" height="15" fill="#55e655" rx="2" ry="2"/>
-<text x="13.0" y="110.0">ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$75/1913289223.run</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$79/576483919.run (5 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="13.0" y="174.0">ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$79/576483919.run</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecute$4 (13 samples, 100.00%)</title><rect x="10.0" y="83.0" width="1180.0" height="15" fill="#63f463" rx="2" ry="2"/>
-<text x="13.0" y="94.0">ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecute$4</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecute$4 (5 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="13.0" y="158.0">ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecute$4</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.sendResponse (13 samples, 100.00%)</title><rect x="10.0" y="67.0" width="1180.0" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="13.0" y="78.0">ru/mail/polis/service/mrsandman5/ServiceImpl.sendResponse</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$75/1954861215.supply (1 samples, 20.00%)</title><rect x="10.0" y="131.0" width="236.0" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="13.0" y="142.0">ru/mail/polis/service/mrsandman..</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.sendResponse (13 samples, 100.00%)</title><rect x="10.0" y="51.0" width="1180.0" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="13.0" y="62.0">one/nio/http/HttpSession.sendResponse</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$response$0 (1 samples, 20.00%)</title><rect x="10.0" y="115.0" width="236.0" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="13.0" y="126.0">ru/mail/polis/service/mrsandman..</text>
 </g>
 <g>
-<title>one.nio.http.HttpSession (13 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#64d2d2" rx="2" ry="2"/>
-<text x="13.0" y="46.0">one.nio.http.HttpSession</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.proxy (1 samples, 20.00%)</title><rect x="10.0" y="99.0" width="236.0" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="13.0" y="110.0">ru/mail/polis/service/mrsandman..</text>
+</g>
+<g>
+<title>one/nio/http/HttpClient.invoke (1 samples, 20.00%)</title><rect x="10.0" y="83.0" width="236.0" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="13.0" y="94.0">one/nio/http/HttpClient.invoke</text>
+</g>
+<g>
+<title>one/nio/http/HttpClient.invoke (1 samples, 20.00%)</title><rect x="10.0" y="67.0" width="236.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="13.0" y="78.0">one/nio/http/HttpClient.invoke</text>
+</g>
+<g>
+<title>one/nio/pool/Pool.returnObject (1 samples, 20.00%)</title><rect x="10.0" y="51.0" width="236.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="13.0" y="62.0">one/nio/pool/Pool.returnObject</text>
+</g>
+<g>
+<title>one.nio.http.HttpClient (1 samples, 20.00%)</title><rect x="10.0" y="35.0" width="236.0" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="13.0" y="46.0">one.nio.http.HttpClient</text>
+</g>
+<g>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.sendResponse (4 samples, 80.00%)</title><rect x="246.0" y="131.0" width="944.0" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="249.0" y="142.0">ru/mail/polis/service/mrsandman5/ServiceImpl.sendResponse</text>
+</g>
+<g>
+<title>one/nio/http/HttpSession.sendResponse (4 samples, 80.00%)</title><rect x="246.0" y="115.0" width="944.0" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="249.0" y="126.0">one/nio/http/HttpSession.sendResponse</text>
+</g>
+<g>
+<title>one.nio.http.HttpSession (4 samples, 80.00%)</title><rect x="246.0" y="99.0" width="944.0" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="249.0" y="110.0">one.nio.http.HttpSession</text>
 </g>
 </g>
 </svg>

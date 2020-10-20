@@ -13,11 +13,9 @@ public class BasicTopology<T> implements Topology<T> {
     private final T me;
     private final List<T> nodes;
 
-    /**
-     * Basic cluster topology.
-     *
-     * @param topology nodes of the cluster
-     * @param me       name of the current node
+    /** Basic cluster topology.
+     * @param topology - nodes of the cluster
+     * @param me       - name of the current node
      */
     public BasicTopology(@NotNull final Set<T> topology,
                          @NotNull final T me) {

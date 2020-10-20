@@ -1,6 +1,7 @@
 package ru.mail.polis.service.mrsandman5;
 
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,13 +10,13 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
-import ru.mail.polis.service.mrsandman5.clustering.ResponseSupplier;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ import java.util.NoSuchElementException;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
-public class ServiceImpl extends HttpServer implements Service {
+public final class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     @NotNull
@@ -37,6 +38,12 @@ public class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private final Map<String, HttpClient> httpClients;
 
+    /** Create new ServiceImpl instance.
+     * @param port - target port.
+     * @param topology - cluster topology
+     * @param dao - custom LSM DAO.
+     * @param workersCount - thread workers.
+     * */
     @NotNull
     public static Service create(final int port,
                                  @NotNull final Topology<String> topology,
@@ -66,9 +73,7 @@ public class ServiceImpl extends HttpServer implements Service {
         super(config);
         this.topology = topology;
         this.dao = dao;
-        this.httpClients = topology.others()
-                .stream()
-                .filter(topology::isNotMe)
+        this.httpClients = topology.others().stream()
                 .collect(toMap(identity(), ServiceImpl::createHttpClient));
     }
 
@@ -143,10 +148,10 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     private Response proxy(@NotNull final String node,
-                           @NotNull final Request request) {
+                           @NotNull final Request request) throws IOException {
         try {
             return httpClients.get(node).invoke(request);
-        } catch (Exception e) {
+        } catch (InterruptedException | PoolException | HttpException e) {
             log.error("Unable to proxy request", e);
             return emptyResponse(Response.INTERNAL_ERROR);
         }
@@ -206,5 +211,11 @@ public class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private static Response emptyResponse(@NotNull final String code) {
         return new Response(code, Response.EMPTY);
+    }
+
+    @FunctionalInterface
+    private interface ResponseSupplier {
+        @NotNull
+        Response supply() throws IOException;
     }
 }

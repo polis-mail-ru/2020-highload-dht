@@ -16,6 +16,8 @@ public interface Topology<T> {
     @NotNull
     Set<T> all();
 
+    /** Find all nodes, which doesn't belong to topology.
+     */
     default Set<T> others() {
         return all().stream()
                 .filter(this::isNotMe)
