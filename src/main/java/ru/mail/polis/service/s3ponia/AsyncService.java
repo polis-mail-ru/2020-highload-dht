@@ -162,11 +162,12 @@ public final class AsyncService extends HttpServer implements Service {
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
         if (validateId(id, session, "Empty key in getting")) return;
+
         chooseNode(urlFromKey(byteBufferFromString(id)), session,
                 request,
                 () -> {
                     try {
-                        get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), session);
+                        get(byteBufferFromString(id), session);
                     } catch (IOException e) {
                         logger.error("Error in sending get request", e);
                     }
@@ -236,15 +237,13 @@ public final class AsyncService extends HttpServer implements Service {
     public void put(@Param(value = "id", required = true) final String id,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-            logger.error("Empty key in putting");
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-        }
+        if (validateId(id, session, "Empty key in deleting")) return;
+
         chooseNode(urlFromKey(byteBufferFromString(id)), session,
                 request,
                 () -> {
                     try {
-                        upsert(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)),
+                        upsert(byteBufferFromString(id),
                                 ByteBuffer.wrap(request.getBody()), session);
                     } catch (IOException e) {
                         logger.error("Error in sending put request", e);
@@ -284,7 +283,7 @@ public final class AsyncService extends HttpServer implements Service {
         chooseNode(urlFromKey(byteBufferFromString(id)), session, request,
                 () -> {
                     try {
-                        delete(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), session);
+                        delete(byteBufferFromString(id), session);
                     } catch (IOException e) {
                         logger.error("Error in sending delete request", e);
                     }
