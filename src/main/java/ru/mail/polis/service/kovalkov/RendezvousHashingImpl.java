@@ -5,12 +5,14 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
-public class ModHashingTopologyImpl implements Topology<String> {
-    private static final Logger log = LoggerFactory.getLogger(ModHashingTopologyImpl.class);
+public class RendezvousHashingImpl implements Topology<String> {
+    private static final Logger log = LoggerFactory.getLogger(ModHashingImpl.class);
     private final String[] allNodes;
     private final String currentNode;
 
@@ -20,7 +22,7 @@ public class ModHashingTopologyImpl implements Topology<String> {
      * @param allNodes - sets with all nodes.
      * @param currentNode - this node.
      */
-    public ModHashingTopologyImpl(final String currentNode, final Set<String> allNodes) {
+    public RendezvousHashingImpl(final String currentNode, final Set<String> allNodes) {
         if (!allNodes.contains(currentNode)) {
             log.error("This node - {} is not a part of cluster {}", currentNode, allNodes);
             throw new RuntimeException("Current not is invalid.");
@@ -33,8 +35,17 @@ public class ModHashingTopologyImpl implements Topology<String> {
 
     @Override
     public String identifyByKey(final ByteBuffer key) {
-        return allNodes[(murmur3_32().newHasher().putBytes(key.duplicate()).hash().hashCode()
-                & Integer.MAX_VALUE) % nodeCount()];
+        final byte[] keyBytes = new byte[key.remaining()];
+        key.duplicate().get(keyBytes).clear();
+        Map<Integer,String> nodesAndHashes = new TreeMap<>();
+        final int[] nodeIdentifier = new int[allNodes.length];
+        final int[] hashes = new int[allNodes.length];
+        for (int i = 0; i < allNodes.length; i++) {
+            nodeIdentifier[i] = allNodes[i].chars().sum();
+            hashes[i] = murmur3_32().newHasher().putInt(nodeIdentifier[i]).putBytes(keyBytes).hash().hashCode();
+            nodesAndHashes.put(hashes[i],allNodes[i]);
+        }
+        return nodesAndHashes.get(nodesAndHashes.keySet().stream().findFirst().get());
     }
 
     @Override

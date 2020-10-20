@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.kovalkov.ModHashingTopologyImpl;
+import ru.mail.polis.service.kovalkov.RendezvousHashingImpl;
 import ru.mail.polis.service.kovalkov.SharedAsyncServiceImpl;
 
 import java.io.IOException;
@@ -58,6 +58,6 @@ public final class ServiceFactory {
         }
 
         return new SharedAsyncServiceImpl(SharedAsyncServiceImpl.getConfig(port), dao,
-                new ModHashingTopologyImpl("http://localhost:" + port, topology));
+                new RendezvousHashingImpl("http://localhost:" + port, topology));
     }
 }
