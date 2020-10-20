@@ -39,7 +39,7 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class SharedAsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private final Map<String,HttpClient> nodesClient;
+    private final Map<String,HttpClient> nodesClient = new HashMap<>();
     private final Topology<String> topology;
     private final ExecutorService service;
     private final DAO dao;
@@ -56,17 +56,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         super(config);
         this.dao = dao;
         this.topology = topology;
-        this.nodesClient = new HashMap<>();
-        for (final String n: topology.allNodes()) {
-            if (topology.isMe(n)) {
-                continue;
-            }
-            final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=1000"));
-            if (nodesClient.put(n, client) != null) {
-                log.error("This node - {} is duplicated", n);
-                throw new IllegalStateException("Duplicate node");
-            }
-        }
         final int countOfWorkers = Runtime.getRuntime().availableProcessors();
         service = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(1024),
@@ -74,6 +63,12 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error in async_worker-{}:",t,e))
                         .setNameFormat("async_worker-%d")
                         .build());
+        for (final String n: topology.allNodes()) {
+            if (!topology.isMe(n) && !this.nodesClient.containsKey(n)) {
+                final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=100"));
+                this.nodesClient.put(n, client);
+            }
+        }
     }
 
     /**
@@ -88,7 +83,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
-        httpServerConfig.queueTime = 10;
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -118,7 +112,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param request - request from user or target node
      * @return - response
      */
-    private Response proxy(final String targetNode, final Request request) {
+    @NotNull
+    private Response proxy(@NotNull final String targetNode, @NotNull final Request request) {
         try {
              return nodesClient.get(targetNode).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
@@ -134,10 +129,12 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param session - current connection
      * @param owner - nodes who have target key
      */
-    private void proxyForwarding(final Request request, final HttpSession session, final String owner) {
+    private void proxyForwarding(@NotNull final Request request,
+                                 @NotNull final HttpSession session, @NotNull final String owner) {
         service.execute(() -> {
             try {
-                session.sendResponse(proxy(owner, request));
+                Response response = proxy(owner, request);
+                session.sendResponse(response);
             } catch (IOException e) {
                 log.error("Method put. IO exception.", e);
                 throw new RuntimeException(e);
@@ -161,10 +158,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             service.execute(() -> {
                 try {
                     final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-                    ByteBuffer value;
-                    byte[] bytes;
-                    value = dao.get(key);
-                    bytes = BufferConverter.unfoldToBytes(value);
+                    ByteBuffer value = dao.get(key);
+                    byte[] bytes = BufferConverter.unfoldToBytes(value);
                     session.sendResponse(Response.ok(bytes));
                 } catch (IOException e) {
                     log.error("Method get. IO exception. ", e);
