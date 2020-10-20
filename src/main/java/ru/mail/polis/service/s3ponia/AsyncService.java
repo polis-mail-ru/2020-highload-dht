@@ -154,27 +154,21 @@ public final class AsyncService extends HttpServer implements Service {
     /**
      * Basic implementation of http get handling.
      *
-     * @param gettingKey key in database
+     * @param id key in database
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "gettingKey", required = true) @NotNull final String gettingKey,
+    public void get(@Param(value = "id", required = true) @NotNull final String id,
                     @NotNull final Request request,
-                    @NotNull final HttpSession httpSession) throws IOException {
-        if (validateId(gettingKey, httpSession, "Empty key in getting")) return;
-
-        final String node = urlFromKey(byteBufferFromString(gettingKey));
-        if (this.policy.homeNode().equals(node)) {
-            this.es.execute(() -> {
+                    @NotNull final HttpSession session) throws IOException {
+        chooseNode(id, session, request,
+                () -> {
                     try {
-                        get(byteBufferFromString(gettingKey), httpSession);
+                        get(byteBufferFromString(id), session);
                     } catch (IOException e) {
                         logger.error("Error in sending get request", e);
                     }
                 });
-        } else {
-            proxy(node, httpSession, request);
-        }
     }
 
     private boolean validateId(@NotNull final String id,
@@ -217,6 +211,20 @@ public final class AsyncService extends HttpServer implements Service {
         return this.policy.getNode(key);
     }
 
+    private void chooseNode(
+            @NotNull final String id,
+            @NotNull final HttpSession session,
+            @NotNull final Request request,
+            @NotNull final Runnable runFunction) throws IOException {
+        if (validateId(id, session, "Empty key in putting")) return;
+
+        if (this.policy.homeNode().equals(urlFromKey(byteBufferFromString(id)))) {
+            this.es.execute(runFunction);
+        } else {
+            proxy(id, session, request);
+        }
+    }
+
     /**
      * Basic implementation of http put handling.
      *
@@ -228,11 +236,8 @@ public final class AsyncService extends HttpServer implements Service {
     public void put(@Param(value = "id", required = true) final String id,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (validateId(id, session, "Empty key in putting")) return;
-
-        final String node = urlFromKey(byteBufferFromString(id));
-        if (this.policy.homeNode().equals(node)) {
-            this.es.execute(() -> {
+        chooseNode(id, session, request,
+                () -> {
                     try {
                         upsert(byteBufferFromString(id),
                                 ByteBuffer.wrap(request.getBody()), session);
@@ -240,9 +245,6 @@ public final class AsyncService extends HttpServer implements Service {
                         logger.error("Error in sending put request", e);
                     }
                 });
-        } else {
-            proxy(node, session, request);
-        }
     }
 
     /**
@@ -272,20 +274,14 @@ public final class AsyncService extends HttpServer implements Service {
     public void delete(@Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (validateId(id, session, "Empty key in deleting")) return;
-
-        final String node = urlFromKey(byteBufferFromString(id));
-        if (this.policy.homeNode().equals(node)) {
-            this.es.execute(() -> {
+        chooseNode(id, session, request,
+                () -> {
                     try {
                         delete(byteBufferFromString(id), session);
                     } catch (IOException e) {
                         logger.error("Error in sending delete request", e);
                     }
                 });
-        } else {
-            proxy(node, session, request);
-        }
     }
 
     @Override
