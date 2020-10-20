@@ -5,11 +5,15 @@ import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.impl.TopologyImpl;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.util.Set;
 
 public class ServiceImpl implements Service {
+
+    private static final String HOST = "http://localhost:";
 
     private final HttpServer server;
 
@@ -19,14 +23,19 @@ public class ServiceImpl implements Service {
      * @param port - порт
      * @param dao  - реализация DAO
      */
-    public ServiceImpl(final int port, @NotNull final DAO dao) throws IOException {
+    public ServiceImpl(final int port, @NotNull final DAO dao, @NotNull final Set<String> topology) throws IOException {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         acceptorConfig.reusePort = true;
         acceptorConfig.deferAccept = true;
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        this.server = new ThreadController(config, dao, Runtime.getRuntime().availableProcessors(), 1024);
+        this.server = new ThreadController(
+                config,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                1024,
+                new TopologyImpl(topology, HOST + port));
     }
 
     @Override

@@ -56,6 +56,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImpl(port, dao);
+        return new ServiceImpl(port, dao, topology);
     }
 }
