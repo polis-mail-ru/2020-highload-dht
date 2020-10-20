@@ -291,7 +291,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         try {
             action.act();
         } catch (IOException e) {
-            log.error("act throws ex: ", e);
+            log.error("act throws ex:", e);
         }
     }
 
