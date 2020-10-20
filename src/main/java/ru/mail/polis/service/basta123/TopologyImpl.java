@@ -17,22 +17,21 @@ public class TopologyImpl implements Topology<String> {
     /**
      * Initialization and preparation of nodes.
      *
-     * @param nodes - cluster nodes.
+     * @param nodes     - cluster nodes.
      * @param localNode - our node.
      */
-    
-   public TopologyImpl(@NotNull final Set<String> nodes,
-                       @NotNull final String localNode) {
+    public TopologyImpl(@NotNull final Set<String> nodes,
+                        @NotNull final String localNode) {
 
-      assert nodes.contains(localNode);
+        assert nodes.contains(localNode);
 
-       this.nodes = new String[nodes.size()];
-       nodes.toArray(this.nodes);
-       Arrays.sort(this.nodes);
+        this.nodes = new String[nodes.size()];
+        nodes.toArray(this.nodes);
+        Arrays.sort(this.nodes);
 
-       this.localNode = localNode;
+        this.localNode = localNode;
 
-   }
+    }
 
     @Override
     public int size() {
