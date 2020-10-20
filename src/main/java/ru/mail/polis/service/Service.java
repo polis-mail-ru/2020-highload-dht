@@ -38,6 +38,7 @@ package ru.mail.polis.service;
  * @author Vadim Tsesko
  */
 public interface Service {
+
     /**
      * Bind storage to HTTP port and start listening.
      * <p>

@@ -52,12 +52,16 @@ public class AsyncService extends HttpServer implements Service {
      * @param port local server listening port
      * @param dao DAO instance
      * @param workerPoolSize selector pool size
+     * @param queueSize blocking queue capacity
+     * @param topology topology implementation instance
+     * @param timeout connection timeout
      */
     public AsyncService(final int port,
                         @NotNull final DAO dao,
                         final int workerPoolSize,
                         final int queueSize,
-                        @NotNull final Topology<String> topology) throws IOException {
+                        @NotNull final Topology<String> topology,
+                        final int timeout) throws IOException {
 
         super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
@@ -81,7 +85,7 @@ public class AsyncService extends HttpServer implements Service {
                 continue;
             }
 
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
 
             if (nodeToClient.put(node, client) != null) {
                 throw new IllegalStateException("Multiple nodes found by same ID");
@@ -235,12 +239,7 @@ public class AsyncService extends HttpServer implements Service {
             try {
                 session.sendResponse(async.exec());
             } catch (IOException exc) {
-                LOGGER.error(IO_ERROR_LOG);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException exc2) {
-                    LOGGER.error(COMMON_RESPONSE_ERROR_LOG);
-                }
+                LOGGER.error(COMMON_RESPONSE_ERROR_LOG);
             }
         });
     }

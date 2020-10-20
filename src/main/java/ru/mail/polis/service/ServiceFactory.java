@@ -66,6 +66,7 @@ public final class ServiceFactory {
             dao,
             Runtime.getRuntime().availableProcessors(),
             1024,
-            topology1);
+            topology1,
+            1000);
     }
 }
