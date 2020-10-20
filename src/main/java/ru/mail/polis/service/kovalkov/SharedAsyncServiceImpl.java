@@ -172,6 +172,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                     default:
                         session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                         log.error("Unsupported method");
+                        break;
                 }
             } catch (IOException e) {
                 log.error("IO exception in entity ",e);
