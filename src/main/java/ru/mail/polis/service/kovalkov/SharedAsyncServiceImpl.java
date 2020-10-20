@@ -135,7 +135,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                                  @NotNull final HttpSession session, @NotNull final String owner) {
         service.execute(() -> {
             try {
-                Response response = proxy(owner, request);
+                final Response response = proxy(owner, request);
                 session.sendResponse(response);
             } catch (IOException e) {
                 log.error("Method put. IO exception.", e);
