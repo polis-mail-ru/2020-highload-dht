@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /** Implemented by example - https://github.com/Jaskey/ConsistentHash.
  * */
@@ -72,19 +71,6 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
         }
     }
 
-    /** Find all replicas in hash ring.
-     * @param node - current node
-     */
-    public int getExistingReplicas(@NotNull final T node) {
-        final AtomicInteger replicas = new AtomicInteger(0);
-        ring.values().forEach(virtualNode -> {
-            if (virtualNode.isVirtualNodeOf(node)) {
-                replicas.addAndGet(1);
-            }
-        });
-        return replicas.get();
-    }
-
     private static class VirtualNode<T> {
         private final T physicalNode;
         private final int replicaIndex;
@@ -97,10 +83,6 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
 
         String getName() {
             return physicalNode + "-" + replicaIndex;
-        }
-
-        boolean isVirtualNodeOf(@NotNull final T node) {
-            return physicalNode.equals(node);
         }
 
         T getPhysicalNode() {
