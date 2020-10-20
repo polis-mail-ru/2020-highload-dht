@@ -32,7 +32,7 @@ final class SSTable implements Table {
             this.fileChannel = FileChannel.open(path, StandardOpenOption.READ);
             final int fileSize = (int) (fileChannel.size() - Integer.BYTES);
             final ByteBuffer cellByteBuffer = allocateIntBuffer.rewind();
-            this.fileChannel.read(cellByteBuffer.duplicate(), fileSize);
+            this.fileChannel.read(cellByteBuffer.rewind(), fileSize);
             this.count = cellByteBuffer.rewind().getInt();
             this.byteSize = fileSize - count * Integer.BYTES;
         } catch (IOException e) {
