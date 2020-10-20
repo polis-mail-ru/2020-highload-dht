@@ -125,7 +125,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private void handlingStatusError(HttpSession session) {
+    private void handlingStatusError(@NotNull final HttpSession session) {
         try {
             session.sendResponse(Response.ok("OK"));
         } catch (IOException e) {
@@ -157,7 +157,7 @@ public final class AsyncService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void handleGet(@Param(value = "id", required = true) final String id,
+    public void get(@Param(value = "id", required = true) final String id,
                           @NotNull final Request request,
                           @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
@@ -224,7 +224,7 @@ public final class AsyncService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void handlePut(@Param(value = "id", required = true) final String id,
+    public void put(@Param(value = "id", required = true) final String id,
                           @NotNull final Request request,
                           @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
@@ -266,7 +266,7 @@ public final class AsyncService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void handleDelete(@Param(value = "id", required = true) final String id,
+    public void delete(@Param(value = "id", required = true) final String id,
                              @NotNull final Request request,
                              @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
