@@ -135,7 +135,8 @@ public final class AsyncService extends HttpServer implements Service {
 
     /**
      * Process getting from dao.
-     * @param key key for getting
+     *
+     * @param key     key for getting
      * @param session HttpSession for response
      * @throws IOException rethrow from sendResponse
      */
@@ -158,8 +159,8 @@ public final class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
-                          @NotNull final Request request,
-                          @NotNull final HttpSession session) throws IOException {
+                    final Request request,
+                    final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             logger.error("Empty key in getting");
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
@@ -178,8 +179,9 @@ public final class AsyncService extends HttpServer implements Service {
 
     /**
      * Process upserting to dao.
-     * @param key key for upserting
-     * @param value value for upserting
+     *
+     * @param key     key for upserting
+     * @param value   value for upserting
      * @param session HttpSession for response
      * @throws IOException rethrow from sendResponse
      */
@@ -225,8 +227,8 @@ public final class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public void put(@Param(value = "id", required = true) final String id,
-                          @NotNull final Request request,
-                          @NotNull final HttpSession session) throws IOException {
+                    @NotNull final Request request,
+                    @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             logger.error("Empty key in putting");
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
@@ -245,7 +247,8 @@ public final class AsyncService extends HttpServer implements Service {
 
     /**
      * Process deleting from dao.
-     * @param key record's key to delete
+     *
+     * @param key     record's key to delete
      * @param session HttpSession for response
      * @throws IOException rethrow from sendResponse
      */
@@ -267,8 +270,8 @@ public final class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(@Param(value = "id", required = true) final String id,
-                             @NotNull final Request request,
-                             @NotNull final HttpSession session) throws IOException {
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             logger.error("Empty key in deleting");
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
