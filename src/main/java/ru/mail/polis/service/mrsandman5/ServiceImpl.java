@@ -35,7 +35,6 @@ public final class ServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     @NotNull
     private final Topology<String> topology;
-    @NotNull
     private final Map<String, HttpClient> httpClients;
 
     /** Create new ServiceImpl instance.
@@ -73,7 +72,8 @@ public final class ServiceImpl extends HttpServer implements Service {
         super(config);
         this.topology = topology;
         this.dao = dao;
-        this.httpClients = topology.others().stream()
+        this.httpClients = topology.others()
+                .stream()
                 .collect(toMap(identity(), ServiceImpl::createHttpClient));
     }
 
@@ -159,7 +159,7 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private static HttpClient createHttpClient(@NotNull final String node) {
-        return new HttpClient(new ConnectionString(node + "?timeout=100"));
+        return new HttpClient(new ConnectionString(node + "?timeout=200"));
     }
 
     @Override
