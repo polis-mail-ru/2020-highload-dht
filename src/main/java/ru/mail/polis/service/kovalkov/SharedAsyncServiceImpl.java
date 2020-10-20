@@ -111,7 +111,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     /*
      * Redirecting to target node.
      *
-     * @return - return HttpServerConfig
+     * @return - return Response
      */
     private Response proxy(final String targetNode, final Request request) {
         try {
@@ -120,6 +120,22 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             log.error("Proxy don't work ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
+    }
+
+
+    /*
+     * Redirecting to target node using proxy.
+     *
+     */
+    private void proxyForwarding(final Request request, final HttpSession session, final String owner) {
+        service.execute(()-> {
+            try {
+                session.sendResponse(proxy(owner, request));
+            } catch (IOException e) {
+                log.error("Method put. IO exception.", e);
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     /**
@@ -131,15 +147,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public void get(@NotNull @Param("id") final String id, final HttpSession session, final Request request) {
-        if (id.isEmpty()) {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Get. IOException wen id is absent");
-            }
-        }
-        final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
+    public void get(@NotNull @Param(value = "id", required = true) final String id, final HttpSession session, final Request request) {
+        final String ownerNode = checkIdAndReturnTargetNode(id, session, "get");
         if(topology.isMe(ownerNode)) {
             service.execute(() -> {
                 try {
@@ -162,15 +171,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 }
             });
         } else {
-            service.execute(()-> {
-                try {
-                    final Response proxyResponse = proxy(ownerNode, request);
-                    session.sendResponse(proxyResponse);
-                } catch (IOException e) {
-                    log.error("Method get. IO exception. ", e);
-                    throw new RuntimeException(e);
-                }
-            });
+            proxyForwarding(request, session, ownerNode);
         }
     }
 
@@ -183,32 +184,23 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public void put(@Param("id") final String id, final Request request, final HttpSession session) {
-        if (id.isEmpty()) {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Method delete. IO exception. ", e);
-                throw new RuntimeException(e);
-            }
-        }
-        final Future<?> future = service.submit(() -> {
-            try {
-                final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
-                if(topology.isMe(ownerNode)) {
+    public void put(@Param(value = "id", required = true) final String id, final Request request, final HttpSession session) {
+        String ownerNode = checkIdAndReturnTargetNode(id, session, "put");
+        if (topology.isMe(ownerNode)) {
+            service.execute(() -> {
+                try {
                     final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
                     final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                    dao.upsert(key,value);
+                    dao.upsert(key, value);
                     session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                } else {
-                    session.sendResponse(proxy(ownerNode, request));
+                } catch (IOException e) {
+                    log.error("Method put. IO exception.", e);
+                    throw new RuntimeException(e);
                 }
-            } catch (IOException e) {
-                log.error("Method put. IO exception.", e);
-                throw new RuntimeException(e);
-            }
-        });
-        if (future.isCancelled()) log.error("Put. Task cancelled");
+            });
+        } else {
+            proxyForwarding(request, session, ownerNode);
+        }
     }
 
     /**
@@ -220,31 +212,34 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public void delete(@Param("id") final String id, final HttpSession session, final Request request) {
+    public void delete(@Param(value = "id", required = true) final String id, final HttpSession session, final Request request) {
+        String ownerNode = checkIdAndReturnTargetNode(id, session, "delete");
+        if(topology.isMe(ownerNode)) {
+            service.execute(() -> {
+                try {
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+                    dao.remove(key);
+                    session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+                } catch (IOException e) {
+                    log.error("Method delete. IO exception. ", e);
+                    throw new RuntimeException(e);
+                }
+            });
+        } else {
+            proxyForwarding(request, session, ownerNode);
+        }
+    }
+
+    private String checkIdAndReturnTargetNode(@Param(value = "id", required = true) final String id, final HttpSession session, final String method) {
         if (id.isEmpty()) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                log.error("Method delete. IO exception. ", e);
+                log.error("Method {}. IO exception in mapping occurred. ", method, e);
                 throw new RuntimeException(e);
             }
         }
-        Future<?> future = service.submit(() -> {
-            try {
-                final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
-                if(topology.isMe(ownerNode)) {
-                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-                    dao.remove(key);
-                    session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                } else {
-                    session.sendResponse(proxy(ownerNode, request));
-                }
-            } catch (IOException e) {
-                log.error("Method delete. IO exception. ", e);
-                throw new RuntimeException(e);
-            }
-        });
-        if (future.isCancelled()) log.error("Put. Task cancelled");
+        return topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
     }
 
     @Override
