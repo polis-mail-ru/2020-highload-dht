@@ -41,7 +41,7 @@ public final class DAOImpl implements DAO {
     private final File file;
 
     private TableSet tables;
-    final NavigableMap<Integer, Table> ssTables = new ConcurrentSkipListMap<>();
+    private final NavigableMap<Integer, Table> ssTables = new ConcurrentSkipListMap<>();
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final ExecutorService service;
 
@@ -55,7 +55,7 @@ public final class DAOImpl implements DAO {
         this.flushThreshold = flushThreshold;
         final AtomicInteger generation = new AtomicInteger();
         this.file = file;
-        final File[] list = file.listFiles((dir1, name) -> name.endsWith(SUFFIX));
+        final File[] list = file.listFiles(file1 -> file1.getName().endsWith(SUFFIX));
         assert list != null;
         Arrays.stream(list)
                 .filter(currentFile -> !currentFile.isDirectory())

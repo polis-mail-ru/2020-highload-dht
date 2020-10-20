@@ -22,12 +22,14 @@ public class TableSet {
     public int generation;
 
     /**
-     * Конструктор TableSet.
+     * Внутренний конструктор исплючительно для TableSet.
      *
+     * @oaram memTable - memTable
+     * @param flushing - flushing set
      * @param ssTables - ssTable
      * @param generation - generation
      */
-    public TableSet(
+    private TableSet(
             @NotNull final MemTable memTable,
             @NotNull final Set<Table> flushing,
             @NotNull final NavigableMap<Integer, Table> ssTables,
@@ -40,7 +42,7 @@ public class TableSet {
     }
 
     /**
-     * Конструктор TableSet.
+     * Конструктор TableSet для DAO.
      *
      * @param ssTables - ssTable
      * @param generation - generation

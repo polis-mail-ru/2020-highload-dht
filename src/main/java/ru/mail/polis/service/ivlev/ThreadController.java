@@ -81,7 +81,7 @@ public class ThreadController extends HttpServer implements Service {
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
-                        .setUncaughtExceptionHandler((t, e) -> logger.error("Exception {} in thread {}", e, t))
+                        .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Exception {} in thread {}", e, t))
                         .setNameFormat("worker_%d")
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
@@ -95,13 +95,11 @@ public class ThreadController extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException e) {
-                logger.error(RESPONSE_ERROR_LOG_MESSAGE, e);
-            }
-        });
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, e);
+        }
     }
 
     /**
@@ -198,13 +196,11 @@ public class ThreadController extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                logger.error(RESPONSE_ERROR_LOG_MESSAGE, e);
-            }
-        });
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (IOException e) {
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, e);
+        }
     }
 
     @Override
