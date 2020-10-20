@@ -14,7 +14,7 @@ public class TopologyImpl implements Topology<String> {
     @NotNull
     private final String localNode;
 
-    /**
+    /*
      * Initialization and preparation of nodes.
      *
      * @param nodes - cluster nodes.
