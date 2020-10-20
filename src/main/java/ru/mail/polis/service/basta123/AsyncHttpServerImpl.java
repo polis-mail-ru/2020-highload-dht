@@ -241,7 +241,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
             request.addHeader("Forwarding");
             return clientAndNode.get(node).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
-            log.error("error when proxying the request: ", e);
+            log.error("error when proxying the request:", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
