@@ -157,14 +157,17 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                        @NotNull final HttpSession session) {
         final String ownerNode = checkIdAndReturnTargetNode(id, session);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-        if (!topology.isMe(ownerNode)) {
-            proxyForwarding(request, session, ownerNode);
-        } else {
+        if (topology.isMe(ownerNode)) {
             try {
                 switch (request.getMethod()) {
-                    case METHOD_GET: asyncGet(key, session); break;
-                    case METHOD_PUT: asyncPut(key, request ,session); break;
-                    case METHOD_DELETE: asyncDelete(key, session);
+                    case METHOD_GET:
+                        asyncGet(key, session);
+                        break;
+                    case METHOD_PUT:
+                        asyncPut(key, request ,session);
+                        break;
+                    case METHOD_DELETE:
+                        asyncDelete(key, session);
                         break;
                     default:
                         session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
@@ -174,6 +177,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 log.error("IO exception in entity ",e);
                 throw new RuntimeException(e);
             }
+        } else {
+            proxyForwarding(request, session, ownerNode);
         }
     }
 
