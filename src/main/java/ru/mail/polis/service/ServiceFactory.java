@@ -18,8 +18,6 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.suhova.RendezvousTopology;
-import ru.mail.polis.service.suhova.MoribundService;
 
 import java.io.IOException;
 import java.util.Set;
@@ -46,9 +44,9 @@ public final class ServiceFactory {
      */
     @NotNull
     public static Service create(
-        final int port,
-        @NotNull final DAO dao,
-        @NotNull final Set<String> topology) throws IOException {
+            final int port,
+            @NotNull final DAO dao,
+            @NotNull final Set<String> topology) throws IOException {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
@@ -57,12 +55,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new MoribundService(
-            port,
-            dao,
-            Runtime.getRuntime().availableProcessors(),
-            16,
-            new RendezvousTopology(topology, "http://localhost:" + port)
-        );
+        throw new UnsupportedOperationException("Implement me!");
     }
 }
