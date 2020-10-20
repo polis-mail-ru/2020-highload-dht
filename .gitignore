@@ -16,6 +16,7 @@
 !*.txt
 !*.svg
 !highloadTest/readme.md
+!*.lua
 
 # ...even if they are in subdirectories
 !*/

@@ -180,3 +180,88 @@
 ![Alt text](./async-profiler/cpu/getCPUv3.svg)
 
 ![Alt text](./async-profiler/alloc/getAllocV3.svg)
+
+#TASK_4
+
+##PUT
+
+    wrk -t4 -c32 -d40s -R10000 --latency -s wrk2/putScript.lua http://127.0.0.1:8080
+    Running 40s test @ http://127.0.0.1:8080
+      4 threads and 32 connections
+      Thread calibration: mean lat.: 0.853ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 0.862ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 0.833ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 0.870ms, rate sampling interval: 10ms
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Latency   847.84us  610.21us  26.70ms   91.97%
+        Req/Sec     2.58k   193.96     8.33k    89.22%
+      Latency Distribution (HdrHistogram - Recorded Latency)
+     50.000%  822.00us
+     75.000%    1.11ms
+     90.000%    1.32ms
+     99.000%    1.66ms
+     99.900%    7.45ms
+     99.990%   20.90ms
+     99.999%   24.58ms
+    100.000%   26.72ms
+    
+    #[Mean    =        0.848, StdDeviation   =        0.610]
+    #[Max     =       26.704, Total count    =       299594]
+    #[Buckets =           27, SubBuckets     =         2048]
+    ----------------------------------------------------------
+      399829 requests in 40.00s, 29.28MB read
+    Requests/sec:   9995.88
+    Transfer/sec:    749.47KB
+
+###CPU 
+
+![Alt text](./async-profiler/cpu/putCPUv4.svg)
+
+![Alt text](./async-profiler/cpu/putCPUwithThreadsV4.svg)
+
+###ALLOC
+
+![Alt text](./async-profiler/alloc/putAllocV4.svg)
+
+![Alt text](./async-profiler/alloc/putAllocWithThreadsV4.svg)
+
+##GET
+
+    wrk -t4 -c32 -d40s -R10000 --latency -s wrk2/getScript.lua http://127.0.0.1:8080
+    Running 40s test @ http://127.0.0.1:8080
+      4 threads and 32 connections
+      Thread calibration: mean lat.: 0.999ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 0.975ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 0.959ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 0.960ms, rate sampling interval: 10ms
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Latency   842.52us  657.98us  20.24ms   95.18%
+        Req/Sec     2.57k   209.39     7.78k    91.13%
+      Latency Distribution (HdrHistogram - Recorded Latency)
+     50.000%  814.00us
+     75.000%    1.10ms
+     90.000%    1.30ms
+     99.000%    1.59ms
+     99.900%   11.84ms
+     99.990%   18.00ms
+     99.999%   20.01ms
+    100.000%   20.25ms
+    #[Mean    =        0.843, StdDeviation   =        0.658]
+    #[Max     =       20.240, Total count    =       299593]
+    #[Buckets =           27, SubBuckets     =         2048]
+    ----------------------------------------------------------
+      399822 requests in 40.00s, 31.48MB read
+    Requests/sec:   9995.60
+    Transfer/sec:    805.95KB
+    
+###CPU 
+
+![Alt text](./async-profiler/cpu/getCPUv4.svg)
+
+![Alt text](./async-profiler/cpu/getCPUwithThreadsV4.svg)
+
+###ALLOC
+
+![Alt text](./async-profiler/alloc/getAllocV4.svg)
+
+![Alt text](./async-profiler/alloc/getAllocWithThreadsV4.svg)
