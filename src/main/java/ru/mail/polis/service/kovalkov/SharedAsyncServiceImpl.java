@@ -65,7 +65,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                         .build());
         for (final String n: topology.allNodes()) {
             if (!topology.isMe(n) && !this.nodesClient.containsKey(n)) {
-                final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=100"));
+                final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=1000"));
                 this.nodesClient.put(n, client);
             }
         }
@@ -178,8 +178,10 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 log.error("IO exception in entity ",e);
                 throw new RuntimeException(e);
             }
+            return;
         } else {
             proxyForwarding(request, session, ownerNode);
+            return;
         }
     }
 
