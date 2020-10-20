@@ -32,15 +32,16 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     @NotNull
     private final DAO dao;
+    @NotNull
     private final Topology<String> topology;
+    @NotNull
     private final Map<String, HttpClient> httpClients;
 
     @NotNull
-    public static Service create(
-            final int port,
-            @NotNull final Topology<String> topology,
-            @NotNull final DAO dao,
-            final int workersCount) throws IOException {
+    public static Service create(final int port,
+                                 @NotNull final Topology<String> topology,
+                                 @NotNull final DAO dao,
+                                 final int workersCount) throws IOException {
         final var acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
@@ -65,7 +66,7 @@ public class ServiceImpl extends HttpServer implements Service {
         super(config);
         this.topology = topology;
         this.dao = dao;
-        this.httpClients = topology.all()
+        this.httpClients = topology.others()
                 .stream()
                 .filter(topology::isNotMe)
                 .collect(toMap(identity(), ServiceImpl::createHttpClient));
@@ -78,8 +79,8 @@ public class ServiceImpl extends HttpServer implements Service {
      * */
     @Path("/v0/entity")
     public void response(@Param(value = "id", required = true) final String id,
-                             final Request request,
-                             @NotNull final HttpSession session) {
+                         @NotNull final Request request,
+                         @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
         if (id.isEmpty()) {
             sendEmptyResponse(session, Response.BAD_REQUEST);
@@ -142,7 +143,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     private Response proxy(@NotNull final String node,
-            @NotNull final Request request) {
+                           @NotNull final Request request) {
         try {
             return httpClients.get(node).invoke(request);
         } catch (Exception e) {
@@ -153,7 +154,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private static HttpClient createHttpClient(@NotNull final String node) {
-        return new HttpClient(new ConnectionString(node + "?timout=100"));
+        return new HttpClient(new ConnectionString(node + "?timeout=100"));
     }
 
     @Override
@@ -172,9 +173,8 @@ public class ServiceImpl extends HttpServer implements Service {
         return bytes;
     }
 
-    private void asyncExecute(
-            @NotNull final HttpSession session,
-            @NotNull final ResponseSupplier supplier) {
+    private void asyncExecute(@NotNull final HttpSession session,
+                              @NotNull final ResponseSupplier supplier) {
         asyncExecute(() -> {
             try {
                 sendResponse(session, supplier.supply());
@@ -184,9 +184,8 @@ public class ServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private static void sendResponse(
-            @NotNull final HttpSession session,
-            @NotNull final Response response) {
+    private static void sendResponse(@NotNull final HttpSession session,
+                                     @NotNull final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
@@ -199,9 +198,8 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private static void sendEmptyResponse(
-            @NotNull final HttpSession session,
-            @NotNull final String code) {
+    private static void sendEmptyResponse(@NotNull final HttpSession session,
+                                          @NotNull final String code) {
         sendResponse(session, emptyResponse(code));
     }
 
