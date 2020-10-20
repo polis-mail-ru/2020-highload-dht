@@ -180,6 +180,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             });
         } else {
             proxyForwarding(request, session, ownerNode);
+            return;
         }
     }
 
@@ -209,6 +210,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             });
         } else {
             proxyForwarding(request, session, ownerNode);
+            return;
         }
     }
 
@@ -237,6 +239,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             });
         } else {
             proxyForwarding(request, session, ownerNode);
+            return;
         }
     }
 
