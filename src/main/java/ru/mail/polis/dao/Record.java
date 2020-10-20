@@ -26,11 +26,11 @@ import java.util.Objects;
  *
  * @author Dmitry Schitinin
  */
-public class Record implements Comparable<Record> {
+public final class Record implements Comparable<Record> {
     private final ByteBuffer key;
     private final ByteBuffer value;
 
-    Record(
+    private Record(
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value) {
         this.key = key;

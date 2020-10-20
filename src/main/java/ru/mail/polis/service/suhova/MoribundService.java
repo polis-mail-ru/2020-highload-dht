@@ -175,24 +175,20 @@ public class MoribundService extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException e) {
-                logger.error("FAIL STATUS! Can't send response.", e);
-            }
-        });
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            logger.error("FAIL STATUS! Can't send response.", e);
+        }
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                logger.error("Can't send response.", e);
-            }
-        });
+        try {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        } catch (IOException e) {
+            logger.error("Can't send response.", e);
+        }
     }
 
     private static HttpServerConfig getConfig(final int port) {
