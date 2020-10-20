@@ -38,7 +38,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService executor;
     private final Topology nodes;
-    final Map<String, HttpClient> clusterClients;
+    private final Map<String, HttpClient> clusterClients = new HashMap<>();
     private final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     /**
@@ -60,11 +60,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 ).build(),
                 new ThreadPoolExecutor.AbortPolicy());
         this.nodes = nodes;
-        this.clusterClients = new HashMap<>();
 
         for (final String node : nodes.getNodes()) {
             if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
-                clusterClients.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+                this.clusterClients.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
             }
         }
     }
@@ -120,11 +119,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
-                       @NotNull final HttpSession session) throws IOException {
+                       @NotNull final HttpSession session) {
 
         try {
             if (id.isEmpty()) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             }
 
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -143,7 +142,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         } catch (RejectedExecutionException error) {
             log.error("RejectedExecution error: ", error);
-            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 
