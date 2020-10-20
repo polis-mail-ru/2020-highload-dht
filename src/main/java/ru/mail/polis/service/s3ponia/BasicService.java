@@ -119,6 +119,7 @@ public final class BasicService extends HttpServer implements Service {
                 if (id.isEmpty()) {
                     logger.error("Empty key in getting");
                     sendResponse(session, Response.BAD_REQUEST);
+                    return;
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -210,11 +211,11 @@ public final class BasicService extends HttpServer implements Service {
                 if (id.isEmpty()) {
                     logger.error("Empty key in deleting");
                     sendResponse(session, Response.BAD_REQUEST);
+                    return;
                 }
 
                 final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
                 handlingRemoveResponseSending(id, session, buffer);
-
             });
         } catch (RejectedExecutionException e) {
             logger.error(SCHEDULE_MESSAGE, e);

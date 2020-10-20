@@ -110,6 +110,10 @@ public interface Table extends Closeable {
             return generation;
         }
 
+        public int size() {
+            return byteBuffer.capacity();
+        }
+
         @Override
         public int compareTo(@NotNull final Value o) {
             return Comparator.comparing(Value::getGeneration).reversed().compare(this, o);

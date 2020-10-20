@@ -24,7 +24,7 @@ public final class PersistenceDAO implements DAO {
     private final DiskManager manager;
     private final long maxMemory;
     private final AtomicLong currMemory = new AtomicLong();
-    private static final long MIN_FREE_MEMORY = 64 * 1024;
+    private static final double THRESHOLD = 0.7;
 
     private final ReentrantReadWriteLock readWriteLock =
             new ReentrantReadWriteLock();
@@ -67,6 +67,8 @@ public final class PersistenceDAO implements DAO {
 
         final var dest = this.manager.diskTableFromGeneration(snapshot.generation);
 
+        currMemory.addAndGet(-snapshot.memTable.size());
+
         readWriteLock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.afterFlush(snapshot.memTable, dest, snapshot.generation);
@@ -106,15 +108,18 @@ public final class PersistenceDAO implements DAO {
         final boolean flushPending;
         readWriteLock.writeLock().lock();
         try {
-            this.tableSet.memTable.upsert(key, value);
             currMemory.addAndGet(key.limit() + value.limit() + Long.BYTES + Integer.BYTES);
-            flushPending = Math.abs(maxMemory - currMemory.get()) <= MIN_FREE_MEMORY || currMemory.get() >= maxMemory;
+            flushPending = currMemory.get() >= THRESHOLD * maxMemory;
+            if (!flushPending) {
+                this.tableSet.memTable.upsert(key, value);
+            }
         } finally {
             readWriteLock.writeLock().unlock();
         }
 
         if (flushPending) {
             flush();
+            upsert(key, value);
         }
     }
 
@@ -125,7 +130,7 @@ public final class PersistenceDAO implements DAO {
         try {
             this.tableSet.memTable.remove(key);
             currMemory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);
-            flushPending = Math.abs(maxMemory - currMemory.get()) <= MIN_FREE_MEMORY || currMemory.get() >= maxMemory;
+            flushPending = currMemory.get() >= THRESHOLD * maxMemory;
         } finally {
             readWriteLock.writeLock().unlock();
         }
@@ -137,7 +142,8 @@ public final class PersistenceDAO implements DAO {
 
     @Override
     public void close() throws IOException {
-        flush();
+        if (tableSet.memTable.size() != 0)
+            flush();
         for (final var diskTable : this.tableSet.diskTables.values()) {
             diskTable.close();
         }

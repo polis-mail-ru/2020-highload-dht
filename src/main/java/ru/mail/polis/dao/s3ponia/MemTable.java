@@ -23,7 +23,9 @@ public class MemTable implements Table {
 
     @Override
     public int size() {
-        return keyToRecord.size();
+        return keyToRecord.entrySet().stream()
+                .map(a -> a.getKey().capacity() + a.getValue().size())
+                .reduce(0, Integer::sum);
     }
 
     @Override
