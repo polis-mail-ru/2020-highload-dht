@@ -142,8 +142,9 @@ public final class PersistenceDAO implements DAO {
 
     @Override
     public void close() throws IOException {
-        if (tableSet.memTable.size() != 0)
+        if (tableSet.memTable.size() != 0) {
             flush();
+        }
         for (final var diskTable : this.tableSet.diskTables.values()) {
             diskTable.close();
         }

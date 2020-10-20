@@ -15,9 +15,16 @@ public class ModularPolicy implements ShardingPolicy<ByteBuffer, String> {
     @NotNull
     private final Function<ByteBuffer, Integer> keysHashFunction;
 
-    public ModularPolicy(@NotNull Set<String> nodes, @NotNull Function<ByteBuffer, Integer> hashFunction,
+    /**
+     * ModularPolicy's constructor.
+     * @param nodes list of nodes' urls
+     * @param hashFunction hash function for key
+     * @param homeNode local node's url
+     */
+    public ModularPolicy(@NotNull final Set<String> nodes,
+                         @NotNull final Function<ByteBuffer, Integer> hashFunction,
                          @NotNull final String homeNode) {
-        assert nodes.size() > 0;
+        assert !nodes.isEmpty();
         assert nodes.contains(homeNode);
 
         this.nodeUrls = new String[nodes.size()];
@@ -34,7 +41,7 @@ public class ModularPolicy implements ShardingPolicy<ByteBuffer, String> {
      */
     @NotNull
     @Override
-    public String getNode(@NotNull ByteBuffer key) {
+    public String getNode(@NotNull final ByteBuffer key) {
         return nodeUrls[(keysHashFunction.apply(key) & Integer.MAX_VALUE) % nodeUrls.length];
     }
 

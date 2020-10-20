@@ -59,9 +59,9 @@ public final class AsyncService extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
-    private Map<String, HttpClient> urltoClientFromSet(String[] nodes) {
-        Map<String, HttpClient> result = new HashMap<>();
-        for (var url : nodes) {
+    private Map<String, HttpClient> urltoClientFromSet(@NotNull final String... nodes) {
+        final Map<String, HttpClient> result = new HashMap<>();
+        for (final var url : nodes) {
             if (url.equals(this.policy.homeNode())) {
                 continue;
             }
@@ -118,19 +118,27 @@ public final class AsyncService extends HttpServer implements Service {
     @Path("/v0/status")
     public void handleStatus(final HttpSession session) throws IOException {
         try {
-            this.es.execute(() -> {
-                try {
-                    session.sendResponse(Response.ok("OK"));
-                } catch (IOException e) {
-                    logger.error("Error in sending status", e);
-                }
-            });
+            this.es.execute(() -> handlingStatusError(session));
         } catch (RejectedExecutionException e) {
             logger.error("Internal error in status handling", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
 
+    private void handlingStatusError(HttpSession session) {
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            logger.error("Error in sending status", e);
+        }
+    }
+
+    /**
+     * Process getting from dao.
+     * @param key key for getting
+     * @param session HttpSession for response
+     * @throws IOException rethrow from sendResponse
+     */
     public void get(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
         try {
             session.sendResponse(Response.ok(fromByteBuffer(dao.get(key))));
@@ -163,11 +171,18 @@ public final class AsyncService extends HttpServer implements Service {
                     try {
                         get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), session);
                     } catch (IOException e) {
-                        logger.error("Error in get.", e);
+                        logger.error("Error in sending get request", e);
                     }
                 });
     }
 
+    /**
+     * Process upserting to dao.
+     * @param key key for upserting
+     * @param value value for upserting
+     * @param session HttpSession for response
+     * @throws IOException rethrow from sendResponse
+     */
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value,
                        @NotNull final HttpSession session) throws IOException {
@@ -223,11 +238,17 @@ public final class AsyncService extends HttpServer implements Service {
                         upsert(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)),
                                 ByteBuffer.wrap(request.getBody()), session);
                     } catch (IOException e) {
-                        logger.error("Error in get.", e);
+                        logger.error("Error in sending put request", e);
                     }
                 });
     }
 
+    /**
+     * Process deleting from dao.
+     * @param key record's key to delete
+     * @param session HttpSession for response
+     * @throws IOException rethrow from sendResponse
+     */
     public void delete(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
         try {
             dao.remove(key);
@@ -259,7 +280,7 @@ public final class AsyncService extends HttpServer implements Service {
                     try {
                         delete(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), session);
                     } catch (IOException e) {
-                        logger.error("Error in get.", e);
+                        logger.error("Error in sending delete request", e);
                     }
                 });
     }
@@ -280,7 +301,6 @@ public final class AsyncService extends HttpServer implements Service {
             logger.error("Can't shutdown executor", e);
             Thread.currentThread().interrupt();
         }
-
 
         for (final HttpClient client : this.urlToClient.values()) {
             client.clear();

@@ -2,7 +2,7 @@ package ru.mail.polis.service.s3ponia;
 
 import org.jetbrains.annotations.NotNull;
 
-public interface ShardingPolicy<KeyType, NodeType> {
+public interface ShardingPolicy<K, N> {
 
     /**
      * Return node identifier by key.
@@ -10,19 +10,19 @@ public interface ShardingPolicy<KeyType, NodeType> {
      * @return node identifier
      */
     @NotNull
-    NodeType getNode(@NotNull KeyType key);
+    N getNode(@NotNull final K key);
 
     /**
      * Method for getting all nodes.
      * @return node array
      */
     @NotNull
-    NodeType[] all();
+    N[] all();
 
     /**
      * Method for getting home node.
      * @return home url
      */
     @NotNull
-    NodeType homeNode();
+    N homeNode();
 }
