@@ -158,10 +158,9 @@ public final class AsyncService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void handlingGettingThatGettingIdAndDoGettingInDAOCanHandleGetAsyncAndDoItSoYouCanTry
-    (@Param(value = "id", required = true) @NotNull final String id,
-     @NotNull final Request request,
-     @NotNull final HttpSession session) throws IOException {
+    public void get(@Param(value = "id", required = true) final String id,
+                    @NotNull final Request request,
+                    @NotNull final HttpSession session) throws IOException {
         if (validateId(id, session, "Empty key in getting")) return;
 
         chooseNode(urlFromKey(byteBufferFromString(id)), session,
@@ -281,7 +280,8 @@ public final class AsyncService extends HttpServer implements Service {
                        @NotNull final HttpSession session) throws IOException {
         if (validateId(id, session, "Empty key in deleting")) return;
 
-        chooseNode(urlFromKey(byteBufferFromString(id)), session, request,
+        chooseNode(urlFromKey(byteBufferFromString(id)), session,
+                request,
                 () -> {
                     try {
                         delete(byteBufferFromString(id), session);
