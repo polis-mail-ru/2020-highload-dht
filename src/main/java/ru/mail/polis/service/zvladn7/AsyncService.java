@@ -44,7 +44,6 @@ public class AsyncService extends HttpServer implements Service {
                         @NotNull final DAO dao,
                         final int amountOfWorkers,
                         final int queueSize,
-                        final int cacheSize,
                         @NotNull final Topology<String> topology) throws IOException {
         super(provideConfig(port));
         this.es = new ThreadPoolExecutor(amountOfWorkers, amountOfWorkers,
@@ -56,7 +55,7 @@ public class AsyncService extends HttpServer implements Service {
                         ).build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-        this.helper = new ServiceHelper(topology, dao, cacheSize, amountOfWorkers);
+        this.helper = new ServiceHelper(topology, dao);
     }
 
     @Override

@@ -19,8 +19,9 @@ public class ServiceTopology implements Topology<String> {
     /**
      * Service topology to represent the node of cluster.
      * Also help to decide where the date should be stored.
+     *
      * @param nodeSet - set of cluster nodes
-     * @param local - node which represented by this topology
+     * @param local   - node which represented by this topology
      */
     public ServiceTopology(@NotNull final Set<String> nodeSet, @NotNull final String local) {
         assert nodeSet.contains(local);
@@ -68,7 +69,13 @@ public class ServiceTopology implements Topology<String> {
 
     private void attachToRing(@NotNull final String node) {
         for (int i = 0; i < VIRTUAL_NODES_PER_NODE; ++i) {
-            hashRing.put((node + i).hashCode(), node);
+            final StringBuilder virtualNode = new StringBuilder(node + i);
+            int hash = virtualNode.toString().hashCode();
+            while (hashRing.containsKey(hash)) {
+                virtualNode.append(i);
+                hash = virtualNode.toString().hashCode();
+            }
+            hashRing.put(hash, node);
         }
     }
 }

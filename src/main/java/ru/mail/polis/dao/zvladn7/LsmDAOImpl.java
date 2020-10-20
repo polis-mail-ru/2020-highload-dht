@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
 import java.io.File;
@@ -16,7 +17,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
-public class LsmDAOImpl implements LsmDAO {
+public class LsmDAOImpl implements DAO {
 
     private static final Logger logger = LoggerFactory.getLogger(LsmDAOImpl.class);
 
@@ -39,7 +39,6 @@ public class LsmDAOImpl implements LsmDAO {
     @NonNull
     private final File storage;
     private final int amountOfBytesToFlush;
-    final Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
     private TableSet tableSet;
 
@@ -216,11 +215,6 @@ public class LsmDAOImpl implements LsmDAO {
         Files.move(file.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE);
 
         return dst;
-    }
-
-    @Override
-    public TransactionalDAO beginTransaction() {
-        return new TransactionalDAOImpl(this);
     }
 
     List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,

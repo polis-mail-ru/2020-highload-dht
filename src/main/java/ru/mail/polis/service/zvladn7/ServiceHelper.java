@@ -1,13 +1,6 @@
 package ru.mail.polis.service.zvladn7;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
-import one.nio.http.HttpSession;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.util.Utf8;
@@ -21,27 +14,22 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.TimeUnit;
 
 class ServiceHelper {
 
-    private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceHelper.class);
     private final Topology<String> topology;
     private final Map<String, HttpClient> clients;
     private final DAO dao;
-    private final Cache<String, byte[]> cache;
 
     /**
      * Helper for asynchronous server implementation.
-     * @param topology        - topology of local node
-     * @param dao             - DAO implemenation
-     * @param cacheSize       - the size of the local cache
-     * @param amountOfWorkers - amount of workers in executor service     * @param cacheSize
+     *
+     * @param topology - topology of local node
+     * @param dao      - DAO implemenation
      */
     ServiceHelper(@NotNull final Topology<String> topology,
-                  @NotNull final DAO dao,
-                  final int cacheSize,
-                  final int amountOfWorkers) {
+                  @NotNull final DAO dao) {
         this.topology = topology;
         this.dao = dao;
         this.clients = new HashMap<>();
@@ -56,17 +44,6 @@ class ServiceHelper {
                 throw new IllegalStateException("Duplicate node");
             }
         }
-
-        this.cache = CacheBuilder.newBuilder()
-                .initialCapacity(cacheSize)
-                .concurrencyLevel(amountOfWorkers)
-                .removalListener((RemovalListener<String, byte[]>) notification -> {
-                    log.debug("Remove from cache with key: " + notification.getKey());
-                    log.debug("Cause: " + notification.getCause().name());
-                })
-                .maximumSize(cacheSize)
-                .expireAfterAccess(1, TimeUnit.MINUTES)
-                .build();
     }
 
     void handleGet(
@@ -75,23 +52,20 @@ class ServiceHelper {
             @NotNull final Request request) throws IOException {
         final ByteBuffer key = wrapString(id);
         handleOrProxy(key, id, request, session, () -> {
-            byte[] body = cache.getIfPresent(id);
-            if (body == null) {
-                log.debug("Not from cache with id: {}", id);
-                final ByteBuffer value;
-                try {
-                    value = dao.get(key);
-                } catch (NoSuchElementException e) {
-                    log.info("Value with key: {} was not found", id, e);
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                } catch (IOException e) {
-                    sendInternalErrorResponse(session, id, e);
-                    return;
-                }
-                body = toBytes(value);
-                cache.put(id, body);
+            log.debug("Not from cache with id: {}", id);
+            final ByteBuffer value;
+            try {
+                value = dao.get(key);
+            } catch (NoSuchElementException e) {
+                log.info("Value with key: {} was not found", id, e);
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                return;
+            } catch (IOException e) {
+                sendInternalErrorResponse(session, id, e);
+                return;
             }
+            final byte[] body = toBytes(value);
+
             session.sendResponse(Response.ok(body));
         });
     }
@@ -104,7 +78,6 @@ class ServiceHelper {
         handleOrProxy(key, id, request, session, () -> {
             try {
                 dao.remove(key);
-                cache.invalidate(id);
             } catch (IOException e) {
                 sendInternalErrorResponse(session, id, e);
                 return;
@@ -122,7 +95,6 @@ class ServiceHelper {
             final ByteBuffer value = wrapArray(request.getBody());
             try {
                 dao.upsert(key, value);
-                cache.asMap().computeIfPresent(id, (k, v) -> request.getBody());
             } catch (IOException e) {
                 sendInternalErrorResponse(session, id, e);
                 return;
@@ -134,7 +106,7 @@ class ServiceHelper {
     void proxy(@NotNull final String nodeForResponse,
                @NotNull final Request request,
                @NotNull final HttpSession session) throws IOException {
-        log.info("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodeForResponse);
+        log.debug("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodeForResponse);
         try {
             request.addHeader("X-Proxy-For: " + nodeForResponse);
             session.sendResponse(clients.get(nodeForResponse).invoke(request));
@@ -145,10 +117,10 @@ class ServiceHelper {
     }
 
     private void handleOrProxy(final ByteBuffer key,
-                       final String id,
-                       final Request request,
-                       final HttpSession session,
-                       final Processor processor) throws IOException {
+                               final String id,
+                               final Request request,
+                               final HttpSession session,
+                               final Processor processor) throws IOException {
         log.debug("{} request with mapping: /v0/entity with: key={}", request.getMethodName(), id);
         if (id.isEmpty()) {
             sendEmptyIdResponse(session, request.getMethodName());

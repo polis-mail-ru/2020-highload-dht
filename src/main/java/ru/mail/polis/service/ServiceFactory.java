@@ -32,7 +32,6 @@ import java.util.Set;
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
     private static final int EXECUTOR_QUEUE_SIZE = 128;
-    private static final int CACHE_SIZE = 1024;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -64,7 +63,6 @@ public final class ServiceFactory {
                 dao,
                 Runtime.getRuntime().availableProcessors(),
                 EXECUTOR_QUEUE_SIZE,
-                CACHE_SIZE,
                 new ServiceTopology(topology, me));
     }
 }
