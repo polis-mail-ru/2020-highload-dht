@@ -115,7 +115,9 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private Response proxy(@NotNull final String targetNode, @NotNull final Request request) {
         try {
-             return nodesClient.get(targetNode).invoke(request);
+            request.addHeader("Forwarding");
+            final HttpClient client = nodesClient.get(targetNode);
+            return client.invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
             log.error("Proxy don't work ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
@@ -133,7 +135,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                                  @NotNull final HttpSession session, @NotNull final String owner) {
         service.execute(() -> {
             try {
-                final Response response = proxy(owner, request);
+                Response response = proxy(owner, request);
                 session.sendResponse(response);
             } catch (IOException e) {
                 log.error("Method put. IO exception.", e);
