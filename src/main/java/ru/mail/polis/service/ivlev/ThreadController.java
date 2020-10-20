@@ -42,7 +42,7 @@ public class ThreadController extends HttpServer implements Service {
     @NotNull
     private final Map<String, HttpClient> clients;
 
-    private static final Logger logger = LoggerFactory.getLogger(ThreadController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ThreadController.class);
     private static final String RESPONSE_ERROR_LOG_MESSAGE = "Fail send response: ";
 
     /**
@@ -66,7 +66,7 @@ public class ThreadController extends HttpServer implements Service {
         this.topology = topology;
         this.clients = new HashMap<>();
         for (final String node : topology.getAllNodes()) {
-            logger.debug(node);
+            LOGGER.debug(node);
             if (topology.equalsUrl(node)) {
                 continue;
             }
@@ -74,7 +74,7 @@ public class ThreadController extends HttpServer implements Service {
             if (clients.put(node, client) != null) {
                 throw new IllegalArgumentException("Duplicate node!");
             }
-            logger.debug("NODE {}, CLIENT {}", node, client.name());
+            LOGGER.debug("NODE {}, CLIENT {}", node, client.name());
         }
         executor = new ThreadPoolExecutor(
                 workersCount, queueSize,
@@ -123,9 +123,9 @@ public class ThreadController extends HttpServer implements Service {
                         session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
                     }
                 } catch (NoSuchElementException e) {
-                    sendNotFound(session);
+                    sendNotFound(session, e);
                 } catch (IOException e) {
-                    sendInternalServerError(session);
+                    sendInternalServerError(session, e);
                 }
             } else {
                 sendResponseProxy(session, request, id);
@@ -156,7 +156,7 @@ public class ThreadController extends HttpServer implements Service {
                         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
                     }
                 } catch (IOException e) {
-                    sendInternalServerError(session);
+                    sendInternalServerError(session, e);
                 }
             } else {
                 sendResponseProxy(session, request, id);
@@ -186,7 +186,7 @@ public class ThreadController extends HttpServer implements Service {
                         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
                     }
                 } catch (IOException e) {
-                    sendInternalServerError(session);
+                    sendInternalServerError(session, e);
                 }
             } else {
                 sendResponseProxy(session, request, id);
@@ -237,7 +237,7 @@ public class ThreadController extends HttpServer implements Service {
         try {
             return clients.get(node).invoke(request);
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            logger.error("Proxy unavailable: ", e);
+            LOGGER.error("Proxy unavailable: ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -252,23 +252,25 @@ public class ThreadController extends HttpServer implements Service {
             final String node = topology.getNodeByKey(id);
             session.sendResponse(proxy(node, request));
         } catch (IOException ioException) {
-            logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
         }
     }
 
-    private void sendInternalServerError(final HttpSession session) {
+    private void sendInternalServerError(final HttpSession session, final Exception e) {
         try {
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         } catch (IOException ioException) {
-            logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
         }
     }
 
-    private void sendNotFound(final HttpSession session) {
+    private void sendNotFound(final HttpSession session, final Exception e) {
         try {
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, e);
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException ioException) {
-            logger.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
         }
     }
 }
