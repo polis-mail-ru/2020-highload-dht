@@ -1,5 +1,8 @@
 package ru.mail.polis;
 
+import javax.annotation.concurrent.ThreadSafe;
+
+@ThreadSafe
 public final class Time {
 
     private static int count;

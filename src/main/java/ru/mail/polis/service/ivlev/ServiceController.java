@@ -75,8 +75,10 @@ public class ServiceController extends HttpServer {
             final byte[] body = new byte[record.remaining()];
             record.get(body);
             return new Response(Response.OK, body);
-        } catch (NoSuchElementException | IOException ex) {
+        } catch (NoSuchElementException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException ex) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
