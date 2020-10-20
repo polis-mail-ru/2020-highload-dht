@@ -1,8 +1,13 @@
 package ru.mail.polis.util;
 
+import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 public final class Util {
     private Util() {
@@ -49,5 +54,22 @@ public final class Util {
             bytesCopy[i] ^= Byte.MIN_VALUE;
         }
         return ByteBuffer.wrap(bytesCopy);
+    }
+
+    /**
+     * Returns a node that stores data for a given key by rendezvous hashing algorithm.
+     *
+     * @param nodes - list of existing nodes
+     * @param key
+     */
+    public static String getNode(final Set<String> nodes,final String key) {
+        Map<Integer,String> hash = new HashMap<>();
+        for (String node : nodes) {
+
+            hash.put(Hash.murmur3(node + key), node);
+        }
+        Object[] keys = hash.keySet().toArray();
+        Arrays.sort(keys);
+        return hash.get(keys[keys.length - 1]);
     }
 }
