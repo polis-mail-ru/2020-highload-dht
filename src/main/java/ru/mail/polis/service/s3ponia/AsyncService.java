@@ -1,13 +1,20 @@
 package ru.mail.polis.service.s3ponia;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
-import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -28,9 +35,6 @@ import java.util.concurrent.TimeUnit;
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private static final byte[] EMPTY = Response.EMPTY;
-    private static final String UNAVAILABLE_MESSAGE = "Can't send unavailable error";
-    private static final String SCHEDULE_MESSAGE = "Can't schedule request for execution";
-    private static final String ERROR_SEND_MESSAGE = "Error in sending error";
     private final DAO dao;
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
@@ -68,22 +72,16 @@ public final class AsyncService extends HttpServer implements Service {
         return result;
     }
 
-    private void chooseNode(@NotNull final String id, @NotNull final Request request,
-                            @NotNull final Runnable homeRunnableFunction) {
-        final var node = this.policy.getNode(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-        if (node.equals(this.policy.homeNode())) {
-            homeRunnableFunction.run();
-        } else {
-            proxy(node, request);
-        }
-    }
-
-    private void proxy(@NotNull final String url, @NotNull final Request request) {
+    private void proxy(
+            @NotNull final String node,
+            @NotNull final HttpSession session,
+            @NotNull final Request request) throws IOException {
         try {
-            request.addHeader("X-Proxy-For: " + url);
-            urlToClient.get(url).invoke(request);
-        } catch (Exception e) {
-            logger.error("Error in proxy with dest {}", url, e);
+            request.addHeader("X-Proxy-For: " + node);
+            session.sendResponse(this.urlToClient.get(node).invoke(request));
+        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
+            logger.error("Can't proxy request", exception);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -118,35 +116,30 @@ public final class AsyncService extends HttpServer implements Service {
      * @param session current Session
      */
     @Path("/v0/status")
-    public void handleStatus(final HttpSession session) {
+    public void handleStatus(final HttpSession session) throws IOException {
         try {
             this.es.execute(() -> {
-                sendUserResponse(session, Response.ok("OK"), "Error in sending status");
+                try {
+                    session.sendResponse(Response.ok("OK"));
+                } catch (IOException e) {
+                    logger.error("Error in sending status", e);
+                }
             });
         } catch (RejectedExecutionException e) {
-            logger.error(SCHEDULE_MESSAGE, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
-            } catch (IOException ioException) {
-                logger.error(UNAVAILABLE_MESSAGE, ioException);
-            }
+            logger.error("Internal error in status handling", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
 
-    private void sendUserResponse(final HttpSession session, final Response ok, final String s) {
+    public void get(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
         try {
-            session.sendResponse(ok);
-        } catch (IOException e) {
-            logger.error(s, e);
+            session.sendResponse(Response.ok(fromByteBuffer(dao.get(key))));
+        } catch (NoSuchElementException noSuchElementException) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("IOException in getting key(size: {}) from dao", key.capacity(), ioException);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-    }
-
-    public void get(@NotNull final String id, @NotNull final HttpSession session) {
-        final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Response response;
-        response = handlingGetSendingResponse(id, session, buffer);
-        if (response == null) return;
-        sendUserResponse(session, response, ERROR_SEND_MESSAGE);
     }
 
     /**
@@ -158,39 +151,55 @@ public final class AsyncService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_GET)
     public void handleGet(@Param(value = "id", required = true) final String id,
                           @NotNull final Request request,
-                          @NotNull final HttpSession session) {
+                          @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             logger.error("Empty key in getting");
-            sendResponse(session, Response.BAD_REQUEST);
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
-        chooseNode(id, request, () -> asyncExecuteThreadPool(() -> get(id, session), session));
+        chooseNode(urlFromKey(byteBufferFromString(id)), session,
+                request,
+                () -> {
+                    try {
+                        get(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), session);
+                    } catch (IOException e) {
+                        logger.error("Error in get.", e);
+                    }
+                });
     }
 
-    @Nullable
-    private Response handlingGetSendingResponse(@Param(value = "id", required = true) final String id,
-                                                @NotNull final HttpSession session,
-                                                @NotNull final ByteBuffer buffer) {
-        Response response;
+    public void upsert(@NotNull final ByteBuffer key,
+                       @NotNull final ByteBuffer value,
+                       @NotNull final HttpSession session) throws IOException {
         try {
-            final ByteBuffer value = dao.get(buffer);
-            session.sendResponse(Response.ok(fromByteBuffer(value)));
-            return null;
-        } catch (NoSuchElementException e) {
-            logger.error("No such element key(size: {}) in dao", id.length());
-            response = new Response(Response.NOT_FOUND, EMPTY);
-        } catch (IOException e) {
-            logger.error("IOException in getting key(size: {}) from dao", id.length());
-            response = new Response(Response.INTERNAL_ERROR, EMPTY);
+            dao.upsert(key, value);
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
+                    key.capacity(), value.capacity(), ioException);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-        return response;
     }
 
-    public void upsert(@NotNull final String id, @NotNull final Request request, @NotNull final HttpSession session) {
-        final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        handlingUpsertSendingRequest(id, request, session, buffer);
+    private ByteBuffer byteBufferFromString(@NotNull final String s) {
+        return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
 
+    private String urlFromKey(@NotNull final ByteBuffer key) {
+        return this.policy.getNode(key);
+    }
+
+    private void chooseNode(
+            @NotNull final String node,
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request,
+            @NotNull final Runnable runFunction) throws IOException {
+        if (this.policy.homeNode().equals(node)) {
+            this.es.execute(runFunction);
+        } else {
+            proxy(node, httpSession, request);
+        }
+    }
 
     /**
      * Basic implementation of http put handling.
@@ -202,30 +211,31 @@ public final class AsyncService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_PUT)
     public void handlePut(@Param(value = "id", required = true) final String id,
                           @NotNull final Request request,
-                          @NotNull final HttpSession session) {
+                          @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             logger.error("Empty key in putting");
-            sendResponse(session, Response.BAD_REQUEST);
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
         }
-        chooseNode(id, request, () -> asyncExecuteThreadPool(() -> upsert(id, request, session), session));
+        chooseNode(urlFromKey(byteBufferFromString(id)), session,
+                request,
+                () -> {
+                    try {
+                        upsert(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)),
+                                ByteBuffer.wrap(request.getBody()), session);
+                    } catch (IOException e) {
+                        logger.error("Error in get.", e);
+                    }
+                });
     }
 
-    private void handlingUpsertSendingRequest(@Param(value = "id", required = true) final String id,
-                                              @NotNull final Request request,
-                                              @NotNull final HttpSession session,
-                                              @NotNull final ByteBuffer buffer) {
+    public void delete(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
         try {
-            dao.upsert(buffer, ByteBuffer.wrap(request.getBody()));
-            session.sendResponse(new Response(Response.CREATED, EMPTY));
-        } catch (IOException e) {
-            logger.error("IOException in putting key(size: {}) from dao", id.length());
-            sendResponse(session, Response.INTERNAL_ERROR);
+            dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("IOException in removing key(size: {}) from dao", key.capacity());
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-    }
-
-    public void delete(@NotNull final String id, @NotNull final HttpSession session) {
-        final ByteBuffer buffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        handlingRemoveResponseSending(id, session, buffer);
     }
 
     /**
@@ -237,46 +247,21 @@ public final class AsyncService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void handleDelete(@Param(value = "id", required = true) final String id,
                              @NotNull final Request request,
-                             @NotNull final HttpSession session) {
+                             @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             logger.error("Empty key in deleting");
-            sendResponse(session, Response.BAD_REQUEST);
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
 
-        chooseNode(id, request, () -> asyncExecuteThreadPool(() -> delete(id, session), session));
-    }
-
-    public void asyncExecuteThreadPool(@NotNull final Runnable runnable, @NotNull final HttpSession session) {
-        try {
-            runnable.run();
-        } catch (RejectedExecutionException e) {
-            logger.error(SCHEDULE_MESSAGE, e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
-            } catch (IOException ioException) {
-                logger.error(UNAVAILABLE_MESSAGE, ioException);
-            }
-        }
-    }
-
-    private void handlingRemoveResponseSending(@Param(value = "id", required = true) final String id,
-                                               final HttpSession session, final ByteBuffer buffer) {
-        try {
-            dao.remove(buffer);
-            session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
-        } catch (IOException e) {
-            logger.error("IOException in removing key(size: {}) from dao", id.length());
-            sendResponse(session, Response.INTERNAL_ERROR);
-        }
-    }
-
-    private void sendResponse(final HttpSession session, final String internalError) {
-        try {
-            session.sendResponse(new Response(internalError, EMPTY));
-        } catch (IOException ioException) {
-            logger.error(ERROR_SEND_MESSAGE, ioException);
-        }
+        chooseNode(urlFromKey(byteBufferFromString(id)), session, request,
+                () -> {
+                    try {
+                        delete(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), session);
+                    } catch (IOException e) {
+                        logger.error("Error in get.", e);
+                    }
+                });
     }
 
     @Override
