@@ -210,7 +210,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void asyncPut(@NotNull final String id, @NotNull final Request request, @NotNull final HttpSession session) {
+    private void asyncPut(@NotNull final String id,
+                          @NotNull final Request request, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 putInternal(id, request, session);
