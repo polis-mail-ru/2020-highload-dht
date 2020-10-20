@@ -119,7 +119,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             final HttpClient client = nodesClient.get(targetNode);
             return client.invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
-            log.error("Proxy don't work ", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -138,8 +137,12 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 final Response response = proxy(owner, request);
                 session.sendResponse(response);
             } catch (IOException e) {
-                log.error("Method put. IO exception.", e);
-                throw new RuntimeException(e);
+                log.error("IO exception. Proxy", e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error("IO exception. Internal error response", ex);
+                }
             }
         });
     }
@@ -175,8 +178,12 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                         break;
                 }
             } catch (IOException e) {
-                log.error("IO exception in entity ",e);
-                throw new RuntimeException(e);
+                log.error("IO exception. Entyties", e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error("IO exception. Internal error response", ex);
+                }
             }
             return;
         } else {
@@ -191,7 +198,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 getInternal(id, session);
             } catch (IOException e) {
                 log.error("Method get. IO exception. ", e);
-                throw new RuntimeException(e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error("IO exception. Internal error response", ex);
+                }
             } catch (NoSuchElementException e) {
                 log.error("Method get. Can't find value by this key ", e);
                 try {
@@ -216,8 +227,12 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             try {
                 putInternal(id, request, session);
             } catch (IOException e) {
-                log.error("Method put. IO exception.", e);
-                throw new RuntimeException(e);
+                log.error("IO exception. Put", e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error("IO exception. Internal error response", ex);
+                }
             }
         });
     }
@@ -236,7 +251,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 deleteInternal(id, session);
             } catch (IOException e) {
                 log.error("Method delete. IO exception. ", e);
-                throw new RuntimeException(e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error("IO exception. Internal error response", ex);
+                }
             }
         });
     }
@@ -261,7 +280,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
                 log.error("Method has empty id. IO exception in mapping occurred. ", e);
-                throw new RuntimeException(e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error("IO exception. Internal error response", ex);
+                }
             }
         }
         return topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
