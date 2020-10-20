@@ -2,6 +2,7 @@ package ru.mail.polis.service.dariagap;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,6 +11,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,6 +23,7 @@ import ru.mail.polis.util.Util;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -39,12 +42,11 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService exec;
     private final Set<String> topology;
-    private final HashMap<String,HttpClient> clients;
-    private final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private final Map<String,HttpClient> clients;
+    private final Logger log = LoggerFactory.getLogger(ClusterServiceImpl.class);
     private static final String EXECUTOR_ERROR = "Error in executor";
     private static final String RESPONSE_ERROR = "Can not send response.";
     private static final String PROXY_ERROR = "Can not proxy request";
-
 
     /**
      * Config HttpServer, DAO and ExecutorService.
@@ -135,10 +137,8 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                 if (id.isEmpty()) {
                     response = new Response(Response.BAD_REQUEST, Response.EMPTY);
                 } else {
-                    requestNode = Util.getNode(topology,id);
-                    if (!isCurrentNode(requestNode)) {
-                        response = proxy(clients.get(requestNode),request);
-                    } else {
+                    requestNode = Util.getNode(topology, id);
+                    if (isCurrentNode(requestNode)) {
                         switch (request.getMethod()) {
                             case METHOD_GET:
                                 response = getSync(id);
@@ -156,10 +156,12 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                                                 Response.EMPTY);
                                 break;
                         }
+                    } else {
+                        response = proxy(clients.get(requestNode), request);
                     }
                 }
                 session.sendResponse(response);
-            } catch (Exception ex) {
+            } catch (IOException ex) {
                 log.error(RESPONSE_ERROR, ex);
             }
         });
@@ -172,7 +174,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private Response proxy(final HttpClient client, final Request request) {
         try {
             return client.invoke(request);
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException | HttpException | PoolException e) {
             log.error(PROXY_ERROR, e);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }

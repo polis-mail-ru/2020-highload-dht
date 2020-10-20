@@ -60,15 +60,15 @@ public final class Util {
      * Returns a node that stores data for a given key by rendezvous hashing algorithm.
      *
      * @param nodes - list of existing nodes
-     * @param key
+     * @param key - data id
      */
     public static String getNode(final Set<String> nodes,final String key) {
-        Map<Integer,String> hash = new HashMap<>();
-        for (String node : nodes) {
+        final Map<Integer,String> hash = new HashMap<>();
+        for (final String node : nodes) {
 
             hash.put(Hash.murmur3(node + key), node);
         }
-        Object[] keys = hash.keySet().toArray();
+        final Object[] keys = hash.keySet().toArray();
         Arrays.sort(keys);
         return hash.get(keys[keys.length - 1]);
     }
