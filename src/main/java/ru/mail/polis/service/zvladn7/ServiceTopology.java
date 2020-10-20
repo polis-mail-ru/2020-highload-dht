@@ -69,7 +69,8 @@ public class ServiceTopology implements Topology<String> {
 
     private void attachToRing(@NotNull final String node) {
         for (int i = 0; i < VIRTUAL_NODES_PER_NODE; ++i) {
-            final StringBuilder virtualNode = new StringBuilder(node + i);
+            final StringBuilder virtualNode = new StringBuilder(node);
+            virtualNode.append(i);
             int hash = virtualNode.toString().hashCode();
             while (hashRing.containsKey(hash)) {
                 virtualNode.append(i);
