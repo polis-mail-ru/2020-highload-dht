@@ -59,7 +59,7 @@ public final class ServiceFactory {
 
         return new ServiceImpl(port,
                 dao,
-                512,
+                Runtime.getRuntime().availableProcessors(),
                 1024,
                 new RendezvousTopology(topology, "http://localhost:" + port));
     }

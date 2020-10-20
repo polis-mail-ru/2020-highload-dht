@@ -81,7 +81,7 @@ public class ServiceImpl extends HttpServer implements Service {
         }
         executorService = new ThreadPoolExecutor(
                 workers, queueCapacity,
-                0L, TimeUnit.MILLISECONDS,
+                60_000L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueCapacity),
                 new ThreadFactoryBuilder()
                         .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
