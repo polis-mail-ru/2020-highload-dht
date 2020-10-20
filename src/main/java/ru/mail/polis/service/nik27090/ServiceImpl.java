@@ -64,6 +64,7 @@ public class ServiceImpl extends HttpServer implements Service {
             final @NotNull DAO dao,
             final int workers,
             final int queueCapacity,
+            final String timeout,
             @NotNull final Topology<String> topology) throws IOException {
         super(createConfig(port));
         this.dao = dao;
@@ -74,7 +75,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 continue;
             }
 
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+            final HttpClient client = new HttpClient(new ConnectionString(node + timeout));
             if (nodeToClient.put(node, client) != null) {
                 throw new IllegalStateException("Duplicate node");
             }
