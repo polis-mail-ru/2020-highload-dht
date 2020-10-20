@@ -1,5 +1,4 @@
 -t1 -c64 -d60s -R2000 -s ./wrk/get.lua --latency http://localhost:8081
-
 Running 1m test @ http://localhost:8081
   1 threads and 64 connections
   Thread calibration: mean lat.: 1.330ms, rate sampling interval: 10ms
