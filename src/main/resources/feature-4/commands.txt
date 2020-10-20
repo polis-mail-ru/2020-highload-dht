@@ -1,0 +1,7 @@
+wrk2 -t64 -c64 -d2m -R7000 -s put-request.lua --latency http://127.0.0.1:8080 > /tmp/put-7k.txt
+
+wrk2 -t64 -c64 -d2m -R3000 -s get-request.lua --latency http://127.0.0.1:8080 > /tmp/get-3k.txt
+
+sudo ./profiler.sh -d 30 -f /tmp/get-lock.svg -e lock 61532
+
+sudo ./profiler.sh -d 30 -t -f /tmp/get-lock.svg -e lock 61532
