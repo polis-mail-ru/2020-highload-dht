@@ -32,8 +32,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
-import static ru.mail.polis.service.basta123.Utils.getByteBufferFromByteArray;
+import static ru.mail.polis.service.basta123.Utils.*;
 
 public class AsyncHttpServerImpl extends HttpServer implements Service {
 
@@ -115,8 +114,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void getValueByKey(final @Param(value = "id", required = true) String id,
-                              final Request request,
+    public void getValueByKey(@NotNull @Param(value = "id", required = true) final String id,
+                              @NotNull final Request request,
                               final HttpSession httpSession) {
         if (!isIdValid(id, httpSession)) {
             return;
@@ -125,8 +124,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     }
 
-    private void get(@NotNull final String id,
-                     final Request request,
+    private void get(@NotNull @Param(value = "id", required = true) final String id,
+                     @NotNull final Request request,
                      final HttpSession httpSession) throws IOException {
 
         final byte[] keyBytes = id.getBytes(UTF_8);
@@ -163,8 +162,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putValueByKey(final @Param(value = "id", required = true) String id,
-                              final Request request,
+    public void putValueByKey(@NotNull @Param(value = "id", required = true) final String id,
+                              @NotNull final Request request,
                               final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
             return;
@@ -172,7 +171,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         executeAsync(httpSession, () -> put(id, request, httpSession));
     }
 
-    private void put(@NotNull final String id,
+    private void put(@NotNull @Param(value = "id", required = true) final String id,
                      @NotNull final Request request,
                      final HttpSession httpSession) throws IOException {
         final byte[] keyBytes = id.getBytes(UTF_8);
@@ -205,8 +204,8 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteValueByKey(@NotNull final @Param(value = "id", required = true) String id,
-                                 final Request request,
+    public void deleteValueByKey(@NotNull @Param(value = "id", required = true) final String id,
+                                 @NotNull final Request request,
                                  final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
             return;
@@ -215,9 +214,9 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     }
 
-    private void delete(@NotNull final String id,
-                        final Request request,
-                        @NotNull final HttpSession httpSession) throws IOException {
+    private void delete(@NotNull @Param(value = "id", required = true) final String id,
+                        @NotNull final Request request,
+                        final HttpSession httpSession) throws IOException {
         final byte[] keyBytes = id.getBytes(UTF_8);
         final ByteBuffer keyByteBuffer = getByteBufferFromByteArray(keyBytes);
         final String endNode = topology.getNode(keyByteBuffer);
