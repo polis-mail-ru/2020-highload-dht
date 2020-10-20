@@ -158,10 +158,11 @@ public final class AsyncService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) @NotNull final String id,
+    public void get(@Param(value = "id", required = true) final String id,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        chooseNode(id, session, request,
+        chooseNode(urlFromKey(byteBufferFromString(id)), session,
+                request,
                 () -> {
                     try {
                         get(byteBufferFromString(id), session);
@@ -212,16 +213,16 @@ public final class AsyncService extends HttpServer implements Service {
     }
 
     private void chooseNode(
-            @NotNull final String id,
+            @NotNull final String node,
             @NotNull final HttpSession session,
             @NotNull final Request request,
             @NotNull final Runnable runFunction) throws IOException {
-        if (validateId(id, session, "Empty key in putting")) return;
+        if (validateId(node, session, "Empty key")) return;
 
-        if (this.policy.homeNode().equals(urlFromKey(byteBufferFromString(id)))) {
+        if (this.policy.homeNode().equals(node)) {
             this.es.execute(runFunction);
         } else {
-            proxy(id, session, request);
+            proxy(node, session, request);
         }
     }
 
@@ -236,7 +237,8 @@ public final class AsyncService extends HttpServer implements Service {
     public void put(@Param(value = "id", required = true) final String id,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        chooseNode(id, session, request,
+        chooseNode(urlFromKey(byteBufferFromString(id)), session,
+                request,
                 () -> {
                     try {
                         upsert(byteBufferFromString(id),
@@ -274,7 +276,7 @@ public final class AsyncService extends HttpServer implements Service {
     public void delete(@Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        chooseNode(id, session, request,
+        chooseNode(urlFromKey(byteBufferFromString(id)), session, request,
                 () -> {
                     try {
                         delete(byteBufferFromString(id), session);
