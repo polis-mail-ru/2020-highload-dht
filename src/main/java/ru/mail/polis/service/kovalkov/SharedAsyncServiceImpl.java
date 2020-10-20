@@ -164,7 +164,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void asyncGet(@NotNull String id, @NotNull HttpSession session) {
+    private void asyncGet(@NotNull final String id, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 getInternal(id, session);
@@ -210,7 +210,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void asyncPut(@NotNull String id, @NotNull Request request, @NotNull HttpSession session) {
+    private void asyncPut(@NotNull final String id, @NotNull final Request request, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 putInternal(id, request, session);
@@ -250,7 +250,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void asyncDelete(@NotNull String id, @NotNull HttpSession session) {
+    private void asyncDelete(@NotNull final String id, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 deleteInternal(id, session);
