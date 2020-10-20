@@ -4,11 +4,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-import static ru.mail.polis.Time.getCurrentTime;
-
 public class Value {
 
-    public static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
     private final long timestamp;
     private final ByteBuffer data;
 
@@ -20,14 +17,6 @@ public class Value {
     Value(final long timestamp) {
         this.timestamp = timestamp;
         this.data = null;
-    }
-
-    public static Value of(final ByteBuffer data) {
-        return new Value(getCurrentTime(), data.duplicate());
-    }
-
-    public static Value tombstone() {
-        return new Value(getCurrentTime(), null);
     }
 
     /**
