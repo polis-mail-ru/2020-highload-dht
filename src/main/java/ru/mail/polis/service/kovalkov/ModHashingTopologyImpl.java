@@ -9,7 +9,7 @@ import java.util.Set;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
-public class ModHashingTopologyImpl implements Topology <String> {
+public class ModHashingTopologyImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(ModHashingTopologyImpl.class);
     private final String[] allNodes;
     private final String currentNode;
@@ -21,7 +21,7 @@ public class ModHashingTopologyImpl implements Topology <String> {
      * @param currentNode - this node.
      */
     public ModHashingTopologyImpl(final String currentNode, final Set<String> allNodes) {
-        if(!allNodes.contains(currentNode)) {
+        if (!allNodes.contains(currentNode)) {
             log.error("This node - {} is not a part of cluster {}", currentNode, allNodes);
             throw new RuntimeException("Current not is invalid.");
         }

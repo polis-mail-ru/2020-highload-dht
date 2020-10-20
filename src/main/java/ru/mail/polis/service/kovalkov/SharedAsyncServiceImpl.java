@@ -58,11 +58,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         this.topology = topology;
         this.nodesClient = new HashMap<>();
         for (final String n: topology.allNodes()) {
-            if(topology.isMe(n)) {
+            if (topology.isMe(n)) {
                 continue;
             }
             final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=1000"));
-            if(nodesClient.put(n, client) != null) {
+            if (nodesClient.put(n, client) != null) {
                 log.error("This node - {} is duplicated", n);
                 throw new IllegalStateException("Duplicate node");
             }

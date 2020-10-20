@@ -2,7 +2,7 @@ package ru.mail.polis.service.kovalkov;
 
 import java.nio.ByteBuffer;
 
-public interface Topology <I> {
+public interface Topology<I> {
     I identifyByKey(ByteBuffer key);
 
     int nodeCount();
