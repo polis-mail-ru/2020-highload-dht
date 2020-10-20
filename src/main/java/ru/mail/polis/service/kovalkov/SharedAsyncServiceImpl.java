@@ -133,7 +133,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                                  @NotNull final HttpSession session, @NotNull final String owner) {
         service.execute(() -> {
             try {
-                Response response = proxy(owner, request);
+                final Response response = proxy(owner, request);
                 session.sendResponse(response);
             } catch (IOException e) {
                 log.error("Method put. IO exception.", e);
@@ -158,8 +158,8 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             service.execute(() -> {
                 try {
                     final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
-                    ByteBuffer value = dao.get(key);
-                    byte[] bytes = BufferConverter.unfoldToBytes(value);
+                    final ByteBuffer value = dao.get(key);
+                    final byte[] bytes = BufferConverter.unfoldToBytes(value);
                     session.sendResponse(Response.ok(bytes));
                 } catch (IOException e) {
                     log.error("Method get. IO exception. ", e);
