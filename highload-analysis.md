@@ -1,23 +1,33 @@
 ### PUT
 
+Параметры запуска:
+<ol>
+<li>4 потока</li>
+<li>64 открытых соединения</li>
+<li>2 минуты работы</li>
+<li>5000 запросов в секунду</li>
+</ol>
 
 ```
 /async-profiler -d 15 -f cpu-put.svg -e cpu 291344
 ```
 
 ![CPU PUT](/async/cpu-put.svg)
+Деление ресурсов между потоком работы и селектором делится в соответствии 63.55% и 30.30%. На пересылку запроса(функция passOn) тратится примерно 20.69%, на саму функцию put 19.21%.
 
 ```
 /async-profiler -d 15 -f alloc-put.svg -e alloc 291344
 ```
 
 ![ALLOC PUT](/async/alloc-put.svg)
+В данном случае поток работы занимает 70.25% ресурсов, из которых на пересылку тратится 43.15% а на выполнение put-а 25.16%. На селектор тратится 29.75%.
+
 ```
 /async-profiler -d 15 -f lock-put.svg -e lock 291344
 ```
 
 ![LOCK PUT](/async/lock-put.svg)
-
+Блокировки потоков работы отнимают практически 100%.
 
 ```
 wrk2 -t4 -c64 -d2m -R5000 -s wrk/put.lua —latency http://127.0.0.1:8080
@@ -47,32 +57,46 @@ Latency Distribution (HdrHistogram - Recorded Latency)
  
 599834 requests in 2.00m, 52.06MB read
 Requests/sec: 4998.64
-Transfer/sec: 444.22KB
- 
-requests in 2.00m, 52.20MB read
-Requests/sec: 4998.63
+Transfer/sec: 444.22KB 
 Transfer/sec: 445.48KB
 ```
+Итоги:
+<ol>
+<li>обработано 599834 запроса за 2 минуты</li>
+<li>прочитано 52.06MB данных</li>
+<li>сервер держит заданную нагрузку на уровне 4998.64 запросов в секунду</li>
+</ol>
 
-### GET
+### GET 
+
+Параметры запуска:
+<ol>
+<li>4 потока</li>
+<li>64 открытых соединения</li>
+<li>2 минуты работы</li>
+<li>5000 запросов в секунду</li>
+</ol>
 
 ```
 /async-profiler -d 15 -f cpu-get.svg -e cpu 291344 
 ```
 
 ![CPU GET](/async/cpu-get.svg)
+Деление ресурсов между потоком работы и селектором делится в соответствии 64.51% и 29.01%. На пересылки тратится примерно 23.669%, на саму функцию get 18.87%.
 
 ```
 /async-profiler -d 15 -f alloc-get.svg -e alloc 291344
 ```
 
 ![ALLOC GET](/async/alloc-get.svg)
+В данном случае поток работы занимает 74.16% ресурсов, из которых на пересылку тратится 50.76% а на выполнение get-а 20.34%. На селектор тратится 25.84%.
 
 ```
 /async-profiler -d 15 -f lock-get.svg -e lock 291344
 ```
 
 ![LOCK GET](/async/lock-get.svg)
+Блокировки потоков работы отнимают практически 100%.
 
 ```
 wrk2 -t4 -c64 -d2m -R5000 -s wrk/get.lua —latency http://127.0.0.1:8080
@@ -99,5 +123,13 @@ Latency Distribution (HdrHistogram - Recorded Latency)
 #[Max = 173.056, Total count = 549595]
 #[Buckets = 27, SubBuckets = 2048]
 ----------------------------------------------------------
-599836
+599836 requests in 2.00m, 52.20MB read
+Requests/sec: 4998.63
+Transfer/sec: 445.48KB
 ```
+Итоги:
+<ol>
+<li>обработано 599836 запроса за 2 минуты</li>
+<li>прочитано 52.20MB данных</li>
+<li>сервер держит заданную нагрузку на уровне 4998.63 запросов в секунду</li>
+</ol>
