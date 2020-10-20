@@ -60,6 +60,6 @@ public final class ServiceFactory {
         final int countWorkers = Runtime.getRuntime().availableProcessors();
         final Topology nodes = new Topology(topology, "http://localhost:" + port);
 
-        return new AsyncServiceImpl(port, dao, nodes, countWorkers, 1024);
+        return new AsyncServiceImpl(port, dao, nodes, countWorkers, 1024, 100);
     }
 }

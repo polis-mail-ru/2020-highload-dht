@@ -3,10 +3,7 @@ package ru.mail.polis.service.manikhin;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Topology {
 
@@ -22,6 +19,7 @@ public class Topology {
     public Topology(@NotNull final Set<String> nodes, @NotNull final String id) {
         this.nodes = new ArrayList<>(nodes);
         this.id = id;
+        Collections.sort(this.nodes);
     }
 
     String getId() {

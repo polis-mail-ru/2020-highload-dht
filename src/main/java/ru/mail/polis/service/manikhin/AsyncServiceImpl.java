@@ -49,7 +49,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     public AsyncServiceImpl(final int port, @NotNull final DAO dao,
                             @NotNull final Topology nodes, final int countOfWorkers,
-                            final int queueSize) throws IOException {
+                            final int queueSize, final int timeout) throws IOException {
 
         super(getConfig(port));
         this.dao = dao;
@@ -63,7 +63,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         for (final String node : nodes.getNodes()) {
             if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
-                this.clusterClients.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+                this.clusterClients.put(node, new HttpClient(new ConnectionString(node + "?timeout=" + timeout)));
             }
         }
     }
@@ -194,7 +194,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
             sendResponse(session, Response.ok(valueArray));
 
-        } catch (IOException error) {
+        } catch (final IOException error) {
             log.error("IO get error: ", error);
             sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         } catch (NoSuchElementException error) {
