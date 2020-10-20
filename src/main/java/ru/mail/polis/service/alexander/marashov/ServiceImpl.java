@@ -1,6 +1,7 @@
 package ru.mail.polis.service.alexander.marashov;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,6 +10,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
@@ -16,10 +18,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +40,9 @@ public class ServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final ExecutorService executorService;
 
+    private final Topology<String> topology;
+    private final Map<String, HttpClient> nodeToClient;
+
     /**
      * Implementation of a persistent storage with HTTP API.
      *
@@ -43,6 +51,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public ServiceImpl(
             final int port,
             @NotNull final DAO dao,
+            final Topology<String> topology,
             final int workersCount,
             final int queueSize
     ) throws IOException {
@@ -61,6 +70,18 @@ public class ServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
+
+        this.topology = topology;
+        this.nodeToClient = new HashMap<>();
+        this.topology.iterator().forEachRemaining(node -> {
+            if (this.topology.isLocal(node)) {
+                return;
+            }
+            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=100"));
+            if (nodeToClient.put(node, httpClient) != null) {
+                throw new IllegalStateException("Duplicate node");
+            }
+        });
     }
 
     /**
@@ -112,6 +133,33 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private boolean sendErrorOnWrongId(final String id, final HttpSession sessionToSendError) {
+        if (id.isEmpty()) {
+            sendAnswerOrError(sessionToSendError, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean proxyIfNotLocal(
+            final ByteBuffer key,
+            final HttpSession session,
+            final Request request
+    ) {
+        final String node = topology.primaryFor(key);
+        final boolean notLocal = !topology.isLocal(node);
+        if (notLocal) {
+            try {
+                final Response response = nodeToClient.get(node).invoke(request);
+                sendAnswerOrError(session, response);
+            } catch (final Exception e) {
+                log.error("Can't proxy request", e);
+                sendAnswerOrError(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }
+        return notLocal;
+    }
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -140,17 +188,23 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void handleEntityGet(final HttpSession httpSession, @Param(value = "id", required = true) final String id) {
+    public void handleEntityGet(
+            final HttpSession httpSession,
+            final Request request,
+            @Param(value = "id", required = true) final String id
+    ) {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    if (id.isEmpty()) {
-                        log.debug("Get entity method: key is empty");
-                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    if (sendErrorOnWrongId(id, httpSession)) {
                         return;
                     }
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
+                    if (proxyIfNotLocal(key, httpSession, request)) {
+                        return;
+                    }
+
                     final ByteBuffer result;
                     try {
                         result = this.dao.get(key);
@@ -187,14 +241,15 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    if (id.isEmpty()) {
-                        log.debug("Put entity method: key is empty");
-                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    if (sendErrorOnWrongId(id, httpSession)) {
                         return;
                     }
 
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
+                    if (proxyIfNotLocal(key, httpSession, request)) {
+                        return;
+                    }
 
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
@@ -229,18 +284,21 @@ public class ServiceImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void handleEntityDelete(
             final HttpSession httpSession,
+            final Request request,
             @Param(value = "id", required = true) final String id
     ) {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    if (id.isEmpty()) {
-                        log.debug("Delete entity method: key is empty");
-                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    if (sendErrorOnWrongId(id, httpSession)) {
                         return;
                     }
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
+                    if (proxyIfNotLocal(key, httpSession, request)) {
+                        return;
+                    }
+
                     try {
                         this.dao.remove(key);
                     } catch (final IOException e) {
@@ -262,6 +320,9 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (final InterruptedException e) {
             log.error("Waiting for a stop is interrupted");
             Thread.currentThread().interrupt();
+        }
+        for (final HttpClient client: nodeToClient.values()) {
+            client.clear();
         }
     }
 }

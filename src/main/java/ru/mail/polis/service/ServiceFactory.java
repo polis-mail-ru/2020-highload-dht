@@ -19,9 +19,11 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.alexander.marashov.ServiceImpl;
+import ru.mail.polis.service.alexander.marashov.topologies.RendezvousTopology;
 
 import java.io.IOException;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Constructs {@link Service} instances.
@@ -61,6 +63,7 @@ public final class ServiceFactory {
         return new ServiceImpl(
                 port,
                 dao,
+                new RendezvousTopology(new TreeSet<>(topology), "http://localhost:" + port),
                 WORKERS_COUNT,
                 QUEUE_SIZE
         );
