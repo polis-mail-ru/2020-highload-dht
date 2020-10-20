@@ -33,8 +33,7 @@ public class ModHashingImpl implements Topology<String> {
 
     @Override
     public String identifyByKey(final ByteBuffer key) {
-        return allNodes[(murmur3_32().newHasher().putBytes(key.duplicate()).hash().hashCode()
-                & Integer.MAX_VALUE) % nodeCount()];
+        return allNodes[(key.hashCode() & Integer.MAX_VALUE) % nodeCount()];
     }
 
     @Override

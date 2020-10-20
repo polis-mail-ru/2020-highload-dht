@@ -281,11 +281,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
                 log.error("Method has empty id. IO exception in mapping occurred. ", e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(IO_EX, ex);
-                }
             }
         }
         return topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
