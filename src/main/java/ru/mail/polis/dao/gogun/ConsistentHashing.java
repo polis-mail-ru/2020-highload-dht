@@ -14,6 +14,7 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     private final SortedMap<Integer, String> circle = new TreeMap<>();
     private final int numOfNodes;
+
     /**
      * Class provides sharding via consistent hashing.
      *
