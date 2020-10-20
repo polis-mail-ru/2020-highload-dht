@@ -18,9 +18,11 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.s3ponia.BasicService;
+import ru.mail.polis.service.s3ponia.AsyncService;
+import ru.mail.polis.service.s3ponia.ModularPolicy;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Set;
 
 /**
@@ -56,6 +58,7 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return BasicService.of(port, dao, Runtime.getRuntime().availableProcessors(), 5000);
+        return AsyncService.of(port, dao, Runtime.getRuntime().availableProcessors(), 16,
+                new ModularPolicy(topology, ByteBuffer::hashCode, "http://localhost:" + port));
     }
 }
