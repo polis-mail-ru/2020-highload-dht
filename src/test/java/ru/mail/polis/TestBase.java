@@ -87,6 +87,7 @@ abstract public class TestBase {
         result.rewind();
         return result;
     }
+
     @NotNull
     protected static String endpoint(final int port) {
         return "http://localhost:" + port;

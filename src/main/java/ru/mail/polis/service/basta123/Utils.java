@@ -37,6 +37,7 @@ public final class Utils {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
+        httpServerConfig.queueTime = 10;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
