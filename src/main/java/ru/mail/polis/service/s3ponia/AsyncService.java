@@ -169,7 +169,7 @@ public final class AsyncService extends HttpServer implements Service {
                     } catch (IOException e) {
                         logger.error("Error in sending get request", e);
                     }
-                });
+                }, id);
     }
 
     private boolean validateId(@NotNull final String id,
@@ -216,8 +216,9 @@ public final class AsyncService extends HttpServer implements Service {
             @NotNull final String node,
             @NotNull final HttpSession session,
             @NotNull final Request request,
-            @NotNull final Runnable runFunction) throws IOException {
-        if (validateId(node, session, "Empty key")) return;
+            @NotNull final Runnable runFunction,
+            @NotNull final String id) throws IOException {
+        if (validateId(id, session, "Empty key")) return;
 
         if (this.policy.homeNode().equals(node)) {
             this.es.execute(runFunction);
@@ -246,7 +247,7 @@ public final class AsyncService extends HttpServer implements Service {
                     } catch (IOException e) {
                         logger.error("Error in sending put request", e);
                     }
-                });
+                }, id);
     }
 
     /**
@@ -283,7 +284,7 @@ public final class AsyncService extends HttpServer implements Service {
                     } catch (IOException e) {
                         logger.error("Error in sending delete request", e);
                     }
-                });
+                }, id);
     }
 
     @Override
