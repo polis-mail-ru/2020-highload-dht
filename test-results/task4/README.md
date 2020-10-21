@@ -684,6 +684,15 @@ profiler.sh -d 30 -f cpu.svg ___
 profiler.sh -t -d 30 -f cpu.svg ___
 ![Cpu_svg](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/cpu-theads.svg)
 
+
+profiler.sh -e alloc -t -d 30 -f get-cpu.svg ___
+
+![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/put-alloc-cpu.svg)
+
+profiler.sh -e lock -t -d 30 -f get-cpu.svg ___
+
+![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/lock-put-cpu.svg)
+
 # GET
 wrk2 -t64 -c64 -d30s -R* -s test-results/lua/wrk2-scripts/put-request.lua --latency\\
 10k:
@@ -1381,3 +1390,11 @@ profiler.sh -d 30 -f get-cpu.svg ___
 
 profiler.sh -t -d 30 -f get-cpu.svg ___
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-cpu-threaded.svg)
+
+profiler.sh -e alloc -t -d 30 -f get-cpu.svg ___
+
+![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-alloc-cpu.svg)
+
+profiler.sh -e lock -t -d 30 -f get-cpu.svg ___
+
+![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-lock-cpu.svg)
