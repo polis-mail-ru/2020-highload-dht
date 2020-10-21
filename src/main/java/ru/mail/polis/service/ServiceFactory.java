@@ -18,8 +18,8 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.s3ponia.ModularPolicy;
 import ru.mail.polis.service.s3ponia.AsyncService;
+import ru.mail.polis.service.s3ponia.ModularPolicy;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

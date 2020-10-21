@@ -40,6 +40,15 @@ public final class AsyncService extends HttpServer implements Service {
     private final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
     
+    /**
+     * AsyncService's constructor.
+     * @param port port
+     * @param dao dao
+     * @param workers workers count
+     * @param queueSize queue's size
+     * @param policy policy
+     * @throws IOException rethrow ioexception
+     */
     public AsyncService(final int port, @NotNull final DAO dao,
                         final int workers, final int queueSize,
                         @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
@@ -54,8 +63,10 @@ public final class AsyncService extends HttpServer implements Service {
                 workers,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
-                new ThreadFactoryBuilder().setNameFormat("worker-%d").setUncaughtExceptionHandler((t, e) ->
-                                                                                                          logger.error("Error in {} when processing request", t, e)).build(),
+                new ThreadFactoryBuilder().setNameFormat("worker-%d")
+                        .setUncaughtExceptionHandler((t, e) -> logger.error("Error in {} when processing request",
+                                t, e))
+                        .build(),
                 new ThreadPoolExecutor.AbortPolicy());
     }
     

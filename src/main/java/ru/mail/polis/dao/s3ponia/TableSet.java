@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public final class TableSet {
     @NotNull

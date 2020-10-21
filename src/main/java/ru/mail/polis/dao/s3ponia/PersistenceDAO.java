@@ -29,7 +29,13 @@ public final class PersistenceDAO implements DAO {
 
     @GuardedBy("readWriteLock")
     private TableSet tableSet;
-
+    
+    /**
+     * PersistenceDAO's constructor.
+     * @param data directory for saving
+     * @param maxMemory maximum memory
+     * @throws IOException rethrow ioexception
+     */
     public PersistenceDAO(final File data, final long maxMemory) throws IOException {
         this.manager = new DiskManager(Paths.get(data.getAbsolutePath(),
                 DiskManager.META_PREFIX + data.getName() + DiskManager.META_EXTENSION));
