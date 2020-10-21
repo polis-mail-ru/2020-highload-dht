@@ -132,43 +132,44 @@ public class CustomServer extends HttpServer {
             responseHttp = routeRequest(request, node);
         } else {
             //replicate here
-//            Pair<Integer, Integer> ackFrom = getAckFrom(request);
-             responseHttp = getResponseIfIdNotNull(id);
+            Pair<Integer, Integer> ackFrom = getAckFrom(request);
+            System.out.println(ackFrom);
+            Response responseHttpTemp = getResponseIfIdNotNull(id);
 
-//            String path = request.getPath();
-//            String queryString = request.getQueryString();
-//
-//            String newPath = path + "/rep?" + queryString;
-//
-//            Request requestNew = new Request(request.getMethod(), newPath, true);
-//            requestNew.setBody(request.getBody());
-//
-//
-//            Integer from = ackFrom.getValue1();
-//            List<Response> responses = nodeMapping.entrySet().stream().limit(from)
-//                    .map(Map.Entry::getValue)
-//                    .map(url -> new HttpClient(new ConnectionString(url)))
-//                    .map(client -> {
-//                        try {
-//                            return client.invoke(requestNew);
-//                        } catch (InterruptedException | IOException | PoolException | HttpException e) {
-//                            throw new RuntimeException(e);
-//                        }
-//                    })
-//                    .collect(Collectors.toList());
-//            responses.add(responseHttpTemp);
-//
-//            List<Response> goodResponses = responses.stream()
-//                    .filter(response -> response.getStatus() == 200)
-//                    .collect(Collectors.toList());
-//            Integer ack = ackFrom.getValue0();
-//            if (goodResponses.size() >= ack) {
-//                responseHttp = new Response(Response.OK);
-//            } else if (goodResponses.size() > 0) {
-//                responseHttp = new Response(Response.GATEWAY_TIMEOUT);
-//            } else {
-//                responseHttp = new Response(Response.NOT_FOUND);
-//            }
+            String path = request.getPath();
+            String queryString = request.getQueryString();
+
+            String newPath = path + "/rep?" + queryString;
+
+            Request requestNew = new Request(request.getMethod(), newPath, true);
+            requestNew.setBody(request.getBody());
+
+
+            Integer from = ackFrom.getValue1();
+            List<Response> responses = nodeMapping.entrySet().stream().limit(from)
+                    .map(Map.Entry::getValue)
+                    .map(url -> new HttpClient(new ConnectionString(url)))
+                    .map(client -> {
+                        try {
+                            return client.invoke(requestNew);
+                        } catch (InterruptedException | IOException | PoolException | HttpException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .collect(Collectors.toList());
+            responses.add(responseHttpTemp);
+
+            List<Response> goodResponses = responses.stream()
+                    .filter(response -> response.getStatus() == 200)
+                    .collect(Collectors.toList());
+            Integer ack = ackFrom.getValue0();
+            if (goodResponses.size() >= ack) {
+                responseHttp = getResponseWithNoBody(Response.OK);
+            } else if (goodResponses.size() > 0) {
+                responseHttp = getResponseWithNoBody(Response.GATEWAY_TIMEOUT);
+            } else {
+                responseHttp = getResponseWithNoBody(Response.NOT_FOUND);
+            }
 
         }
         return responseHttp;
