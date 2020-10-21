@@ -676,20 +676,18 @@ Transfer/sec:    283.46KB
 Requests/sec:   4522.23
 Transfer/sec:    363.14KB
 ```
-Putting CPU:
-profiler.sh -d 30 -f cpu.svg ___
+## CPU
 ![Cpu_svg](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/cpu.svg)
 
-
-profiler.sh -t -d 30 -f cpu.svg ___
+## CPU threads
 ![Cpu_svg](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/cpu-theads.svg)
 
 
-profiler.sh -e alloc -t -d 30 -f get-cpu.svg ___
+## ALLOC
 
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/put-alloc-cpu.svg)
 
-profiler.sh -e lock -t -d 30 -f get-cpu.svg ___
+## LOCK:
 
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/lock-put-cpu.svg)
 
@@ -1384,17 +1382,16 @@ Requests/sec:   4735.45
 Transfer/sec:    393.56KB
 ```
 
-profiler.sh -d 30 -f get-cpu.svg ___
+## CPU
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-cpu.svg)
 
 
-profiler.sh -t -d 30 -f get-cpu.svg ___
+## CPU threads
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-cpu-threaded.svg)
 
-profiler.sh -e alloc -t -d 30 -f get-cpu.svg ___
+## ALLOC
 
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-alloc-cpu.svg)
-
-profiler.sh -e lock -t -d 30 -f get-cpu.svg ___
+## LOCK
 
 ![](https://github.com/s3ponia/2020-highload-dht/blob/master/test-results/task4/get-lock-cpu.svg)
