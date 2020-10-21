@@ -1,5 +1,7 @@
 package ru.mail.polis.service.stasyanoi;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
@@ -13,6 +15,7 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
+import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,14 +23,10 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -41,6 +40,7 @@ public class CustomServer extends HttpServer {
     private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
     private final Map<Integer, String> nodeMapping;
+    private final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     private final int nodeCount;
     private final DAO dao;
     private final ExecutorService executorService =
@@ -49,8 +49,8 @@ public class CustomServer extends HttpServer {
     /**
      * Create custom server.
      *
-     * @param dao - DAO to use.
-     * @param config - config for server.
+     * @param dao      - DAO to use.
+     * @param config   - config for server.
      * @param topology - topology of services.
      * @throws IOException - if an IO exception occurs.
      */
@@ -62,7 +62,7 @@ public class CustomServer extends HttpServer {
         final ArrayList<String> urls = new ArrayList<>(topology);
         urls.sort(String::compareTo);
 
-        final Map<Integer, String> nodeMappingTemp = new HashMap<>();
+        final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
 
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
@@ -132,10 +132,68 @@ public class CustomServer extends HttpServer {
             responseHttp = routeRequest(request, node);
         } else {
             //replicate here
-            responseHttp = getResponseIfIdNotNull(id);
+//            Pair<Integer, Integer> ackFrom = getAckFrom(request);
+             responseHttp = getResponseIfIdNotNull(id);
+
+//            String path = request.getPath();
+//            String queryString = request.getQueryString();
+//
+//            String newPath = path + "/rep?" + queryString;
+//
+//            Request requestNew = new Request(request.getMethod(), newPath, true);
+//            requestNew.setBody(request.getBody());
+//
+//
+//            Integer from = ackFrom.getValue1();
+//            List<Response> responses = nodeMapping.entrySet().stream().limit(from)
+//                    .map(Map.Entry::getValue)
+//                    .map(url -> new HttpClient(new ConnectionString(url)))
+//                    .map(client -> {
+//                        try {
+//                            return client.invoke(requestNew);
+//                        } catch (InterruptedException | IOException | PoolException | HttpException e) {
+//                            throw new RuntimeException(e);
+//                        }
+//                    })
+//                    .collect(Collectors.toList());
+//            responses.add(responseHttpTemp);
+//
+//            List<Response> goodResponses = responses.stream()
+//                    .filter(response -> response.getStatus() == 200)
+//                    .collect(Collectors.toList());
+//            Integer ack = ackFrom.getValue0();
+//            if (goodResponses.size() >= ack) {
+//                responseHttp = new Response(Response.OK);
+//            } else if (goodResponses.size() > 0) {
+//                responseHttp = new Response(Response.GATEWAY_TIMEOUT);
+//            } else {
+//                responseHttp = new Response(Response.NOT_FOUND);
+//            }
+
         }
         return responseHttp;
     }
+
+    private Pair<Integer, Integer> getAckFrom(Request request) {
+        int ack;
+        int from;
+        String replicas = request.getParameter("replicas");
+        if (replicas == null) {
+            Optional<String[]> ackFrom = replicationDefaults.stream()
+                    .map(replic -> replic.split("/"))
+                    .filter(strings -> Integer.parseInt(strings[1]) == (nodeMapping.size() + 1))
+                    .findFirst();
+            ack = Integer.parseInt(ackFrom.get()[0]);
+            from = Integer.parseInt(ackFrom.get()[1]);
+        } else {
+            replicas = replicas.substring(1);
+            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
+            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 1));
+        }
+
+        return new Pair<>(ack, from);
+    }
+
 
     @NotNull
     private Response getResponseIfIdNotNull(final ByteBuffer id) throws IOException {
