@@ -6,10 +6,11 @@ function RandomVariable(length)
   return res
 end
 
+count = 0
 
 request = function() 
   math.randomseed(os.time())
-  path = "/v0/entity?id=" .. RandomVariable(512)
+  path = "/v0/entity?id=key" .. count
   wrk.method = "GET"
   return wrk.format(nil, path)
 end
