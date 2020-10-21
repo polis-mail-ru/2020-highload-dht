@@ -6,10 +6,12 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MemTable implements Table {
     private final SortedMap<ByteBuffer, Table.Value> keyToRecord;
     private final int generation;
+    public final AtomicInteger memory = new AtomicInteger();
 
     @Override
     public int getGeneration() {
@@ -23,9 +25,7 @@ public class MemTable implements Table {
 
     @Override
     public int size() {
-        return keyToRecord.entrySet().stream()
-                .map(a -> a.getKey().capacity() + a.getValue().size())
-                .reduce(0, Integer::sum);
+        return memory.get();
     }
 
     @Override
@@ -55,11 +55,13 @@ public class MemTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+        memory.addAndGet(key.limit() + value.limit() + Long.BYTES + Integer.BYTES);
         keyToRecord.put(key, Table.Value.of(value, generation));
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) {
+        memory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);
         keyToRecord.put(key, Table.Value.dead(generation));
     }
 

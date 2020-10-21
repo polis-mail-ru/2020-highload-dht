@@ -39,10 +39,10 @@ public final class AsyncService extends HttpServer implements Service {
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
-
-    private AsyncService(final int port, @NotNull final DAO dao,
-                         final int workers, final int queueSize,
-                         @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
+    
+    public AsyncService(final int port, @NotNull final DAO dao,
+                        final int workers, final int queueSize,
+                        @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
         super(configFrom(port));
         assert 0 < workers;
         assert 0 < queueSize;
@@ -55,10 +55,10 @@ public final class AsyncService extends HttpServer implements Service {
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder().setNameFormat("worker-%d").setUncaughtExceptionHandler((t, e) ->
-                        logger.error("Error in {} when processing request", t, e)).build(),
+                                                                                                          logger.error("Error in {} when processing request", t, e)).build(),
                 new ThreadPoolExecutor.AbortPolicy());
     }
-
+    
     private Map<String, HttpClient> urltoClientFromSet(@NotNull final String... nodes) {
         final Map<String, HttpClient> result = new HashMap<>();
         for (final var url : nodes) {
@@ -71,7 +71,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
         return result;
     }
-
+    
     private void proxy(
             @NotNull final String node,
             @NotNull final HttpSession session,
@@ -84,32 +84,32 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-
+    
     @NotNull
     private static HttpServerConfig configFrom(final int port) {
         final AcceptorConfig ac = new AcceptorConfig();
         ac.port = port;
-
+        
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
         return config;
     }
-
+    
     @NotNull
     private static byte[] fromByteBuffer(@NotNull final ByteBuffer b) {
         final byte[] out = new byte[b.remaining()];
         b.get(out);
         return out;
     }
-
+    
     @NotNull
     public static AsyncService of(final int port, @NotNull final DAO dao,
                                   final int workers, final int queueSize,
                                   @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
         return new AsyncService(port, dao, workers, queueSize, policy);
     }
-
+    
     /**
      * Handling status request.
      *
@@ -124,7 +124,7 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
-
+    
     private void handlingStatusError(@NotNull final HttpSession session) {
         try {
             session.sendResponse(Response.ok("OK"));
@@ -132,7 +132,7 @@ public final class AsyncService extends HttpServer implements Service {
             logger.error("Error in sending status", e);
         }
     }
-
+    
     /**
      * Process getting from dao.
      *
@@ -150,7 +150,7 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-
+    
     /**
      * Basic implementation of http get handling.
      *
@@ -171,7 +171,7 @@ public final class AsyncService extends HttpServer implements Service {
                     }
                 }, id);
     }
-
+    
     private boolean validateId(@NotNull final String id,
                                @NotNull final HttpSession session,
                                @NotNull final String s) throws IOException {
@@ -182,7 +182,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
         return false;
     }
-
+    
     /**
      * Process upserting to dao.
      *
@@ -203,15 +203,15 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-
+    
     private ByteBuffer byteBufferFromString(@NotNull final String s) {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
-
+    
     private String urlFromKey(@NotNull final ByteBuffer key) {
         return this.policy.getNode(key);
     }
-
+    
     private void chooseNode(
             @NotNull final String node,
             @NotNull final HttpSession session,
@@ -219,14 +219,14 @@ public final class AsyncService extends HttpServer implements Service {
             @NotNull final Runnable runFunction,
             @NotNull final String id) throws IOException {
         if (validateId(id, session, "Empty key")) return;
-
+        
         if (this.policy.homeNode().equals(node)) {
             this.es.execute(runFunction);
         } else {
             proxy(node, session, request);
         }
     }
-
+    
     /**
      * Basic implementation of http put handling.
      *
@@ -249,7 +249,7 @@ public final class AsyncService extends HttpServer implements Service {
                     }
                 }, id);
     }
-
+    
     /**
      * Process deleting from dao.
      *
@@ -266,7 +266,7 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-
+    
     /**
      * Basic implementation of http put handling.
      *
@@ -286,13 +286,13 @@ public final class AsyncService extends HttpServer implements Service {
                     }
                 }, id);
     }
-
+    
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         logger.error("Unhandled request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
     }
-
+    
     @Override
     public synchronized void stop() {
         super.stop();
@@ -303,7 +303,7 @@ public final class AsyncService extends HttpServer implements Service {
             logger.error("Can't shutdown executor", e);
             Thread.currentThread().interrupt();
         }
-
+        
         for (final HttpClient client : this.urlToClient.values()) {
             client.clear();
         }

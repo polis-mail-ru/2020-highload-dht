@@ -54,6 +54,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return PersistenceDAO.of(data, MAX_HEAP / 2);
+        return new PersistenceDAO(data, MAX_HEAP / 2);
     }
 }

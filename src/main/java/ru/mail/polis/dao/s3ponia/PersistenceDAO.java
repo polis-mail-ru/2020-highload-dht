@@ -17,13 +17,11 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public final class PersistenceDAO implements DAO {
     private final DiskManager manager;
     private final long maxMemory;
-    private final AtomicLong currMemory = new AtomicLong();
     private static final double THRESHOLD = 0.7;
 
     private final ReentrantReadWriteLock readWriteLock =
@@ -32,7 +30,7 @@ public final class PersistenceDAO implements DAO {
     @GuardedBy("readWriteLock")
     private TableSet tableSet;
 
-    private PersistenceDAO(final File data, final long maxMemory) throws IOException {
+    public PersistenceDAO(final File data, final long maxMemory) throws IOException {
         this.manager = new DiskManager(Paths.get(data.getAbsolutePath(),
                 DiskManager.META_PREFIX + data.getName() + DiskManager.META_EXTENSION));
         final NavigableMap<Integer, Table> diskSet = new TreeMap<>();
@@ -67,8 +65,6 @@ public final class PersistenceDAO implements DAO {
 
         final var dest = this.manager.diskTableFromGeneration(snapshot.generation);
 
-        currMemory.addAndGet(-snapshot.memTable.size());
-
         readWriteLock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.afterFlush(snapshot.memTable, dest, snapshot.generation);
@@ -85,11 +81,11 @@ public final class PersistenceDAO implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final TableSet snapshot;
-        readWriteLock.writeLock().lock();
+        readWriteLock.readLock().lock();
         try {
             snapshot = this.tableSet;
         } finally {
-            readWriteLock.writeLock().unlock();
+            readWriteLock.readLock().unlock();
         }
 
         final var diskIterators = new ArrayList<Iterator<Table.ICell>>();
@@ -106,33 +102,28 @@ public final class PersistenceDAO implements DAO {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         final boolean flushPending;
-        readWriteLock.writeLock().lock();
+        readWriteLock.readLock().lock();
         try {
-            currMemory.addAndGet(key.limit() + value.limit() + Long.BYTES + Integer.BYTES);
-            flushPending = currMemory.get() >= THRESHOLD * maxMemory;
-            if (!flushPending) {
-                this.tableSet.memTable.upsert(key, value);
-            }
+            this.tableSet.memTable.upsert(key, value);
+            flushPending = this.tableSet.memTable.size() >= THRESHOLD * maxMemory;
         } finally {
-            readWriteLock.writeLock().unlock();
+            readWriteLock.readLock().unlock();
         }
 
         if (flushPending) {
             flush();
-            upsert(key, value);
         }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         final boolean flushPending;
-        readWriteLock.writeLock().lock();
+        readWriteLock.readLock().lock();
         try {
             this.tableSet.memTable.remove(key);
-            currMemory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);
-            flushPending = currMemory.get() >= THRESHOLD * maxMemory;
+            flushPending = this.tableSet.memTable.size() >= THRESHOLD * maxMemory;
         } finally {
-            readWriteLock.writeLock().unlock();
+            readWriteLock.readLock().unlock();
         }
 
         if (flushPending) {

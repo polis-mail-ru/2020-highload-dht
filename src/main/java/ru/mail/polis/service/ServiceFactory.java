@@ -18,8 +18,8 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.s3ponia.AsyncService;
 import ru.mail.polis.service.s3ponia.ModularPolicy;
+import ru.mail.polis.service.s3ponia.AsyncService;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -32,11 +32,11 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-
+    
     private ServiceFactory() {
         // Not supposed to be instantiated
     }
-
+    
     /**
      * Construct a storage instance.
      *
@@ -53,12 +53,16 @@ public final class ServiceFactory {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
-
+        
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-
-        return AsyncService.of(port, dao, Runtime.getRuntime().availableProcessors(), 16,
+        
+        return new AsyncService(
+                port,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                1024,
                 new ModularPolicy(topology, ByteBuffer::hashCode, "http://localhost:" + port));
     }
 }
