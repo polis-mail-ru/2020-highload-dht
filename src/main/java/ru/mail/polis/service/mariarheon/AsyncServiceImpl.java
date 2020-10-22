@@ -97,6 +97,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException ex) {
             logger.error(SERV_UN, ex);
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
         }
     }
 
@@ -105,24 +106,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.getInternal() method: key is empty");
-                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
                 return;
             }
             final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            session.sendResponse(Response.ok(ByteBufferUtils.toArray(response)));
+            trySendResponse(session, Response.ok(ByteBufferUtils.toArray(response)));
         } catch (NoSuchElementException ex) {
-            try {
-                session.sendResponse(new ZeroResponse(Response.NOT_FOUND));
-            } catch (IOException ex1) {
-                logger.error(RESP_ERR, session, ex1);
-            }
+            trySendResponse(session, new ZeroResponse(Response.NOT_FOUND));
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.getInternal() method; internal error: ", ex);
-            try {
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-            } catch (IOException ex1) {
-                logger.error(RESP_ERR, session, ex1);
-            }
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
         }
     }
 
@@ -132,19 +125,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.putInternal() method: key is empty");
-                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
                 return;
             }
             dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
                     ByteBufferUtils.toByteBuffer(request.getBody()));
-            session.sendResponse(new ZeroResponse(Response.CREATED));
+            trySendResponse(session, new ZeroResponse(Response.CREATED));
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.putInternal() method; internal error: ", ex);
-            try {
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-            } catch (IOException ex1) {
-                logger.error(RESP_ERR, session, ex1);
-            }
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
         }
     }
 
@@ -157,11 +146,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException ex) {
             logger.error(SERV_UN, ex);
-            try {
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-            } catch (IOException e) {
-                logger.error("Error in ServiceImpl.passOn() method; internal error: ", e);
-            }
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
         }
     }
 
@@ -170,14 +155,19 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                 @NotNull final HttpSession session) {
         try {
             final var resp = sharding.passOn(reqNode, request);
-            session.sendResponse(resp);
+            trySendResponse(session, resp);
         } catch (InterruptedException | IOException | HttpException | PoolException e) {
             logger.error("Failed to pass on the request: ", e);
-            try {
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-            } catch (IOException e2) {
-                logger.error("Error in ServiceImpl.passOnInternal() method; internal error: ", e);
-            }
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+        }
+    }
+
+    private void trySendResponse(final HttpSession session,
+                                 final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException ex) {
+            logger.error(RESP_ERR, session, ex);
         }
     }
 
@@ -185,19 +175,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         final HttpSession session) {
         try {
             if (key.isEmpty()) {
-                logger.info("ServiceImpl.deleteInternal() method: key is empty");
-                session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                logger.info("ServiceImpl.delete() method: key is empty");
+                trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
                 return;
             }
             dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            session.sendResponse(new ZeroResponse(Response.ACCEPTED));
+            trySendResponse(session, new ZeroResponse(Response.ACCEPTED));
         } catch (IOException ex) {
-            logger.error("Error in ServiceImpl.deleteInternal() method; internal error: ", ex);
-            try {
-                session.sendResponse(new ZeroResponse(Response.INTERNAL_ERROR));
-            } catch (IOException ex1) {
-                logger.error(RESP_ERR, session, ex1);
-            }
+            logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
         }
     }
 
@@ -208,17 +194,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
-        try {
-            session.sendResponse(new ZeroResponse(Response.OK));
-        } catch (IOException ex) {
-            logger.error(RESP_ERR, session, ex);
-        }
+        trySendResponse(session, new ZeroResponse(Response.OK));
     }
 
     @Override
     public void handleDefault(@NotNull final Request request,
-                              @NotNull final HttpSession session) throws IOException {
-        session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+                              @NotNull final HttpSession session) {
+        trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
     }
 
 }

@@ -18,6 +18,7 @@ public class RendezvousSharding {
     private final Set<String> nodes;
     private final String currentNode;
     private final Map<String, HttpClient> clients;
+    private static final String TIMEOUT_SUFFIX = "?timeout=100";
 
     /**
      * Constructor for RendezvousSharding.
@@ -32,7 +33,7 @@ public class RendezvousSharding {
         clients = new HashMap<>();
         for (final String node : nodes) {
             if (!node.equals(currentNode)) {
-                clients.put(node, new HttpClient(new ConnectionString(node + "?timeout=100")));
+                clients.put(node, new HttpClient(new ConnectionString(node + TIMEOUT_SUFFIX)));
             }
         }
     }
@@ -69,10 +70,6 @@ public class RendezvousSharding {
                                                               IOException,
                                                               HttpException,
                                                               PoolException {
-        HttpClient client;
-        synchronized (this) {
-            client = clients.get(to);
-        }
-        return client.invoke(request);
+        return clients.get(to).invoke(request);
     }
 }
