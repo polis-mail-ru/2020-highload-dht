@@ -42,7 +42,7 @@ ALLOC
 13% - формирование респонса
 15% - вставка в DAO
 46% - доля сетевого взаимодействия не особо изменилась при добавлении проксирования. Видимо здесь промежуток времени, когда proxy() вызывался не очень часто (см. ALLOC при обстреле get-ами) и тем самым не откусил свой процент.
-[ALLOC PUT](profiling_results/allocput4.svg)
+[ALLOC PUT](reports/profiling_results/allocput4.svg)
 
 CPU
 1% - вставка в DAO (каждый раз забавно, что при обстреле путами, пут отжирает минимум cpu)
@@ -51,12 +51,12 @@ CPU
 22% - обеспечение работы пула экзекуторов (опять не прикольно, что работа экзекутора - 7%, а обёртка их в BlockingQueue - в 3 раза больше)
 26% - отправка респонса
 За несколько прогонов не было построено графа, который значимо бы отличался по CPU от прошлого этапа -> разбивка по трём нодам погоды не сделала.
-[CPU PUT](profiling_results/cpuput4.svg)
+[CPU PUT](reports/profiling_results/cpuput4.svg)
 
 LOCK
 54% - под локом на каком-то из экзекуторов сервис пытается отослать респонс
 46% - ArrayBlockingQueue, в которой лежат экзекуторы
-[LOCK PUT](profiling_results/lockput4.svg)
+[LOCK PUT](reports/profiling_results/lockput4.svg)
 
 Обстрел get-ами
 Параметры: -t16 -c16 -R8000
@@ -101,12 +101,12 @@ ALLOC
 11% - поиск в DAO
 31% - чтения из селекторов
 49% - проксирование... Казалось бы, это просто метод, дублирующий запрос на указанный порт, но видимо invoke() для установки соединения нужно нормально так отхватить памяти. Вообще неожиданно, что будет такая большая доля. (49%, КАРЛ)
-[ALLOC GET](profiling_results/allocget4.svg)
+[ALLOC GET](reports/profiling_results/allocget4.svg)
 
 CPU
 Искала следы проксирования на CPU, но картинка аналогичная прошлому этапу, зацепиться вроде бы не за что.
-[CPU GET](profiling_results/cpuget4.svg)
+[CPU GET](reports/profiling_results/cpuget4.svg)
 
 LOCK
 Тут тоже ничего нового. Под локами работают пул экзекуторов, сам get и отправка респонса.
-[LOCK GET](profiling_results/lockget4.svg)
+[LOCK GET](reports/profiling_results/lockget4.svg)
