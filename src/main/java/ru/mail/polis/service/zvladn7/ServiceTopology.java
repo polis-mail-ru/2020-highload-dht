@@ -24,11 +24,10 @@ public class ServiceTopology implements Topology<String> {
     /**
      * Service topology to represent the node of cluster.
      * Also help to decide where the date should be stored.
-     *  @param nodeSet - set of cluster nodes
+     * @param nodeSet - set of cluster nodes
      * @param local   - node which represented by this topology
-     * @param hashValue
      */
-    public ServiceTopology(@NotNull final Set<String> nodeSet, @NotNull final String local, int hashValue) {
+    public ServiceTopology(@NotNull final Set<String> nodeSet, @NotNull final String local) {
         assert nodeSet.contains(local);
         this.local = local;
         this.hashRing = new TreeMap<>();
@@ -74,7 +73,7 @@ public class ServiceTopology implements Topology<String> {
         return local;
     }
 
-    private void attachToRing(@NotNull final String node, int hashValue) {
+    private void attachToRing(@NotNull final String node, final int hashValue) {
         log.debug("Start attaching node: {} to hash ring", node);
         for (int i = 0; i < VIRTUAL_NODES_PER_NODE; ++i) {
             final int hash = calculateHash(node, i, hashValue);
@@ -82,7 +81,7 @@ public class ServiceTopology implements Topology<String> {
         }
     }
 
-    private int calculateHash(final String node, final int i, int hashValue) {
+    private int calculateHash(final String node, final int i, final int hashValue) {
         final StringBuilder virtualNode = new StringBuilder(node).insert(OFFSET_FOR_NODE_HASH_VALUE, hashValue);
         virtualNode.insert(i, i);
         int hash = virtualNode.toString().hashCode();
