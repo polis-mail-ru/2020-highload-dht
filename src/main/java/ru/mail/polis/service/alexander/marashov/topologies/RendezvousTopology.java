@@ -22,7 +22,7 @@ public class RendezvousTopology implements Topology<String> {
      * @param local    - local node identifier.
      */
     public RendezvousTopology(@NotNull final Set<String> nodesSet, @NotNull final String local) {
-        assert nodesSet.size() > 0;
+        assert !nodesSet.isEmpty();
         assert nodesSet.contains(local);
 
         this.local = local;

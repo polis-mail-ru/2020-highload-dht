@@ -76,7 +76,7 @@ public class ServiceImpl extends HttpServer implements Service {
         this.nodeToClient = new HashMap<>();
         for (final String node : this.topology.all()) {
             if (this.topology.isLocal(node)) {
-                return;
+                continue;
             }
             final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=" + proxyTimeoutValue));
             if (nodeToClient.put(node, httpClient) != null) {
