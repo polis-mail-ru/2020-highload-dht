@@ -19,8 +19,8 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.kate.moreva.ModuleTopology;
-import ru.mail.polis.service.kate.moreva.Topology;
 import ru.mail.polis.service.kate.moreva.MySimpleHttpServer;
+import ru.mail.polis.service.kate.moreva.Topology;
 
 import java.io.IOException;
 import java.util.Set;
