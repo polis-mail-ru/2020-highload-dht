@@ -28,7 +28,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -44,9 +44,14 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private final Set<String> topology;
     private final Map<String,HttpClient> clients;
     private final Logger log = LoggerFactory.getLogger(ClusterServiceImpl.class);
-    private static final String EXECUTOR_ERROR = "Error in executor";
+    private final String thisNode;
+
+    private static final String EXECUTOR_ERROR = "Request rejected";
     private static final String RESPONSE_ERROR = "Can not send response.";
     private static final String PROXY_ERROR = "Can not proxy request";
+    private static final String INTERNAL_ERROR = "Internal Server Error";
+    private static final String NOT_FOUND_ERROR = "Data not found";
+
 
     /**
      * Config HttpServer, DAO and ExecutorService.
@@ -62,7 +67,8 @@ public class ClusterServiceImpl extends HttpServer implements Service {
             @NotNull final DAO dao,
             @NotNull final int executors,
             @NotNull final int queueSize,
-            @NotNull final Set<String> topology) throws IOException {
+            @NotNull final Set<String> topology,
+            @NotNull final int timeout) throws IOException {
         super(formConfig(port));
         HttpClient client;
         this.dao = dao;
@@ -78,17 +84,18 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                 );
         this.clients = new HashMap<>();
         this.topology = topology;
+        this.thisNode = "http://localhost:" + this.port;
         for (final String s: topology) {
             if (!isCurrentNode(s)) {
                 client = new HttpClient(new ConnectionString(s));
-                client.setTimeout(100);
+                client.setTimeout(timeout);
                 this.clients.put(s,client);
             }
         }
     }
 
     private Boolean isCurrentNode(final String node) {
-        return node.equals("http://localhost:" + this.port);
+        return node.equals(this.thisNode);
     }
 
     private static HttpServerConfig formConfig(final int port) {
@@ -106,17 +113,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        final Future<?> future = exec.submit(() -> {
-            try {
-                session.sendResponse(Response.ok("OK"));
-            } catch (IOException ex) {
-                log.error(RESPONSE_ERROR, ex);
-            }
-        });
-
-        if (future.isCancelled()) {
-            log.error(EXECUTOR_ERROR);
-        }
+        sendResponse(session, Response.ok("OK"));
     }
 
     /**
@@ -130,10 +127,10 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     public void entity(@Param(value = "id", required = true) final String id,
                        @Param("request") final Request request,
                        final HttpSession session) {
-        final Future<?> future = exec.submit(() -> {
-            final String requestNode;
-            final Response response;
-            try {
+        try {
+            exec.execute(() -> {
+                final String requestNode;
+                final Response response;
                 if (id.isEmpty()) {
                     response = new Response(Response.BAD_REQUEST, Response.EMPTY);
                 } else {
@@ -144,30 +141,35 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                                 response = getSync(id);
                                 break;
                             case METHOD_PUT:
-                                response = putSync(id, request);
+                                response = putSync(id, request.getBody());
                                 break;
                             case METHOD_DELETE:
                                 response = deleteSync(id);
                                 break;
                             default:
                                 log.error("Unknown method");
-                                response =
-                                        new Response(Response.METHOD_NOT_ALLOWED,
-                                                Response.EMPTY);
+                                response = new Response(
+                                        Response.METHOD_NOT_ALLOWED,
+                                        Response.EMPTY);
                                 break;
                         }
                     } else {
                         response = proxy(clients.get(requestNode), request);
                     }
                 }
-                session.sendResponse(response);
-            } catch (IOException ex) {
-                log.error(RESPONSE_ERROR, ex);
-            }
-        });
+                sendResponse(session, response);
+            });
+        } catch (RejectedExecutionException ex) {
+            sendResponse(session,new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            log.error(EXECUTOR_ERROR, ex);
+        }
+    }
 
-        if (future.isCancelled()) {
-            log.error(EXECUTOR_ERROR);
+    private void sendResponse(final HttpSession session, final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException ex) {
+            log.error(RESPONSE_ERROR, ex);
         }
     }
 
@@ -180,51 +182,44 @@ public class ClusterServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private Response getSync(final String id) throws IOException {
+    private Response getSync(final String id) {
         try {
             final ByteBuffer value = dao.get(ByteBuffer.wrap(id.getBytes(UTF_8)));
             return new Response(Response.OK, Util.byteBufferToBytes(value));
         } catch (IOException ex) {
+            log.error(INTERNAL_ERROR, ex);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException ex) {
+            log.error(NOT_FOUND_ERROR, ex);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
     private Response putSync(final String id,
-                         final Request request) throws IOException {
+                         final byte[] body) {
         try {
             dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)),
-                    ByteBuffer.wrap(request.getBody()));
+                    ByteBuffer.wrap(body));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
+            log.error(INTERNAL_ERROR, ex);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
-    private Response deleteSync(final String id) throws IOException {
+    private Response deleteSync(final String id) {
         try {
             dao.remove(ByteBuffer.wrap(id.getBytes(UTF_8)));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
+            log.error(INTERNAL_ERROR, ex);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Future<?> future = exec.submit(() -> {
-            try {
-                final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-                session.sendResponse(response);
-            } catch (IOException ex) {
-                log.error(RESPONSE_ERROR, ex);
-            }
-        });
-
-        if (future.isCancelled()) {
-            log.error(EXECUTOR_ERROR);
-        }
+    public void handleDefault(final Request request, final HttpSession session) {
+        sendResponse(session,new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
