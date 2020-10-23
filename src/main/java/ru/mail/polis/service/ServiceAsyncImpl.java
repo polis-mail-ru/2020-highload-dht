@@ -44,8 +44,8 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     private final Topology topology;
     private final Map<String, HttpClient> nodeToClient;
 
-    private static final String proxyHeader = "X-Proxy-For:";
-    private static final int connectionTimeout = 100;
+    private static final String PROXY_HEADER = "X-Proxy-For:";
+    private static final int CONNECTION_TIMEOUT = 100;
 
     ServiceAsyncImpl(
             final int port,
@@ -72,7 +72,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         for (final String node : topology.getNodes()) {
             if (!topology.isSelfId(node) && !clientMap.containsKey(node)) {
                 clientMap.put(node, new HttpClient(
-                        new ConnectionString(String.format("%s?timeout=%d", node, connectionTimeout))
+                        new ConnectionString(String.format("%s?timeout=%d", node, CONNECTION_TIMEOUT))
                 ));
             }
         }
@@ -155,7 +155,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
             } catch (IOException e) {
                 logger.error("Couldn't send response", e);
             } catch (RejectedExecutionException e) {
-                logger.error("Execution exception", e);
+                logger.error("Execution exception in GET", e);
             }
         });
     }
@@ -172,7 +172,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         }
     }
 
-    private void putValue(final ByteBuffer key, ByteBuffer value, final HttpSession session) throws IOException {
+    private void putValue(final ByteBuffer key, final ByteBuffer value, final HttpSession session) throws IOException {
         try {
             dao.upsert(key, value);
         } catch (IOException e) {
@@ -193,7 +193,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
             } catch (IOException e) {
                 logger.error("PUT error:", e);
             } catch (RejectedExecutionException e) {
-                logger.error("Execution exception", e);
+                logger.error("Execution exception in PUT", e);
             }
         });
     }
@@ -207,7 +207,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 this.handleError(session);
                 logger.error("DELETE error:", e);
             } catch (RejectedExecutionException e) {
-                logger.error("Execution exception", e);
+                logger.error("Execution exception in DELETE", e);
             }
         });
     }
@@ -247,7 +247,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     private Response proxy(@NotNull final String nodeId,
                            @NotNull final Request request) {
         try {
-            request.addHeader(String.format("%s %s", proxyHeader, nodeId));
+            request.addHeader(String.format("%s %s", PROXY_HEADER, nodeId));
             return nodeToClient.get(nodeId).invoke(request);
         } catch (IOException | InterruptedException | PoolException | HttpException exc) {
             logger.error("Error sending request via proxy", exc);
