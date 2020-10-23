@@ -10,23 +10,23 @@ import java.util.Set;
 
 class Topology {
 
-    private final List<String> clusterNode;
+    private final List<String> clusterNodes;
     private final String id;
 
     Topology(@NotNull final Set<String> nodes, @NotNull final String id) {
-        this.clusterNode = new ArrayList<>(nodes);
+        this.clusterNodes = new ArrayList<>(nodes);
         this.id = id;
     }
 
     Set<String> getNodes() {
-        return new HashSet<>(this.clusterNode);
+        return new HashSet<>(this.clusterNodes);
     }
 
-    Boolean isSelfId(@NotNull final String nodeId) {
+    boolean isSelfId(@NotNull final String nodeId) {
         return nodeId.equals(id);
     }
 
     String primaryFor(@NotNull final ByteBuffer key) {
-        return clusterNode.get((key.hashCode() & Integer.MAX_VALUE) % clusterNode.size());
+        return clusterNodes.get((key.hashCode() & Integer.MAX_VALUE) % clusterNodes.size());
     }
 }
