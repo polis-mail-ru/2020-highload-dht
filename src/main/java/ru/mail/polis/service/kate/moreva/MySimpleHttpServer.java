@@ -138,31 +138,35 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
                 final String node = topology.primaryFor(key);
                 if (topology.isMe(node)) {
-                    try {
-                        switch (request.getMethod()) {
-                            case Request.METHOD_GET:
-                                getEntity(key, session);
-                                break;
-                            case Request.METHOD_PUT:
-                                putEntity(key, request, session);
-                                break;
-                            case Request.METHOD_DELETE:
-                                deleteEntity(key, session);
-                                break;
-                            default:
-                                log.error("Not allowed method on /v0/entity");
-                                handleError(session, Response.METHOD_NOT_ALLOWED);
-                                break;
-                        }
-                    } catch (IOException e) {
-                        log.error(SERVER_ERROR, e);
-                    }
+                    defineMethod(request, session, key);
                 } else {
                     proxyRequest(session, proxy(node, request));
                 }
             });
         } catch (RejectedExecutionException e) {
             handleError(session, Response.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private void defineMethod(Request request, HttpSession session, ByteBuffer key) {
+        try {
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    getEntity(key, session);
+                    break;
+                case Request.METHOD_PUT:
+                    putEntity(key, request, session);
+                    break;
+                case Request.METHOD_DELETE:
+                    deleteEntity(key, session);
+                    break;
+                default:
+                    log.error("Not allowed method on /v0/entity");
+                    handleError(session, Response.METHOD_NOT_ALLOWED);
+                    break;
+            }
+        } catch (IOException e) {
+            log.error(SERVER_ERROR, e);
         }
     }
 
