@@ -138,20 +138,24 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
                 final String node = topology.primaryFor(key);
                 if (topology.isMe(node)) {
-                    switch (request.getMethod()) {
-                        case Request.METHOD_GET:
-                            getMethod(key, session);
-                            break;
-                        case Request.METHOD_PUT:
-                            putMethod(key, request, session);
-                            break;
-                        case Request.METHOD_DELETE:
-                            deleteMethod(key, session);
-                            break;
-                        default:
-                            log.error("Not allowed method on /v0/entity");
-                            handleError(session, Response.METHOD_NOT_ALLOWED);
-                            break;
+                    try {
+                        switch (request.getMethod()) {
+                            case Request.METHOD_GET:
+                                getEntity(key, session);
+                                break;
+                            case Request.METHOD_PUT:
+                                putEntity(key, request, session);
+                                break;
+                            case Request.METHOD_DELETE:
+                                deleteEntity(key, session);
+                                break;
+                            default:
+                                log.error("Not allowed method on /v0/entity");
+                                handleError(session, Response.METHOD_NOT_ALLOWED);
+                                break;
+                        }
+                    } catch (IOException e) {
+                        log.error(SERVER_ERROR, e);
                     }
                 } else {
                     proxyRequest(session, proxy(node, request));
@@ -159,30 +163,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException e) {
             handleError(session, Response.SERVICE_UNAVAILABLE);
-        }
-    }
-
-    private void getMethod(final ByteBuffer key, final HttpSession session) {
-        try {
-            getEntity(key, session);
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
-    }
-
-    private void putMethod(final ByteBuffer key, final Request request, final HttpSession session) {
-        try {
-            putEntity(key, request, session);
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
-    }
-
-    private void deleteMethod(final ByteBuffer key, final HttpSession session) {
-        try {
-            deleteEntity(key, session);
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
         }
     }
 

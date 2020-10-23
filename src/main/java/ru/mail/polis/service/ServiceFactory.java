@@ -58,9 +58,7 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-        final Topology<String> moduleTopology = new ModuleTopology(topology,
-                String.format("http://localhost:%d",
-                        port));
+        final Topology<String> moduleTopology = new ModuleTopology(topology, "http://localhost:" + port);
         return new MySimpleHttpServer(port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),

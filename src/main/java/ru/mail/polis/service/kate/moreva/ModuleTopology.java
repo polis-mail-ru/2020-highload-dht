@@ -49,6 +49,6 @@ public class ModuleTopology implements Topology<String> {
     @NotNull
     @Override
     public List<String> all() {
-        return nodes;
+        return new ArrayList<>(nodes);
     }
 }
