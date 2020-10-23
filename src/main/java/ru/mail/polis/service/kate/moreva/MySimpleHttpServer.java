@@ -148,7 +148,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    private void defineMethod(Request request, HttpSession session, ByteBuffer key) {
+    private void defineMethod(final Request request, final HttpSession session, final ByteBuffer key) {
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
