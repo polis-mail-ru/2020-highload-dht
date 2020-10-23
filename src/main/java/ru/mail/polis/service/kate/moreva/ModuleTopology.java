@@ -3,7 +3,10 @@ package ru.mail.polis.service.kate.moreva;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Modular topology.
@@ -20,10 +23,7 @@ public class ModuleTopology implements Topology<String> {
      * @param nodes - cluster.
      * @param me - name of the current node.
      */
-    public ModuleTopology(
-            @NotNull final Set<String> nodes,
-            @NotNull final String me) {
-        assert nodes.size() > 0;
+    public ModuleTopology(@NotNull final Set<String> nodes, @NotNull final String me) {
         this.me = me;
         assert nodes.contains(me);
         this.nodes = new ArrayList<>(nodes);

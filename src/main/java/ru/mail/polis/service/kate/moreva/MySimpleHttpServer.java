@@ -115,7 +115,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Method for working with value in the DAO by the key.
-     * <p>
+     *
      * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 201} (new data created).
@@ -198,7 +198,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Subsidiary method to get value.
-     * <p>
+     *
      * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 500} (internal server error occurred).
@@ -219,7 +219,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Subsidiary method to put new value.
-     * <p>
+     *
      * {@code 201} (new data created).
      * {@code 500} (internal server error occurred).
      */
@@ -235,7 +235,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Subsidiary method to delete value by the key.
-     * <p>
+     *
      * {@code 202} (data deleted).
      * {@code 500} (internal server error occurred).
      */
