@@ -51,8 +51,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private static final String PROXY_ERROR = "Can not proxy request";
     private static final String INTERNAL_ERROR = "Internal Server Error";
     private static final String NOT_FOUND_ERROR = "Data not found";
-
-
+    
     /**
      * Config HttpServer, DAO and ExecutorService.
      *
