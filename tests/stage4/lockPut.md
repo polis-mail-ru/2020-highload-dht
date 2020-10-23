@@ -311,4 +311,5 @@ Running 1m test @ http://localhost:8080
 Requests/sec:  40036.03
 Transfer/sec:      3.17MB
 
+Серекторы в локах тоже стали меньше: 48.95% против 52.9% в прошлой реализации.
 

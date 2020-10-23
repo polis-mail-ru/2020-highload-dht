@@ -14,11 +14,9 @@ import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.kate.moreva.Topology;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -40,11 +38,11 @@ import java.util.concurrent.TimeUnit;
 
 public class MySimpleHttpServer extends HttpServer implements Service {
 
-    private static final String SERVER_ERROR = "Server error can't send response {}";
+    private static final String SERVER_ERROR = "Server error can't send response";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
     private final DAO dao;
     private final ExecutorService executorService;
-    @NotNull private final Topology<String> topology;
+    private final Topology<String> topology;
     private final Map<String, HttpClient> nodeClients;
 
     /**
@@ -54,7 +52,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                               final DAO dao,
                               final int numberOfWorkers,
                               final int queueSize,
-                              @NotNull final Topology<String> topology) throws IOException {
+                              final Topology<String> topology) throws IOException {
         super(getConfig(port, numberOfWorkers));
         this.dao = dao;
         this.topology = topology;
@@ -79,7 +77,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                         .setNameFormat("Worker_%d")
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error in {} when processing request", t, e))
                         .build(),
-                new ThreadPoolExecutor.DiscardOldestPolicy());
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     private static HttpServerConfig getConfig(final int port, final int numberOfWorkers) {
@@ -90,8 +88,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         config.selectors = numberOfWorkers;
-        config.maxWorkers = numberOfWorkers;
-        config.minWorkers = numberOfWorkers;
         return config;
     }
 
@@ -100,7 +96,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
+            log.error(SERVER_ERROR, e);
         }
     }
 
@@ -113,13 +109,13 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             session.sendResponse(new Response(Response.OK, Response.EMPTY));
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
+            log.error(SERVER_ERROR, e);
         }
     }
 
     /**
      * Method for working with value in the DAO by the key.
-     *
+     * <p>
      * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 201} (new data created).
@@ -140,42 +136,37 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 }
                 final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
 
-                switch (request.getMethod()) {
-                    case Request.METHOD_GET:
-                        getMethod(key, request, session);
-                        break;
-                    case Request.METHOD_PUT:
-                        putMethod(key, request, session);
-                        break;
-                    case Request.METHOD_DELETE:
-                        deleteMethod(key, request, session);
-                        break;
-                    default:
-                        log.error("Not allowed method on /v0/entity");
-                        handleError(session, Response.METHOD_NOT_ALLOWED);
-                        break;
+                final String node = topology.primaryFor(key);
+                if (topology.isMe(node)) {
+                    switch (request.getMethod()) {
+                        case Request.METHOD_GET:
+                            getMethod(key, session);
+                            break;
+                        case Request.METHOD_PUT:
+                            putMethod(key, request, session);
+                            break;
+                        case Request.METHOD_DELETE:
+                            deleteMethod(key, session);
+                            break;
+                        default:
+                            log.error("Not allowed method on /v0/entity");
+                            handleError(session, Response.METHOD_NOT_ALLOWED);
+                            break;
+                    }
+                } else {
+                    proxyRequest(session, proxy(node, request));
                 }
             });
         } catch (RejectedExecutionException e) {
-           handleError(session, Response.SERVICE_UNAVAILABLE);
+            handleError(session, Response.SERVICE_UNAVAILABLE);
         }
     }
 
-    private void getMethod(final ByteBuffer key, final Request request, final HttpSession session) {
+    private void getMethod(final ByteBuffer key, final HttpSession session) {
         try {
-            getEntity(key, request, session);
+            getEntity(key, session);
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
-        }
-    }
-
-    private Response proxy(final String node, final Request request) throws IOException {
-        try {
-            request.addHeader("X-Proxy-For: " + node);
-            return nodeClients.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
-            log.error("Proxy request error", e);
-            throw new IOException("Cannot proxy request", e);
+            log.error(SERVER_ERROR, e);
         }
     }
 
@@ -183,36 +174,41 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             putEntity(key, request, session);
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
+            log.error(SERVER_ERROR, e);
         }
     }
 
-    private void deleteMethod(final ByteBuffer key, final Request request, final HttpSession session) {
+    private void deleteMethod(final ByteBuffer key, final HttpSession session) {
         try {
-            deleteEntity(key, request, session);
+            deleteEntity(key, session);
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
+            log.error(SERVER_ERROR, e);
+        }
+    }
+
+    private Response proxy(final String node, final Request request) {
+        try {
+            request.addHeader("X-Proxy-For: " + node);
+            return nodeClients.get(node).invoke(request);
+        } catch (IOException | InterruptedException | PoolException | HttpException e) {
+            log.error("Proxy request error", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     /**
      * Subsidiary method to get value.
-     *
+     * <p>
      * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 500} (internal server error occurred).
      */
-    private void getEntity(final ByteBuffer key, final Request request, final HttpSession session) throws IOException {
+    private void getEntity(final ByteBuffer key, final HttpSession session) throws IOException {
         try {
-            final String node = topology.primaryFor(key);
-            if (topology.isMe(node)) {
-                final ByteBuffer value = dao.get(key).duplicate();
-                final byte[] body = new byte[value.remaining()];
-                value.get(body);
-                session.sendResponse(new Response(Response.OK, body));
-            } else {
-                proxyRequest(session, proxy(node, request));
-            }
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] body = new byte[value.remaining()];
+            value.get(body);
+            session.sendResponse(new Response(Response.OK, body));
         } catch (NoSuchElementException e) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } catch (IOException e) {
@@ -223,19 +219,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Subsidiary method to put new value.
-     *
+     * <p>
      * {@code 201} (new data created).
      * {@code 500} (internal server error occurred).
      */
     private void putEntity(final ByteBuffer key, final Request request, final HttpSession session) throws IOException {
         try {
-            final String node = topology.primaryFor(key);
-            if (topology.isMe(node)) {
-                dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-            } else {
-                proxyRequest(session, proxy(node, request));
-            }
+            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         } catch (IOException e) {
             log.error("PUT method failed on /v0/entity for id {}, request body {}.", key.get(), request.getBody(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -244,21 +235,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Subsidiary method to delete value by the key.
-     *
+     * <p>
      * {@code 202} (data deleted).
      * {@code 500} (internal server error occurred).
      */
-    private void deleteEntity(final ByteBuffer key,
-                              final Request request,
-                              final HttpSession session) throws IOException {
+    private void deleteEntity(final ByteBuffer key, final HttpSession session) throws IOException {
         try {
-            final String node = topology.primaryFor(key);
-            if (topology.isMe(node)) {
-                dao.remove(key);
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-            } else {
-                proxyRequest(session, proxy(node, request));
-            }
+            dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (IOException e) {
             log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -269,7 +253,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             session.sendResponse(new Response(response, Response.EMPTY));
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
+            log.error(SERVER_ERROR, e);
         }
     }
 
@@ -277,7 +261,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
-            log.error(SERVER_ERROR, session, e);
+            log.error(SERVER_ERROR, e);
         }
     }
 

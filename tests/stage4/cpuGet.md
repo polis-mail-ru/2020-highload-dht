@@ -310,4 +310,6 @@ Running 1m test @ http://localhost:8080
 Requests/sec:  40025.90
 Transfer/sec:      3.38MB
 
+24.24 занимает работа селекторов (парсинг запроса и передача данных), оставшиеся 75,76% занимает работа ExecutorService (DAO.get 0.33 - 0.45%, отправка ответа <1% для каждого воркера)
+MySimpleHttpServer.proxy < 2.64% для каждого воркера.
 

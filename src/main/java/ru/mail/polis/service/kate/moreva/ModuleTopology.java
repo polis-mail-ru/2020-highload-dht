@@ -1,10 +1,9 @@
-package ru.mail.polis.dao.kate.moreva;
+package ru.mail.polis.service.kate.moreva;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Modular topology.
@@ -12,7 +11,7 @@ import java.util.Set;
  * @author kate
  */
 public class ModuleTopology implements Topology<String> {
-    private final String[] nodes;
+    private final List<String> nodes;
     private final String me;
 
     /**
@@ -24,23 +23,22 @@ public class ModuleTopology implements Topology<String> {
     public ModuleTopology(
             @NotNull final Set<String> nodes,
             @NotNull final String me) {
-
+        assert nodes.size() > 0;
         this.me = me;
         assert nodes.contains(me);
-        this.nodes = new String[nodes.size()];
-        nodes.toArray(this.nodes);
-        Arrays.sort(this.nodes);
+        this.nodes = new ArrayList<>(nodes);
+        Collections.sort(this.nodes);
     }
 
     @NotNull
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
-        return nodes[(key.hashCode() & Integer.MAX_VALUE) % nodes.length];
+        return nodes.get((key.hashCode() & Integer.MAX_VALUE) % nodes.size());
     }
 
     @Override
     public int size() {
-        return nodes.length;
+        return nodes.size();
     }
 
     @Override
@@ -50,7 +48,7 @@ public class ModuleTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String[] all() {
-        return nodes.clone();
+    public List<String> all() {
+        return nodes;
     }
 }

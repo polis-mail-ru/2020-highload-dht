@@ -1,8 +1,9 @@
-package ru.mail.polis.dao.kate.moreva;
+package ru.mail.polis.service.kate.moreva;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public interface Topology<N> {
     @NotNull
@@ -13,5 +14,5 @@ public interface Topology<N> {
     boolean isMe(@NotNull N node);
 
     @NotNull
-    N[] all();
+    List<N> all();
 }
