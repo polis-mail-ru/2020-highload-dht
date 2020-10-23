@@ -3,32 +3,32 @@ package ru.mail.polis.service.alexander.marashov.topologies;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.stream.Stream;
+import java.util.Arrays;
+import java.util.Set;
 
 public class RendezvousTopology implements Topology<String> {
 
     @NotNull
-    private final Collection<String> nodes;
+    private final String[] nodes;
     @NotNull
     private final String local;
 
     /**
      * Approach to distribute user's keys according to rendezvous hashing.
-     *     An algorithm hashes the key and the node's identifier together
-     *     and then pick the one with the highest hash value.
-     * @param nodes - sorted set with all the nodes in the cluster.
-     * @param local - local node identifier.
+     * An algorithm hashes the key and the node's identifier together
+     * and then pick the one with the highest hash value.
+     *
+     * @param nodesSet - set with all the nodes in the cluster.
+     * @param local    - local node identifier.
      */
-    public RendezvousTopology(@NotNull final SortedSet<String> nodes, @NotNull final String local) {
-        assert nodes.size() > 0;
-        assert nodes.contains(local);
+    public RendezvousTopology(@NotNull final Set<String> nodesSet, @NotNull final String local) {
+        assert nodesSet.size() > 0;
+        assert nodesSet.contains(local);
 
-        this.nodes = nodes;
         this.local = local;
+        this.nodes = new String[nodesSet.size()];
+        nodesSet.toArray(this.nodes);
+        Arrays.sort(this.nodes);
     }
 
     @Override
@@ -40,32 +40,58 @@ public class RendezvousTopology implements Topology<String> {
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
         final int keyHashCode = key.hashCode();
-        final Stream<Map.Entry<Integer, String>> sortedStream = nodes.stream()
-                .map((nodeString) -> {
-
-                    int hashCode = keyHashCode;
-                    for (int i = nodeString.length() - 1; i >= 0; --i) {
-                        hashCode = 31 * hashCode + nodeString.charAt(i);
-                    }
-
-                    return Map.entry(hashCode & Integer.MAX_VALUE, nodeString);
-                })
-                .sorted(Map.Entry.comparingByKey());
-
-        return sortedStream
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No node for key"))
-                .getValue();
+        final NodeKeyPair[] pairs = new NodeKeyPair[nodes.length];
+        for (int i = 0; i < nodes.length; i++) {
+            pairs[i] = new NodeKeyPair(nodes[i], keyHashCode);
+        }
+        Arrays.sort(pairs);
+        return pairs[0].getNode();
     }
 
     @NotNull
     @Override
-    public SortedSet<String> all() {
-        return new TreeSet<>(nodes);
+    public String[] all() {
+        return nodes.clone();
     }
 
     @Override
     public int size() {
-        return nodes.size();
+        return nodes.length;
+    }
+
+    private static class NodeKeyPair implements Comparable<NodeKeyPair> {
+
+        private final int hashCode;
+        @NotNull
+        private final String node;
+
+        /**
+         * NodeKeyPair calculates the hash code of the node combined with the key's hash code.
+         * @param node - string representing the node
+         * @param keyHashCode - integer hash code of the key
+         */
+        public NodeKeyPair(@NotNull final String node, final int keyHashCode) {
+            this.node = node;
+            int tmpHashCode = keyHashCode;
+            for (int i = node.length() - 1; i >= 0; --i) {
+                tmpHashCode = 31 * tmpHashCode + node.charAt(i);
+            }
+            this.hashCode = tmpHashCode;
+        }
+
+        @NotNull
+        public String getNode() {
+            return this.node;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.hashCode;
+        }
+
+        @Override
+        public int compareTo(@NotNull final NodeKeyPair another) {
+            return Integer.compare(this.hashCode, another.hashCode);
+        }
     }
 }

@@ -74,7 +74,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
         this.topology = topology;
         this.nodeToClient = new HashMap<>();
-        this.topology.all().forEach(node -> {
+        for (final String node : this.topology.all()) {
             if (this.topology.isLocal(node)) {
                 return;
             }
@@ -82,7 +82,7 @@ public class ServiceImpl extends HttpServer implements Service {
             if (nodeToClient.put(node, httpClient) != null) {
                 throw new IllegalStateException("Duplicate node");
             }
-        });
+        }
     }
 
     /**

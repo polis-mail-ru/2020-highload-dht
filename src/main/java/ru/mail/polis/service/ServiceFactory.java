@@ -24,7 +24,6 @@ import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * Constructs {@link Service} instances.
@@ -63,7 +62,7 @@ public final class ServiceFactory {
         }
 
         final Topology<String> serviceTopology =
-                new RendezvousTopology(new TreeSet<>(topology), "http://localhost:" + port);
+                new RendezvousTopology(topology, "http://localhost:" + port);
 
         return new ServiceImpl(
                 port,
