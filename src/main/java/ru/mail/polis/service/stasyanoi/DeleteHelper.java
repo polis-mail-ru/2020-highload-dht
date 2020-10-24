@@ -10,32 +10,23 @@ import java.util.Map;
 
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
-public final class PutHelper {
+public final class DeleteHelper {
 
     private static final String TRUE_VAL = "true";
     private static final String REPS = "reps";
     private static final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
 
-    private PutHelper() {
+
+    private DeleteHelper() {
 
     }
 
-    /**
-     * Get put replicas.
-     *
-     * @param request - request to replicate.
-     * @param mappings - nodes that can have the replicas and the total amount nodes .
-     * @param responseHttpCurrent - this server responseto request.
-     * @param port - this server port.
-     * @return - returned response.
-     */
-    public static Response getPutReplicaResponse(final Request request,
-                                                 final Pair<Map<Integer, String>, Map<Integer, String>> mappings,
-                                                 final Response responseHttpCurrent,
-                                                 final int port) {
-        final Map<Integer, String> tempNodeMapping = mappings.getValue0();
-        final Map<Integer, String> nodeMapping = mappings.getValue1();
-        Response responseHttp;
+    public static Response getDeleteReplicaResponse(final Request request,
+                                              final Map<Integer, String> tempNodeMapping,
+                                              final Response responseHttpCurrent,
+                                              final Map<Integer, String> nodeMapping,
+                                              final int port) {
+        final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
             final Pair<Integer, Integer> ackFrom =
                     Util.getAckFrom(request, replicationDefaults, nodeMapping);
@@ -44,7 +35,7 @@ public final class PutHelper {
                     GetHelper.getResponsesInternal(responseHttpCurrent,
                             tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
-            responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
+            responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
         } else {
             responseHttp = responseHttpCurrent;
         }

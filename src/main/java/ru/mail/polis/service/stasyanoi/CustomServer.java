@@ -24,17 +24,14 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static ru.mail.polis.service.stasyanoi.DeleteHelper.getDeleteReplicaResponse;
+import static ru.mail.polis.service.stasyanoi.GetHelper.getReplicaGetResponse;
 import static ru.mail.polis.service.stasyanoi.GetHelper.getResponseIfIdNotNull;
-import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
-import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 import static ru.mail.polis.service.stasyanoi.PutHelper.getPutReplicaResponse;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
-    private final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     private final int nodeCount;
-    private static final String TRUE_VAL = "true";
-    private static final String REPS = "reps";
     private int nodeNum;
     private final DAO dao;
     private final ExecutorService executorService =
@@ -125,15 +122,14 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            responseHttp = getResponseGet(idParam, request, tempNodeMapping, replicationDefaults);
+            responseHttp = getResponseGet(idParam, request, tempNodeMapping);
         }
         session.sendResponse(responseHttp);
     }
 
     private Response getResponseGet(final String idParam,
                                     final Request request,
-                                    final Map<Integer, String> tempNodeMapping,
-                                    final List<String> replicationDefaults) throws IOException {
+                                    final Map<Integer, String> tempNodeMapping) throws IOException {
         final Response responseHttp;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int node = Util.getNode(idArray, nodeCount);
@@ -141,17 +137,7 @@ public class CustomServer extends HttpServer {
         final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
         final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
         tempNodeMapping.remove(node);
-        if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-            final Pair<Integer, Integer> ackFrom =
-                    Util.getAckFrom(request, replicationDefaults, nodeMapping);
-            final int from = ackFrom.getValue1();
-            final List<Response> responses =
-                    GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
-            final Integer ack = ackFrom.getValue0();
-            responseHttp = getEndResponseGet(responses, ack, nodeMapping);
-        } else {
-            responseHttp = responseHttpCurrent;
-        }
+        responseHttp = getReplicaGetResponse(request, tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         return responseHttp;
     }
 
@@ -240,10 +226,10 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            Pair<Map<Integer, String>, Map<Integer, String>> mappings =
+            final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
                     new Pair<>(tempNodeMapping, nodeMapping);
             responseHttp = getPutReplicaResponse(request, mappings,
-                    responseHttpCurrent, replicationDefaults,  super.port);
+                    responseHttpCurrent,  super.port);
         }
         session.sendResponse(responseHttp);
     }
@@ -330,18 +316,8 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-                final Pair<Integer, Integer> ackFrom =
-                        Util.getAckFrom(request, replicationDefaults, nodeMapping);
-                final int from = ackFrom.getValue1();
-                final List<Response> responses =
-                        GetHelper.getResponsesInternal(responseHttpCurrent,
-                                tempNodeMapping, from - 1, request, super.port);
-                final Integer ack = ackFrom.getValue0();
-                responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
-            } else {
-                responseHttp = responseHttpCurrent;
-            }
+            responseHttp = getDeleteReplicaResponse(request, tempNodeMapping,
+                    responseHttpCurrent, nodeMapping, super.port);
         }
         session.sendResponse(responseHttp);
     }
