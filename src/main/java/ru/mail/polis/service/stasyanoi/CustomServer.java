@@ -25,15 +25,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-import static ru.mail.polis.service.stasyanoi.GetHelper.getNewRequest;
-import static ru.mail.polis.service.stasyanoi.GetHelper.getNoRepRequest;
+import static ru.mail.polis.service.stasyanoi.GetHelper.*;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
@@ -161,31 +159,6 @@ public class CustomServer extends HttpServer {
             responseHttp = responseHttpCurrent;
         }
         return responseHttp;
-    }
-
-    private List<Response> getResponsesInternal(final Response responseHttpTemp,
-                                                final Map<Integer, String> tempNodeMapping,
-                                                final int from,
-                                                final Request request,
-                                                final int port) {
-        final List<Response> responses = tempNodeMapping.entrySet()
-                .stream()
-                .limit(from)
-                .map(nodeHost -> new Pair<>(
-                        new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request, port)))
-                .map(clientRequest -> {
-                    try {
-                        final Response invoke = clientRequest.getValue0().invoke(clientRequest.getValue1());
-                        clientRequest.getValue0().close();
-                        return invoke;
-                    } catch (InterruptedException | PoolException | IOException | HttpException e) {
-                        return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
-                    }
-                })
-                .collect(Collectors.toList());
-        responses.add(responseHttpTemp);
-
-        return responses;
     }
 
     private Response getProxy(final Request request,

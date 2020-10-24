@@ -1,10 +1,20 @@
 package ru.mail.polis.service.stasyanoi;
 
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.Request;
+import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
+import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public final class GetHelper {
 
@@ -12,6 +22,41 @@ public final class GetHelper {
 
     private GetHelper() {
 
+    }
+
+    /**
+     * Ger replicas.
+     *
+     * @param responseHttpTemp - current server response.
+     * @param tempNodeMapping - nodes for potential replication
+     * @param from - RF replicas ack from
+     * @param request - request to replicate
+     * @param port - this server port.
+     * @return - list of replica responses
+     */
+    public static List<Response> getResponsesInternal(final Response responseHttpTemp,
+                                                final Map<Integer, String> tempNodeMapping,
+                                                final int from,
+                                                final Request request,
+                                                final int port) {
+        final List<Response> responses = tempNodeMapping.entrySet()
+                .stream()
+                .limit(from)
+                .map(nodeHost -> new Pair<>(
+                        new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request, port)))
+                .map(clientRequest -> {
+                    try {
+                        final Response invoke = clientRequest.getValue0().invoke(clientRequest.getValue1());
+                        clientRequest.getValue0().close();
+                        return invoke;
+                    } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                        return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
+                    }
+                })
+                .collect(Collectors.toList());
+        responses.add(responseHttpTemp);
+
+        return responses;
     }
 
     /**
