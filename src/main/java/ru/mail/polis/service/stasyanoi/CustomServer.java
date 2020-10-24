@@ -215,7 +215,6 @@ public class CustomServer extends HttpServer {
         final Response responseHttp;
         if (node == nodeNum) {
             logger.info(nodeNum + " PUT HERE");
-            //replicate here
             final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
@@ -266,7 +265,6 @@ public class CustomServer extends HttpServer {
                                  final int node) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            //replicate here
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
             responseHttp = getResponseWithNoBody(Response.ACCEPTED);

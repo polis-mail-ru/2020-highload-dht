@@ -9,16 +9,16 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class Util {
+final public class Util {
+
+    private static final Logger logger = LoggerFactory.getLogger(Util.class);
 
     private Util() {
 
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(Util.class);
-
     /**
-     * Returns an empty bodied response
+     * Returns an empty bodied response.
      *
      * @param requestType - type of response to return
      * @return the response
