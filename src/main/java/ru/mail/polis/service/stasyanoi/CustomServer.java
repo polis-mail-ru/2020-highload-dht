@@ -238,7 +238,7 @@ public class CustomServer extends HttpServer {
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node != nodeNum) {
-            responseHttp = Util.routeRequest(request, node, nodeMapping, nodeNum);
+            responseHttp = Util.routeRequest(request, node, nodeMapping);
         } else {
             responseHttp = getResponseIfIdNotNull(id);
         }
@@ -373,7 +373,7 @@ public class CustomServer extends HttpServer {
                               final int node) throws IOException {
         final Response responseHttp;
         if (node != nodeNum) {
-            responseHttp = Util.routeRequest(request, node, nodeMapping, nodeNum);
+            responseHttp = Util.routeRequest(request, node, nodeMapping);
         } else {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             byte[] body = request.getBody();
@@ -461,7 +461,7 @@ public class CustomServer extends HttpServer {
                                  final int node) throws IOException {
         final Response responseHttp;
         if (node != nodeNum) {
-            responseHttp = Util.routeRequest(request, node, nodeMapping, nodeNum);
+            responseHttp = Util.routeRequest(request, node, nodeMapping);
         } else {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
