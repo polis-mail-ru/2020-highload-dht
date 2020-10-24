@@ -17,7 +17,6 @@ public final class DeleteHelper {
     private static final String REPS = "reps";
     private static final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
 
-
     private DeleteHelper() {
     }
 
@@ -52,7 +51,8 @@ public final class DeleteHelper {
     }
 
     @NotNull
-    private static Pair<Integer, Integer> getRF(Request request, Map<Integer, String> nodeMapping) {
+    private static Pair<Integer, Integer> getRF(final Request request,
+                                                final Map<Integer, String> nodeMapping) {
         return Util.getAckFrom(request, replicationDefaults, nodeMapping);
     }
 }
