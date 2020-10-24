@@ -15,8 +15,11 @@ import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -195,6 +198,18 @@ public final class Util {
                 .collect(Collectors.joining());
         response.addHeader(timestampHeader + nanoTime);
         return response;
+    }
+
+    /**
+     * Get key from param.
+     *
+     * @param idParam - key param.
+     * @return - key byte buffer.
+     */
+    @NotNull
+    public static ByteBuffer getKey(String idParam) {
+        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+        return Mapper.fromBytes(idArray);
     }
 
     private static synchronized long getNanosSync() {

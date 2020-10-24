@@ -9,6 +9,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.javatuples.Pair;
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 
@@ -22,10 +23,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static ru.mail.polis.service.stasyanoi.DeleteHelper.getDeleteReplicaResponse;
-import static ru.mail.polis.service.stasyanoi.GetHelper.getReplicaGetResponse;
-import static ru.mail.polis.service.stasyanoi.GetHelper.getResponseIfIdNotNull;
-import static ru.mail.polis.service.stasyanoi.PutHelper.getPutReplicaResponse;
+import static ru.mail.polis.service.stasyanoi.Util.getKey;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
@@ -59,7 +57,6 @@ public class CustomServer extends HttpServer {
         this.nodeMapping = nodeMappingTemp;
         this.dao = dao;
     }
-
 
     /**
      * Get a record by key.
@@ -105,9 +102,8 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final ByteBuffer id = Mapper.fromBytes(idArray);
-            responseHttp = getResponseIfIdNotNull(id, dao);
+            final ByteBuffer id = getKey(idParam);
+            responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
         }
         session.sendResponse(responseHttp);
     }
@@ -135,7 +131,7 @@ public class CustomServer extends HttpServer {
         final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
         final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
         tempNodeMapping.remove(node);
-        responseHttp = getReplicaGetResponse(request, tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
+        responseHttp = GetHelper.getReplicaGetResponse(request, tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         return responseHttp;
     }
 
@@ -144,7 +140,7 @@ public class CustomServer extends HttpServer {
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            responseHttp = getResponseIfIdNotNull(id, dao);
+            responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
         } else {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
@@ -199,8 +195,7 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final ByteBuffer key = Mapper.fromBytes(idArray);
+            final ByteBuffer key = getKey(idParam);
             byte[] body = request.getBody();
             body = Util.addTimestamp(body);
             final ByteBuffer value = Mapper.fromBytes(body);
@@ -226,7 +221,7 @@ public class CustomServer extends HttpServer {
             tempNodeMapping.remove(node);
             final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
                     new Pair<>(tempNodeMapping, nodeMapping);
-            responseHttp = getPutReplicaResponse(request, mappings,
+            responseHttp = PutHelper.getPutReplicaResponse(request, mappings,
                     responseHttpCurrent, super.port);
         }
         session.sendResponse(responseHttp);
@@ -293,8 +288,7 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final ByteBuffer key = Mapper.fromBytes(idArray);
+            final ByteBuffer key = getKey(idParam);
             dao.remove(key);
             responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
         }
@@ -314,7 +308,7 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            responseHttp = getDeleteReplicaResponse(request, tempNodeMapping,
+            responseHttp = DeleteHelper.getDeleteReplicaResponse(request, tempNodeMapping,
                     responseHttpCurrent, nodeMapping, super.port);
         }
         session.sendResponse(responseHttp);
