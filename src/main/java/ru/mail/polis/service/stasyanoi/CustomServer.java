@@ -119,16 +119,13 @@ public class CustomServer extends HttpServer {
                              final HttpSession session,
                              final Request request) throws IOException {
         final Response responseHttp;
-        //check id param
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
             logger.info(nodeNum + " GET BAD REQUEST");
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = getNode(idArray);
-            //get id as aligned byte buffer
             final ByteBuffer id = Mapper.fromBytes(idArray);
-            //get the response from db
             logger.info(nodeNum + " GET PROXY");
             responseHttp = getProxy(request, node, id);
         }
@@ -142,7 +139,6 @@ public class CustomServer extends HttpServer {
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            //replicate here
             logger.info(nodeNum + " GET HERE");
             responseHttp = getResponseIfIdNotNull(id);
             logger.info(nodeNum + " GET RESPONSE " + responseHttp.getStatus());
@@ -198,8 +194,7 @@ public class CustomServer extends HttpServer {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
-            logger.info(nodeNum + " PUT BAD REQUEST");
-        } else {
+         } else {
             logger.info(nodeNum + " PUT PROXY");
             responseHttp = getPutResponse(idParam, request);
         }
