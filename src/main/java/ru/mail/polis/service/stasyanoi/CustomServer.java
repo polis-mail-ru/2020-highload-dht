@@ -98,9 +98,7 @@ public class CustomServer extends HttpServer {
                     final Request request) {
         executorService.execute(() -> {
             try {
-                logger.info(nodeNum + " START GET");
                 getInternal(idParam, session, request);
-                logger.info(nodeNum + " END GET");
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
             }
