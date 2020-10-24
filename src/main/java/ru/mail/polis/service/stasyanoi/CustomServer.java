@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import static ru.mail.polis.service.stasyanoi.GetHelper.getResponseIfIdNotNull;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
+import static ru.mail.polis.service.stasyanoi.PutHelper.getPutReplicaResponse;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
@@ -239,20 +240,9 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-                final Pair<Integer, Integer> ackFrom =
-                        Util.getAckFrom(request, replicationDefaults, nodeMapping);
-                final int from = ackFrom.getValue1();
-                final List<Response> responses =
-                        GetHelper.getResponsesInternal(responseHttpCurrent,
-                                tempNodeMapping, from - 1, request, super.port);
-                final Integer ack = ackFrom.getValue0();
-                responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
-            } else {
-                responseHttp = responseHttpCurrent;
-            }
+            responseHttp = getPutReplicaResponse(request, tempNodeMapping,
+                    responseHttpCurrent, replicationDefaults, nodeMapping, super.port);
         }
-
         session.sendResponse(responseHttp);
     }
 
