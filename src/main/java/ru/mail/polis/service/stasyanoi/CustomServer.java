@@ -111,16 +111,12 @@ public class CustomServer extends HttpServer {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
-            logger.info(nodeNum + " GET BAD REQUEST");
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = getNode(idArray);
             final ByteBuffer id = Mapper.fromBytes(idArray);
-            logger.info(nodeNum + " GET PROXY");
             responseHttp = getProxy(request, node, id);
         }
-
-        logger.info(nodeNum + " GET SEND RESPONSE " + responseHttp.getStatus());
         session.sendResponse(responseHttp);
     }
 
@@ -129,13 +125,9 @@ public class CustomServer extends HttpServer {
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            logger.info(nodeNum + " GET HERE");
             responseHttp = getResponseIfIdNotNull(id);
-            logger.info(nodeNum + " GET RESPONSE " + responseHttp.getStatus());
         } else {
-            logger.info(nodeNum + " GET ROUTE");
             responseHttp = routeRequest(request, node);
-            logger.info(nodeNum + " GET RESPONSE " + responseHttp.getStatus());
         }
         return responseHttp;
     }
@@ -169,9 +161,7 @@ public class CustomServer extends HttpServer {
     private void runPut(final String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
-                logger.info(nodeNum + " START PUT");
                 putInternal(idParam, request, session);
-                logger.info(nodeNum + " END PUT");
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
             }
@@ -185,7 +175,6 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
          } else {
-            logger.info(nodeNum + " PUT PROXY");
             responseHttp = getPutResponse(idParam, request);
         }
         session.sendResponse(responseHttp);
@@ -204,16 +193,13 @@ public class CustomServer extends HttpServer {
                               final int node) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            logger.info(nodeNum + " PUT HERE");
             final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = Util.getResponseWithNoBody(Response.CREATED);
         } else {
-            logger.info(nodeNum + " PUT ROUTE");
             responseHttp = routeRequest(request, node);
         }
-        logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
         return responseHttp;
     }
 
