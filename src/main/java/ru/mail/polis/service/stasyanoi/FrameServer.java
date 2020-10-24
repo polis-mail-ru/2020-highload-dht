@@ -1,6 +1,10 @@
 package ru.mail.polis.service.stasyanoi;
 
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
@@ -20,6 +24,14 @@ public class FrameServer extends HttpServer {
     protected ExecutorService executorService =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
+    /**
+     * Server config without endpoints.
+     *
+     * @param dao - dao to use.
+     * @param config - config
+     * @param topology - nodes.
+     * @throws IOException - thrown when IO errors encountered.
+     */
     public FrameServer(final DAO dao,
                        final HttpServerConfig config,
                        final Set<String> topology) throws IOException {

@@ -206,7 +206,7 @@ public final class Util {
      * @param request - request from which to get the body.
      * @return - the byte buffer.
      */
-    public static ByteBuffer getByteBufferValue(Request request) {
+    public static ByteBuffer getByteBufferValue(final Request request) {
         byte[] body = request.getBody();
         body = Util.addTimestamp(body);
         return Mapper.fromBytes(body);
@@ -219,7 +219,7 @@ public final class Util {
      * @return - key byte buffer.
      */
     @NotNull
-    public static ByteBuffer getKey(String idParam) {
+    public static ByteBuffer getKey(final String idParam) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         return Mapper.fromBytes(idArray);
     }

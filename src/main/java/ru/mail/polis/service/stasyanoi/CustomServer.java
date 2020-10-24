@@ -23,7 +23,6 @@ import static ru.mail.polis.service.stasyanoi.Util.getKey;
 
 public class CustomServer extends FrameServer {
 
-
     /**
      * Create custom server.
      *
