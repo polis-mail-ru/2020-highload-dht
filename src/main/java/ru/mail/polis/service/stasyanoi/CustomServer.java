@@ -1,6 +1,5 @@
 package ru.mail.polis.service.stasyanoi;
 
-import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -9,7 +8,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.javatuples.Pair;
-import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 
@@ -20,19 +18,12 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static ru.mail.polis.service.stasyanoi.Util.getByteBufferValue;
 import static ru.mail.polis.service.stasyanoi.Util.getKey;
 
-public class CustomServer extends HttpServer {
-    private final Map<Integer, String> nodeMapping;
-    private final int nodeCount;
-    private int nodeNum;
-    private final DAO dao;
-    private final ExecutorService executorService =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+public class CustomServer extends FrameServer {
+
 
     /**
      * Create custom server.
@@ -45,18 +36,7 @@ public class CustomServer extends HttpServer {
     public CustomServer(final DAO dao,
                         final HttpServerConfig config,
                         final Set<String> topology) throws IOException {
-        super(config);
-        this.nodeCount = topology.size();
-        final ArrayList<String> urls = new ArrayList<>(topology);
-        final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
-        for (int i = 0; i < urls.size(); i++) {
-            nodeMappingTemp.put(i, urls.get(i));
-            if (urls.get(i).contains(String.valueOf(super.port))) {
-                nodeNum = i;
-            }
-        }
-        this.nodeMapping = nodeMappingTemp;
-        this.dao = dao;
+        super(dao, config, topology);
     }
 
     /**
@@ -327,19 +307,6 @@ public class CustomServer extends HttpServer {
     }
 
     /**
-     * Default handler for unmapped requests.
-     *
-     * @param request - unmapped request
-     * @param session - session object
-     * @throws IOException - if input|output exceptions occur within the method
-     */
-    @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = Util.getResponseWithNoBody(Response.BAD_REQUEST);
-        session.sendResponse(response);
-    }
-
-    /**
      * Status check.
      *
      * @return Response with status.
@@ -348,22 +315,5 @@ public class CustomServer extends HttpServer {
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
         return Util.getResponseWithNoBody(Response.OK);
-    }
-
-    @Override
-    public synchronized void start() {
-        super.start();
-        dao.open();
-    }
-
-    @Override
-    public synchronized void stop() {
-        super.stop();
-        try {
-            dao.close();
-            executorService.shutdown();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
