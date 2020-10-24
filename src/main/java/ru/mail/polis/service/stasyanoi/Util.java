@@ -56,8 +56,6 @@ public class Util {
     public static Response routeRequest(final Request request, final int node, Map<Integer, String> nodeMapping, int nodeNum)
             throws IOException {
 
-        logger.info(nodeMapping.get(nodeNum) + " SEND TO " + nodeMapping.get(node));
-        logger.info(nodeMapping.get(nodeNum) + " REQUEST " +request);
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         final HttpClient httpClient = new HttpClient(connectionString);
         try {
