@@ -11,6 +11,10 @@ import java.io.IOException;
 
 public class Util {
 
+    private Util() {
+
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(Util.class);
 
     @NotNull

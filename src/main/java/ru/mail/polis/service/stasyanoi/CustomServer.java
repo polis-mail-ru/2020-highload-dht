@@ -1,6 +1,5 @@
 package ru.mail.polis.service.stasyanoi;
 
-import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
@@ -45,7 +44,7 @@ public class CustomServer extends HttpServer {
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
-    final private ExecutorService executorService =
+    private final ExecutorService executorService =
             Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     /**
@@ -181,7 +180,7 @@ public class CustomServer extends HttpServer {
         runPut(idParam, request, session);
     }
 
-    private void runPut(String idParam, Request request, HttpSession session) {
+    private void runPut(final String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 logger.info(nodeNum + " START PUT");
@@ -226,12 +225,11 @@ public class CustomServer extends HttpServer {
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = getResponseWithNoBody(Response.CREATED);
-            logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
         } else {
             logger.info(nodeNum + " PUT ROUTE");
             responseHttp = routeRequest(request, node);
-            logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
         }
+        logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
         return responseHttp;
     }
 
