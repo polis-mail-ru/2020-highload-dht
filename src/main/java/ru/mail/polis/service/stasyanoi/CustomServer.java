@@ -166,7 +166,8 @@ public class CustomServer extends HttpServer {
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            if (!goodResponses.isEmpty()) {
+            boolean hasGoodResponses = !goodResponses.isEmpty();
+            if (hasGoodResponses) {
                 final List<Pair<Long, Response>> resps = Stream.concat(emptyResponses.stream(), goodResponses.stream())
                         .filter(response -> response.getHeader("Time: ") != null)
                         .map(response -> new Pair<>(Long.parseLong(response.getHeader("Time: ")), response))
