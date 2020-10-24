@@ -21,8 +21,9 @@ public class DAOImpl implements DAO {
         RocksDB.loadLibrary();
     }
 
-    private final RocksDB storageInstance;
+    private RocksDB storageInstance;
     private IteratorImpl recordIterator;
+    private String path;
 
     /**
      * Creates a dao implementation based on the given dir.
@@ -34,7 +35,8 @@ public class DAOImpl implements DAO {
         final ComparatorOptions comparatorOptions = new ComparatorOptions();
         options = options.setComparator(new ComparatorImpl(comparatorOptions));
         try {
-            storageInstance = RocksDB.open(options, data.getAbsolutePath());
+            path = data.getAbsolutePath();
+            storageInstance = RocksDB.open(options, path);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
@@ -98,6 +100,20 @@ public class DAOImpl implements DAO {
             storageInstance.compactRange();
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void open() {
+        if (!storageInstance.isOwningHandle()) {
+            Options options = new Options().setCreateIfMissing(true);
+            final ComparatorOptions comparatorOptions = new ComparatorOptions();
+            options = options.setComparator(new ComparatorImpl(comparatorOptions));
+            try {
+                storageInstance = RocksDB.open(options, path);
+            } catch (RocksDBException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

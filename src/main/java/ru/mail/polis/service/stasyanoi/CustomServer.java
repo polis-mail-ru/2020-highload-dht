@@ -597,6 +597,7 @@ public class CustomServer extends HttpServer {
     @Override
     public synchronized void start() {
         super.start();
+        dao.open();
     }
 
     @Override

@@ -100,7 +100,9 @@ public interface DAO extends Closeable {
     /**
      * Perform compaction
      */
-    default void compact() throws IOException {
+    default void compact() {
         // Implement me when you get to stage 3
     }
+
+    void open();
 }
