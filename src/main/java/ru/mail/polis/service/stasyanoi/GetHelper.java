@@ -151,6 +151,16 @@ public final class GetHelper {
         }
     }
 
+    /**
+     * Get replica request for GET.
+     *
+     * @param request - request to replicate.
+     * @param tempNodeMapping - node mapping for replication
+     * @param responseHttpCurrent - this server get response.
+     * @param nodeMapping - nodes
+     * @param port - this server port.
+     * @return - the replica response.
+     */
     public static Response getReplicaGetResponse(final Request request,
                                            final Map<Integer, String> tempNodeMapping,
                                            final Response responseHttpCurrent,
