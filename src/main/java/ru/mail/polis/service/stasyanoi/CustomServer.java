@@ -34,6 +34,8 @@ import java.util.concurrent.Executors;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
+import static ru.mail.polis.service.stasyanoi.Util.getResponseWithNoBody;
+import static ru.mail.polis.service.stasyanoi.Util.sendErrorInternal;
 
 public class CustomServer extends HttpServer {
 
@@ -43,7 +45,8 @@ public class CustomServer extends HttpServer {
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
-    private ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    final private ExecutorService executorService =
+            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     /**
      * Create custom server.
@@ -73,6 +76,25 @@ public class CustomServer extends HttpServer {
         this.dao = dao;
     }
 
+    private int getNode(final byte[] idArray) {
+        final int hash = Math.abs(Arrays.hashCode(idArray));
+
+        return hash % nodeCount;
+    }
+
+    private Response routeRequest(final Request request, final int node) throws IOException {
+        logger.info(nodeNum + " SEND TO " + node);
+        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
+        final HttpClient httpClient = new HttpClient(connectionString);
+        try {
+            final Response invoke = httpClient.invoke(request);
+            httpClient.close();
+            return invoke;
+        } catch (InterruptedException | PoolException | HttpException e) {
+            return getResponseWithNoBody(Response.INTERNAL_ERROR);
+        }
+    }
+
     /**
      * Get a record by key.
      *
@@ -92,19 +114,6 @@ public class CustomServer extends HttpServer {
                 sendErrorInternal(session, e);
             }
         });
-    }
-
-    private Response routeRequest(final Request request, final int node) throws IOException {
-        logger.info(nodeNum + " SEND TO " + node);
-        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        final HttpClient httpClient = new HttpClient(connectionString);
-        try {
-            Response invoke = httpClient.invoke(request);
-            httpClient.close();
-            return invoke;
-        } catch (InterruptedException | PoolException | HttpException e) {
-            return getResponseWithNoBody(Response.INTERNAL_ERROR);
-        }
     }
 
     private void getInternal(final String idParam,
@@ -133,14 +142,14 @@ public class CustomServer extends HttpServer {
                               final int node,
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
-        if (node != nodeNum) {
-            logger.info(nodeNum + " GET ROUTE");
-            responseHttp = routeRequest(request, node);
-            logger.info(nodeNum + " GET RESPONSE " + responseHttp.getStatus());
-        } else {
+        if (node == nodeNum) {
             //replicate here
             logger.info(nodeNum + " GET HERE");
             responseHttp = getResponseIfIdNotNull(id);
+            logger.info(nodeNum + " GET RESPONSE " + responseHttp.getStatus());
+        } else {
+            logger.info(nodeNum + " GET ROUTE");
+            responseHttp = routeRequest(request, node);
             logger.info(nodeNum + " GET RESPONSE " + responseHttp.getStatus());
         }
         return responseHttp;
@@ -158,13 +167,6 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    @NotNull
-    private Response getResponseWithNoBody(final String requestType) {
-        final Response responseHttp = new Response(requestType);
-        responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return responseHttp;
-    }
-
     /**
      * Create or update a record.
      *
@@ -176,6 +178,10 @@ public class CustomServer extends HttpServer {
     public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
+        runPut(idParam, request, session);
+    }
+
+    private void runPut(String idParam, Request request, HttpSession session) {
         executorService.execute(() -> {
             try {
                 logger.info(nodeNum + " START PUT");
@@ -209,27 +215,21 @@ public class CustomServer extends HttpServer {
         return responseHttp;
     }
 
-    private int getNode(final byte[] idArray) {
-        final int hash = Math.abs(Arrays.hashCode(idArray));
-
-        return hash % nodeCount;
-    }
-
     private Response putProxy(final Request request,
                               final byte[] idArray,
                               final int node) throws IOException {
         final Response responseHttp;
-        if (node != nodeNum) {
-            logger.info(nodeNum + " PUT ROUTE");
-            responseHttp = routeRequest(request, node);
-            logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
-        } else {
+        if (node == nodeNum) {
             logger.info(nodeNum + " PUT HERE");
             //replicate here
             final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
             responseHttp = getResponseWithNoBody(Response.CREATED);
+            logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
+        } else {
+            logger.info(nodeNum + " PUT ROUTE");
+            responseHttp = routeRequest(request, node);
             logger.info(nodeNum + " PUT RESPONSE " + responseHttp.getStatus());
         }
         return responseHttp;
@@ -272,25 +272,15 @@ public class CustomServer extends HttpServer {
                                  final byte[] idArray,
                                  final int node) throws IOException {
         final Response responseHttp;
-        if (node != nodeNum) {
-            responseHttp = routeRequest(request, node);
-        } else {
+        if (node == nodeNum) {
             //replicate here
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
             responseHttp = getResponseWithNoBody(Response.ACCEPTED);
+        } else {
+            responseHttp = routeRequest(request, node);
         }
         return responseHttp;
-    }
-
-    private void sendErrorInternal(final HttpSession session,
-                                   final IOException e) {
-        try {
-            logger.error(e.getMessage(), e);
-            session.sendError("500", e.getMessage());
-        } catch (IOException exception) {
-            logger.error(e.getMessage(), e);
-        }
     }
 
     /**
