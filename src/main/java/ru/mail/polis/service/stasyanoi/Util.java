@@ -3,6 +3,7 @@ package ru.mail.polis.service.stasyanoi;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
+import com.google.common.primitives.Bytes;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
@@ -14,8 +15,11 @@ import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.LongBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -184,16 +188,14 @@ public final class Util {
      */
     public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
-        final Byte[] time = new Byte[timestamp.length];
-        for (int i = 0; i < time.length; i++) {
-            time[i] = timestamp[i];
-        }
-        final String nanoTime = Arrays.stream(time)
+        Integer[] integers = Bytes.asList(timestamp).stream()
+                .map(Byte::intValue)
+                .toArray(Integer[]::new);
+        final String nanoTime = Arrays.stream(integers)
                 .mapToInt(value -> value)
                 .mapToObj(value -> (char) value)
                 .map(String::valueOf)
                 .collect(Collectors.joining());
-
         response.addHeader(timestampHeader + nanoTime);
         return response;
     }
