@@ -26,7 +26,6 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static ru.mail.polis.service.stasyanoi.GetHelper.*;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
@@ -139,7 +138,7 @@ public class CustomServer extends HttpServer {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int node = Util.getNode(idArray, nodeCount);
         final ByteBuffer id = Mapper.fromBytes(idArray);
-        final Request noRepRequest = getNoRepRequest(request, super.port);
+        final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
         final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
         tempNodeMapping.remove(node);
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
@@ -147,7 +146,7 @@ public class CustomServer extends HttpServer {
                     Util.getAckFrom(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses =
-                    getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
+                    GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
             final Integer ack = ackFrom.getValue0();
             responseHttp = getEndResponseGet(responses, ack, nodeMapping);
         } else {
@@ -261,7 +260,7 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = getNoRepRequest(request, super.port);
+            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
             if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
@@ -269,7 +268,7 @@ public class CustomServer extends HttpServer {
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses =
-                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
+                        GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
             } else {
@@ -359,7 +358,7 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = getNoRepRequest(request, super.port);
+            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
             if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
@@ -367,7 +366,7 @@ public class CustomServer extends HttpServer {
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses =
-                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
+                        GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
             } else {
