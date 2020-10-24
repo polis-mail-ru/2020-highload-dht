@@ -37,17 +37,19 @@ public final class Util {
         return responseHttp;
     }
 
-    public static Pair<Integer, Integer> getAckFrom(Request request, List<String> replicationDefaults, Map<Integer, String> nodeMapping) {
-        int ack;
-        int from;
+    public static Pair<Integer, Integer> getAckFrom(final Request request,
+                                                    final List<String> replicationDefaults,
+                                                    final Map<Integer, String> nodeMapping) {
+        final int ack;
+        final int from;
         String replicas = request.getParameter("replicas");
         if (replicas == null) {
-            Optional<String[]> ackFrom = replicationDefaults.stream()
+            final Optional<String[]> ackFrom = replicationDefaults.stream()
                     .map(replic -> replic.split("/"))
                     .filter(strings -> Integer.parseInt(strings[1]) == nodeMapping.size())
                     .findFirst();
 
-            String[] ackFromReal = ackFrom.orElseGet(() -> new String[]{"-1", "-1"});
+            final String[] ackFromReal = ackFrom.orElseGet(() -> new String[]{"4", String.valueOf(nodeMapping.size())});
             ack = Integer.parseInt(ackFromReal[0]);
             from = Integer.parseInt(ackFromReal[1]);
         } else {
@@ -65,7 +67,7 @@ public final class Util {
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         final HttpClient httpClient = new HttpClient(connectionString);
         try {
-            Response invoke = httpClient.invoke(request);
+            final Response invoke = httpClient.invoke(request);
             httpClient.close();
             return invoke;
         } catch (InterruptedException | PoolException | HttpException e) {
@@ -73,7 +75,7 @@ public final class Util {
         }
     }
 
-    public static int getNode(final byte[] idArray, int nodeCount) {
+    public static int getNode(final byte[] idArray, final int nodeCount) {
         final int hash = Math.abs(Arrays.hashCode(idArray));
 
         return hash % nodeCount;
@@ -89,9 +91,9 @@ public final class Util {
         }
     }
 
-    public static byte[] addTimestamp(byte[] body) {
-        byte[] timestamp = getTimestampInternal();
-        byte[] newBody = new byte[body.length + timestamp.length];
+    public static byte[] addTimestamp(final byte[] body) {
+        final byte[] timestamp = getTimestampInternal();
+        final byte[] newBody = new byte[body.length + timestamp.length];
         System.arraycopy(body, 0, newBody, 0, body.length);
         System.arraycopy(timestamp, 0, newBody, body.length, timestamp.length);
         return newBody;
@@ -120,11 +122,12 @@ public final class Util {
 
     public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
-        int[] time = new int[timestamp.length];
+        final Byte[] time = new Byte[timestamp.length];
         for (int i = 0; i < time.length; i++) {
             time[i] = timestamp[i];
         }
         final String nanoTime = Arrays.stream(time)
+                .mapToInt(value -> value)
                 .mapToObj(value -> (char) value)
                 .map(String::valueOf)
                 .collect(Collectors.joining());
