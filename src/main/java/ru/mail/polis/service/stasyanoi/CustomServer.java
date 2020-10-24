@@ -249,10 +249,10 @@ public class CustomServer extends HttpServer {
                               final int node,
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
-        if (node != nodeNum) {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
-        } else {
+        if (node == nodeNum) {
             responseHttp = getResponseIfIdNotNull(id);
+        } else {
+            responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
@@ -397,15 +397,15 @@ public class CustomServer extends HttpServer {
                               final byte[] idArray,
                               final int node) throws IOException {
         final Response responseHttp;
-        if (node != nodeNum) {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
-        } else {
+        if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             byte[] body = request.getBody();
             body = Util.addTimestamp(body);
             final ByteBuffer value = Mapper.fromBytes(body);
             dao.upsert(key, value);
             responseHttp = Util.getResponseWithNoBody(Response.CREATED);
+        } else {
+            responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
@@ -494,12 +494,12 @@ public class CustomServer extends HttpServer {
                                  final byte[] idArray,
                                  final int node) throws IOException {
         final Response responseHttp;
-        if (node != nodeNum) {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
-        } else {
+        if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
             responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
+        } else {
+            responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
