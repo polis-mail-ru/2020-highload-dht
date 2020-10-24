@@ -30,6 +30,12 @@ public final class Util {
 
     }
 
+    /**
+     * Get response with no Body.
+     *
+     * @param requestType - type
+     * @return - the built request.
+     */
     @NotNull
     public static Response getResponseWithNoBody(final String requestType) {
         final Response responseHttp = new Response(requestType);
@@ -37,6 +43,14 @@ public final class Util {
         return responseHttp;
     }
 
+    /**
+     * Get RF.
+     *
+     * @param request - request to replicate.
+     * @param replicationDefaults - default RFs.
+     * @param nodeMapping - node list.
+     * @return - pair of ack and from.
+     */
     public static Pair<Integer, Integer> getAckFrom(final Request request,
                                                     final List<String> replicationDefaults,
                                                     final Map<Integer, String> nodeMapping) {
@@ -61,6 +75,15 @@ public final class Util {
         return new Pair<>(ack, from);
     }
 
+    /**
+     * Hash route request.
+     *
+     * @param request - request to route.
+     * @param node - node to route the request to.
+     * @param nodeMapping - node list.
+     * @return - returned response.
+     * @throws IOException - for errors with the net.
+     */
     public static Response routeRequest(final Request request,
                                         final int node,
                                         final Map<Integer, String> nodeMapping)
@@ -77,12 +100,25 @@ public final class Util {
         }
     }
 
+    /**
+     * Get node with hash.
+     *
+     * @param idArray - key.
+     * @param nodeCount - amount of nodes.
+     * @return - the node number.
+     */
     public static int getNode(final byte[] idArray, final int nodeCount) {
         final int hash = Math.abs(Arrays.hashCode(idArray));
 
         return hash % nodeCount;
     }
 
+    /**
+     * Send the 500 status error.
+     *
+     * @param session - session to use.
+     * @param e - the error that casued the 500 error.
+     */
     public static void sendErrorInternal(final HttpSession session,
                                    final IOException e) {
         try {
@@ -93,6 +129,12 @@ public final class Util {
         }
     }
 
+    /**
+     * Add timestamp to body.
+     *
+     * @param body - body value.
+     * @return - body with timestamp.
+     */
     public static byte[] addTimestamp(final byte[] body) {
         final byte[] timestamp = getTimestampInternal();
         final byte[] newBody = new byte[body.length + timestamp.length];
@@ -101,6 +143,11 @@ public final class Util {
         return newBody;
     }
 
+    /**
+     * Get current timestamp.
+     *
+     * @return - the timestamp.
+     */
     @NotNull
     public static byte[] getTimestampInternal() {
         final String nanos = String.valueOf(getNanosSync());
@@ -112,6 +159,12 @@ public final class Util {
         return timestamp;
     }
 
+    /**
+     * Separate out the timestamp from body.
+     *
+     * @param body - body with timestamp.
+     * @return - pair of timestamp and pure body.
+     */
     public static Pair<byte[], byte[]> getTimestamp(final byte[] body) {
         final int length = String.valueOf(getNanosSync()).length();
         final byte[] timestamp = new byte[length];
@@ -122,6 +175,13 @@ public final class Util {
         return new Pair<>(newBody, timestamp);
     }
 
+    /**
+     * Add timestamp to header.
+     *
+     * @param timestamp - timestamp to add.
+     * @param response - the response to which to add the timestamp.
+     * @return - the modified response.
+     */
     public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
         final Byte[] time = new Byte[timestamp.length];

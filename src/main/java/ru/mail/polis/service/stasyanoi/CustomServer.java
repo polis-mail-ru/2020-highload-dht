@@ -479,7 +479,8 @@ public class CustomServer extends HttpServer {
                 final Pair<Integer, Integer> ackFrom =
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
-                final List<Response> responses = getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
+                final List<Response> responses =
+                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 202);
             } else {
