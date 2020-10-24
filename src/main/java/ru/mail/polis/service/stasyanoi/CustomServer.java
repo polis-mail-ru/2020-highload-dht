@@ -30,16 +30,8 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static one.nio.http.Request.METHOD_DELETE;
-import static one.nio.http.Request.METHOD_GET;
-import static one.nio.http.Request.METHOD_PUT;
-import static ru.mail.polis.service.stasyanoi.Util.getResponseWithNoBody;
-import static ru.mail.polis.service.stasyanoi.Util.sendErrorInternal;
-
 public class CustomServer extends HttpServer {
-
     private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
-
     private final Map<Integer, String> nodeMapping;
     private final int nodeCount;
     private int nodeNum;
@@ -90,7 +82,7 @@ public class CustomServer extends HttpServer {
             httpClient.close();
             return invoke;
         } catch (InterruptedException | PoolException | HttpException e) {
-            return getResponseWithNoBody(Response.INTERNAL_ERROR);
+            return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
 
@@ -100,7 +92,7 @@ public class CustomServer extends HttpServer {
      * @param idParam - key.
      */
     @Path("/v0/entity")
-    @RequestMethod(METHOD_GET)
+    @RequestMethod(Request.METHOD_GET)
     public void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
@@ -110,7 +102,7 @@ public class CustomServer extends HttpServer {
                 getInternal(idParam, session, request);
                 logger.info(nodeNum + " END GET");
             } catch (IOException e) {
-                sendErrorInternal(session, e);
+                Util.sendErrorInternal(session, e);
             }
         });
     }
@@ -120,7 +112,7 @@ public class CustomServer extends HttpServer {
                              final Request request) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
             logger.info(nodeNum + " GET BAD REQUEST");
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
@@ -158,7 +150,7 @@ public class CustomServer extends HttpServer {
             return Response.ok(bytes);
         } catch (NoSuchElementException e) {
             //if not found then 404
-            return getResponseWithNoBody(Response.NOT_FOUND);
+            return Util.getResponseWithNoBody(Response.NOT_FOUND);
         }
     }
 
@@ -169,7 +161,7 @@ public class CustomServer extends HttpServer {
      * @param request - request with the body.
      */
     @Path("/v0/entity")
-    @RequestMethod(METHOD_PUT)
+    @RequestMethod(Request.METHOD_PUT)
     public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
@@ -183,7 +175,7 @@ public class CustomServer extends HttpServer {
                 putInternal(idParam, request, session);
                 logger.info(nodeNum + " END PUT");
             } catch (IOException e) {
-                sendErrorInternal(session, e);
+                Util.sendErrorInternal(session, e);
             }
         });
     }
@@ -193,7 +185,7 @@ public class CustomServer extends HttpServer {
                              final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
          } else {
             logger.info(nodeNum + " PUT PROXY");
             responseHttp = getPutResponse(idParam, request);
@@ -218,7 +210,7 @@ public class CustomServer extends HttpServer {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = Mapper.fromBytes(request.getBody());
             dao.upsert(key, value);
-            responseHttp = getResponseWithNoBody(Response.CREATED);
+            responseHttp = Util.getResponseWithNoBody(Response.CREATED);
         } else {
             logger.info(nodeNum + " PUT ROUTE");
             responseHttp = routeRequest(request, node);
@@ -233,7 +225,7 @@ public class CustomServer extends HttpServer {
      * @param idParam - key of the record to delete.
      */
     @Path("/v0/entity")
-    @RequestMethod(METHOD_DELETE)
+    @RequestMethod(Request.METHOD_DELETE)
     public void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
@@ -241,7 +233,7 @@ public class CustomServer extends HttpServer {
             try {
                 deleteInternal(idParam, request, session);
             } catch (IOException e) {
-                sendErrorInternal(session, e);
+                Util.sendErrorInternal(session, e);
             }
         });
     }
@@ -251,7 +243,7 @@ public class CustomServer extends HttpServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = getNode(idArray);
@@ -267,7 +259,7 @@ public class CustomServer extends HttpServer {
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
-            responseHttp = getResponseWithNoBody(Response.ACCEPTED);
+            responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
         } else {
             responseHttp = routeRequest(request, node);
         }
@@ -283,7 +275,7 @@ public class CustomServer extends HttpServer {
      */
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = getResponseWithNoBody(Response.BAD_REQUEST);
+        final Response response = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
 
@@ -293,9 +285,9 @@ public class CustomServer extends HttpServer {
      * @return Response with status.
      */
     @Path("/v0/status")
-    @RequestMethod(METHOD_GET)
+    @RequestMethod(Request.METHOD_GET)
     public Response status() {
-        return getResponseWithNoBody(Response.OK);
+        return Util.getResponseWithNoBody(Response.OK);
     }
 
     @Override

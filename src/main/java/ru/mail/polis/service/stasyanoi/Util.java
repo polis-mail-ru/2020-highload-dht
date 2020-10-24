@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-final public class Util {
+public final class Util {
 
     private static final Logger logger = LoggerFactory.getLogger(Util.class);
 
