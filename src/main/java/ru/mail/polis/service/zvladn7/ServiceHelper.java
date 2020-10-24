@@ -53,7 +53,7 @@ class ServiceHelper {
     void handleGet(
             @NotNull final String id,
             @NotNull final HttpSession session,
-            @NotNull final Request request) throws IOException {
+            @NotNull final Request request, String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
         handleOrProxy(key, id, request, session, () -> {
             log.debug("Not from cache with id: {}", id);
@@ -77,7 +77,7 @@ class ServiceHelper {
     void handleDelete(
             @NotNull final String id,
             @NotNull final HttpSession session,
-            @NotNull final Request request) throws IOException {
+            @NotNull final Request request, String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
         handleOrProxy(key, id, request, session, () -> {
             try {
@@ -93,7 +93,7 @@ class ServiceHelper {
     void handleUpsert(
             @NotNull final String id,
             @NotNull final Request request,
-            @NotNull final HttpSession session) throws IOException {
+            @NotNull final HttpSession session, String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
         handleOrProxy(key, id, request, session, () -> {
             final ByteBuffer value = wrapArray(request.getBody());
@@ -131,6 +131,10 @@ class ServiceHelper {
             return;
         }
         final String nodeForResponse = topology.nodeFor(key);
+        log.info("----------------");
+        for (String s : topology.nodesForKey(key, 2)) {
+            log.info("handleOrProxy: {}", s);
+        }
         if (topology.isLocal(nodeForResponse)) {
             processor.process();
         } else {

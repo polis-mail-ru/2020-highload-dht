@@ -5,15 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 
 public class ServiceTopology implements Topology<String> {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
     private static final int VIRTUAL_NODES_PER_NODE = 10;
-    private static final int HASH_STEP_VALUE = 2121;
+    private static final int HASH_STEP_VALUE = 77;
     private static final int OFFSET_FOR_NODE_HASH_VALUE = 10;
 
     @NotNull
@@ -37,6 +35,7 @@ public class ServiceTopology implements Topology<String> {
             attachToRing(node, hashHelpValue);
             hashHelpValue += HASH_STEP_VALUE;
         }
+        hashRing.forEach((k, v) -> log.info("Key: {}, Value: {}", k, v));
     }
 
     @NotNull
@@ -48,6 +47,31 @@ public class ServiceTopology implements Topology<String> {
             hash = tailMap.isEmpty() ? hashRing.firstKey() : tailMap.firstKey();
         }
         return hashRing.get(hash);
+    }
+
+    @NotNull
+    @Override
+    public Set<String> nodesForKey(@NotNull final ByteBuffer key, final int from) {
+        final int hash = key.hashCode();
+        final SortedMap<Integer, String> tailMap = hashRing.tailMap(hash);
+        final Set<String> nodesForReplication = new HashSet<>();
+        addReplicasForKey(nodesForReplication, tailMap, from);
+        if (nodesForReplication.size() < from) {
+            addReplicasForKey(nodesForReplication, hashRing, from);
+        }
+
+        return nodesForReplication;
+    }
+
+    private void addReplicasForKey(final Set<String> nodesForReplication,
+                                   final SortedMap<Integer, String> map,
+                                   final int from) {
+        for (Map.Entry<Integer, String> e : map.entrySet()) {
+            if (nodesForReplication.size() == from) {
+                break;
+            }
+            nodesForReplication.add(e.getValue());
+        }
     }
 
     @Override
