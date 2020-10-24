@@ -12,12 +12,16 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.zvladn7.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 class ServiceHelper {
 
@@ -53,25 +57,65 @@ class ServiceHelper {
     void handleGet(
             @NotNull final String id,
             @NotNull final HttpSession session,
-            @NotNull final Request request, String replicas) throws IOException {
+            @NotNull final Request request,
+            final String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
-        handleOrProxy(key, id, request, session, () -> {
+
+        log.debug("{} request with mapping: /v0/entity with: key={}", request.getMethodName(), id);
+        if (id.isEmpty()) {
+            sendEmptyIdResponse(session, request.getMethodName());
+            return;
+        }
+        final ReplicasHolder replicasHolder;
+        if (replicas == null) {
+            replicasHolder = new ReplicasHolder(topology.size());
+        } else {
+            replicasHolder = new ReplicasHolder(replicas);
+        }
+        final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
+        log.info("id: {}", request.getParameter("id="));
+        log.info("replicas: {}", request.getParameter("replicas="));
+        Response localResponse = null;
+        if (topology.isLocal(nodesForResponse)) {
+            nodesForResponse.remove(topology.local());
+//            processor.process();
             log.debug("Not from cache with id: {}", id);
-            final ByteBuffer value;
+            final Value value;
             try {
-                value = dao.get(key);
+                value = dao.getValue(key);
             } catch (NoSuchElementException e) {
                 log.info("Value with key: {} was not found", id, e);
                 session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 return;
-            } catch (IOException e) {
-                sendInternalErrorResponse(session, id, e);
-                return;
             }
-            final byte[] body = toBytes(value);
+            final byte[] body = toBytes(value.getData());
 
-            session.sendResponse(Response.ok(body));
-        });
+            localResponse = Response.ok(body);
+        }
+        List<Response> responses = proxy(nodesForResponse, request);
+        if (localResponse != null) {
+            responses.add(localResponse);
+        }
+        ConflictResolver.resolveGetAndSend(responses, replicasHolder, session);
+
+
+//        handleOrProxy(key, id, request, session, () -> {
+//            log.debug("Not from cache with id: {}", id);
+//            final ByteBuffer value;
+//            try {
+//                value = dao.get(key);
+//            } catch (NoSuchElementException e) {
+//                log.info("Value with key: {} was not found", id, e);
+//                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+//                return;
+//            } catch (IOException e) {
+//                sendInternalErrorResponse(session, id, e);
+//                return;
+//            }
+//            final byte[] body = toBytes(value);
+//
+//            session.sendResponse(Response.ok(body));
+//        });
     }
 
     void handleDelete(
@@ -107,17 +151,20 @@ class ServiceHelper {
         });
     }
 
-    void proxy(@NotNull final String nodeForResponse,
-               @NotNull final Request request,
-               @NotNull final HttpSession session) throws IOException {
-        log.debug("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodeForResponse);
-        try {
-            request.addHeader("X-Proxy-For: " + nodeForResponse);
-            session.sendResponse(clients.get(nodeForResponse).invoke(request));
-        } catch (IOException | InterruptedException | HttpException | PoolException e) {
-            log.error("Cannot proxy request!", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
+    private List<Response> proxy(@NotNull final Set<String> nodesForResponse,
+                                 @NotNull final Request request) {
+        log.debug("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodesForResponse);
+        final List<Response> responses = new ArrayList<>();
+        nodesForResponse.forEach(node -> {
+            try {
+                request.addHeader("X-Proxy-For: " + nodesForResponse);
+                responses.add(clients.get(node).invoke(request));
+            } catch (IOException | InterruptedException | HttpException | PoolException e) {
+                log.error("Cannot proxy request!", e);
+                responses.add(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        });
+        return responses;
     }
 
     private void handleOrProxy(final ByteBuffer key,
@@ -135,10 +182,12 @@ class ServiceHelper {
         for (String s : topology.nodesForKey(key, 2)) {
             log.info("handleOrProxy: {}", s);
         }
+        log.info("id: {}", request.getParameter("id="));
+        log.info("replicas: {}", request.getParameter("replicas="));
         if (topology.isLocal(nodeForResponse)) {
             processor.process();
         } else {
-            proxy(nodeForResponse, request, session);
+            proxy(nodeForResponse, request);
         }
     }
 

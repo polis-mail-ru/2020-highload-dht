@@ -80,6 +80,11 @@ public class ServiceTopology implements Topology<String> {
     }
 
     @Override
+    public boolean isLocal(@NotNull final Set<String> nodes) {
+        return nodes.contains(local);
+    }
+
+    @Override
     public int size() {
         return hashRing.size();
     }

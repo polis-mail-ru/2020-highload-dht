@@ -28,7 +28,7 @@ public class Value implements Comparable<Value> {
     }
 
     @NotNull
-    ByteBuffer getData() {
+    public ByteBuffer getData() {
         if (data == null) {
             throw new NoSuchElementException("Value has been removed!");
         }
@@ -36,7 +36,7 @@ public class Value implements Comparable<Value> {
     }
 
     @NotNull
-    long getTimestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 

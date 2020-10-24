@@ -19,6 +19,8 @@ public interface Topology<N> {
 
     boolean isLocal(@NotNull String node);
 
+    boolean isLocal(@NotNull Set<String> nodes);
+
     int size();
 
     N[] nodes();

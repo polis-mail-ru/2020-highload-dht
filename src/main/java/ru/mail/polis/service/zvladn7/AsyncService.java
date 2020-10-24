@@ -128,9 +128,11 @@ public class AsyncService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_PUT)
     public void upsert(
             @Param(value = "id", required = true) final String id,
+            @Param(value = "replicas") final String replicas,
             final Request request,
             final HttpSession session) {
-        processRequest(() -> helper.handleUpsert(id, request, session, ""), session);
+        System.out.println(replicas);
+        processRequest(() -> helper.handleUpsert(id, request, session, replicas), session);
     }
 
     @Override
