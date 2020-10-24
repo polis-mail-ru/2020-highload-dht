@@ -227,7 +227,7 @@ public class CustomServer extends HttpServer {
             final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
                     new Pair<>(tempNodeMapping, nodeMapping);
             responseHttp = getPutReplicaResponse(request, mappings,
-                    responseHttpCurrent,  super.port);
+                    responseHttpCurrent, super.port);
         }
         session.sendResponse(responseHttp);
     }

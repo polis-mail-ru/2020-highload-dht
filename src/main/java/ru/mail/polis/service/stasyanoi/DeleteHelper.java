@@ -3,6 +3,7 @@ package ru.mail.polis.service.stasyanoi;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.javatuples.Pair;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
@@ -18,9 +19,18 @@ public final class DeleteHelper {
 
 
     private DeleteHelper() {
-
     }
 
+    /**
+     * Get response for delete replication.
+     *
+     * @param request - request to replicate.
+     * @param tempNodeMapping - nodes that can get replicas.
+     * @param responseHttpCurrent - this server response.
+     * @param nodeMapping - nodes
+     * @param port - this server port.
+     * @return - response for delete replicating.
+     */
     public static Response getDeleteReplicaResponse(final Request request,
                                               final Map<Integer, String> tempNodeMapping,
                                               final Response responseHttpCurrent,
@@ -28,8 +38,7 @@ public final class DeleteHelper {
                                               final int port) {
         final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-            final Pair<Integer, Integer> ackFrom =
-                    Util.getAckFrom(request, replicationDefaults, nodeMapping);
+            final Pair<Integer, Integer> ackFrom = getRF(request, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses =
                     GetHelper.getResponsesInternal(responseHttpCurrent,
@@ -40,5 +49,10 @@ public final class DeleteHelper {
             responseHttp = responseHttpCurrent;
         }
         return responseHttp;
+    }
+
+    @NotNull
+    private static Pair<Integer, Integer> getRF(Request request, Map<Integer, String> nodeMapping) {
+        return Util.getAckFrom(request, replicationDefaults, nodeMapping);
     }
 }
