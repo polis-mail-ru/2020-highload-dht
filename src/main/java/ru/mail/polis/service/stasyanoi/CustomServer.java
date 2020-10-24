@@ -1,7 +1,5 @@
 package ru.mail.polis.service.stasyanoi;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,8 +8,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
@@ -29,7 +25,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 import static ru.mail.polis.service.stasyanoi.GetHelper.*;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
