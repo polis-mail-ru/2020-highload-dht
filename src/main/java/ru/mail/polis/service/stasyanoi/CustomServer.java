@@ -23,6 +23,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static ru.mail.polis.service.stasyanoi.Util.getByteBufferValue;
 import static ru.mail.polis.service.stasyanoi.Util.getKey;
 
 public class CustomServer extends HttpServer {
@@ -131,7 +132,8 @@ public class CustomServer extends HttpServer {
         final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
         final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
         tempNodeMapping.remove(node);
-        responseHttp = GetHelper.getReplicaGetResponse(request, tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
+        responseHttp = GetHelper.getReplicaGetResponse(request,
+                tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         return responseHttp;
     }
 
@@ -196,9 +198,7 @@ public class CustomServer extends HttpServer {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             final ByteBuffer key = getKey(idParam);
-            byte[] body = request.getBody();
-            body = Util.addTimestamp(body);
-            final ByteBuffer value = Mapper.fromBytes(body);
+            final ByteBuffer value = getByteBufferValue(request);
             dao.upsert(key, value);
             responseHttp = Util.getResponseWithNoBody(Response.CREATED);
         }
@@ -233,9 +233,7 @@ public class CustomServer extends HttpServer {
         final Response responseHttp;
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
-            byte[] body = request.getBody();
-            body = Util.addTimestamp(body);
-            final ByteBuffer value = Mapper.fromBytes(body);
+            final ByteBuffer value = getByteBufferValue(request);
             dao.upsert(key, value);
             responseHttp = Util.getResponseWithNoBody(Response.CREATED);
         } else {

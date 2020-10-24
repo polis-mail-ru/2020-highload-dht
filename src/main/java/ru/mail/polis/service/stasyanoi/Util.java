@@ -201,6 +201,18 @@ public final class Util {
     }
 
     /**
+     * Get byte buffer body.
+     *
+     * @param request - request from which to get the body.
+     * @return - the byte buffer.
+     */
+    public static ByteBuffer getByteBufferValue(Request request) {
+        byte[] body = request.getBody();
+        body = Util.addTimestamp(body);
+        return Mapper.fromBytes(body);
+    }
+
+    /**
      * Get key from param.
      *
      * @param idParam - key param.
