@@ -14,8 +14,6 @@ import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 
@@ -33,6 +31,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
@@ -158,7 +157,14 @@ public class CustomServer extends HttpServer {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
             if (goodResponses.size() > 0) {
-                responseHttp = Response.ok(goodResponses.get(0).getBody());
+                List<Pair<Long, Response>> resps = Stream.concat(emptyResponses.stream(), goodResponses.stream())
+                        .filter(response -> response.getHeader("Time: ") != null)
+                        .map(response -> new Pair<>(Long.parseLong(response.getHeader("Time: ")), response))
+                        .collect(Collectors.toList());
+                Map<Long, Response> map = new TreeMap<>();
+                resps.forEach(pair -> map.put(pair.getValue0(), pair.getValue1()));
+                ArrayList<Map.Entry<Long, Response>> entries = new ArrayList<>(map.entrySet());
+                responseHttp = entries.get(entries.size() - 1).getValue();
             } else if (emptyResponses.size() >= ack) {
                 responseHttp = Util.getResponseWithNoBody(Response.NOT_FOUND);
             } else {
@@ -243,10 +249,22 @@ public class CustomServer extends HttpServer {
     private Response getResponseIfIdNotNull(final ByteBuffer id) throws IOException {
         try {
             final ByteBuffer body = dao.get(id);
-            final byte[] bytes = Mapper.toBytes(body);
-            return Response.ok(bytes);
+            byte[] bytes = Mapper.toBytes(body);
+            Pair<byte[], byte[]> bodyTimestamp = Util.getTimestamp(bytes);
+            byte[] newBody = bodyTimestamp.getValue0();
+            byte[] time = bodyTimestamp.getValue1();
+            Response ok = Response.ok(newBody);
+            Util.addTimestampHeader(time, ok);
+            return ok;
         } catch (NoSuchElementException e) {
-            return Util.getResponseWithNoBody(Response.NOT_FOUND);
+            byte[] deleteTime = dao.getDeleteTime(id);
+            if (deleteTime.length == 0) {
+                return Util.getResponseWithNoBody(Response.NOT_FOUND);
+            } else {
+                Response deletedResponse = Util.getResponseWithNoBody(Response.NOT_FOUND);
+                Util.addTimestampHeader(deleteTime, deletedResponse);
+                return deletedResponse;
+            }
         }
     }
 
@@ -291,7 +309,9 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final ByteBuffer key = Mapper.fromBytes(idArray);
-            final ByteBuffer value = Mapper.fromBytes(request.getBody());
+            byte[] body = request.getBody();
+            body = Util.addTimestamp(body);
+            final ByteBuffer value = Mapper.fromBytes(body);
             dao.upsert(key, value);
             responseHttp = Util.getResponseWithNoBody(Response.CREATED);
         }
@@ -356,10 +376,11 @@ public class CustomServer extends HttpServer {
             responseHttp = Util.routeRequest(request, node, nodeMapping, nodeNum);
         } else {
             final ByteBuffer key = Mapper.fromBytes(idArray);
-            final ByteBuffer value = Mapper.fromBytes(request.getBody());
+            byte[] body = request.getBody();
+            body = Util.addTimestamp(body);
+            final ByteBuffer value = Mapper.fromBytes(body);
             dao.upsert(key, value);
             responseHttp = Util.getResponseWithNoBody(Response.CREATED);
-
         }
         return responseHttp;
     }

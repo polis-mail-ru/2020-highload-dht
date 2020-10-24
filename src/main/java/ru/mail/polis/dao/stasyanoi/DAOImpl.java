@@ -9,11 +9,13 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
+import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DAOImpl implements DAO {
 
@@ -23,7 +25,9 @@ public class DAOImpl implements DAO {
 
     private RocksDB storageInstance;
     private IteratorImpl recordIterator;
-    private String path;
+    private final String path;
+
+    private final ConcurrentHashMap<ByteBuffer, byte[]> deleteLog = new ConcurrentHashMap<>();
 
     /**
      * Creates a dao implementation based on the given dir.
@@ -83,7 +87,9 @@ public class DAOImpl implements DAO {
     @Override
     public void remove(final @NotNull ByteBuffer key) {
         try {
-            storageInstance.delete(Mapper.toBytes(key));
+            byte[] keyDelete = Mapper.toBytes(key);
+            deleteLog.put(key, Util.getTimestampInternal());
+            storageInstance.delete(keyDelete);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
@@ -114,6 +120,17 @@ public class DAOImpl implements DAO {
             } catch (RocksDBException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    @Override
+    public byte[] getDeleteTime(ByteBuffer id) {
+        byte[] timeForIdDeletion = deleteLog.get(id);
+        if (timeForIdDeletion == null) {
+            return new byte[0];
+        } else {
+            deleteLog.remove(id);
+            return timeForIdDeletion;
         }
     }
 }

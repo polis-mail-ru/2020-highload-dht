@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class Util {
 
@@ -82,5 +83,55 @@ public class Util {
             logger.error(e.getMessage(), e);
         }
     }
+
+    public static byte[] addTimestamp(byte[] body) {
+        byte[] timestamp = getTimestampInternal();
+        byte[] newBody = new byte[body.length + timestamp.length];
+        System.arraycopy(body, 0, newBody, 0, body.length);
+        System.arraycopy(timestamp, 0, newBody, body.length, timestamp.length);
+        return newBody;
+    }
+
+    @NotNull
+    public static byte[] getTimestampInternal() {
+        String nanos = String.valueOf(getNanosSync());
+        int[] ints = nanos.chars().toArray();
+        byte[] timestamp = new byte[ints.length];
+        for (int i = 0; i < ints.length; i++) {
+            timestamp[i] = (byte) ints[i];
+        }
+        return timestamp;
+    }
+
+    public static Pair<byte[], byte[]> getTimestamp(byte[] body) {
+        int length = String.valueOf(getNanosSync()).length();
+        byte[] timestamp = new byte[length];
+        int realBodyLength = body.length - length;
+        System.arraycopy(body, realBodyLength, timestamp, 0, timestamp.length);
+        byte[] newBody = new byte[realBodyLength];
+        System.arraycopy(body, 0, newBody, 0, newBody.length);
+        return new Pair<>(newBody, timestamp);
+    }
+
+    public static Response addTimestampHeader(byte[] timestamp, Response response) {
+        String timestampHeader = "Time: ";
+        int[] time = new int[timestamp.length];
+        for (int i = 0; i < time.length; i++) {
+            time[i] = timestamp[i];
+        }
+        String collect = Arrays.stream(time)
+                .mapToObj(value -> (char) value)
+                .map(String::valueOf)
+                .collect(Collectors.joining());
+        System.out.println(collect);
+
+        response.addHeader(timestampHeader + collect);
+        return response;
+    }
+
+    private static synchronized long getNanosSync() {
+        return System.nanoTime();
+    }
+
 
 }
