@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
+import static ru.mail.polis.service.stasyanoi.GetHelper.getNewRequest;
+import static ru.mail.polis.service.stasyanoi.GetHelper.getNoRepRequest;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
@@ -131,36 +133,46 @@ public class CustomServer extends HttpServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int node = Util.getNode(idArray, nodeCount);
-            final ByteBuffer id = Mapper.fromBytes(idArray);
-            final Request noRepRequest = getNoRepRequest(request);
-            final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
-            tempNodeMapping.remove(node);
-            if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-                final Pair<Integer, Integer> ackFrom =
-                        Util.getAckFrom(request, replicationDefaults, nodeMapping);
-                final int from = ackFrom.getValue1();
-                final List<Response> responses =
-                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
-                final Integer ack = ackFrom.getValue0();
-                responseHttp = getEndResponseGet(responses, ack, nodeMapping);
-            } else {
-                responseHttp = responseHttpCurrent;
-            }
+            responseHttp = getResponseGet(idParam, request, tempNodeMapping, replicationDefaults);
         }
         session.sendResponse(responseHttp);
+    }
+
+    private Response getResponseGet(final String idParam,
+                                    final Request request,
+                                    final Map<Integer, String> tempNodeMapping,
+                                    final List<String> replicationDefaults) throws IOException {
+        final Response responseHttp;
+        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+        final int node = Util.getNode(idArray, nodeCount);
+        final ByteBuffer id = Mapper.fromBytes(idArray);
+        final Request noRepRequest = getNoRepRequest(request, super.port);
+        final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
+        tempNodeMapping.remove(node);
+        if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
+            final Pair<Integer, Integer> ackFrom =
+                    Util.getAckFrom(request, replicationDefaults, nodeMapping);
+            final int from = ackFrom.getValue1();
+            final List<Response> responses =
+                    getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
+            final Integer ack = ackFrom.getValue0();
+            responseHttp = getEndResponseGet(responses, ack, nodeMapping);
+        } else {
+            responseHttp = responseHttpCurrent;
+        }
+        return responseHttp;
     }
 
     private List<Response> getResponsesInternal(final Response responseHttpTemp,
                                                 final Map<Integer, String> tempNodeMapping,
                                                 final int from,
-                                                final Request request) {
+                                                final Request request,
+                                                final int port) {
         final List<Response> responses = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
                 .map(nodeHost -> new Pair<>(
-                        new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request)))
+                        new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request, port)))
                 .map(clientRequest -> {
                     try {
                         final Response invoke = clientRequest.getValue0().invoke(clientRequest.getValue1());
@@ -174,43 +186,6 @@ public class CustomServer extends HttpServer {
         responses.add(responseHttpTemp);
 
         return responses;
-    }
-
-    @NotNull
-    private Request getNewRequest(final Request request) {
-        final String path = request.getPath();
-        final String queryString = request.getQueryString();
-        final String newPath = path + "/rep?" + queryString;
-        final Request requestNew = getCloneRequest(request, newPath);
-        requestNew.setBody(request.getBody());
-        return requestNew;
-    }
-
-    @NotNull
-    private Request getNoRepRequest(final Request request) {
-        final String path = request.getPath();
-        final String queryString = request.getQueryString();
-        final String newPath;
-        if (request.getHeader(REPS) == null) {
-            newPath = path + "?" + queryString + "&reps=false";
-        } else {
-            newPath = path + "?" + queryString;
-        }
-        final Request noRepRequest = getCloneRequest(request, newPath);
-        noRepRequest.setBody(request.getBody());
-        return noRepRequest;
-    }
-
-    @NotNull
-    private Request getCloneRequest(final Request request,
-                                    final String newPath) {
-        final Request noRepRequest = new Request(request.getMethod(), newPath, true);
-        Arrays.stream(request.getHeaders())
-                .filter(Objects::nonNull)
-                .filter(header -> !header.contains("Host: "))
-                .forEach(noRepRequest::addHeader);
-        noRepRequest.addHeader("Host: localhost:" + super.port);
-        return noRepRequest;
     }
 
     private Response getProxy(final Request request,
@@ -318,7 +293,7 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = getNoRepRequest(request);
+            final Request noRepRequest = getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
             if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
@@ -326,7 +301,7 @@ public class CustomServer extends HttpServer {
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses =
-                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
+                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
             } else {
@@ -416,7 +391,7 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = getNoRepRequest(request);
+            final Request noRepRequest = getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
             if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
@@ -424,7 +399,7 @@ public class CustomServer extends HttpServer {
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses =
-                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
+                        getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
             } else {
