@@ -22,19 +22,19 @@ public final class PutHelper {
      * Get put replicas.
      *
      * @param request - request to replicate.
-     * @param tempNodeMapping - nodes that can hav the replicas.
+     * @param mappings - nodes that can have the replicas and the total amount nodes .
      * @param responseHttpCurrent - this server responseto request.
      * @param replicationDefaults - RF defaults.
-     * @param nodeMapping - nodes
      * @param port - this server port.
      * @return - returned response.
      */
     public static Response getPutReplicaResponse(final Request request,
-                                           final Map<Integer, String> tempNodeMapping,
-                                           final Response responseHttpCurrent,
-                                           final List<String> replicationDefaults,
-                                           final Map<Integer, String> nodeMapping,
-                                           final int port) {
+                                                 final Pair<Map<Integer, String>, Map<Integer, String>> mappings,
+                                                 final Response responseHttpCurrent,
+                                                 final List<String> replicationDefaults,
+                                                 final int port) {
+        Map<Integer, String> tempNodeMapping = mappings.getValue0();
+        Map<Integer, String> nodeMapping = mappings.getValue1();
         Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
             final Pair<Integer, Integer> ackFrom =

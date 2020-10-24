@@ -240,8 +240,10 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            responseHttp = getPutReplicaResponse(request, tempNodeMapping,
-                    responseHttpCurrent, replicationDefaults, nodeMapping, super.port);
+            Pair<Map<Integer, String>, Map<Integer, String>> mappings =
+                    new Pair<>(tempNodeMapping, nodeMapping);
+            responseHttp = getPutReplicaResponse(request, mappings,
+                    responseHttpCurrent, replicationDefaults,  super.port);
         }
         session.sendResponse(responseHttp);
     }
