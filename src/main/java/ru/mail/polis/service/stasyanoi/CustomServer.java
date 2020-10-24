@@ -37,7 +37,8 @@ public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
     private final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     private final int nodeCount;
-    private final String trueVal = "true";
+    private static final String trueVal = "true";
+    private static final String reps = "reps";
     private int nodeNum;
     private final DAO dao;
     private final ExecutorService executorService =
@@ -128,7 +129,7 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = getNoRepRequest(request);
             final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
             tempNodeMapping.remove(node);
-            if (request.getParameter("reps", trueVal).equals(trueVal)) {
+            if (request.getParameter(reps, trueVal).equals(trueVal)) {
                 final Pair<Integer, Integer> ackFrom =
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
@@ -165,7 +166,7 @@ public class CustomServer extends HttpServer {
                         .collect(Collectors.toList());
                 final Map<Long, Response> map = new TreeMap<>();
                 resps.forEach(pair -> map.put(pair.getValue0(), pair.getValue1()));
-                ArrayList<Map.Entry<Long, Response>> entries = new ArrayList<>(map.entrySet());
+                final ArrayList<Map.Entry<Long, Response>> entries = new ArrayList<>(map.entrySet());
                 responseHttp = entries.get(entries.size() - 1).getValue();
             } else if (emptyResponses.size() >= ack) {
                 responseHttp = Util.getResponseWithNoBody(Response.NOT_FOUND);
@@ -215,7 +216,7 @@ public class CustomServer extends HttpServer {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
         final String newPath;
-        if (request.getHeader("reps") == null) {
+        if (request.getHeader(reps) == null) {
             newPath = path + "?" + queryString + "&reps=false";
         } else {
             newPath = path + "?" + queryString;
@@ -338,7 +339,7 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = getNoRepRequest(request);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            if (request.getParameter("reps", trueVal).equals(trueVal)) {
+            if (request.getParameter(reps, trueVal).equals(trueVal)) {
                 final Pair<Integer, Integer> ackFrom =
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
@@ -453,7 +454,7 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = getNoRepRequest(request);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            if (request.getParameter("reps", trueVal).equals(trueVal)) {
+            if (request.getParameter(reps, trueVal).equals(trueVal)) {
                 final Pair<Integer, Integer> ackFrom =
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
