@@ -31,7 +31,9 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
+import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
+import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
@@ -142,47 +144,12 @@ public class CustomServer extends HttpServer {
                 final List<Response> responses =
                         getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
                 final Integer ack = ackFrom.getValue0();
-                responseHttp = getEndResponseGet(responses, ack);
+                responseHttp = getEndResponseGet(responses, ack, nodeMapping);
             } else {
                 responseHttp = responseHttpCurrent;
             }
         }
         session.sendResponse(responseHttp);
-    }
-
-    @NotNull
-    private Response getEndResponseGet(final List<Response> responses,
-                                       final Integer ack) {
-
-        final List<Response> goodResponses = responses.stream()
-                .filter(response -> response.getStatus() == 200)
-                .collect(Collectors.toList());
-        final List<Response> emptyResponses = responses.stream()
-                .filter(response -> response.getStatus() == 404)
-                .collect(Collectors.toList());
-
-        final Response responseHttp;
-
-        if (nodeMapping.size() < ack || ack == 0) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
-        } else {
-            final boolean hasGoodResponses = !goodResponses.isEmpty();
-            if (hasGoodResponses) {
-                final List<Pair<Long, Response>> resps = Stream.concat(emptyResponses.stream(), goodResponses.stream())
-                        .filter(response -> response.getHeader("Time: ") != null)
-                        .map(response -> new Pair<>(Long.parseLong(response.getHeader("Time: ")), response))
-                        .collect(Collectors.toList());
-                final Map<Long, Response> map = new TreeMap<>();
-                resps.forEach(pair -> map.put(pair.getValue0(), pair.getValue1()));
-                final ArrayList<Map.Entry<Long, Response>> entries = new ArrayList<>(map.entrySet());
-                responseHttp = entries.get(entries.size() - 1).getValue();
-            } else if (emptyResponses.size() >= ack) {
-                responseHttp = Util.getResponseWithNoBody(Response.NOT_FOUND);
-            } else {
-                responseHttp = Util.getResponseWithNoBody(Response.GATEWAY_TIMEOUT);
-            }
-        }
-        return responseHttp;
     }
 
     private List<Response> getResponsesInternal(final Response responseHttpTemp,
@@ -361,37 +328,13 @@ public class CustomServer extends HttpServer {
                 final List<Response> responses =
                         getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
                 final Integer ack = ackFrom.getValue0();
-                responseHttp = getEndResponsePutAndDelete(responses, ack, 201);
+                responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
             } else {
                 responseHttp = responseHttpCurrent;
             }
         }
 
         session.sendResponse(responseHttp);
-    }
-
-    @NotNull
-    private Response getEndResponsePutAndDelete(final List<Response> responses,
-                                                final Integer ack,
-                                                final int status) {
-        final Response responseHttp;
-        final List<Response> goodResponses = responses.stream()
-                .filter(response -> response.getStatus() == status)
-                .collect(Collectors.toList());
-        if (nodeMapping.size() < ack || ack == 0) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
-        } else {
-            if (goodResponses.size() >= ack) {
-                if (status == 202) {
-                    responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
-                } else {
-                    responseHttp = Util.getResponseWithNoBody(Response.CREATED);
-                }
-            } else {
-                responseHttp = Util.getResponseWithNoBody(Response.GATEWAY_TIMEOUT);
-            }
-        }
-        return responseHttp;
     }
 
     private Response putProxy(final Request request,
@@ -483,7 +426,7 @@ public class CustomServer extends HttpServer {
                 final List<Response> responses =
                         getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
                 final Integer ack = ackFrom.getValue0();
-                responseHttp = getEndResponsePutAndDelete(responses, ack, 202);
+                responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
             } else {
                 responseHttp = responseHttpCurrent;
             }
