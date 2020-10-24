@@ -33,7 +33,7 @@ rm flamePutAlloc1.svg
 
 rm flamePutLock1.svg
 
-../../wrk2/wrk -t1 -c20 -d50s -R1000 -s ../../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut1.txt &
+../../wrk2/wrk -c20 -d50s -R1000 -s ../../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut1.txt &
 
 sleep 10s
 
@@ -105,7 +105,7 @@ rm flameGetAlloc1.svg
 
 rm flameGetLock1.svg 
 
-../../wrk2/wrk -t1 -c20 -d50s -R1000 -s ../../wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet1.txt &
+../../wrk2/wrk -c20 -d50s -R1000 -s ../../wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet1.txt &
 
 sleep 10s
 
@@ -136,13 +136,11 @@ LOCK get
 
 В рамках нагрузочного тестирования для PUT/GET
 
-№1 Потоков - 1 
+№1 Соединений - 20
 
-№2 Соединений - 20
+№2 Продолжительность - 50 секунд
 
-№3 Продолжительность - 50 секунд
-
-№4 Количество запросов (Rate) - 1000
+№3 Количество запросов (Rate) - 1000
 
 1) Put
  Latency -> Avg. 1.73ms | Max. 52.32ms
@@ -155,4 +153,37 @@ LOCK get
 На снимках работы CPU можно видеть переадресовку 
 запросов на другие сервисы. 
 Причем GET запросы выполняются дольше чем PUT запросы.
+Работа проходит значительно медленнее по сравнению с реализацией без хэширования.
+Вызвано замедление хэшированием.
+
+Результаты 3-го этапа для сравнения:
+
+1) Put
+
+SYNC
+
+ Latency -> Avg. 6.14ms | Max. 203.01ms
+
+ Req/Sec -> Avg. 6.17k  | Max. 14.06k 
+
+ASYNC
+
+ Latency -> Avg. 12.20ms | Max. 151.42ms
+
+ Req/Sec -> Avg. 6.04k  | Max. 10.75k
+  
+
+2) Get
+ 
+SYNC
+
+ Latency -> Avg. 12.49ms | Max. 455.94ms
+
+ Req/Sec -> Avg. 6.08k  | Max. 14.09k 
+
+ASYNC
+
+ Latency -> Avg. 4.71ms | Max. 95.42ms
+
+ Req/Sec -> Avg. 6.01k  | Max. 6.76k  
 
