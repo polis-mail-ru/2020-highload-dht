@@ -8,16 +8,21 @@ import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 public final class GetHelper {
 
+    private static final String TRUE_VAL = "true";
     private static final String REPS = "reps";
 
     private GetHelper() {
@@ -110,5 +115,36 @@ public final class GetHelper {
                 .forEach(noRepRequest::addHeader);
         noRepRequest.addHeader("Host: localhost:" + thisServerPort);
         return noRepRequest;
+    }
+
+    /**
+     * Get repsponse for get request.
+     *
+     * @param id - key.
+     * @param dao - dao to use.
+     * @return - response.
+     * @throws IOException - throw if problems with I|O occur.
+     */
+    public static Response getResponseIfIdNotNull(final ByteBuffer id,
+                                            final DAO dao) throws IOException {
+        try {
+            final ByteBuffer body = dao.get(id);
+            final byte[] bytes = Mapper.toBytes(body);
+            final Pair<byte[], byte[]> bodyTimestamp = Util.getTimestamp(bytes);
+            final byte[] newBody = bodyTimestamp.getValue0();
+            final byte[] time = bodyTimestamp.getValue1();
+            final Response okResponse = Response.ok(newBody);
+            Util.addTimestampHeader(time, okResponse);
+            return okResponse;
+        } catch (NoSuchElementException e) {
+            final byte[] deleteTime = dao.getDeleteTime(id);
+            if (deleteTime.length == 0) {
+                return Util.getResponseWithNoBody(Response.NOT_FOUND);
+            } else {
+                final Response deletedResponse = Util.getResponseWithNoBody(Response.NOT_FOUND);
+                Util.addTimestampHeader(deleteTime, deletedResponse);
+                return deletedResponse;
+            }
+        }
     }
 }

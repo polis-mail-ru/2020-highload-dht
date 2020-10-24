@@ -26,6 +26,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static ru.mail.polis.service.stasyanoi.GetHelper.getResponseIfIdNotNull;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
@@ -112,7 +113,7 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final ByteBuffer id = Mapper.fromBytes(idArray);
-            responseHttp = getResponseIfIdNotNull(id);
+            responseHttp = getResponseIfIdNotNull(id, dao);
         }
         session.sendResponse(responseHttp);
     }
@@ -160,34 +161,11 @@ public class CustomServer extends HttpServer {
                               final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            responseHttp = getResponseIfIdNotNull(id);
+            responseHttp = getResponseIfIdNotNull(id, dao);
         } else {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
-    }
-
-    @NotNull
-    private Response getResponseIfIdNotNull(final ByteBuffer id) throws IOException {
-        try {
-            final ByteBuffer body = dao.get(id);
-            final byte[] bytes = Mapper.toBytes(body);
-            final Pair<byte[], byte[]> bodyTimestamp = Util.getTimestamp(bytes);
-            final byte[] newBody = bodyTimestamp.getValue0();
-            final byte[] time = bodyTimestamp.getValue1();
-            final Response ok = Response.ok(newBody);
-            Util.addTimestampHeader(time, ok);
-            return ok;
-        } catch (NoSuchElementException e) {
-            final byte[] deleteTime = dao.getDeleteTime(id);
-            if (deleteTime.length == 0) {
-                return Util.getResponseWithNoBody(Response.NOT_FOUND);
-            } else {
-                final Response deletedResponse = Util.getResponseWithNoBody(Response.NOT_FOUND);
-                Util.addTimestampHeader(deleteTime, deletedResponse);
-                return deletedResponse;
-            }
-        }
     }
 
     /**
@@ -268,7 +246,8 @@ public class CustomServer extends HttpServer {
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses =
-                        GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
+                        GetHelper.getResponsesInternal(responseHttpCurrent,
+                                tempNodeMapping, from - 1, request, super.port);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
             } else {
@@ -366,7 +345,8 @@ public class CustomServer extends HttpServer {
                         Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses =
-                        GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, super.port);
+                        GetHelper.getResponsesInternal(responseHttpCurrent,
+                                tempNodeMapping, from - 1, request, super.port);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
             } else {
