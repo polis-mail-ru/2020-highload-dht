@@ -9,7 +9,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.javatuples.Pair;
-import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 
@@ -20,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;

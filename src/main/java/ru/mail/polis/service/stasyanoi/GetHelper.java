@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
 
 public final class GetHelper {
 
-    private static final String TRUE_VAL = "true";
     private static final String REPS = "reps";
 
     private GetHelper() {
