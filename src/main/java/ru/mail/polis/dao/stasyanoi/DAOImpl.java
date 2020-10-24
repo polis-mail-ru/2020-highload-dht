@@ -87,7 +87,7 @@ public class DAOImpl implements DAO {
     @Override
     public void remove(final @NotNull ByteBuffer key) {
         try {
-            byte[] keyDelete = Mapper.toBytes(key);
+            final byte[] keyDelete = Mapper.toBytes(key);
             deleteLog.put(key, Util.getTimestampInternal());
             storageInstance.delete(keyDelete);
         } catch (RocksDBException e) {
@@ -124,8 +124,8 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public byte[] getDeleteTime(ByteBuffer id) {
-        byte[] timeForIdDeletion = deleteLog.get(id);
+    public byte[] getDeleteTime(final ByteBuffer id) {
+        final byte[] timeForIdDeletion = deleteLog.get(id);
         if (timeForIdDeletion == null) {
             return new byte[0];
         } else {

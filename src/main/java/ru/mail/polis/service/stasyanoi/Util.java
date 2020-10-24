@@ -61,7 +61,9 @@ public final class Util {
         return new Pair<>(ack, from);
     }
 
-    public static Response routeRequest(final Request request, final int node, Map<Integer, String> nodeMapping)
+    public static Response routeRequest(final Request request,
+                                        final int node,
+                                        final Map<Integer, String> nodeMapping)
             throws IOException {
 
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));

@@ -37,6 +37,7 @@ public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
     private final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     private final int nodeCount;
+    private final String trueVal = "true";
     private int nodeNum;
     private final DAO dao;
     private final ExecutorService executorService =
@@ -100,7 +101,8 @@ public class CustomServer extends HttpServer {
         });
     }
 
-    private void getRepInternal(String idParam, HttpSession session) throws IOException {
+    private void getRepInternal(final String idParam,
+                                final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -126,8 +128,9 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = getNoRepRequest(request);
             final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
             tempNodeMapping.remove(node);
-            if (request.getParameter("reps", "true").equals("true")) {
-                final Pair<Integer, Integer> ackFrom = Util.getAckFrom(request, replicationDefaults, nodeMapping);
+            if (request.getParameter("reps", trueVal).equals(trueVal)) {
+                final Pair<Integer, Integer> ackFrom =
+                        Util.getAckFrom(request, replicationDefaults, nodeMapping);
                 final int from = ackFrom.getValue1();
                 final List<Response> responses = getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
                 final Integer ack = ackFrom.getValue0();
@@ -136,8 +139,6 @@ public class CustomServer extends HttpServer {
                 responseHttp = responseHttpCurrent;
             }
         }
-
-
         session.sendResponse(responseHttp);
     }
 
@@ -182,8 +183,8 @@ public class CustomServer extends HttpServer {
         final List<Response> responses = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
-                .map(nodeHost -> new Pair<>
-                        (new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request)))
+                .map(nodeHost -> new Pair<>(
+                        new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request)))
                 .map(clientRequest -> {
                     try {
                         final Response invoke = clientRequest.getValue0().invoke(clientRequest.getValue1());
@@ -215,9 +216,9 @@ public class CustomServer extends HttpServer {
         final String queryString = request.getQueryString();
         final String newPath;
         if (request.getHeader("reps") == null) {
-            newPath = path + "?"+ queryString + "&reps=false";
+            newPath = path + "?" + queryString + "&reps=false";
         } else {
-            newPath = path + "?"+ queryString;
+            newPath = path + "?" + queryString;
         }
         final Request noRepRequest = getCloneRequest(request, newPath);
         noRepRequest.setBody(request.getBody());
@@ -227,7 +228,7 @@ public class CustomServer extends HttpServer {
     @NotNull
     private Request getCloneRequest(final Request request,
                                     final String newPath) {
-        Request noRepRequest = new Request(request.getMethod(), newPath, true);
+        final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         Arrays.stream(request.getHeaders())
                 .filter(Objects::nonNull)
                 .filter(header -> !header.contains("Host: "))
@@ -334,14 +335,15 @@ public class CustomServer extends HttpServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            Request noRepRequest = getNoRepRequest(request);
+            final Request noRepRequest = getNoRepRequest(request);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            if (request.getParameter("reps", "true").equals("true")) {
-                Pair<Integer, Integer> ackFrom = Util.getAckFrom(request, replicationDefaults, nodeMapping);
-                int from = ackFrom.getValue1();
-                List<Response> responses = getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
-                Integer ack = ackFrom.getValue0();
+            if (request.getParameter("reps", trueVal).equals(trueVal)) {
+                final Pair<Integer, Integer> ackFrom =
+                        Util.getAckFrom(request, replicationDefaults, nodeMapping);
+                final int from = ackFrom.getValue1();
+                final List<Response> responses = getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
+                final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 201);
             } else {
                 responseHttp = responseHttpCurrent;
@@ -424,7 +426,8 @@ public class CustomServer extends HttpServer {
         });
     }
 
-    private void deleteRepInternal(String idParam, HttpSession session) throws IOException {
+    private void deleteRepInternal(final String idParam,
+                                   final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -450,9 +453,10 @@ public class CustomServer extends HttpServer {
             final Request noRepRequest = getNoRepRequest(request);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            if (request.getParameter("reps", "true").equals("true")) {
-                final Pair<Integer, Integer> ackFrom = Util.getAckFrom(request, replicationDefaults, nodeMapping);
-                int from = ackFrom.getValue1();
+            if (request.getParameter("reps", trueVal).equals(trueVal)) {
+                final Pair<Integer, Integer> ackFrom =
+                        Util.getAckFrom(request, replicationDefaults, nodeMapping);
+                final int from = ackFrom.getValue1();
                 final List<Response> responses = getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request);
                 final Integer ack = ackFrom.getValue0();
                 responseHttp = getEndResponsePutAndDelete(responses, ack, 202);
