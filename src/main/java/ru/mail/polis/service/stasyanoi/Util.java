@@ -188,7 +188,7 @@ public final class Util {
      */
     public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
-        Integer[] integers = Bytes.asList(timestamp).stream()
+        final Integer[] integers = Bytes.asList(timestamp).stream()
                 .map(Byte::intValue)
                 .toArray(Integer[]::new);
         final String nanoTime = Arrays.stream(integers)
