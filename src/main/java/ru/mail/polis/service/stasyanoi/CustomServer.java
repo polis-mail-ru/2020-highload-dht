@@ -89,6 +89,12 @@ public class CustomServer extends HttpServer {
         });
     }
 
+    /**
+     * Endpoint for get replication.
+     *
+     * @param idParam - key.
+     * @param session - session for the request.
+     */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_GET)
     public void getRep(final @Param("id") String idParam,
@@ -294,6 +300,13 @@ public class CustomServer extends HttpServer {
         });
     }
 
+    /**
+     * Put replication.
+     *
+     * @param idParam - key.
+     * @param request - out request.
+     * @param session - session.
+     */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_PUT)
     public void putRep(final @Param("id") String idParam,
@@ -416,6 +429,12 @@ public class CustomServer extends HttpServer {
         });
     }
 
+    /**
+     * Delete replication.
+     *
+     * @param idParam - key.
+     * @param session - session.
+     */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteRep(final @Param("id") String idParam,
