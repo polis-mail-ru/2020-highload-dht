@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.mrsandman5.replication.Replicas;
 
 import java.nio.ByteBuffer;
 import java.util.NavigableMap;
@@ -43,6 +44,12 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
         return nodeEntry == null
                 ? ring.firstEntry().getValue().getPhysicalNode()
                 : nodeEntry.getValue().getPhysicalNode();
+    }
+
+    @Override
+    public Set<T> replicasFor(@NotNull final ByteBuffer key,
+                              @NotNull final Replicas replicas) {
+        return null;
     }
 
     @Override

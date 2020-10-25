@@ -1,6 +1,7 @@
 package ru.mail.polis.service.mrsandman5.clustering;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.mrsandman5.replication.Replicas;
 
 import java.nio.ByteBuffer;
 import java.util.HashSet;
@@ -28,9 +29,22 @@ public class BasicTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public T primaryFor(@NotNull final ByteBuffer key) {
-        final int hash = key.hashCode();
-        final int index = (hash & Integer.MAX_VALUE) % nodes.size();
-        return nodes.get(index);
+        return nodes.get(getHash(key));
+    }
+
+    @Override
+    public Set<T> replicasFor(@NotNull final ByteBuffer key,
+                              @NotNull final Replicas replicas) {
+        final Set<T> result = new HashSet<>();
+        int startIndex = getHash(key);
+        while (result.size() < replicas.getFrom()) {
+            result.add(nodes.get(startIndex));
+            startIndex++;
+            if (startIndex == nodes.size()) {
+                startIndex = 0;
+            }
+        }
+        return result;
     }
 
     @Override
@@ -44,4 +58,8 @@ public class BasicTopology<T> implements Topology<T> {
         return new HashSet<>(nodes);
     }
 
+    private int getHash(@NotNull final ByteBuffer key) {
+        final int hash = key.hashCode();
+        return (hash & Integer.MAX_VALUE) % nodes.size();
+    }
 }
