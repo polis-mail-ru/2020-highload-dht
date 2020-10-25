@@ -14,7 +14,7 @@ public class Value implements Comparable<Value> {
         this.data = data;
     }
 
-    Value(final long timestamp) {
+    private Value(final long timestamp) {
         this.timestamp = timestamp;
         this.data = null;
     }
@@ -27,6 +27,10 @@ public class Value implements Comparable<Value> {
         return data == null;
     }
 
+    /**
+     * @return ByteBuffer represented a value for some key.
+     * @throws DeletedValueException - if data is null, that means that it is tombstone
+     */
     @NotNull
     public ByteBuffer getData() throws DeletedValueException {
         if (data == null) {

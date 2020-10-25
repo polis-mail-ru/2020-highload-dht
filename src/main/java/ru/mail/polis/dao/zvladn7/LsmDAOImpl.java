@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,7 +77,6 @@ public class LsmDAOImpl implements DAO {
                         }
                     });
         }
-
         final Map.Entry<Integer, Table> genEntry = ssTables.entrySet()
                 .stream()
                 .max(Comparator.comparing(Map.Entry::getKey))
@@ -87,18 +85,15 @@ public class LsmDAOImpl implements DAO {
         if (genEntry != null) {
             generation = genEntry.getKey();
         }
-
         this.tableSet = TableSet.provideTableSet(ssTables, generation + 1);
         this.service = Executors.newFixedThreadPool(flushQueueSize);
     }
-
 
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final Iterator<Cell> freshElements = cellIterator(from);
         final Iterator<Cell> aliveElements = Iterators.filter(freshElements, el -> !el.getValue().isTombstone());
-
         return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
     }
 
@@ -115,21 +110,6 @@ public class LsmDAOImpl implements DAO {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         execute(() -> tableSet.memTable.upsert(key, value));
-    }
-
-    @Override
-    public Value getValue(@NotNull final ByteBuffer key) {
-        final Iterator<Cell> iter = cellIterator(key);
-        if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
-        }
-
-        final Cell next = iter.next();
-        if (next.getKey().equals(key)) {
-            return next.getValue();
-        } else {
-            throw new NoSuchElementException("Not found");
-        }
     }
 
     @Override
@@ -240,7 +220,7 @@ public class LsmDAOImpl implements DAO {
         return dst;
     }
 
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
+    private List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
                                              @NotNull final List<Iterator<Cell>> iters,
                                              final TableSet snapshot) {
         snapshot.ssTables.descendingMap().values().forEach(ssTable -> {
@@ -253,7 +233,7 @@ public class LsmDAOImpl implements DAO {
         return iters;
     }
 
-    TableSet getSnapshot() {
+    private TableSet getSnapshot() {
         readLock.lock();
         try {
             return tableSet;

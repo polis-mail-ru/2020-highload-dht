@@ -14,6 +14,9 @@ class ConflictResolver {
 
     private static final Logger log = LoggerFactory.getLogger(ConflictResolver.class);
 
+    private ConflictResolver() {
+    }
+
     /**
      * Resolve responses from replicas to send fresh data to the client.
      *
@@ -37,7 +40,7 @@ class ConflictResolver {
         Response theMostFreshedResponse = responses.get(0);
         long theMostFreshedTimestamp = getResponseTimestamp(theMostFreshedResponse);
         boolean first = true;
-        for (Response next : responses) {
+        for (final Response next : responses) {
             if (first) {
                 first = false;
                 continue;

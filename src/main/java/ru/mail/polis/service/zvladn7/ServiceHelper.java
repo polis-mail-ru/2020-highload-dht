@@ -63,30 +63,30 @@ class ServiceHelper {
     void handleGet(
             @NotNull final String id,
             @NotNull final HttpSession session,
-            @NotNull final Request request,
-            final String replicas) throws IOException {
+            @NotNull final Request request) throws IOException {
         final ByteBuffer key = wrapString(id);
-        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
-        handleOrProxy(key, replicasHolder, request, session, () -> {
+        handleOrProxy(key, request, session, () -> {
             final Value value;
             try {
                 value = dao.getValue(key);
                 log.debug("Value successfully got!");
                 return getLocalResponse(value);
+            } catch (IOException e) {
+                log.error("Internal error. Can't get value with key: {}", id, e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             } catch (NoSuchElementException e) {
                 log.info("Value with key: {} was not found", id, e);
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
-        }, responses -> ConflictResolver.resolveGetAndSend(responses, replicasHolder, session));
+        }, (responses, replicasHolder) -> ConflictResolver.resolveGetAndSend(responses, replicasHolder, session));
     }
 
     void handleDelete(
             @NotNull final String id,
             @NotNull final HttpSession session,
-            @NotNull final Request request, String replicas) throws IOException {
+            @NotNull final Request request) throws IOException {
         final ByteBuffer key = wrapString(id);
-        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
-        handleOrProxy(key, replicasHolder, request, session, () -> {
+        handleOrProxy(key, request, session, () -> {
             try {
                 dao.remove(key);
                 log.debug("Value successfully deleted!");
@@ -95,16 +95,15 @@ class ServiceHelper {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
             return new Response(Response.ACCEPTED, Response.EMPTY);
-        }, responses -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, true));
+        }, (responses, replicasHolder) -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, true));
     }
 
     void handleUpsert(
             @NotNull final String id,
             @NotNull final Request request,
-            @NotNull final HttpSession session, String replicas) throws IOException {
+            @NotNull final HttpSession session) throws IOException {
         final ByteBuffer key = wrapString(id);
-        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
-        handleOrProxy(key, replicasHolder, request, session, () -> {
+        handleOrProxy(key, request, session, () -> {
             final ByteBuffer value = wrapArray(request.getBody());
             try {
                 dao.upsert(key, value);
@@ -114,27 +113,17 @@ class ServiceHelper {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
             return new Response(Response.CREATED, Response.EMPTY);
-        }, responses -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, false));
+        }, (responses, replicasHolder) -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, false));
     }
 
     private Response getLocalResponse(final Value value) {
         final byte[] bytes = Longs.toByteArray(value.getTimestamp());
         try {
-            byte[] body = toBytes(value.getData(), bytes);
+            final byte[] body = toBytes(value.getData(), bytes);
             return Response.ok(body);
         } catch (DeletedValueException ex) {
             return new Response(Response.NOT_FOUND, bytes);
         }
-    }
-
-    private byte[] toBytes(final ByteBuffer data, final byte[] bytes) {
-        final byte[] dataBytes = toBytes(data);
-        final byte[] mergedBytes = new byte[dataBytes.length + bytes.length];
-        log.info("Before: {}", Arrays.toString(mergedBytes));
-        System.arraycopy(dataBytes, 0, mergedBytes, 0, dataBytes.length);
-        System.arraycopy(bytes, 0, mergedBytes, dataBytes.length, bytes.length);
-        log.info("After: {}", Arrays.toString(mergedBytes));
-        return mergedBytes;
     }
 
     private List<Response> proxy(@NotNull final Set<String> nodesForResponse,
@@ -155,12 +144,12 @@ class ServiceHelper {
     }
 
     private void handleOrProxy(final ByteBuffer key,
-                               final ReplicasHolder replicasHolder,
                                final Request request,
                                final HttpSession session,
                                final LocalExecutor localExecutor,
                                final Resolver resolver) throws IOException {
         final String id = request.getParameter("id=");
+        final ReplicasHolder replicasHolder = parseReplicasParameter(request.getParameter("replicas="));
         log.debug("{} request with mapping: /v0/entity with: key={}", request.getMethodName(), id);
         log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
         if (id.isEmpty()) {
@@ -189,10 +178,10 @@ class ServiceHelper {
             if (localResponse != null) {
                 responses.add(localResponse);
             }
-            List<Response> responsesWithoutErrors = responses.stream()
+            final List<Response> responsesWithoutErrors = responses.stream()
                     .filter(response -> response.getStatus() != 500)
                     .collect(Collectors.toList());
-            resolver.resolve(responsesWithoutErrors);
+            resolver.resolve(responsesWithoutErrors, replicasHolder);
         }
     }
 
@@ -227,16 +216,27 @@ class ServiceHelper {
 
             return result;
         }
-
         return Response.EMPTY;
     }
 
-    private static void sendEmptyIdResponse(final HttpSession session, final String methodName) throws IOException {
+    private byte[] toBytes(final ByteBuffer data, final byte[] bytes) {
+        final byte[] dataBytes = toBytes(data);
+        final byte[] mergedBytes = new byte[dataBytes.length + bytes.length];
+        log.info("Before: {}", Arrays.toString(mergedBytes));
+        System.arraycopy(dataBytes, 0, mergedBytes, 0, dataBytes.length);
+        System.arraycopy(bytes, 0, mergedBytes, dataBytes.length, bytes.length);
+        log.info("After: {}", Arrays.toString(mergedBytes));
+        return mergedBytes;
+    }
+
+    private static void sendEmptyIdResponse(final HttpSession session,
+                                            final String methodName) throws IOException {
         log.info("Empty key was provided in {} method!", methodName);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    private static void sendInvalidRFResponse(final HttpSession session, final ReplicasHolder replicasHolder) throws IOException {
+    private static void sendInvalidRFResponse(final HttpSession session,
+                                              final ReplicasHolder replicasHolder) throws IOException {
         log.info("Invalid replication factor with ack = {}, from = {}", replicasHolder.ack, replicasHolder.from);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }

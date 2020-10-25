@@ -1,4 +1,5 @@
 package ru.mail.polis.dao.zvladn7.exceptions;
+
 /**
  * Thrown by value accessor methods to indicate that the element being deleted.
  * That means that value contains only timestamp which represented the moment

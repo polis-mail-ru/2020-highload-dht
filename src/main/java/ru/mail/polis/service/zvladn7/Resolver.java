@@ -14,6 +14,6 @@ public interface Resolver {
     /**
      * Execute local request and return response.
      */
-    void resolve(final List<Response> responses) throws IOException;
+    void resolve(final List<Response> responses, final ReplicasHolder replicasHolder) throws IOException;
 
 }

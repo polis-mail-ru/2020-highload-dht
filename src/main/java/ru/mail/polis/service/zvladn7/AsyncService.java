@@ -89,10 +89,9 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
-                    @Param(value = "replicas") final String replicas,
                     final HttpSession session,
                     final Request request) {
-        processRequest(() -> helper.handleGet(id, session, request, replicas), session);
+        processRequest(() -> helper.handleGet(id, session, request), session);
     }
 
     /**
@@ -108,10 +107,9 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void remove(@Param(value = "id", required = true) final String id,
-                       @Param(value = "replicas") final String replicas,
                        final HttpSession session,
                        final Request request) {
-        processRequest(() -> helper.handleDelete(id, session, request, replicas), session);
+        processRequest(() -> helper.handleDelete(id, session, request), session);
     }
 
     /**
@@ -128,11 +126,9 @@ public class AsyncService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_PUT)
     public void upsert(
             @Param(value = "id", required = true) final String id,
-            @Param(value = "replicas") final String replicas,
             final Request request,
             final HttpSession session) {
-        System.out.println(replicas);
-        processRequest(() -> helper.handleUpsert(id, request, session, replicas), session);
+        processRequest(() -> helper.handleUpsert(id, request, session), session);
     }
 
     @Override

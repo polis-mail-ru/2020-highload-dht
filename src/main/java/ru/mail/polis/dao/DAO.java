@@ -83,7 +83,14 @@ public interface DAO extends Closeable {
      * @throws NoSuchElementException if no such cell
      */
     @NotNull
-    Value getValue(@NotNull ByteBuffer key) throws NoSuchElementException;
+    default Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Cell> iter = cellIterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        return iter.next().getValue();
+    }
 
     /**
      * Obtains {@link Record} corresponding to given key.
