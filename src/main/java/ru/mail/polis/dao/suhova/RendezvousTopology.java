@@ -4,6 +4,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
 
+import static com.google.common.hash.Hashing.murmur3_128;
+
 public class RendezvousTopology implements Topology<String> {
     @NotNull
     private final String[] topology;
@@ -14,7 +16,7 @@ public class RendezvousTopology implements Topology<String> {
      * Implementation {@link Topology}.
      *
      * @param topology - nodes
-     * @param me - current node
+     * @param me       - current node
      */
     public RendezvousTopology(@NotNull final Set<String> topology,
                               @NotNull final String me) {
@@ -30,7 +32,7 @@ public class RendezvousTopology implements Topology<String> {
         int minHash = Integer.MAX_VALUE;
         String minNode = me;
         for (final String node : topology) {
-            final int hash = (node + key).hashCode();
+            final int hash = murmur3_128().newHasher().putUnencodedChars(key + node).hash().hashCode();
             if (hash < minHash) {
                 minHash = hash;
                 minNode = node;
