@@ -5,14 +5,12 @@ import ru.mail.polis.service.Topology;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.List;
 import java.util.Set;
 
 public class ModularTopology implements Topology<String> {
 
-
-    ArrayList<String> nodes;
+    List<String> nodes;
     @NotNull
     private final String localNode;
 
@@ -54,9 +52,8 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     @Override
     @SuppressWarnings("unchecked")
-    public ArrayList<String> getAllNodes() {
-        Object o = nodes.clone();
-        ArrayList<String> n = (ArrayList<String>)o;
-        return n;
+    public List<String> getAllNodes() {
+        final ArrayList<String> nodes = (ArrayList<String>)this.nodes;
+        return nodes;
     }
 }
