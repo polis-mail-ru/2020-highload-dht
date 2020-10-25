@@ -55,6 +55,14 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new ServiceImpl(port, dao);
+        final int queueSize = 1024;
+
+        return new ServiceAsyncImpl(
+                port,
+                dao,
+                Runtime.getRuntime().availableProcessors(),
+                queueSize,
+                new Topology(topology, "http://localhost:" + port)
+        );
     }
 }

@@ -114,8 +114,8 @@ public class ServiceImpl extends HttpServer implements Service {
         acceptorConfig.port = port;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
-        final HttpServerConfig server_config = new HttpServerConfig();
-        server_config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        return server_config;
+        final HttpServerConfig serverConfig = new HttpServerConfig();
+        serverConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
+        return serverConfig;
     }
 }
