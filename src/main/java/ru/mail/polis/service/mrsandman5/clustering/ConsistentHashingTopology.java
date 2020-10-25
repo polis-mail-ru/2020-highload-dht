@@ -13,7 +13,7 @@ import java.util.TreeMap;
 
 /** Implemented by example - https://github.com/Jaskey/ConsistentHash.
  * */
-public class ConsistentHashingTopology<T> implements Topology<T> {
+public final class ConsistentHashingTopology<T> implements Topology<T> {
 
     private final T me;
     @NotNull
@@ -46,6 +46,7 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
                 : nodeEntry.getValue().getPhysicalNode();
     }
 
+    @NotNull
     @Override
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
                               @NotNull final Replicas replicas) {

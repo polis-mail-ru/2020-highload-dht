@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
+import ru.mail.polis.service.mrsandman5.replication.Replicas;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -31,10 +32,12 @@ import static java.util.stream.Collectors.toMap;
 public final class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final String TIMEOUT = "?timeout=1000";
     @NotNull
     private final DAO dao;
     @NotNull
     private final Topology<String> topology;
+    private final Replicas quorum;
     private final Map<String, HttpClient> httpClients;
 
     /** Create new ServiceImpl instance.
@@ -55,8 +58,7 @@ public final class ServiceImpl extends HttpServer implements Service {
 
         final var config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-        config.minWorkers = workersCount;
-        config.maxWorkers = workersCount;
+        config.selectors = workersCount;
 
         return new ServiceImpl(config, topology, dao);
     }
@@ -72,6 +74,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         super(config);
         this.topology = topology;
         this.dao = dao;
+        this.quorum = Replicas.quorum(topology.all().size());
         this.httpClients = topology.others()
                 .stream()
                 .collect(toMap(identity(), ServiceImpl::createHttpClient));
@@ -84,6 +87,7 @@ public final class ServiceImpl extends HttpServer implements Service {
      * */
     @Path("/v0/entity")
     public void response(@Param(value = "id", required = true) final String id,
+                         @Param(value = "replicas", required = true) final String replicas,
                          @NotNull final Request request,
                          @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
@@ -92,6 +96,11 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
 
+        final Replicas replicasFactor = replicas == null ? quorum : Replicas.parser(replicas);
+        if (replicasFactor.getFrom() > topology.all().size()) {
+            sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            return;
+        }
         final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final var node = topology.primaryFor(key);
         if (topology.isNotMe(node)) {
@@ -148,18 +157,18 @@ public final class ServiceImpl extends HttpServer implements Service {
     }
 
     private Response proxy(@NotNull final String node,
-                           @NotNull final Request request) throws IOException {
+                           @NotNull final Request request) {
         try {
             return httpClients.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
+        } catch (InterruptedException | PoolException | HttpException | IOException e) {
             log.error("Unable to proxy request", e);
-            throw new IOException("Unable to proxy request", e);
+            return emptyResponse(Response.INTERNAL_ERROR);
         }
     }
 
     @NotNull
     private static HttpClient createHttpClient(@NotNull final String node) {
-        return new HttpClient(new ConnectionString(node + "?timeout=1000"));
+        return new HttpClient(new ConnectionString(node + TIMEOUT));
     }
 
     @Override

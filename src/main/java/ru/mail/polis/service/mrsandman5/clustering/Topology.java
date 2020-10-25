@@ -12,6 +12,7 @@ public interface Topology<T> {
     @NotNull
     T primaryFor(@NotNull final ByteBuffer key);
 
+    @NotNull
     Set<T> replicasFor(@NotNull final ByteBuffer key,
                       @NotNull final Replicas replicas);
 

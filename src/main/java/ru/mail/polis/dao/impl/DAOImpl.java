@@ -121,6 +121,22 @@ public class DAOImpl implements DAO {
                 fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone());
     }
 
+    @SuppressWarnings("UnstableApiUsage")
+    private Iterator<Cell> freshCellIterators(@NotNull final TableSet snapshot,
+                                              @NotNull final ByteBuffer from,
+                                              @NotNull final List<Iterator<Cell>> fileIterators) {
+        snapshot.ssTables.descendingMap().values().forEach(v -> {
+            try {
+                fileIterators.add(v.iterator(from));
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        });
+
+        final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
+        return Iters.collapseEquals(merged, Cell::getKey);
+    }
+
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value) throws IOException {
@@ -129,7 +145,6 @@ public class DAOImpl implements DAO {
         try {
             tableSet.memTable.upsert(key.duplicate().asReadOnlyBuffer(), value.duplicate().asReadOnlyBuffer());
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
-
         } finally {
             lock.readLock().unlock();
         }
@@ -252,21 +267,6 @@ public class DAOImpl implements DAO {
             Files.delete(deleted.toPath());
         }
 
-    }
-
-    private Iterator<Cell> freshCellIterators(@NotNull final TableSet snapshot,
-                                              @NotNull final ByteBuffer from,
-                                              @NotNull final List<Iterator<Cell>> fileIterators) {
-        snapshot.ssTables.descendingMap().values().forEach(v -> {
-            try {
-                fileIterators.add(v.iterator(from));
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-
-        final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
-        return Iters.collapseEquals(merged, Cell::getKey);
     }
 
     private File serialize(final long generation,

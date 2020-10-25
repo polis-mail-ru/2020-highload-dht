@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-public class Value {
+public final class Value {
 
     private final long timestamp;
     @NotNull
@@ -42,7 +42,7 @@ public class Value {
 
     @NotNull
     public ByteBuffer getData() {
-        return data;
+        return data.duplicate().asReadOnlyBuffer();
     }
 
     public long getTimestamp() {

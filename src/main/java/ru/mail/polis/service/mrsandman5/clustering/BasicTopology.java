@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class BasicTopology<T> implements Topology<T> {
+public final class BasicTopology<T> implements Topology<T> {
 
     private final T me;
     private final List<T> nodes;
@@ -32,6 +32,7 @@ public class BasicTopology<T> implements Topology<T> {
         return nodes.get(getHash(key));
     }
 
+    @NotNull
     @Override
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
                               @NotNull final Replicas replicas) {
