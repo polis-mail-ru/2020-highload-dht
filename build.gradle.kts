@@ -20,8 +20,7 @@ dependencies {
     /*compile( "log4j:log4j:1.2.17")*/
 
 
-    compile("org.rocksdb:rocksdbjni:6.5.3")
-
+    compile("org.rocksdb", "rocksdbjni", "6.5.3")
 
     // Checks
     errorprone("com.google.errorprone:error_prone_core:2.3.3")

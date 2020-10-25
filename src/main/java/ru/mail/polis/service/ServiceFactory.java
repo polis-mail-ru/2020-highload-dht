@@ -20,7 +20,7 @@ import one.nio.http.HttpServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.basta123.AsyncHttpServerImpl;
-import ru.mail.polis.service.basta123.TopologyImpl;
+import ru.mail.polis.service.basta123.ModularTopology;
 
 import java.io.IOException;
 import java.util.Set;
@@ -59,11 +59,11 @@ public final class ServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-        final Topology<String> t = new TopologyImpl(topology, "http://localhost:" + port);
+        final Topology<String> t = new ModularTopology(topology, "http://localhost:" + port);
         final HttpServerConfig httpServerConfig = getHttpServerConfig(port);
         return new AsyncHttpServerImpl(httpServerConfig,
                 dao,
-                httpServerConfig.maxWorkers,
+                Runtime.getRuntime().availableProcessors(),
                 t);
     }
 

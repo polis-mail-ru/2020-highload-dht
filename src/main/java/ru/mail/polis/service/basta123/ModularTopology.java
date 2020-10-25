@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
 
-public class TopologyImpl implements Topology<String> {
+public class ModularTopology implements Topology<String> {
 
     @NotNull
     private final String[] nodes;
@@ -20,8 +20,8 @@ public class TopologyImpl implements Topology<String> {
      * @param nodes     - cluster nodes.
      * @param localNode - our node.
      */
-    public TopologyImpl(@NotNull final Set<String> nodes,
-                        @NotNull final String localNode) {
+    public ModularTopology(@NotNull final Set<String> nodes,
+                           @NotNull final String localNode) {
 
         assert nodes.contains(localNode);
 

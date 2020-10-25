@@ -39,7 +39,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncHttpServerImpl.class);
     private static final String CANT_SEND_RESPONSE = "can't send response";
-    private static final String ARRAY_IS_FULL = "array is full";
+    private static final String httpClientTimeout_1000 = "?timeout=1000";
     private static final int QUEUE_SIZE = 1024;
     @NotNull
     private final DAO dao;
@@ -67,15 +67,15 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         this.topology = topology;
         this.clientAndNode = new HashMap<>();
 
-        for (final String node: topology.getAllNodes()) {
+        for (final String node : topology.getAllNodes()) {
             if (!topology.isLocal(node) && !this.clientAndNode.containsKey(node)) {
-                final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+                final HttpClient client = new HttpClient(new ConnectionString(node + httpClientTimeout_1000));
                 this.clientAndNode.put(node, client);
             }
         }
 
         assert 0 < numWorkers;
-        execService = new ThreadPoolExecutor(numWorkers,
+        this.execService = new ThreadPoolExecutor(numWorkers,
                 numWorkers,
                 0,
                 TimeUnit.MILLISECONDS,
@@ -115,7 +115,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void getValueByKey(@NotNull @Param(value = "id", required = true) final String id,
+    public void getValueByKey(@Param(value = "id", required = true) final String id,
                               @NotNull final Request request,
                               final HttpSession httpSession) {
         if (!isIdValid(id, httpSession)) {
@@ -163,7 +163,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putValueByKey(@NotNull @Param(value = "id", required = true) final String id,
+    public void putValueByKey(@Param(value = "id", required = true) final String id,
                               @NotNull final Request request,
                               final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
@@ -185,11 +185,10 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
         if (topology.isLocal(endNode)) {
             try {
                 dao.upsert(keyByteBuffer, valueByteBuffer);
-                final Response responseCreated = new Response(Response.CREATED, Response.EMPTY);
-                httpSession.sendResponse(responseCreated);
             } catch (IOException e) {
-                log.error("upsert error: ", e);
+                sendResponse(httpSession, Response.INTERNAL_ERROR);
             }
+            sendResponse(httpSession, Response.CREATED);
         } else {
             final Response response = proxying(endNode, request);
             httpSession.sendResponse(response);
@@ -205,7 +204,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteValueByKey(@NotNull @Param(value = "id", required = true) final String id,
+    public void deleteValueByKey(@Param(value = "id", required = true) final String id,
                                  @NotNull final Request request,
                                  final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
@@ -238,7 +237,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     private Response proxying(@NotNull final String node,
                               @NotNull final Request request) throws IOException {
         try {
-            request.addHeader("Forwarding");
+            // request.addHeader("Forwarding");
             return clientAndNode.get(node).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
             log.error("error when proxying the request:", e);
@@ -251,16 +250,16 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
         try {
             execService.execute(() -> {
-                makeAct(action);
+                makeAction(action);
             });
         } catch (RejectedExecutionException e) {
-            log.error(ARRAY_IS_FULL, e);
-            sendResponse(httpSession, Response.INTERNAL_ERROR);
+            log.error("array is full", e);
+            sendResponse(httpSession, Response.SERVICE_UNAVAILABLE);
         }
 
     }
 
-    private boolean isIdValid(@NotNull final String id,
+    private boolean isIdValid(final String id,
                               @NotNull final HttpSession httpSession) {
         if (id == null || id.isEmpty()) {
             sendResponse(httpSession, Response.BAD_REQUEST);
@@ -277,17 +276,25 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     @Override
     public synchronized void stop() {
-        execService.shutdown();
         super.stop();
+        execService.shutdown();
+        try {
+            execService.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("can't shutdown execService: ", e);
+        }
+        for (final HttpClient client : clientAndNode.values()) {
+            client.clear();
+        }
         try {
             dao.close();
         } catch (IOException e) {
             log.error("can't close DB");
-            throw new RuntimeException(e);
+            // throw new RuntimeException(e);
         }
     }
 
-    private void makeAct(@NotNull final Action action) {
+    private void makeAction(@NotNull final Action action) {
         try {
             action.act();
         } catch (IOException e) {
