@@ -31,6 +31,7 @@ import static java.util.stream.Collectors.toMap;
 public final class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final String TIMEOUT = "?timeout=1000";
     @NotNull
     private final DAO dao;
     @NotNull
@@ -55,8 +56,7 @@ public final class ServiceImpl extends HttpServer implements Service {
 
         final var config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-        config.minWorkers = workersCount;
-        config.maxWorkers = workersCount;
+        config.selectors = workersCount;
 
         return new ServiceImpl(config, topology, dao);
     }
@@ -159,7 +159,7 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private static HttpClient createHttpClient(@NotNull final String node) {
-        return new HttpClient(new ConnectionString(node + "?timeout=1000"));
+        return new HttpClient(new ConnectionString(node + TIMEOUT));
     }
 
     @Override
