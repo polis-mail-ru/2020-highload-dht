@@ -18,7 +18,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.gogun.Hashing;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -76,7 +75,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 continue;
             }
             final HttpClient client = new HttpClient(new ConnectionString(node));
-            if (nodeClients.get(node) != null) {
+            if (nodeClients.containsKey(node)) {
                 continue;
             }
 
@@ -117,17 +116,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             session.sendResponse(Response.ok("OK"));
         } catch (IOException e) {
-            log.error(e.getMessage());
+            log.error("Error sending response", e);
         }
     }
 
-    private void execute(final int requestType,
-                         final String id,
+    private void execute(final String id,
                          final HttpSession session,
                          final Request request) throws RejectedExecutionException {
         executorService.execute(() -> {
             try {
-                handleRequest(id, request, session, requestType);
+                handleRequest(id, request, session);
             } catch (IOException e) {
                 log.error("Error sending response", e);
             }
@@ -154,14 +152,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         } catch (IOException e) {
-            log.error("Error sending response in method get {}", e.getMessage());
+            log.error("Error sending response in method get", e);
         }
     }
 
     private void handleRequest(final String id,
                                final Request request,
-                               final HttpSession session,
-                               final int requestType) throws IOException {
+                               final HttpSession session) throws IOException {
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -175,7 +172,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             proxy(node, request, session);
             return;
         }
-        switch (requestType) {
+        switch (request.getMethod()) {
             case Request.METHOD_PUT:
                 try {
                     dao.upsert(key, getBuffer(request.getBody()));
@@ -246,7 +243,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     final HttpSession session,
                     final Request request) {
         try {
-            execute(Request.METHOD_GET, id, session, request);
+            execute(id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
@@ -265,7 +262,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        final Request request,
                        final HttpSession session) {
         try {
-            execute(Request.METHOD_PUT, id, session, request);
+            execute(id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }
@@ -283,7 +280,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        final HttpSession session,
                        final Request request) {
         try {
-            execute(Request.METHOD_DELETE, id, session, request);
+            execute(id, session, request);
         } catch (RejectedExecutionException e) {
             sendServiceUnavailable(session);
         }

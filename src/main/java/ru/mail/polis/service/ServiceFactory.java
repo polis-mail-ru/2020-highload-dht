@@ -18,8 +18,8 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.gogun.ConsistentHashing;
 import ru.mail.polis.service.gogun.AsyncServiceImpl;
+import ru.mail.polis.service.gogun.ConsistentHashing;
 
 import java.io.IOException;
 import java.util.Set;
@@ -31,6 +31,8 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    private static final int QUEUE_SIZE = 64;
+    private static final int VNODES = 10;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -60,8 +62,8 @@ public final class ServiceFactory {
         return new AsyncServiceImpl(
                 port,
                 Runtime.getRuntime().availableProcessors(),
-                32,
+                QUEUE_SIZE,
                 dao,
-                new ConsistentHashing(topology, "http://localhost:" + port));
+                new ConsistentHashing(topology, "http://localhost:" + port, VNODES));
     }
 }

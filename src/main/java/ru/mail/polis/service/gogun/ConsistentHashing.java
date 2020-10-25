@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.gogun;
+package ru.mail.polis.service.gogun;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -23,8 +23,9 @@ public class ConsistentHashing implements Hashing<String> {
      */
     public ConsistentHashing(
             @NotNull final Collection<String> nodes,
-            @NotNull final String me) {
-        numOfNodes = nodes.size();
+            @NotNull final String me,
+            final int vnodes) {
+        numOfNodes = vnodes;
         this.me = me;
 
         for (final String node : nodes) {

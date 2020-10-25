@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.gogun;
+package ru.mail.polis.service.gogun;
 
 import org.jetbrains.annotations.NotNull;
 
