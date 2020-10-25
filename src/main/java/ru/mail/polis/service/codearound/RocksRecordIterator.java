@@ -39,7 +39,7 @@ public class RocksRecordIterator implements Iterator<Record> {
     }
 
     /**
-     * stops iterator running, closes file also.
+     * stops iterator running, closes file processed.
      */
     public void close() {
         rocksIt.close();

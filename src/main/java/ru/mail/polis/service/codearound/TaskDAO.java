@@ -104,6 +104,7 @@ public class TaskDAO implements DAO {
 
     /**
      * removes record from storage.
+     *
      * @param key - target key
      */
     @Override
@@ -114,6 +115,69 @@ public class TaskDAO implements DAO {
         } catch (RocksDBException e) {
             throw new IOException(e);
         }
+    }
+
+    /**
+     * resolves timestamp-featured reading data by key specified.
+     *
+     * @param key - key searched to read some value
+     */
+    @Override
+    public Value getValue(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
+        try {
+            final byte[] value = getValueFromBytes(key);
+            return Value.getValueFromBytes(value);
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * commits timestamp-featured record push or modification by key specified.
+     *
+     * @param key - key either to add a record or to modify existing one
+     * @param value - key-bound value
+     */
+    @Override
+    public void upsertValue(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+        try {
+            final byte[] convertedKey = DAOByteOnlyConverter.tuneBufToArray(key);
+            final byte[] timestamp = Value.resolveExistingValue(value, System.currentTimeMillis()).getBytesFromValue();
+            db.put(convertedKey, timestamp);
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * commits timestamp-featured record deletion by key specified.
+     *
+     * @param key - key searched to remove specific record
+     */
+    @Override
+    public void removeValue(@NotNull final ByteBuffer key) throws IOException {
+        try {
+            final byte[] convertedKey = DAOByteOnlyConverter.tuneBufToArray(key);
+            final byte[] value = Value.resolveDeletedValue(System.currentTimeMillis()).getBytesFromValue();
+            db.put(convertedKey, value);
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * implements processing for a value derived from ByteBuffer.
+     *
+     * @param key - key searched to remove specific record
+     * @return value readable from byte array
+     */
+    private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException {
+        final byte[] array = DAOByteOnlyConverter.tuneBufToArray(key);
+        final byte[] value = db.get(array);
+        if (value == null) {
+            throw new NoSuchElementException("No match key found, failed request");
+        }
+        return value;
     }
 
     /**

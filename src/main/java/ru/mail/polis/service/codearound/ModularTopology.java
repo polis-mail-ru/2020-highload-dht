@@ -11,35 +11,58 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     private final String[] nodeArray;
     @NotNull
-    private final String self;
+    private final String thisNode;
 
     /**
      * topology impl class const.
      *
-     * @param nodes set of cluster-building nodes
-     * @param self node which is distinguished as a current request handler
+     * @param nodes set of cluster-establishing nodes
+     * @param thisNode node which is distinguished as a current request handler
      */
-    public ModularTopology(@NotNull final Set<String> nodes, @NotNull final String self) {
+    public ModularTopology(@NotNull final Set<String> nodes, @NotNull final String thisNode) {
 
-        assert nodes.contains(self);
+        assert nodes.contains(thisNode);
 
         nodeArray = new String[nodes.size()];
-        this.self = self;
+        this.thisNode = thisNode;
 
-        nodes.toArray(nodeArray);
-        Arrays.sort(nodeArray);
+        nodes.toArray(this.nodeArray);
+        Arrays.sort(this.nodeArray);
     }
 
     /**
      * retrieves node associate ID for key searched.
      *
-     * @param key - key searched
+     * @param id - node ID
      * @return target node ID
      */
     @NotNull
     @Override
-    public String primaryFor(@NotNull final ByteBuffer key) {
-        return nodeArray[(key.hashCode() & Integer.MAX_VALUE) % nodeArray.length];
+    public String primaryFor(@NotNull final ByteBuffer id) {
+        final int node = (id.hashCode() & Integer.MAX_VALUE) % nodeArray.length;
+        return nodeArray[node];
+    }
+
+    /**
+     * generates array containing node replica IDs.
+     *
+     * @param id - node ID
+     * @param numOfReplicas number of node replicas
+     * @return array of String-defined IDs
+     */
+    @NotNull
+    @Override
+    public String[] replicasFor(@NotNull final ByteBuffer id, int numOfReplicas) {
+
+        int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % nodeArray.length;
+        final String[] nodeReplicas = new String[numOfReplicas];
+
+        for (int i = 0; i < numOfReplicas; i++) {
+            nodeReplicas[i] = nodeArray[nodeIndex];
+            nodeIndex = (nodeIndex + 1) % nodeArray.length;
+        }
+
+        return nodeReplicas;
     }
 
     /**
@@ -49,8 +72,8 @@ public class ModularTopology implements Topology<String> {
      * @return true if ID match found, otherwise false
      */
     @Override
-    public boolean isSelfId(@NotNull final String nodeId) {
-        return nodeId.equals(self);
+    public boolean isThisNode(@NotNull final String nodeId) {
+        return nodeId.equals(thisNode);
     }
 
     /**
@@ -68,8 +91,18 @@ public class ModularTopology implements Topology<String> {
      *
      * @return array of nodes
      */
+    @NotNull
     @Override
-    public String[] getNodes() {
-        return nodeArray.clone();
+    public Set<String> getNodes() {
+        return Set.of(nodeArray);
     }
+
+    /**
+     * retrieves node that is processing a specific request at a moment.
+     *
+     * @return String-defined node ID
+     */
+    @NotNull
+    @Override
+    public String getThisNode() { return thisNode; }
 }

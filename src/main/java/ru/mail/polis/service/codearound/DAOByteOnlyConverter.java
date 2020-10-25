@@ -40,7 +40,7 @@ public final class DAOByteOnlyConverter {
     }
 
     /**
-     * converts value to byte array.
+     * converts ByteBuffer-defined value to byte array.
      *
      * @param buf ByteBuffer object to be handled to return byte array.
      * @return byte array object
