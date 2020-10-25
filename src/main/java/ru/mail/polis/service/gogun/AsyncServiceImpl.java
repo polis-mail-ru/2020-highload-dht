@@ -242,50 +242,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Provide getting data by id from lsm.
+     * Provide put/del/get requests to dao.
      *
      * @param id      - key
      * @param session - session
      */
     @Path("/v0/entity")
-    public void get(@Param(value = "id", required = true) @NotNull final String id,
+    public void handleHttpPath(@Param(value = "id", required = true) @NotNull final String id,
                     final HttpSession session,
                     final Request request) {
-        try {
-            execute(id, session, request);
-        } catch (RejectedExecutionException e) {
-            sendServiceUnavailable(session);
-        }
-    }
-
-    /**
-     * Provide putting/updating data by key.
-     *
-     * @param id      - key
-     * @param request - value
-     * @param session - session
-     */
-    @Path("/v0/entity")
-    public void upsert(@Param(value = "id", required = true) @NotNull final String id,
-                       final Request request,
-                       final HttpSession session) {
-        try {
-            execute(id, session, request);
-        } catch (RejectedExecutionException e) {
-            sendServiceUnavailable(session);
-        }
-    }
-
-    /**
-     * Provide deleting by id.
-     *
-     * @param id      - key
-     * @param session - session
-     */
-    @Path("/v0/entity")
-    public void delete(@Param(value = "id", required = true) @NotNull final String id,
-                       final HttpSession session,
-                       final Request request) {
         try {
             execute(id, session, request);
         } catch (RejectedExecutionException e) {
