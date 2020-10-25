@@ -225,10 +225,8 @@ class ServiceHelper {
     private byte[] toBytes(final ByteBuffer data, final byte[] bytes) {
         final byte[] dataBytes = toBytes(data);
         final byte[] mergedBytes = new byte[dataBytes.length + bytes.length];
-        log.info("Before: {}", Arrays.toString(mergedBytes));
         System.arraycopy(dataBytes, 0, mergedBytes, 0, dataBytes.length);
         System.arraycopy(bytes, 0, mergedBytes, dataBytes.length, bytes.length);
-        log.info("After: {}", Arrays.toString(mergedBytes));
         return mergedBytes;
     }
 

@@ -39,7 +39,6 @@ public class ServiceTopology implements Topology<String> {
             attachToRing(node, hashHelpValue);
             hashHelpValue += HASH_STEP_VALUE;
         }
-        hashRing.forEach((k, v) -> log.info("Key: {}, Value: {}", k, v));
     }
 
     @NotNull
