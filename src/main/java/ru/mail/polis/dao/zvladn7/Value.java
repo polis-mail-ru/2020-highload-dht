@@ -28,6 +28,7 @@ public class Value implements Comparable<Value> {
     }
 
     /**
+     * Return value.
      * @return ByteBuffer represented a value for some key.
      * @throws DeletedValueException - if data is null, that means that it is tombstone
      */
