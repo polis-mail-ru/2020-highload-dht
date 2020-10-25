@@ -174,52 +174,68 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         switch (request.getMethod()) {
             case Request.METHOD_PUT:
-                try {
-                    dao.upsert(key, getBuffer(request.getBody()));
-                } catch (IOException e) {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    log.error("Internal server error put", e);
-                    return;
-                } catch (NoSuchElementException e) {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                }
-
-                session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+                handlePut(key, request, session);
                 break;
             case Request.METHOD_GET:
-                final ByteBuffer buffer;
-                try {
-                    buffer = dao.get(key);
-                } catch (IOException e) {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    log.error("Internal server error get", e);
-                    return;
-                } catch (NoSuchElementException e) {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                }
-
-                session.sendResponse(Response.ok(getArray(buffer)));
+                handleGet(key, session);
                 break;
             case Request.METHOD_DELETE:
-                try {
-                    dao.remove(key);
-                } catch (IOException e) {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    log.error("Internal server error del", e);
-                    return;
-                } catch (NoSuchElementException e) {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                }
-
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+                handleDel(key, session);
                 break;
             default:
                 break;
         }
 
+    }
+
+    private void handlePut(@NotNull final ByteBuffer key,
+                           @NotNull final Request request,
+                           @NotNull final HttpSession session) throws IOException {
+        try {
+            dao.upsert(key, getBuffer(request.getBody()));
+        } catch (IOException e) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Internal server error put", e);
+            return;
+        } catch (NoSuchElementException e) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
+        }
+
+        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+    }
+
+    private void handleGet(@NotNull final ByteBuffer key,
+                           @NotNull final HttpSession session) throws IOException {
+        final ByteBuffer buffer;
+        try {
+            buffer = dao.get(key);
+        } catch (IOException e) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Internal server error get", e);
+            return;
+        } catch (NoSuchElementException e) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
+        }
+
+        session.sendResponse(Response.ok(getArray(buffer)));
+    }
+
+    private void handleDel(@NotNull final ByteBuffer key,
+                           @NotNull final HttpSession session) throws IOException {
+        try {
+            dao.remove(key);
+        } catch (IOException e) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Internal server error del", e);
+            return;
+        } catch (NoSuchElementException e) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            return;
+        }
+
+        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
     private void proxy(final String node, final Request request, final HttpSession session) throws IOException {
