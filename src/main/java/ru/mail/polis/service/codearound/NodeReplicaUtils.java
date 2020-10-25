@@ -16,10 +16,19 @@ public final class NodeReplicaUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
 
+    /**
+     * class instance const.
+     */
     private NodeReplicaUtils() {
 
     }
 
+    /**
+     * executes synchronizing records through node replicas.
+     *
+     * @param values - collection of values ever pushed to storage
+     * @return Value instance
+     */
     public static Value syncReplicaValues(final List<Value> values) {
 
         if(values.size() == 1) {
@@ -32,9 +41,19 @@ public final class NodeReplicaUtils {
         }
     }
 
+    /**
+     * retrieves reference on array containing node replicas.
+     *
+     * @param key - key searched through nodes within the cluster
+     * @param repliFactor - replication factor
+     * @param isForwardedRequest - true if incoming request header indicates
+     *                             invocation of proxy-providing method on a previous node
+     * @param topology - implementable cluster topology
+     * @return array of node replicas
+     */
     public static String[] getNodeReplica(
             @NotNull final ByteBuffer key,
-            final NodeReplicationFactor repliFactor,
+            @NotNull final NodeReplicationFactor repliFactor,
             final boolean isForwardedRequest,
             @NotNull final Topology<String> topology) {
 
@@ -49,6 +68,15 @@ public final class NodeReplicaUtils {
         return nodeReplicas;
     }
 
+    /**
+     * issues response to client in case of key search success on replica in charge of handling request at a moment.
+     *
+     * @param values - collection of values ever pushed to storage
+     * @param nodeReplicas - array of node replicas
+     * @param isForwardedRequest - true if incoming request header indicates
+     *                                 invocation of proxy-providing method on a previous node
+     * @return HTTP response
+     */
     public static Response issueExternalResponse(
             final List<Value> values,
             final String[] nodeReplicas,
@@ -67,9 +95,17 @@ public final class NodeReplicaUtils {
         }
     }
 
+    /**
+     * issues response to client in case of key search success on any node replica that's different from one in charge
+     * of handling request at a moment.
+     *
+     * @param key - key searched
+     * @param dao - implementable DAO
+     * @return HTTP response
+     */
     public static Response issueInternalResponse(
             @NotNull final ByteBuffer key,
-            final DAO dao) {
+            @NotNull final DAO dao) {
 
         try {
             final Value value = dao.getValue(key);
