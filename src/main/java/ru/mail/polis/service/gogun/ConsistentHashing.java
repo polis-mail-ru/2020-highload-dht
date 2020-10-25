@@ -4,7 +4,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.SortedMap;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 
 public class ConsistentHashing implements Hashing<String> {
@@ -12,7 +13,7 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     private final String me;
     @NotNull
-    private final SortedMap<Integer, String> circle = new TreeMap<>();
+    private final NavigableMap<Integer, String> circle = new TreeMap<>();
     private final int numOfNodes;
 
     /**
@@ -44,8 +45,8 @@ public class ConsistentHashing implements Hashing<String> {
         int hash = key.hashCode();
 
         if (!circle.containsKey(hash)) {
-            final SortedMap<Integer, String> tailMap = circle.tailMap(hash);
-            hash = tailMap.isEmpty() ? circle.firstKey() : tailMap.firstKey();
+            final Map.Entry<Integer, String> ceilingEntry = circle.ceilingEntry(hash);
+            hash = ceilingEntry == null ? circle.firstKey() : ceilingEntry.getKey();
         }
 
         return circle.get(hash);
