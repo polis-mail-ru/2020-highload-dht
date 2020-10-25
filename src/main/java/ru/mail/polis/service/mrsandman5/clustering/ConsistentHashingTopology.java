@@ -12,26 +12,26 @@ import java.util.TreeMap;
 
 /** Implemented by example - https://github.com/Jaskey/ConsistentHash.
  * */
-public class ConsistentHashingTopology<T> implements Topology<T> {
+public final class ConsistentHashingTopology<T> implements Topology<T> {
 
     private final T me;
     @NotNull
-    private final Set<T> topology;
+    private final Set<T> nodes;
     private final NavigableMap<Long, VirtualNode<T>> ring = new TreeMap<>();
     @SuppressWarnings("UnstableApiUsage")
     private final HashFunction hashFunction = Hashing.murmur3_128();
 
     /** Consistent hashing cluster topology.
-     * @param topology - nodes of the cluster
+     * @param nodes - nodes of the cluster
      * @param me       - name of the current node
      * @param virtualNodeCount - virtual nodes for hash ring
      */
-    public ConsistentHashingTopology(@NotNull final Set<T> topology,
+    public ConsistentHashingTopology(@NotNull final Set<T> nodes,
                                      @NotNull final T me,
                                      final int virtualNodeCount) {
         this.me = me;
-        this.topology = topology;
-        this.topology.forEach(node -> addNode(node, virtualNodeCount));
+        this.nodes = nodes;
+        this.nodes.forEach(node -> addNode(node, virtualNodeCount));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -53,7 +53,7 @@ public class ConsistentHashingTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public Set<T> all() {
-        return topology;
+        return nodes;
     }
 
     /** Add new node to hash ring.

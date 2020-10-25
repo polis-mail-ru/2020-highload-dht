@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class BasicTopology<T> implements Topology<T> {
+public final class BasicTopology<T> implements Topology<T> {
 
     private final T me;
     private final List<T> nodes;
@@ -28,8 +28,7 @@ public class BasicTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public T primaryFor(@NotNull final ByteBuffer key) {
-        final int hash = key.hashCode();
-        final int index = (hash & Integer.MAX_VALUE) % nodes.size();
+        final int index = getIndex(key);
         return nodes.get(index);
     }
 
@@ -42,6 +41,11 @@ public class BasicTopology<T> implements Topology<T> {
     @Override
     public Set<T> all() {
         return new HashSet<>(nodes);
+    }
+
+    private int getIndex(@NotNull final ByteBuffer key) {
+        final int hash = key.hashCode();
+        return (hash & Integer.MAX_VALUE) % nodes.size();
     }
 
 }
