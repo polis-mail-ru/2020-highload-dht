@@ -6,6 +6,8 @@ package ru.mail.polis.dao.zvladn7.exceptions;
  */
 public class DeletedValueException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Constructs a {@code DeletedValueException} with {@code null}
      * as its error message string.
