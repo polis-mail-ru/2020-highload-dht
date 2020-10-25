@@ -70,7 +70,7 @@ public class ServiceTopology implements Topology<String> {
     private void addReplicasForKey(final Set<String> nodesForReplication,
                                    final SortedMap<Integer, String> map,
                                    final int from) {
-        for (Map.Entry<Integer, String> e : map.entrySet()) {
+        for (final Map.Entry<Integer, String> e : map.entrySet()) {
             if (nodesForReplication.size() == from) {
                 break;
             }

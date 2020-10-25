@@ -78,7 +78,8 @@ class ServiceHelper {
                 log.info("Value with key: {} was not found", id, e);
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
-        }, (responses, replicasHolder) -> ConflictResolver.resolveGetAndSend(responses, replicasHolder, session));
+        }, (responses, replicasHolder)
+                -> ConflictResolver.resolveGetAndSend(responses, replicasHolder, session));
     }
 
     void handleDelete(
@@ -95,7 +96,8 @@ class ServiceHelper {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
             return new Response(Response.ACCEPTED, Response.EMPTY);
-        }, (responses, replicasHolder) -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, true));
+        }, (responses, replicasHolder)
+                -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, true));
     }
 
     void handleUpsert(
@@ -113,7 +115,8 @@ class ServiceHelper {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
             return new Response(Response.CREATED, Response.EMPTY);
-        }, (responses, replicasHolder) -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, false));
+        }, (responses, replicasHolder)
+                -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, false));
     }
 
     private Response getLocalResponse(final Value value) {

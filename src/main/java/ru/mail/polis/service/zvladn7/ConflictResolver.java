@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.List;
 
-class ConflictResolver {
+final class ConflictResolver {
 
     private static final Logger log = LoggerFactory.getLogger(ConflictResolver.class);
 
@@ -19,7 +19,6 @@ class ConflictResolver {
 
     /**
      * Resolve responses from replicas to send fresh data to the client.
-     *
      * @param responses      - responses from the active nodes.
      *                       There are 3 types of it:
      *                       - 200 OK with value and timestamp
@@ -60,10 +59,8 @@ class ConflictResolver {
         }
     }
 
-
     /**
      * Resolve responses from replicas to send fresh data to the client.
-     *
      * @param responses      - responses from the active nodes.
      * @param replicasHolder - replication factor which where send as http parameter or default
      * @param session        - http server session
