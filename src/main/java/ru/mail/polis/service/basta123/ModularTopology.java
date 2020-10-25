@@ -54,7 +54,6 @@ public class ModularTopology implements Topology<String> {
     @SuppressWarnings("unchecked")
     public List<String> getAllNodes() {
         final ArrayList<String> arrayNodes = (ArrayList<String>)this.nodes;
-        final Object object = arrayNodes.clone();
-        return (ArrayList<String>)object;
+        return (ArrayList<String>)arrayNodes.clone();
     }
 }
