@@ -13,7 +13,7 @@ import java.util.TreeMap;
 
 public class ServiceTopology implements Topology<String> {
 
-    private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceTopology.class);
     static final int VIRTUAL_NODES_PER_NODE = 10;
     private static final int HASH_STEP_VALUE = 77;
     private static final int OFFSET_FOR_NODE_HASH_VALUE = 10;
