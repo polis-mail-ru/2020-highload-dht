@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class ConsistentHashing implements Hashing<String> {
 
@@ -14,7 +15,7 @@ public class ConsistentHashing implements Hashing<String> {
     private final String me;
     @NotNull
     private final NavigableMap<Integer, String> circle = new TreeMap<>();
-    private final int numOfNodes;
+    private final int vnodes;
 
     /**
      * Class provides sharding via consistent hashing.
@@ -26,7 +27,7 @@ public class ConsistentHashing implements Hashing<String> {
             @NotNull final Collection<String> nodes,
             @NotNull final String me,
             final int vnodes) {
-        numOfNodes = vnodes;
+        this.vnodes = vnodes;
         this.me = me;
 
         for (final String node : nodes) {
@@ -53,7 +54,7 @@ public class ConsistentHashing implements Hashing<String> {
     }
 
     private void add(final String node) {
-        for (int i = 0; i < numOfNodes; i++) {
+        for (int i = 0; i < vnodes; i++) {
             circle.put((node + i).hashCode(), node);
         }
     }
@@ -65,7 +66,7 @@ public class ConsistentHashing implements Hashing<String> {
 
     @NotNull
     @Override
-    public Collection<String> all() {
-        return circle.values();
+    public String[] all() {
+        return new TreeSet<>(circle.values()).toArray(new String[0]);
     }
 }

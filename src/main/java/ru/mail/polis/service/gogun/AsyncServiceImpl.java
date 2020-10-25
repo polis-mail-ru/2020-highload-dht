@@ -9,7 +9,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
@@ -249,7 +248,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - session
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) @NotNull final String id,
                     final HttpSession session,
                     final Request request) {
@@ -268,7 +266,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - session
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
     public void upsert(@Param(value = "id", required = true) @NotNull final String id,
                        final Request request,
                        final HttpSession session) {
@@ -286,7 +283,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - session
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
     public void delete(@Param(value = "id", required = true) @NotNull final String id,
                        final HttpSession session,
                        final Request request) {
