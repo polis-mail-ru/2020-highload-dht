@@ -4,13 +4,15 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.service.Topology;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 
 public class ModularTopology implements Topology<String> {
 
-    @NotNull
-    private final String[] nodes;
+
+    ArrayList<String> nodes;
     @NotNull
     private final String localNode;
 
@@ -25,23 +27,22 @@ public class ModularTopology implements Topology<String> {
 
         assert nodes.contains(localNode);
 
-        this.nodes = new String[nodes.size()];
-        nodes.toArray(this.nodes);
-        Arrays.sort(this.nodes);
+        this.nodes = new ArrayList<>(nodes);
+        this.nodes.sort(String::compareTo);
 
         this.localNode = localNode;
-
     }
 
     @Override
     public int size() {
-        return nodes.length;
+        return this.nodes.size();
     }
 
     @NotNull
     @Override
     public String getNode(@NotNull final ByteBuffer key) {
-        return this.nodes[(key.hashCode() & Integer.MAX_VALUE) % this.nodes.length];
+        return this.nodes.get((key.hashCode() & Integer.MAX_VALUE) % this.nodes.size());
+
     }
 
     @NotNull
@@ -52,7 +53,10 @@ public class ModularTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String[] getAllNodes() {
-        return nodes.clone();
+    @SuppressWarnings("unchecked")
+    public ArrayList<String> getAllNodes() {
+        Object o = nodes.clone();
+        ArrayList<String> n = (ArrayList<String>)o;
+        return n;
     }
 }

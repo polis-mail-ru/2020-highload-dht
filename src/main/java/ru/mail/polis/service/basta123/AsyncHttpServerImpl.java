@@ -39,7 +39,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncHttpServerImpl.class);
     private static final String CANT_SEND_RESPONSE = "can't send response";
-    private static final String HTTP_CLIENT_TIMEOUT_100 = "?timeout=100";
+    private static final String HTTP_CLIENT_TIMEOUT = "?timeout=100";
     private static final int QUEUE_SIZE = 1024;
     @NotNull
     private final DAO dao;
@@ -69,7 +69,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
         for (final String node : topology.getAllNodes()) {
             if (!topology.isLocal(node) && !this.clientAndNode.containsKey(node)) {
-                final HttpClient client = new HttpClient(new ConnectionString(node + HTTP_CLIENT_TIMEOUT_100));
+                final HttpClient client = new HttpClient(new ConnectionString(node + HTTP_CLIENT_TIMEOUT));
                 this.clientAndNode.put(node, client);
             }
         }
@@ -115,7 +115,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void getValueByKey(@Param(value = "id", required = true) final String id,
+    public void getValueByKey(@NotNull @Param(value = "id", required = true) final String id,
                               @NotNull final Request request,
                               final HttpSession httpSession) {
         if (!isIdValid(id, httpSession)) {
@@ -163,7 +163,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putValueByKey(@Param(value = "id", required = true) final String id,
+    public void putValueByKey(@NotNull @Param(value = "id", required = true) final String id,
                               @NotNull final Request request,
                               final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
@@ -204,7 +204,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteValueByKey(@Param(value = "id", required = true) final String id,
+    public void deleteValueByKey(@NotNull @Param(value = "id", required = true) final String id,
                                  @NotNull final Request request,
                                  final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
@@ -237,7 +237,6 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
     private Response proxying(@NotNull final String node,
                               @NotNull final Request request) throws IOException {
         try {
-            request.addHeader("Forwarding");
             return clientAndNode.get(node).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
             log.error("error when proxying the request:", e);
@@ -261,7 +260,7 @@ public class AsyncHttpServerImpl extends HttpServer implements Service {
 
     private boolean isIdValid(final String id,
                               @NotNull final HttpSession httpSession) {
-        if (id == null || id.isEmpty()) {
+        if (id.isEmpty()) {
             sendResponse(httpSession, Response.BAD_REQUEST);
             return false;
         } else {

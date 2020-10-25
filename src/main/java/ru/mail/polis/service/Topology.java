@@ -3,6 +3,7 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 public interface Topology<N> {
 
@@ -12,6 +13,6 @@ public interface Topology<N> {
 
     int size();
 
-    N[] getAllNodes();
+    ArrayList<String> getAllNodes();
 
 }
