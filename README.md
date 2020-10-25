@@ -210,26 +210,26 @@ Transfer/sec:    808.60KB
 <ins>Flamegraph-анализ</ins><br/>  
 
 ![put_cpu_basic_shards](resources/flamegraphs/put_cpu_basic_shards.svg)
-<p align="center">Рис.1. Выделение ресурса CPU при симулировании PUT-запросов (basic sharding)</p>
+<p align="center">Рис.1. Выделение ресурса CPU при симулировании PUT-запросов (<em>basic sharding</em>)</p>
 
 ![put_cpu_replicas](resources/flamegraphs/put_cpu_replicas.svg)
-<p align="center">Рис.2. Выделение ресурса CPU при симулировании PUT-запросов (replication)</p>
+<p align="center">Рис.2. Выделение ресурса CPU при симулировании PUT-запросов (<em>replication</em>)</p>
 
 Сравнивая профили операций CPU, необходимо выделить существенное изменение, наблюдаемое в кластерной конфигурации - появление на соответствующем её узлу графе элементов, связанных с вызовами метода проксирования (<em>invoke</em>) в структуре класса <em>AsyncService</em>. Данный метод осуществляет дальнейшую адресацию запроса в пределах кластера при обнаружении несоответствия ID текущего и целевого (обслуживающего запросы по конкретному ключу) узла-обработчика. Поддержка подобной схемы создаёт предпосылки возрастания временн<em>ы</em>х издержек в процессе выполнения логики запроса, что находит отражение в ухудшении статистики быстродействия относительно топологии с одним узлом.                                             
 
 ![put_alloc_basic_shards](resources/flamegraphs/put_alloc_basic_shards.svg)
-<p align="center">Рис.3. Выделение ресурса RAM при симулировании PUT-запросов (basic sharding)</p>
+<p align="center">Рис.3. Выделение ресурса RAM при симулировании PUT-запросов (<em>basic sharding</em>)</p>
 
 ![put_alloc_replicas](resources/flamegraphs/put_alloc_replicas.svg)
-<p align="center">Рис.4. Выделение ресурса RAM при симулировании PUT-запросов (replication)</p>
+<p align="center">Рис.4. Выделение ресурса RAM при симулировании PUT-запросов (<em>replication</em>)</p>
 
 Структура аллокаций в обеих топологиях не демонстрирует релевантных различий: основными факторами выделения памяти, как и в мониторинге на предыдущем этапе, определены хранение объектов <em>ThreadPoolExecutor</em>, размещение данных из буфера и преобразование их типов.                   
 
 ![put_lock_basic_shards](resources/flamegraphs/put_lock_basic_shards.svg)
-<p align="center">Рис.5. Профиль lock/monitor при симулировании PUT-запросов (basic sharding)</p>
+<p align="center">Рис.5. Профиль lock/monitor при симулировании PUT-запросов (<em>basic sharding</em>)</p>
 
 ![put_lock_replicas](resources/flamegraphs/put_lock_replicas.svg)
-<p align="center">Рис.6. Профиль lock/monitor при симулировании PUT-запросов (replication)</p>
+<p align="center">Рис.6. Профиль lock/monitor при симулировании PUT-запросов (<em>replication</em>)</p>
 
 Потокобезопасность в обоих вариантах топологии достигается путём контроля доступа к разделяемым данным внутри <em>ArrayBlockingQueue</em>. Фактором взаимоисключающего характера операций является использование экземпляра <em>ReentrantLock</em> на входе в очередь в связке с реализацией <em>AbstractQueueSynchronizer</em>.<br/>               
 
@@ -382,25 +382,25 @@ Transfer/sec:    822.71KB
 <ins>Flamegraph-анализ</ins><br/>  
 
 ![get_cpu_basic_shards](resources/flamegraphs/get_cpu_basic_shards.svg)
-<p align="center">Рис.7. Выделение ресурса CPU при симулировании GET-запросов (basic sharding)</p>
+<p align="center">Рис.7. Выделение ресурса CPU при симулировании GET-запросов (<em>basic sharding</em>)</p>
 
 ![get_cpu_replication](resources/flamegraphs/get_cpu_replicas.svg)
-<p align="center">Рис.8. Выделение ресурса CPU при симулировании GET-запросов (replication)</p>
+<p align="center">Рис.8. Выделение ресурса CPU при симулировании GET-запросов (<em>replication</em>)</p>
 
 Аналогично профилю, полученному в ходе операций с PUT-запросами, в текущей структуре пользователей процессорного времени на узле кластера прослеживается действие метода проксирования <em>invoke</em>. Принимая во внимание значительное снижение производительности чтения в распределённой топологии, эффект проксирования запросов, связанный с дополнительной нагрузкой на аппаратные ресурсы, прежде всего ЦПУ, следует рассматривать как релевантный фактор негативной динамики в условиях роста числа перенаправляемых запросов.            
 
 ![get_alloc_basic_shards](resources/flamegraphs/get_alloc_basic_shards.svg)
-<p align="center">Рис.9. Выделение ресурса RAM при симулировании GET-запросов (basic sharding)</p>
+<p align="center">Рис.9. Выделение ресурса RAM при симулировании GET-запросов (<em>basic sharding</em>)</p>
 
 ![get_alloc_replicas](resources/flamegraphs/get_alloc_replicas.svg)
-<p align="center">Рис.10. Выделение ресурса RAM при симулировании GET-запросов (replication)</p>
+<p align="center">Рис.10. Выделение ресурса RAM при симулировании GET-запросов (<em>replication</em>)</p>
 
 Актуальное сравнение триггеров аллокаций идентично их определению в профилях к PUT-запросам. Используя текущие представления, можно утверждать, что различия в топологиях сервера не оказывают влияния на структуру операций, требующих выделения памяти (как минимум на уровне одного узла кластера, подвергнутого профилированию).                   
 
 ![get_lock_basic_shards](resources/flamegraphs/get_lock_basic_shards.svg)
-<p align="center">Рис.11. Профиль lock/monitor при симулировании GET-запросов (basic sharding)</p>
+<p align="center">Рис.11. Профиль lock/monitor при симулировании GET-запросов (<em>basic sharding</em>)</p>
 
 ![get_lock_replicas](resources/flamegraphs/get_lock_replicas.svg)
-<p align="center">Рис.12. Профиль lock/monitor при симулировании GET-запросов (replication)</p>
+<p align="center">Рис.12. Профиль lock/monitor при симулировании GET-запросов (<em>replication</em>)</p>
 
 Контроль асинхронного параллелизма при выполнении запросов на чтение реализуется с использованием того же механизма взаимоисключений, который гарантирует безопасность критической секции в очереди с PUT-запросами (комбинация экземпляров <em>ReentrantLock</em> и <em>AbstractQueueSynchronizer</em>).
