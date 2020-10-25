@@ -51,9 +51,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param dao        - key-value storage
      * @throws IOException - ioexception
      */
-    public AsyncServiceImpl(final int port,
-                            final int numWorkers,
-                            final int queueSize,
+    public AsyncServiceImpl(final int port, final int numWorkers, final int queueSize,
                             @NotNull final DAO dao,
                             @NotNull final Hashing<String> topology) throws IOException {
         super(makeConfig(port, numWorkers));
@@ -120,8 +118,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void execute(final String id,
-                         final HttpSession session,
+    private void execute(final String id, final HttpSession session,
                          final Request request) throws RejectedExecutionException {
         executorService.execute(() -> {
             try {
@@ -156,8 +153,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void handleRequest(final String id,
-                               final Request request,
+    private void handleRequest(final String id, final Request request,
                                final HttpSession session) throws IOException {
         log.debug("PUT request with id: {}", id);
         if (id.isEmpty()) {
@@ -188,8 +184,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     }
 
-    private void handlePut(@NotNull final ByteBuffer key,
-                           @NotNull final Request request,
+    private void handlePut(@NotNull final ByteBuffer key, @NotNull final Request request,
                            @NotNull final HttpSession session) throws IOException {
         try {
             dao.upsert(key, getBuffer(request.getBody()));
