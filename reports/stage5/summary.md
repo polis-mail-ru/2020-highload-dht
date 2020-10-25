@@ -2,27 +2,27 @@
 ---------------------------------------------------------------------------------------
 
 Running 50s test @ http://localhost:8080
-
+  
   2 threads and 20 connections
-
-  Thread calibration: mean lat.: 1.270ms, rate sampling interval: 10ms
-
-  Thread calibration: mean lat.: 1.307ms, rate sampling interval: 10ms
-
+    
+  Thread calibration: mean lat.: 2.032ms, rate sampling interval: 10ms
+  
+  Thread calibration: mean lat.: 2.035ms, rate sampling interval: 10ms
+  
     Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.25ms  426.25us   3.52ms   66.81%
-    Req/Sec   526.92     78.74     0.89k    71.86%
+    Latency     2.19ms  546.41us  10.06ms   70.24%
+    Req/Sec   526.23    107.73     0.89k    63.81%
   
   Latency Distribution (HdrHistogram - Recorded Latency)
-  
-    50.000%     1.22ms
-    75.000%     1.55ms
-    90.000%     1.82ms
-    99.000%     2.30ms
-    99.900%     2.59ms
-    99.990%     2.86ms
-    99.999%     3.53ms
-    100.000%    3.53ms
+    
+    50.000%    2.20ms
+    75.000%    2.54ms
+    90.000%    2.84ms
+    99.000%    3.39ms
+    99.900%    5.49ms
+    99.990%    7.50ms
+    99.999%    10.07ms
+    100.000%   10.07ms
     
 Скрипт PUT
 ----------------------------------------------------------------
@@ -51,8 +51,6 @@ echo "end analitics"
 
 sleep 10s
 
-
-
 ----------------------------------------------------------------
 CPU put
 ----------------------------------------------------
@@ -79,25 +77,24 @@ Running 50s test @ http://localhost:8080
 
   2 threads and 20 connections
 
-  Thread calibration: mean lat.: 1.222ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.939ms, rate sampling interval: 10ms
 
-  Thread calibration: mean lat.: 1.236ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.849ms, rate sampling interval: 10ms
 
     Thread Stats   Avg      Stdev     Max   +/- Stdev
-
-    Latency     1.25ms  444.71us   4.23ms   68.11%
-    Req/Sec   528.07     82.27     0.89k    65.96%
+    Latency     2.05ms  514.49us  12.18ms   69.43%
+    Req/Sec   526.51    115.72     0.90k    62.69%
   
   Latency Distribution (HdrHistogram - Recorded Latency)
-  
-    50.000%     1.23ms
-    75.000%     1.54ms
-    90.000%     1.84ms
-    99.000%     2.42ms
-    99.900%     2.72ms
-    99.990%     3.28ms
-    99.999%     4.24ms
-    100.000%    4.24ms
+    
+    50.000%    2.03ms
+    75.000%    2.38ms
+    90.000%    2.70ms
+    99.000%    3.28ms
+    99.900%    4.12ms
+    99.990%    9.01ms
+    99.999%    12.18ms
+    100.000%   12.18ms
 
 Скрипт GET
 ----------------------------------------------------------------
@@ -141,11 +138,33 @@ LOCK get
 
 В рамках нагрузочного тестирования для PUT/GET
 
-№1 Соединений - 20
+№1 Потоков - 1 
 
-№2 Продолжительность - 50 секунд
+№2 Соединений - 20
 
-№3 Количество запросов (Rate) - 1000
+№3 Продолжительность - 50 секунд
+
+№4 Количество запросов (Rate) - 1000
+
+1) Put
+   
+   
+    Latency    2.19ms  546.41us  10.06ms   70.24%
+    Req/Sec   526.23    107.73     0.89k    63.81%
+
+2) Get
+
+    
+    Latency    2.05ms  514.49us  12.18ms   69.43%
+    Req/Sec   526.51    115.72     0.90k    62.69%
+ 
+
+На SVG СPU можно заметить, что используются Helper классы для отправки на репликацию запросов. 
+Ввиду появления логики репликации, скорость работы упала в 2 - 3 раза. 
+Для сравнения представлены результаты профилирования с 4-го этапа. 
+
+
+РЕЗУЛЬТАТЫ 4-ГО ЭТАПА:
 
 1) Put
 
@@ -159,37 +178,4 @@ LOCK get
     Latency     1.25ms  444.71us   4.23ms   68.11%
     Req/Sec   528.07     82.27     0.89k    65.96%
  
-На снимках работы CPU можно видеть переадресовку 
-запросов на другие сервисы через HttpClient. 
-Причем GET запросы выполняются c со скоростью, равной скорости обработки PUT запросов.
-Работа проходит в 3-10 раз быстрее по сравнению с реализацией на 3-м этапе из-за того, что нагрузка на 4-м
-этапе была специально уменьшена для выполнения эксперимента.
-
-Результаты 3-го этапа для сравнения:
-
-1) Put
-
-SYNC
-
-     Latency -> Avg. 6.14ms | Max. 203.01ms
-     Req/Sec -> Avg. 6.17k  | Max. 14.06k 
-
-ASYNC
-
- 
-    Latency -> Avg. 12.20ms | Max. 151.42ms
-    Req/Sec -> Avg. 6.04k  | Max. 10.75k
-  
-
-2) Get
- 
-SYNC
-
-    Latency -> Avg. 12.49ms | Max. 455.94ms
-    Req/Sec -> Avg. 6.08k  | Max. 14.09k 
-
-ASYNC
-
-    Latency -> Avg. 4.71ms | Max. 95.42ms
-    Req/Sec -> Avg. 6.01k  | Max. 6.76k  
 
