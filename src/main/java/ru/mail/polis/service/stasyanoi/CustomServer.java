@@ -13,8 +13,6 @@ import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 
@@ -31,7 +29,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class CustomServer extends HttpServer {
-    private static final Logger logger = LoggerFactory.getLogger(CustomServer.class);
     private final Map<Integer, String> nodeMapping;
     private final int nodeCount;
     private int nodeNum;
@@ -74,7 +71,6 @@ public class CustomServer extends HttpServer {
     }
 
     private Response routeRequest(final Request request, final int node) throws IOException {
-        logger.info(nodeNum + " SEND TO " + node);
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         final HttpClient httpClient = new HttpClient(connectionString);
         try {

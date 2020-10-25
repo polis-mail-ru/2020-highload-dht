@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" width="1200" height="86" onload="init(evt)" viewBox="0 0 1200 86" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg version="1.1" width="1200" height="278" onload="init(evt)" viewBox="0 0 1200 278" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <style type="text/css">
 	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
 	#search { opacity:0.1; cursor:pointer; }
@@ -328,10 +328,62 @@
 </script>
 <rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
 <text id="title" x="600" y="24">Flame Graph</text>
-<text id="details" x="10" y="69"> </text>
+<text id="details" x="10" y="261"> </text>
 <text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
 <text id="search" x="1090" y="24">Search</text>
-<text id="matched" x="1090" y="69"> </text>
+<text id="matched" x="1090" y="261"> </text>
 <g id="frames">
+<g>
+<title>all (10 samples, 100.00%)</title><rect x="10.0" y="227.0" width="1180.0" height="15" fill="#e76262" rx="2" ry="2"/>
+<text x="13.0" y="238.0">all</text>
+</g>
+<g>
+<title>java/lang/Thread.run (10 samples, 100.00%)</title><rect x="10.0" y="211.0" width="1180.0" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="13.0" y="222.0">java/lang/Thread.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (10 samples, 100.00%)</title><rect x="10.0" y="195.0" width="1180.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="13.0" y="206.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (10 samples, 100.00%)</title><rect x="10.0" y="179.0" width="1180.0" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="13.0" y="190.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.getTask (10 samples, 100.00%)</title><rect x="10.0" y="163.0" width="1180.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="13.0" y="174.0">java/util/concurrent/ThreadPoolExecutor.getTask</text>
+</g>
+<g>
+<title>java/util/concurrent/LinkedBlockingQueue.take (10 samples, 100.00%)</title><rect x="10.0" y="147.0" width="1180.0" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="13.0" y="158.0">java/util/concurrent/LinkedBlockingQueue.take</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/ReentrantLock.lockInterruptibly (10 samples, 100.00%)</title><rect x="10.0" y="131.0" width="1180.0" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="13.0" y="142.0">java/util/concurrent/locks/ReentrantLock.lockInterruptibly</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireInterruptibly (10 samples, 100.00%)</title><rect x="10.0" y="115.0" width="1180.0" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="13.0" y="126.0">java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireInterruptibly</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.doAcquireInterruptibly (10 samples, 100.00%)</title><rect x="10.0" y="99.0" width="1180.0" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="13.0" y="110.0">java/util/concurrent/locks/AbstractQueuedSynchronizer.doAcquireInterruptibly</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (10 samples, 100.00%)</title><rect x="10.0" y="83.0" width="1180.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="13.0" y="94.0">java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt</text>
+</g>
+<g>
+<title>java/util/concurrent/locks/LockSupport.park (10 samples, 100.00%)</title><rect x="10.0" y="67.0" width="1180.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="13.0" y="78.0">java/util/concurrent/locks/LockSupport.park</text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.park (10 samples, 100.00%)</title><rect x="10.0" y="51.0" width="1180.0" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="13.0" y="62.0">jdk/internal/misc/Unsafe.park</text>
+</g>
+<g>
+<title>java.util.concurrent.locks.ReentrantLock$NonfairSync (10 samples, 100.00%)</title><rect x="10.0" y="35.0" width="1180.0" height="15" fill="#62d0d0" rx="2" ry="2"/>
+<text x="13.0" y="46.0">java.util.concurrent.locks.ReentrantLock$NonfairSync</text>
+</g>
 </g>
 </svg>
