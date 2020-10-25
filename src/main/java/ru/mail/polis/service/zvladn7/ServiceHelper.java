@@ -1,5 +1,6 @@
 package ru.mail.polis.service.zvladn7;
 
+import com.google.common.primitives.Longs;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
@@ -13,19 +14,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.zvladn7.Value;
+import ru.mail.polis.dao.zvladn7.exceptions.DeletedValueException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 class ServiceHelper {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceHelper.class);
+    private static final String PROXY_REQUEST_HEADER = "X-Proxy-To-Node";
+
     private final Topology<String> topology;
     private final Map<String, HttpClient> clients;
     private final DAO dao;
@@ -60,62 +66,18 @@ class ServiceHelper {
             @NotNull final Request request,
             final String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
-
-        log.debug("{} request with mapping: /v0/entity with: key={}", request.getMethodName(), id);
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, request.getMethodName());
-            return;
-        }
-        final ReplicasHolder replicasHolder;
-        if (replicas == null) {
-            replicasHolder = new ReplicasHolder(topology.size());
-        } else {
-            replicasHolder = new ReplicasHolder(replicas);
-        }
-        final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
-        log.info("id: {}", request.getParameter("id="));
-        log.info("replicas: {}", request.getParameter("replicas="));
-        Response localResponse = null;
-        if (topology.isLocal(nodesForResponse)) {
-            nodesForResponse.remove(topology.local());
-//            processor.process();
-            log.debug("Not from cache with id: {}", id);
+        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
+        handleOrProxy(key, replicasHolder, request, session, () -> {
             final Value value;
             try {
                 value = dao.getValue(key);
+                log.debug("Value successfully got!");
+                return getLocalResponse(value);
             } catch (NoSuchElementException e) {
                 log.info("Value with key: {} was not found", id, e);
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                return;
+                return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
-            final byte[] body = toBytes(value.getData());
-
-            localResponse = Response.ok(body);
-        }
-        List<Response> responses = proxy(nodesForResponse, request);
-        if (localResponse != null) {
-            responses.add(localResponse);
-        }
-        ConflictResolver.resolveGetAndSend(responses, replicasHolder, session);
-
-
-//        handleOrProxy(key, id, request, session, () -> {
-//            log.debug("Not from cache with id: {}", id);
-//            final ByteBuffer value;
-//            try {
-//                value = dao.get(key);
-//            } catch (NoSuchElementException e) {
-//                log.info("Value with key: {} was not found", id, e);
-//                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-//                return;
-//            } catch (IOException e) {
-//                sendInternalErrorResponse(session, id, e);
-//                return;
-//            }
-//            final byte[] body = toBytes(value);
-//
-//            session.sendResponse(Response.ok(body));
-//        });
+        }, responses -> ConflictResolver.resolveGetAndSend(responses, replicasHolder, session));
     }
 
     void handleDelete(
@@ -123,15 +85,17 @@ class ServiceHelper {
             @NotNull final HttpSession session,
             @NotNull final Request request, String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
-        handleOrProxy(key, id, request, session, () -> {
+        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
+        handleOrProxy(key, replicasHolder, request, session, () -> {
             try {
                 dao.remove(key);
+                log.debug("Value successfully deleted!");
             } catch (IOException e) {
-                sendInternalErrorResponse(session, id, e);
-                return;
+                log.error("Internal error. Can't delete value with key: {}", id, e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        });
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        }, responses -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, true));
     }
 
     void handleUpsert(
@@ -139,25 +103,48 @@ class ServiceHelper {
             @NotNull final Request request,
             @NotNull final HttpSession session, String replicas) throws IOException {
         final ByteBuffer key = wrapString(id);
-        handleOrProxy(key, id, request, session, () -> {
+        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
+        handleOrProxy(key, replicasHolder, request, session, () -> {
             final ByteBuffer value = wrapArray(request.getBody());
             try {
                 dao.upsert(key, value);
+                log.debug("Value successfully upserted!");
             } catch (IOException e) {
-                sendInternalErrorResponse(session, id, e);
-                return;
+                log.error("Internal error. Can't insert or update value with key: {}", id, e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        });
+            return new Response(Response.CREATED, Response.EMPTY);
+        }, responses -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, false));
+    }
+
+    private Response getLocalResponse(final Value value) {
+        final byte[] bytes = Longs.toByteArray(value.getTimestamp());
+        try {
+            byte[] body = toBytes(value.getData(), bytes);
+            return Response.ok(body);
+        } catch (DeletedValueException ex) {
+            return new Response(Response.NOT_FOUND, bytes);
+        }
+    }
+
+    private byte[] toBytes(final ByteBuffer data, final byte[] bytes) {
+        final byte[] dataBytes = toBytes(data);
+        final byte[] mergedBytes = new byte[dataBytes.length + bytes.length];
+        log.info("Before: {}", Arrays.toString(mergedBytes));
+        System.arraycopy(dataBytes, 0, mergedBytes, 0, dataBytes.length);
+        System.arraycopy(bytes, 0, mergedBytes, dataBytes.length, bytes.length);
+        log.info("After: {}", Arrays.toString(mergedBytes));
+        return mergedBytes;
     }
 
     private List<Response> proxy(@NotNull final Set<String> nodesForResponse,
                                  @NotNull final Request request) {
+        log.info("Start proxy");
         log.debug("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodesForResponse);
         final List<Response> responses = new ArrayList<>();
         nodesForResponse.forEach(node -> {
             try {
-                request.addHeader("X-Proxy-For: " + nodesForResponse);
+                request.addHeader(PROXY_REQUEST_HEADER + ": " + node);
                 responses.add(clients.get(node).invoke(request));
             } catch (IOException | InterruptedException | HttpException | PoolException e) {
                 log.error("Cannot proxy request!", e);
@@ -168,26 +155,56 @@ class ServiceHelper {
     }
 
     private void handleOrProxy(final ByteBuffer key,
-                               final String id,
+                               final ReplicasHolder replicasHolder,
                                final Request request,
                                final HttpSession session,
-                               final Processor processor) throws IOException {
+                               final LocalExecutor localExecutor,
+                               final Resolver resolver) throws IOException {
+        final String id = request.getParameter("id=");
         log.debug("{} request with mapping: /v0/entity with: key={}", request.getMethodName(), id);
+        log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
         if (id.isEmpty()) {
             sendEmptyIdResponse(session, request.getMethodName());
             return;
         }
-        final String nodeForResponse = topology.nodeFor(key);
-        log.info("----------------");
-        for (String s : topology.nodesForKey(key, 2)) {
-            log.info("handleOrProxy: {}", s);
+        if (isInvalidReplicationFactor(replicasHolder)) {
+            sendInvalidRFResponse(session, replicasHolder);
+            return;
         }
-        log.info("id: {}", request.getParameter("id="));
-        log.info("replicas: {}", request.getParameter("replicas="));
-        if (topology.isLocal(nodeForResponse)) {
-            processor.process();
+        final String header = request.getHeader(PROXY_REQUEST_HEADER);
+        log.debug("Header: {}", header);
+        final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
+        Response localResponse = null;
+        log.debug(nodesForResponse.toString());
+        if (topology.isLocal(nodesForResponse)) {
+            nodesForResponse.remove(topology.local());
+            localResponse = localExecutor.execute();
+            if (header != null) {
+                session.sendResponse(localResponse);
+            }
+        }
+        List<Response> responses;
+        if (header == null) {
+            responses = proxy(nodesForResponse, request);
+            if (localResponse != null) {
+                responses.add(localResponse);
+            }
+            List<Response> responsesWithoutErrors = responses.stream()
+                    .filter(response -> response.getStatus() != 500)
+                    .collect(Collectors.toList());
+            resolver.resolve(responsesWithoutErrors);
+        }
+    }
+
+    private boolean isInvalidReplicationFactor(@NotNull final ReplicasHolder replicasHolder) {
+        return replicasHolder.ack == 0 || replicasHolder.ack > replicasHolder.from;
+    }
+
+    private ReplicasHolder parseReplicasParameter(final String replicas) {
+        if (replicas == null) {
+            return new ReplicasHolder(topology.size() / ServiceTopology.VIRTUAL_NODES_PER_NODE);
         } else {
-            proxy(nodeForResponse, request);
+            return new ReplicasHolder(replicas);
         }
     }
 
@@ -197,13 +214,6 @@ class ServiceHelper {
 
     private static ByteBuffer wrapArray(final byte[] arr) {
         return ByteBuffer.wrap(arr);
-    }
-
-    private static void sendInternalErrorResponse(final HttpSession session,
-                                                  final String id,
-                                                  final Exception e) throws IOException {
-        log.error("Internal error. Can't insert or update value with key: {}", id, e);
-        session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 
     private static byte[] toBytes(final String str) {
@@ -223,6 +233,11 @@ class ServiceHelper {
 
     private static void sendEmptyIdResponse(final HttpSession session, final String methodName) throws IOException {
         log.info("Empty key was provided in {} method!", methodName);
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    private static void sendInvalidRFResponse(final HttpSession session, final ReplicasHolder replicasHolder) throws IOException {
+        log.info("Invalid replication factor with ack = {}, from = {}", replicasHolder.ack, replicasHolder.from);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 

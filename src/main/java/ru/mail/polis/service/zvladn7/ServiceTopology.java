@@ -5,12 +5,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 public class ServiceTopology implements Topology<String> {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
-    private static final int VIRTUAL_NODES_PER_NODE = 10;
+    static final int VIRTUAL_NODES_PER_NODE = 10;
     private static final int HASH_STEP_VALUE = 77;
     private static final int OFFSET_FOR_NODE_HASH_VALUE = 10;
 
