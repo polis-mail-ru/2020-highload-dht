@@ -21,8 +21,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class RepliServiceImpl extends HttpServer implements Service {
 
@@ -44,7 +52,6 @@ public class RepliServiceImpl extends HttpServer implements Service {
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodesToClients;
     private final ReplicationFactor repliFactor;
-    private final RepliServiceLsm lsm;
 
     /**
      * replication-supporting service impl const.
@@ -79,7 +86,6 @@ public class RepliServiceImpl extends HttpServer implements Service {
         );
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
-        lsm = new RepliServiceLsm();
         this.repliFactor = new ReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
 
         for (final String node : topology.getNodes()) {
