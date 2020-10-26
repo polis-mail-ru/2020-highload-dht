@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
+import ru.mail.polis.s3ponia.Utility;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -34,17 +35,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static ru.mail.polis.s3ponia.Utility.DEADFLAG_TIMESTAMP_HEADER;
-import static ru.mail.polis.s3ponia.Utility.Header;
-import static ru.mail.polis.s3ponia.Utility.PROXY_HEADER;
-import static ru.mail.polis.s3ponia.Utility.ReplicationConfiguration;
-import static ru.mail.polis.s3ponia.Utility.TIME_HEADER;
-import static ru.mail.polis.s3ponia.Utility.byteBufferFromString;
-import static ru.mail.polis.s3ponia.Utility.getCounter;
-import static ru.mail.polis.s3ponia.Utility.getValues;
-import static ru.mail.polis.s3ponia.Utility.isHomeInReplicas;
-import static ru.mail.polis.s3ponia.Utility.validateId;
-
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private static final byte[] EMPTY = Response.EMPTY;
@@ -52,12 +42,12 @@ public final class AsyncService extends HttpServer implements Service {
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
-    private final List<ReplicationConfiguration> defaultConfigurations = Arrays.asList(
-            new ReplicationConfiguration(1, 1),
-            new ReplicationConfiguration(2, 2),
-            new ReplicationConfiguration(2, 3),
-            new ReplicationConfiguration(3, 4),
-            new ReplicationConfiguration(3, 5)
+    private final List<Utility.ReplicationConfiguration> defaultConfigurations = Arrays.asList(
+            new Utility.ReplicationConfiguration(1, 1),
+            new Utility.ReplicationConfiguration(2, 2),
+            new Utility.ReplicationConfiguration(2, 3),
+            new Utility.ReplicationConfiguration(3, 4),
+            new Utility.ReplicationConfiguration(3, 5)
     );
     
     /**
@@ -168,7 +158,7 @@ public final class AsyncService extends HttpServer implements Service {
         try {
             final var val = dao.getRaw(key);
             final var resp = Response.ok(fromByteBuffer(val.getValue()));
-            resp.addHeader(DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
+            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
             session.sendResponse(resp);
         } catch (NoSuchElementException noSuchElementException) {
             session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
@@ -189,13 +179,13 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (validateId(id)) {
+        if (Utility.validateId(id)) {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
         
-        final var key = byteBufferFromString(id);
-        if (request.getHeader(PROXY_HEADER) != null) {
+        final var key = Utility.byteBufferFromString(id);
+        if (request.getHeader(Utility.PROXY_HEADER) != null) {
             this.es.execute(() -> {
                 try {
                     getRaw(key, session);
@@ -205,12 +195,12 @@ public final class AsyncService extends HttpServer implements Service {
             });
             return;
         }
-        final ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final List<Table.Value> values = getValues(request, parsed, this, nodeReplicas);
-        final boolean homeInReplicas = isHomeInReplicas(policy.homeNode(), nodeReplicas);
+        final List<Table.Value> values = Utility.getValues(request, parsed, this, nodeReplicas);
+        final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodeReplicas);
         
         if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
@@ -257,11 +247,11 @@ public final class AsyncService extends HttpServer implements Service {
         };
     }
     
-    private ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
-        final ReplicationConfiguration parsedReplica;
+    private Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
+        final Utility.ReplicationConfiguration parsedReplica;
         final var nodeCount = this.policy.all().length;
         
-        parsedReplica = replicas != null ? ReplicationConfiguration.parse(replicas) :
+        parsedReplica = replicas != null ? Utility.ReplicationConfiguration.parse(replicas) :
                                 defaultConfigurations.get(nodeCount - 1);
         
         if (parsedReplica == null || parsedReplica.ack <= 0
@@ -306,15 +296,15 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (validateId(id)) {
+        if (Utility.validateId(id)) {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
         
-        final var key = byteBufferFromString(id);
+        final var key = Utility.byteBufferFromString(id);
         final var value = ByteBuffer.wrap(request.getBody());
         
-        final var header = Header.getHeader(TIME_HEADER, request);
+        final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
         if (header != null) {
             final var time = Long.parseLong(header.value);
             this.es.execute(
@@ -329,16 +319,16 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        final ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
         
         final var currTime = System.currentTimeMillis();
-        request.addHeader(TIME_HEADER + ": " + currTime);
+        request.addHeader(Utility.TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int createdCounter = getCounter(request, parsed, this, nodes);
+        int createdCounter = Utility.getCounter(request, parsed, this, nodes);
         
-        final boolean homeInReplicas = isHomeInReplicas(policy.homeNode(), nodes);
+        final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
         
         if (homeInReplicas) {
             try {
@@ -383,13 +373,13 @@ public final class AsyncService extends HttpServer implements Service {
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (validateId(id)) {
+        if (Utility.validateId(id)) {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
         
-        final var key = byteBufferFromString(id);
-        final var header = Header.getHeader(TIME_HEADER, request);
+        final var key = Utility.byteBufferFromString(id);
+        final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
         if (header != null) {
             this.es.execute(
                     () -> {
@@ -404,14 +394,14 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         final var currTime = System.currentTimeMillis();
-        request.addHeader(TIME_HEADER + ": " + currTime);
+        request.addHeader(Utility.TIME_HEADER + ": " + currTime);
         
-        final ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int acceptedCounter = getCounter(request, parsed, this, nodes);
-        final var homeInReplicas = isHomeInReplicas(policy.homeNode(), nodes);
+        int acceptedCounter = Utility.getCounter(request, parsed, this, nodes);
+        final var homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
         
         if (homeInReplicas) {
             try {
@@ -428,7 +418,7 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     @Nullable
-    private ReplicationConfiguration getReplicationConfiguration(
+    private Utility.ReplicationConfiguration getReplicationConfiguration(
             @NotNull final String replicas,
             @NotNull final HttpSession session) throws IOException {
         final var parsed = parseAndValidateReplicas(replicas);
@@ -442,7 +432,7 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     private void sendAckFromResp(@NotNull final HttpSession session,
-                                 @NotNull final ReplicationConfiguration parsed,
+                                 @NotNull final Utility.ReplicationConfiguration parsed,
                                  final int acceptedCounter,
                                  final Response resp,
                                  @NotNull final String s) {
