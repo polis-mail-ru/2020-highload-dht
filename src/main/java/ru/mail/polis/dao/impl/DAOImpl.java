@@ -137,20 +137,6 @@ public class DAOImpl implements DAO {
         return Iters.collapseEquals(merged, Cell::getKey);
     }
 
-    /*public Cell getCell(@NotNull final ByteBuffer key) throws IOException {
-        final Iterator<Cell> iter = cellIterator(key);
-        if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
-        }
-
-        final Cell next = iter.next();
-        if (next.getKey().equals(key)) {
-            return next;
-        } else {
-            throw new NoSuchElementException("Not found");
-        }
-    }*/
-
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value) throws IOException {

@@ -195,9 +195,9 @@ public final class ServiceImpl extends HttpServer implements Service {
                     }
                 }
                 if (result.size() < replicasFactor.getAck()) {
-                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
+                    ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
                 } else {
-                    session.sendResponse(formEntryResponse(Entry.mergeValues(result)));
+                    ResponseUtils.sendResponse(session, formEntryResponse(Entry.mergeValues(result)));
                 }
             } catch (IOException e) {
                log.error("Replication error: ", e);
@@ -223,19 +223,14 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         asyncExecute(() -> {
-            try {
-                final List<Response> result = replication(() -> put(key, request.getBody()), request, key, replicasFactor)
-                        .stream()
-                        .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
-                        .collect(Collectors.toList());
-                if (result.size() < replicasFactor.getAck()) {
-                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
-                } else {
-                    session.sendResponse(ResponseUtils.emptyResponse(Response.CREATED));
-                }
-            } catch (IOException e) {
-                log.error("Ack number is less than required: ", e);
-                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            final List<Response> result = replication(() -> put(key, request.getBody()), request, key, replicasFactor)
+                    .stream()
+                    .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
+                    .collect(Collectors.toList());
+            if (result.size() < replicasFactor.getAck()) {
+                ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
+            } else {
+                ResponseUtils.sendEmptyResponse(session, Response.CREATED);
             }
         });
     }
@@ -255,19 +250,14 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         asyncExecute(() -> {
-            try {
-                final List<Response> result = replication(() -> delete(key), request, key, replicasFactor)
-                        .stream()
-                        .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
-                        .collect(Collectors.toList());
-                if (result.size() < replicasFactor.getAck()) {
-                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
-                } else {
-                    session.sendResponse(ResponseUtils.emptyResponse(Response.ACCEPTED));
-                }
-            } catch (IOException e) {
-                log.error("Ack number is less than required: ", e);
-                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            final List<Response> result = replication(() -> delete(key), request, key, replicasFactor)
+                    .stream()
+                    .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
+                    .collect(Collectors.toList());
+            if (result.size() < replicasFactor.getAck()) {
+                ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
+            } else {
+                ResponseUtils.sendEmptyResponse(session, Response.ACCEPTED);
             }
         });
     }
