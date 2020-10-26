@@ -114,6 +114,13 @@ public class Utility {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
     
+    /**
+     * Get proxy response.
+     * @param node destination node
+     * @param request proxying request
+     * @param service proxying service
+     * @return Response from node
+     */
     public static Response proxy(
             @NotNull final String node,
             @NotNull final Request request,
@@ -126,12 +133,20 @@ public class Utility {
         }
     }
     
+    /**
+     * Produce List<Future<Response>> over proxy(node, request, service)/
+     * @param request request for proxy
+     * @param configuration replication configuration
+     * @param service AsyncService for proxying
+     * @param nodes dest nodes
+     * @return List<Future<Response>>
+     */
     @NotNull
     public static List<Future<Response>> getFutures(@NotNull final Request request,
-                                                    @NotNull final ReplicationConfiguration parsed,
+                                                    @NotNull final ReplicationConfiguration configuration,
                                                     @NotNull final AsyncService service,
                                                     @NotNull final String... nodes) {
-        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
+        final List<Future<Response>> futureResponses = new ArrayList<>(configuration.from);
         
         for (final var node :
                 nodes) {
@@ -143,11 +158,19 @@ public class Utility {
         return futureResponses;
     }
     
+    /**
+     * Getting successful responses.
+     * @param request request for proxying
+     * @param configuration replication configuration
+     * @param service AsyncService for proxying
+     * @param nodes destination nodes
+     * @return count of successful responses
+     */
     public static int getCounter(@NotNull final Request request,
-                                 @NotNull final ReplicationConfiguration parsed,
+                                 @NotNull final ReplicationConfiguration configuration,
                                  @NotNull final AsyncService service,
                                  @NotNull final String... nodes) {
-        final List<Future<Response>> futureResponses = getFutures(request, parsed, service, nodes);
+        final List<Future<Response>> futureResponses = getFutures(request, configuration, service, nodes);
         
         int acceptedCounter = 0;
         

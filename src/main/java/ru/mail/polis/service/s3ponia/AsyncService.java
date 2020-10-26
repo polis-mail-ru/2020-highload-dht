@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
-import ru.mail.polis.s3ponia.Utility;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -39,14 +38,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static ru.mail.polis.s3ponia.Utility.DEADFLAG_TIMESTAMP_HEADER;
+import static ru.mail.polis.s3ponia.Utility.Header;
 import static ru.mail.polis.s3ponia.Utility.PROXY_HEADER;
+import static ru.mail.polis.s3ponia.Utility.ReplicationConfiguration;
 import static ru.mail.polis.s3ponia.Utility.TIME_HEADER;
 import static ru.mail.polis.s3ponia.Utility.byteBufferFromString;
 import static ru.mail.polis.s3ponia.Utility.getCounter;
 import static ru.mail.polis.s3ponia.Utility.getFutures;
 import static ru.mail.polis.s3ponia.Utility.validateId;
-import static ru.mail.polis.s3ponia.Utility.Header;
-import static ru.mail.polis.s3ponia.Utility.ReplicationConfiguration;
 
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
