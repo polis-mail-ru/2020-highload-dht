@@ -209,7 +209,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
-
+        
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
         final List<Table.Value> values = getValues(request, parsed, nodeReplicas);
         boolean homeInReplicas = false;
@@ -224,7 +224,6 @@ public final class AsyncService extends HttpServer implements Service {
                 }
             }
         }
-        
         
         if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
@@ -260,14 +259,17 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     @NotNull
-    private List<Table.Value> getValues(@NotNull Request request, Utility.ReplicationConfiguration parsed, String[] nodeReplicas) {
+    private List<Table.Value> getValues(@NotNull final Request request,
+                                        @NotNull final Utility.ReplicationConfiguration parsed,
+                                        @NotNull final String[] nodeReplicas) {
         final List<Future<Response>> futureResponses = getFutures(request, parsed, nodeReplicas);
         final List<Table.Value> values = getValuesFromFutures(parsed, futureResponses);
         return values;
     }
     
     @NotNull
-    private List<Table.Value> getValuesFromFutures(Utility.ReplicationConfiguration parsed, List<Future<Response>> futureResponses) {
+    private List<Table.Value> getValuesFromFutures(@NotNull final Utility.ReplicationConfiguration parsed,
+                                                   @NotNull final List<Future<Response>> futureResponses) {
         final List<Table.Value> values = new ArrayList<>(parsed.from);
         for (final var resp :
                 futureResponses) {
@@ -287,7 +289,7 @@ public final class AsyncService extends HttpServer implements Service {
         return values;
     }
     
-    private Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas) throws IOException {
+    private Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
         final Utility.ReplicationConfiguration parsedReplica;
         final var nodeCount = this.policy.all().length;
         
@@ -342,7 +344,6 @@ public final class AsyncService extends HttpServer implements Service {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
     
-    
     /**
      * Basic implementation of http put handling.
      *
@@ -375,11 +376,10 @@ public final class AsyncService extends HttpServer implements Service {
             );
             return;
         }
-    
+        
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
-    
-    
+        
         request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
@@ -451,10 +451,10 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         request.addHeader(TIME_HEADER + ": " + currTime);
-    
+        
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
-    
+        
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
         int acceptedCounter = getCounter(request, parsed, nodes);
         
@@ -478,7 +478,9 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     @Nullable
-    private Utility.ReplicationConfiguration getReplicationConfiguration(@Param("replicas") String replicas, @NotNull HttpSession session) throws IOException {
+    private Utility.ReplicationConfiguration getReplicationConfiguration(
+            @NotNull final String replicas,
+            @NotNull final HttpSession session) throws IOException {
         final var parsed = parseAndValidateReplicas(replicas);
         
         if (parsed == null) {
@@ -532,8 +534,8 @@ public final class AsyncService extends HttpServer implements Service {
             } catch (InterruptedException | ExecutionException e) {
                 continue;
             }
-            if (response != null &&
-                        (response.getStatus() == 202 /* ACCEPTED */ || response.getStatus() == 201 /* CREATED */)) {
+            if (response != null
+                        && (response.getStatus() == 202 /* ACCEPTED */ || response.getStatus() == 201 /* CREATED */)) {
                 ++acceptedCounter;
             }
         }

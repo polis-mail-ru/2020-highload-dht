@@ -29,14 +29,26 @@ public class Utility {
             
             return null;
         }
-        
-        public static Header getHeader(@NotNull final String key, @NotNull final Request response) {
-            final var headers = response.getHeaders();
-            final var headerCount = response.getHeaderCount();
+    
+        /**
+         * Get header with key from request.
+         * @param key header's key
+         * @param request request with headers
+         * @return request's header
+         */
+        public static Header getHeader(@NotNull final String key, @NotNull final Request request) {
+            final var headers = request.getHeaders();
+            final var headerCount = request.getHeaderCount();
             
             return getHeader(key, headers, headerCount);
         }
-        
+    
+        /**
+         * Get header with key from response.
+         * @param key header's key
+         * @param response response with headers
+         * @return response's header
+         */
         public static Header getHeader(@NotNull final String key, @NotNull final Response response) {
             final var headers = response.getHeaders();
             final var headerCount = response.getHeaderCount();
@@ -53,7 +65,12 @@ public class Utility {
             this.ack = ack;
             this.from = from;
         }
-        
+    
+        /**
+         * Parses ReplicationConfiguration from String.
+         * @param s String for parsing
+         * @return ReplicationConfiguration on null
+         */
         public static ReplicationConfiguration parse(@NotNull final String s) {
             final var splitStrings = Splitter.on('/').splitToList(s);
             if (splitStrings.size() != 2) {

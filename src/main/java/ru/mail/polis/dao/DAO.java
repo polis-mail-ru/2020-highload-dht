@@ -24,7 +24,6 @@ import ru.mail.polis.dao.s3ponia.Table;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.sql.Timestamp;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
