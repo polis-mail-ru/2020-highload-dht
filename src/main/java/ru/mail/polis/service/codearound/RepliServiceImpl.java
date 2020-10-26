@@ -42,7 +42,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
     private final ReplicationLsm lsm;
 
     /**
-     * replication-supporting service impl const.
+     * class const.
      *
      * @param port request listening and entrance port
      * @param dao DAO instance
@@ -73,7 +73,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
         this.repliFactor = new ReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
-        this.lsm = new ReplicationLsm(dao, exec, topology, nodesToClients, repliFactor);
+        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor);
 
         for (final String node : topology.getNodes()) {
 

@@ -34,10 +34,18 @@ public class ReplicationLsm {
     private final Map<String, HttpClient> nodesToClients;
     private final ReplicationFactor repliFactor;
 
+    /**
+     * class const.
+     *
+     * @param dao DAO instance
+     * @param workerPoolSize selector pool size
+     * @param queueSize blocking queue capacity
+     * @param topology topology implementation instance
+     * @param timeout connection timeout
+     */
     ReplicationLsm(@NotNull final DAO dao,
-            @NotNull final ExecutorService exec,
             @NotNull final Topology<String> topology,
-            Map<String, HttpClient> nodesToClients,
+            final Map<String, HttpClient> nodesToClients,
             @NotNull final ReplicationFactor repliFactor) {
         this.dao = dao;
         this.topology = topology;
@@ -262,8 +270,8 @@ public class ReplicationLsm {
                     dao.removeValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
                     ack++;
                 } else {
-                    final Response response = nodesToClients.
-                            get(node)
+                    final Response response = nodesToClients
+                            .get(node)
                             .delete(NORMAL_REQUEST_HEADER + id, RepliServiceImpl.FORWARD_REQUEST_HEADER);
                     if (response.getStatus() == 202) {
                         ack++;
