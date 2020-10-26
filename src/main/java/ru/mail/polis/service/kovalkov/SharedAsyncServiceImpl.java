@@ -12,7 +12,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.net.Session;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -27,7 +26,11 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
@@ -173,7 +176,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void  exceptionIOHandler(HttpSession session, String message, Exception e) {
+    private void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
         log.error(message, e);
         try {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -195,7 +198,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 } catch (IOException e1) {
                     log.error("IO exception when send 503 response: ", e1);
                 }
-            }catch (NoSuchElementException e) {
+            } catch (NoSuchElementException e) {
                 log.info("Method get. Can't find value by this key ", e);
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
