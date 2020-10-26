@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -176,11 +177,25 @@ public class NewService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
+            resp(httpSession, Response.BAD_REQUEST);
+        }
+    }
+
+    private void runExecutorService(
+            @NotNull final ByteBuffer key,
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request,
+            @NotNull final Operations operation) throws IOException {
+        final String node = topology.primaryFor(key);
+        if (topology.isMyNode(node)) { // локальный ли запрос?
             try {
-                httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException ioException) {
-                logger.error("Не плучается отправить запрос", ioException);
+                executorService.execute(() -> operation(key, httpSession, request, operation));
+            } catch (RejectedExecutionException rejectedExecutionException) {
+                logger.error("Ошибка при выполнении операции {} ", operation, rejectedExecutionException);
+                resp(httpSession, Response.SERVICE_UNAVAILABLE);
             }
+        } else {
+            proxy(node, httpSession, request);
         }
     }
 
@@ -188,31 +203,24 @@ public class NewService extends HttpServer implements Service {
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession,
             @NotNull final Request request,
-            @NotNull final Operations operation) throws IOException {
-        final String node = topology.primaryFor(key);
-        if (topology.isMyNode(node)) { // локальный ли запрос?
-            executorService.execute(() -> {
-                try {
-                    switch (operation) {
-                        case GETTING:
-                            doGet(key, httpSession);
-                            break;
-                        case UPSERTING:
-                            final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                            doUpsert(key, httpSession, value);
-                            break;
-                        case REMOVING:
-                            doRemove(key, httpSession);
-                            break;
-                        default:
-                            throw new IllegalStateException("Unexpected value: " + operation);
-                    }
-                } catch (IOException ioException) {
-                    logger.error("Ошибка в {}: ", operation, ioException);
-                }
-            });
-        } else {
-            proxy(node, httpSession, request);
+            @NotNull final Operations operation) {
+        try {
+            switch (operation) {
+                case GETTING:
+                    doGet(key, httpSession);
+                    break;
+                case UPSERTING:
+                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                    doUpsert(key, httpSession, value);
+                    break;
+                case REMOVING:
+                    doRemove(key, httpSession);
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + operation);
+            }
+        } catch (IOException ioException) {
+            logger.error("Ошибка в {}: ", operation, ioException);
         }
     }
 
@@ -222,10 +230,10 @@ public class NewService extends HttpServer implements Service {
         try {
             httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
         } catch (NoSuchElementException noSuchElementException) {
-            httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            resp(httpSession, Response.NOT_FOUND);
         } catch (IOException ioException) {
             logger.error("Ошибка в GET: {}", toByteArray(key));
-            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
@@ -235,10 +243,10 @@ public class NewService extends HttpServer implements Service {
             final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
-            httpSession.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            resp(httpSession, Response.CREATED);
         } catch (IOException ioException) {
             logger.error("Ошибка в PUT: {}, значение: {}", toByteArray(key), toByteArray(value));
-            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
@@ -247,10 +255,10 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) throws IOException {
         try {
             dao.remove(key);
-            httpSession.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            resp(httpSession, Response.ACCEPTED);
         } catch (IOException ioException) {
             logger.error("Ошибка в DELETE: {}", toByteArray(key));
-            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
@@ -262,8 +270,8 @@ public class NewService extends HttpServer implements Service {
             request.addHeader("X-Proxy-For: " + node);
             httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
         } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            logger.error("Can't proxy request", exception);
-            httpSession.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            logger.error("Can't proxy request ", exception);
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
@@ -273,14 +281,8 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession сессия
      */
     @Path("/v0/status")
-    public void status(final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                httpSession.sendResponse(Response.ok("OK"));
-            } catch (IOException ioException) {
-                logger.error("Ошибка при ответе", ioException);
-            }
-        });
+    public Response status(final HttpSession httpSession) {
+        return Response.ok("OK");
     }
 
     /**
@@ -296,7 +298,17 @@ public class NewService extends HttpServer implements Service {
             final HttpSession httpSession
     ) throws IOException {
         logger.error("Непонятный запрос: {}", request);
-        httpSession.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        resp(httpSession, Response.BAD_REQUEST);
+    }
+
+    private void resp(
+            @NotNull final HttpSession httpSession,
+            @NotNull final String response) {
+        try {
+            httpSession.sendResponse(new Response(response, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("Ошибка при отправке ответа ({}) ", response, ioException);
+        }
     }
 
     @Override
