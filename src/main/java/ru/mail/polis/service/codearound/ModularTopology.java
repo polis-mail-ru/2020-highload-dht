@@ -52,7 +52,7 @@ public class ModularTopology implements Topology<String> {
      */
     @NotNull
     @Override
-    public String[] replicasFor(@NotNull final ByteBuffer id, int numOfReplicas) {
+    public String[] replicasFor(@NotNull final ByteBuffer id, final int numOfReplicas) {
 
         int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % nodeArray.length;
         final String[] nodeReplicas = new String[numOfReplicas];
@@ -104,5 +104,8 @@ public class ModularTopology implements Topology<String> {
      */
     @NotNull
     @Override
-    public String getThisNode() { return thisNode; }
+    public String getThisNode() {
+        return thisNode;
+    }
+
 }

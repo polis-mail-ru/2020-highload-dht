@@ -14,13 +14,13 @@ import java.util.List;
  * Includes methods for processing node replication factors from validating parsed input
  * through type-specific instance return.
  */
-class NodeReplicationFactor {
+class ReplicationFactor {
 
     private final int ack;
     private final int from;
-    private static final Logger LOGGER = LoggerFactory.getLogger(NodeReplicationFactor.class);
-    private static final String REPLIFACTOR_ERROR_LOG = "One or both of replication factors can't be " +
-            "handled appropriately, validation failed";
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationFactor.class);
+    private static final String REPLIFACTOR_ERROR_LOG = "One or both of replication factors can't be "
+            + "handled appropriately, validation failed";
 
     /**
      * class instance const.
@@ -28,7 +28,7 @@ class NodeReplicationFactor {
      * @param ack  - quorum factor
      * @param from - general replica quantity factor (necessary to be greater or equal 'ack')
      */
-    NodeReplicationFactor(final int ack, final int from) {
+    ReplicationFactor(final int ack, final int from) {
         this.ack = ack;
         this.from = from;
     }
@@ -38,9 +38,11 @@ class NodeReplicationFactor {
      *
      * @param values  - String argument to be processed for primary evaluation of both 'ack' and 'from' factors
      * @param session - ongoing HTTP session
-     * @return reference on NodeReplicationFactor class instance
+     * @return reference on ReplicationFactor class instance
      */
-    private static NodeReplicationFactor createRepliFactor(final String values, @NotNull final HttpSession session) throws IOException {
+    private static ReplicationFactor createRepliFactor(
+            final String values,
+            @NotNull final HttpSession session) throws IOException {
 
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
 
@@ -56,7 +58,9 @@ class NodeReplicationFactor {
             LOGGER.error("'ack' factor input should be less or equal one of 'from'");
             session.sendError(Response.BAD_REQUEST, REPLIFACTOR_ERROR_LOG);
         }
-        return new NodeReplicationFactor(Integer.parseInt(delimitValues.get(0)), Integer.parseInt(delimitValues.get(1)));
+        return new ReplicationFactor(
+                Integer.parseInt(delimitValues.get(0)),
+                Integer.parseInt(delimitValues.get(1)));
     }
 
     /**
@@ -64,19 +68,19 @@ class NodeReplicationFactor {
      *
      * @param nodeReplicas - String argument to be processed for primary evaluation of both 'ack' and 'from' factors
      * @param session      - ongoing HTTP session
-     * @param repliFactor  - NodeReplicationFactor instance
-     * @return reference on NodeReplicationFactor class instance
+     * @param repliFactor  - ReplicationFactor instance
+     * @return reference on ReplicationFactor class instance
      */
-    static NodeReplicationFactor getRepliFactor(
+    static ReplicationFactor getRepliFactor(
             final String nodeReplicas,
             final HttpSession session,
-            final NodeReplicationFactor repliFactor) throws IOException {
+            final ReplicationFactor repliFactor) throws IOException {
 
-        NodeReplicationFactor retRepliFactor = null;
+        ReplicationFactor retRepliFactor = null;
         if (nodeReplicas == null) {
             retRepliFactor = repliFactor;
         } else {
-            retRepliFactor = NodeReplicationFactor.createRepliFactor(nodeReplicas, session);
+            retRepliFactor = ReplicationFactor.createRepliFactor(nodeReplicas, session);
         }
         return retRepliFactor;
     }

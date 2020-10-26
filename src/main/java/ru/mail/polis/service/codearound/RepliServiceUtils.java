@@ -12,14 +12,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-public final class NodeReplicaUtils {
+public final class RepliServiceUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
 
     /**
      * class instance const.
      */
-    private NodeReplicaUtils() {
+    private RepliServiceUtils() {
 
     }
 
@@ -31,7 +31,7 @@ public final class NodeReplicaUtils {
      */
     public static Value syncReplicaValues(final List<Value> values) {
 
-        if(values.size() == 1) {
+        if (values.size() == 1) {
             return values.get(0);
         } else {
             return values.stream()
@@ -53,13 +53,13 @@ public final class NodeReplicaUtils {
      */
     public static String[] getNodeReplica(
             @NotNull final ByteBuffer key,
-            @NotNull final NodeReplicationFactor repliFactor,
+            @NotNull final ReplicationFactor repliFactor,
             final boolean isForwardedRequest,
             @NotNull final Topology<String> topology) {
 
         String[] nodeReplicas;
 
-        if(isForwardedRequest) {
+        if (isForwardedRequest) {
             nodeReplicas = new String[]{ topology.getThisNode() };
         } else {
             nodeReplicas = topology.replicasFor(key, repliFactor.getFromValue());

@@ -21,37 +21,30 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class RepliServiceImpl extends HttpServer implements Service {
 
-    private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
     private static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
+    private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
+    private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
+    private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
     private static final String IO_ERROR_LOG = "IO exception raised";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
-    private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
-    private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
-    private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. " +
-            "Failed determining response";
-    private static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. " +
-            "Request failed as gateway closed past timeout";
+    private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
+            + "Failed determining response";
+    private static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
+            + "Request failed as gateway closed past timeout";
 
     private final DAO dao;
     private final ExecutorService exec;
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodesToClients;
-    private final NodeReplicationFactor repliFactor;
+    private final ReplicationFactor repliFactor;
+    private final RepliServiceLsm lsm;
 
     /**
      * replication-supporting service impl const.
@@ -86,7 +79,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
         );
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
-        this.repliFactor = new NodeReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
+        lsm = new RepliServiceLsm();
+        this.repliFactor = new ReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
 
         for (final String node : topology.getNodes()) {
 
@@ -133,7 +127,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
             isForwardedRequest = true;
         }
 
-        final NodeReplicationFactor repliFactorObj = NodeReplicationFactor.getRepliFactor(req.getParameter("replicas"), session, repliFactor);
+        final ReplicationFactor repliFactorObj = ReplicationFactor
+                .getRepliFactor(req.getParameter("replicas"), session, repliFactor);
         final ByteBuffer bufKey = DAOByteOnlyConverter.tuneArrayToBuf(id.getBytes(StandardCharsets.UTF_8));
 
         if (topology.getClusterSize() > 1) {
@@ -143,10 +138,17 @@ public class RepliServiceImpl extends HttpServer implements Service {
                         session.sendResponse(getWithMultipleNodes(id, repliFactorObj, isForwardedRequest));
                         break;
                     case Request.METHOD_PUT:
-                        session.sendResponse(upsertWithMultipleNodes(id, req.getBody(), repliFactorObj.getAckValue(), isForwardedRequest));
+                        session.sendResponse(upsertWithMultipleNodes(
+                                id,
+                                req.getBody(),
+                                repliFactorObj.getAckValue(),
+                                isForwardedRequest));
                         break;
                     case Request.METHOD_DELETE:
-                        session.sendResponse(deleteWithMultipleNodes(id, repliFactorObj.getAckValue(), isForwardedRequest));
+                        session.sendResponse(deleteWithMultipleNodes(
+                                id,
+                                repliFactorObj.getAckValue(),
+                                isForwardedRequest));
                         break;
                     default:
                         session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
@@ -180,7 +182,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
      * @param req - HTTP request
      * @return HTTP response
      */
-    private Response getWithOnlyNode(@NotNull final ByteBuffer key, @NotNull final Request req) {
+    Response getWithOnlyNode(@NotNull final ByteBuffer key, @NotNull final Request req) {
 
         final String owner = topology.primaryFor(key);
         ByteBuffer buf;
@@ -212,20 +214,25 @@ public class RepliServiceImpl extends HttpServer implements Service {
      *                           invocation of proxy-providing method on a previous node
      * @return HTTP response
      */
-    private Response getWithMultipleNodes(
+    Response getWithMultipleNodes(
             final String id,
-            @NotNull final NodeReplicationFactor repliFactor,
+            @NotNull final ReplicationFactor repliFactor,
             final boolean isForwardedRequest) throws IOException {
 
         int replCounter = 0;
-        final String[] nodes = NodeReplicaUtils.getNodeReplica(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
-                repliFactor, isForwardedRequest, topology);
+        final String[] nodes = RepliServiceUtils.getNodeReplica(
+                ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+                repliFactor,
+                isForwardedRequest,
+                topology);
         final List<Value> values = new ArrayList<>();
         for (final String node : nodes) {
             try {
                 Response response;
                 if (topology.isThisNode(node)) {
-                    response = NodeReplicaUtils.issueInternalResponse(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), dao);
+                    response = RepliServiceUtils.issueInternalResponse(
+                            ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)),
+                            dao);
                 } else {
                     response = nodesToClients.get(node).get(NORMAL_REQUEST_HEADER + id, FORWARD_REQUEST_HEADER);
                 }
@@ -242,7 +249,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
             }
         }
         if (isForwardedRequest || replCounter >= repliFactor.getAckValue()) {
-            return NodeReplicaUtils.issueExternalResponse(values, nodes, isForwardedRequest);
+            return RepliServiceUtils.issueExternalResponse(values, nodes, isForwardedRequest);
         } else {
             LOGGER.error(GATEWAY_TIMEOUT_ERROR_LOG);
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
@@ -257,7 +264,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
      * @param req - HTTP request
      * @return HTTP response
      */
-    private Response upsertWithOnlyNode(
+    Response upsertWithOnlyNode(
             @NotNull final ByteBuffer key,
             final byte[] byteVal,
             @NotNull final Request req) {
@@ -291,7 +298,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
      *                           invocation of proxy-providing method on a previous node
      * @return HTTP response
      */
-    private Response upsertWithMultipleNodes(
+    Response upsertWithMultipleNodes(
             final String id,
             final byte[] value,
             final int ackValue,
@@ -340,7 +347,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
      * @param req HTTP request
      * @return HTTP response
      */
-    private Response deleteWithOnlyNode(
+    Response deleteWithOnlyNode(
             @NotNull final ByteBuffer key,
             @NotNull final Request req) throws IOException {
 
@@ -370,7 +377,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
      *                           invocation of proxy-providing method on a previous node
      * @return HTTP response
      */
-    private Response deleteWithMultipleNodes(
+    Response deleteWithMultipleNodes(
             final String id,
             final int ackValue,
             final boolean isForwardedRequest) throws IOException {
