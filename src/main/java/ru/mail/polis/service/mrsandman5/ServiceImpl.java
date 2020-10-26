@@ -17,21 +17,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.impl.DAOImpl;
-import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
-import ru.mail.polis.service.mrsandman5.replication.Replicas;
+import ru.mail.polis.service.mrsandman5.replication.Entry;
+import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import static java.util.function.Function.identity;
@@ -45,7 +43,7 @@ public final class ServiceImpl extends HttpServer implements Service {
     private final DAOImpl dao;
     @NotNull
     private final Topology<String> topology;
-    private final Replicas quorum;
+    private final ReplicasFactor quorum;
     private final Map<String, HttpClient> httpClients;
 
     /** Create new ServiceImpl instance.
@@ -82,7 +80,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         super(config);
         this.topology = topology;
         this.dao = (DAOImpl) dao;
-        this.quorum = Replicas.quorum(topology.all().size());
+        this.quorum = ReplicasFactor.quorum(topology.all().size());
         this.httpClients = topology.others()
                 .stream()
                 .collect(toMap(identity(), ServiceImpl::createHttpClient));
@@ -105,17 +103,14 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
 
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        final Replicas replicasFactor = replicas == null ? quorum : Replicas.parser(replicas);
-        if (replicasFactor.getFrom() > topology.all().size()) {
-            ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+        final ReplicasFactor replicasFactor = replicas == null ? quorum : ReplicasFactor.parser(replicas);
+        if (replicasFactor.getAck() < 1
+                || replicasFactor.getFrom() < replicasFactor.getAck()
+                || replicasFactor.getFrom() > this.topology.all().size()){
+            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
         final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final var node = topology.primaryFor(key);
-        if (topology.isNotMe(node)) {
-            asyncExecute(session, () -> proxy(node, request));
-            return;
-        }
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 replicasGet(session, request, key, proxied, replicasFactor);
@@ -133,12 +128,30 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    @NotNull
+    private Response formEntryResponse(@NotNull final Entry entry) {
+        final Response result;
+        switch (entry.getState()) {
+            case PRESENT:
+                result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
+                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
+                return result;
+            case REMOVED:
+                result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
+                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
+                return result;
+            case ABSENT:
+                return ResponseUtils.emptyResponse(Response.NOT_FOUND);
+            default:
+                throw new IllegalArgumentException("Wrong input data");
+        }
+    }
+
     private List<Response> replication(@NotNull final Action action,
                                        @NotNull final Request request,
                                        @NotNull final ByteBuffer key,
-                                       @NotNull final Replicas replicas) {
-        request.addHeader(ResponseUtils.PROXY);
-        return topology.replicasFor(key, replicas)
+                                       @NotNull final ReplicasFactor replicasFactor) {
+        return topology.replicasFor(key, replicasFactor)
                 .stream()
                 .map(node -> {
                     try {
@@ -154,18 +167,9 @@ public final class ServiceImpl extends HttpServer implements Service {
     }
 
     private Response get(@NotNull final ByteBuffer key) throws IOException {
-        final Cell cell;
         try {
-            cell = dao.getCell(key);
-            if (cell.getValue().isTombstone()) {
-                final Response response = ResponseUtils.emptyResponse(Response.NOT_FOUND);
-                response.addHeader(ResponseUtils.TIMESTAMP + cell.getValue().getTimestamp());
-                return response;
-            }
-            final byte[] body = new byte[Objects.requireNonNull(cell.getValue().getData()).remaining()];
-            final Response response = ResponseUtils.nonemptyResponse(Response.OK, body);
-            response.addHeader(ResponseUtils.TIMESTAMP + cell.getValue().getTimestamp());
-            return response;
+            final Entry value = Entry.getEntry(key, dao);
+            return formEntryResponse(value);
         } catch (NoSuchElementException e) {
             return ResponseUtils.emptyResponse(Response.NOT_FOUND);
         }
@@ -175,22 +179,26 @@ public final class ServiceImpl extends HttpServer implements Service {
                              @NotNull final Request request,
                              @NotNull final ByteBuffer key,
                              final boolean proxied,
-                             @NotNull final Replicas replicas) {
+                             @NotNull final ReplicasFactor replicasFactor) {
         if (proxied) {
             asyncExecute(session, () -> get(key));
             return;
         }
         asyncExecute(() -> {
             try {
-                final List<Response> result = replication(() -> get(key), request, key, replicas)
-                        .stream()
-                        .filter(node -> node.getHeaders()[0].equals(Response.OK) || node.getHeaders()[0].equals(Response.ACCEPTED))
-                        .collect(Collectors.toList());
-                if (result.size() < replicas.getAck()) {
-                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
-                    return;
+                final List<Entry> result = new ArrayList<>();
+                for (Response response : replication(() -> get(key), request, key, replicasFactor)) {
+                    if (ResponseUtils.getStatus(response).equals(Response.OK)
+                            || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
+                        final Entry resp = Entry.fromEntry(response);
+                        result.add(resp);
+                    }
                 }
-                session.sendResponse(mergeResponses(result));
+                if (result.size() < replicasFactor.getAck()) {
+                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
+                } else {
+                    session.sendResponse(formEntryResponse(Entry.mergeValues(result)));
+                }
             } catch (IOException e) {
                log.error("Replication error: ", e);
                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
@@ -198,27 +206,8 @@ public final class ServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private Response mergeResponses(@NotNull final List<Response> result) {
-        final Map<Response, Integer> responses = new TreeMap<>(Comparator.comparing(ResponseUtils::getStatus));
-        result.forEach(resp -> {
-            final Integer val = responses.get(resp);
-            responses.put(resp, val == null ? 0 : val + 1);
-        });
-        Response finalResult = null;
-        int maxCount = -1;
-        long time = Long.MIN_VALUE;
-        for (final Map.Entry<Response, Integer> entry : responses.entrySet()) {
-            if (entry.getValue() >= maxCount && ResponseUtils.getTimestamp(entry.getKey()) > time) {
-                time = ResponseUtils.getTimestamp(entry.getKey());
-                maxCount = entry.getValue();
-                finalResult = entry.getKey();
-            }
-        }
-        return finalResult;
-    }
-
     private Response put(@NotNull final ByteBuffer key,
-                         final byte[] bytes) throws IOException {
+                         @NotNull final byte[] bytes) throws IOException {
         final var body = ByteBuffer.wrap(bytes);
         dao.upsert(key, body);
         return ResponseUtils.emptyResponse(Response.CREATED);
@@ -228,18 +217,18 @@ public final class ServiceImpl extends HttpServer implements Service {
                              @NotNull final Request request,
                              @NotNull final ByteBuffer key,
                              final boolean proxied,
-                             @NotNull final Replicas replicas) {
+                             @NotNull final ReplicasFactor replicasFactor) {
         if (proxied) {
             asyncExecute(session, () -> put(key, request.getBody()));
             return;
         }
         asyncExecute(() -> {
-            final List<Response> result = replication(() -> put(key, request.getBody()), request, key, replicas)
-                    .stream()
-                    .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
-                    .collect(Collectors.toList());
             try {
-                if (result.size() < replicas.getAck()) {
+                final List<Response> result = replication(() -> put(key, request.getBody()), request, key, replicasFactor)
+                        .stream()
+                        .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
+                        .collect(Collectors.toList());
+                if (result.size() < replicasFactor.getAck()) {
                     session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
                 } else {
                     session.sendResponse(ResponseUtils.emptyResponse(Response.CREATED));
@@ -260,18 +249,18 @@ public final class ServiceImpl extends HttpServer implements Service {
                                 @NotNull final Request request,
                                 @NotNull final ByteBuffer key,
                                 final boolean proxied,
-                                @NotNull final Replicas replicas) {
+                                @NotNull final ReplicasFactor replicasFactor) {
         if (proxied) {
             asyncExecute(session, () -> delete(key));
             return;
         }
         asyncExecute(() -> {
-            final List<Response> result = replication(() -> delete(key), request, key, replicas)
-                    .stream()
-                    .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
-                    .collect(Collectors.toList());
             try {
-                if (result.size() < replicas.getAck()) {
+                final List<Response> result = replication(() -> delete(key), request, key, replicasFactor)
+                        .stream()
+                        .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
+                        .collect(Collectors.toList());
+                if (result.size() < replicasFactor.getAck()) {
                     session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
                 } else {
                     session.sendResponse(ResponseUtils.emptyResponse(Response.ACCEPTED));
@@ -294,6 +283,7 @@ public final class ServiceImpl extends HttpServer implements Service {
     private Response proxy(@NotNull final String node,
                            @NotNull final Request request) {
         try {
+            request.addHeader(ResponseUtils.PROXY);
             return httpClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
             log.error("Unable to proxy request", e);
@@ -329,4 +319,5 @@ public final class ServiceImpl extends HttpServer implements Service {
         @NotNull
         Response act() throws IOException;
     }
+
 }

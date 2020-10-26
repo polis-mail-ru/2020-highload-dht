@@ -1,7 +1,7 @@
 package ru.mail.polis.service.mrsandman5.clustering;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.mrsandman5.replication.Replicas;
+import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 
 import java.nio.ByteBuffer;
 import java.util.Set;
@@ -14,7 +14,7 @@ public interface Topology<T> {
 
     @NotNull
     Set<T> replicasFor(@NotNull final ByteBuffer key,
-                       @NotNull final Replicas replicas);
+                       @NotNull final ReplicasFactor replicasFactor);
 
     boolean isNotMe(@NotNull final T node);
 

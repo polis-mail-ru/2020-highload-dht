@@ -5,30 +5,27 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public final class Replicas {
+public final class ReplicasFactor {
 
     private final int ack;
     private final int from;
 
-    private Replicas(final int ack,
-                    final int from) {
-        if (ack > from || ack < 1) {
-            throw new IllegalArgumentException("Wrong replicas arguments");
-        }
+    private ReplicasFactor(final int ack,
+                           final int from) {
         this.ack = ack;
         this.from = from;
     }
 
     @NotNull
-    public static Replicas quorum(final int nodes) {
-        return new Replicas(nodes / 2 + 1, nodes);
+    public static ReplicasFactor quorum(final int nodes) {
+        return new ReplicasFactor(nodes / 2 + 1, nodes);
     }
 
     @NotNull
     @SuppressWarnings("UnstableApiUsage")
-    public static Replicas parser(@NotNull final String replicas) {
+    public static ReplicasFactor parser(@NotNull final String replicas) {
         final List<String> params = Splitter.on('/').splitToList(replicas);
-        return new Replicas(Integer.parseInt(params.get(0)), Integer.parseInt(params.get(1)));
+        return new ReplicasFactor(Integer.parseInt(params.get(0)), Integer.parseInt(params.get(1)));
     }
 
     public int getFrom() {

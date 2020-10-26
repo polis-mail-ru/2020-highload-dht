@@ -1,8 +1,10 @@
 package ru.mail.polis.service.mrsandman5.replication;
 
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.dao.impl.models.Cell;
+import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -62,23 +64,42 @@ public final class Entry implements Comparable<Entry> {
     }
 
     @NotNull
-    public static Entry merge(@NotNull final Collection<Entry> values) {
+    public static Entry mergeValues(@NotNull final Collection<Entry> values) {
         return values.stream()
                 .filter(value -> value.getState() != State.ABSENT)
                 .max(Comparator.comparingLong(Entry::getTimestamp))
                 .orElseGet(Entry::absent);
     }
 
-    public static Entry get(final byte[] key,
-                            @NotNull final DAOImpl dao) throws IOException {
-        final ByteBuffer buffer = ByteBuffer.wrap(key);
-        final Iterator<Cell> cells = dao.cellIterator(buffer);
+    @NotNull
+    public static Entry fromEntry(@NotNull final Response response) throws IOException {
+        final String timestamp = response.getHeader(ResponseUtils.TIMESTAMP);
+        int status = response.getStatus();
+        if (status == 200) {
+            if (timestamp == null) {
+                throw new IllegalArgumentException("Wrong input data");
+            }
+            return Entry.present(Long.parseLong(timestamp),response.getBody());
+        } else if (status == 404) {
+            if (timestamp == null) {
+                return Entry.absent();
+            } else {
+                return Entry.removed(Long.parseLong(timestamp));
+            }
+        } else {
+            throw new IOException("Wrong status");
+        }
+    }
+
+    public static Entry getEntry(@NotNull final ByteBuffer key,
+                                 @NotNull final DAOImpl dao) throws IOException {
+        final Iterator<Cell> cells = dao.cellIterator(key);
         if (!cells.hasNext()) {
             return Entry.absent();
         }
 
         final Cell cell = cells.next();
-        if (!cell.getKey().equals(buffer)) {
+        if (!cell.getKey().equals(key)) {
             return Entry.absent();
         }
 

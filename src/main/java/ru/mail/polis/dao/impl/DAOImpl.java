@@ -23,7 +23,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
@@ -138,7 +137,7 @@ public class DAOImpl implements DAO {
         return Iters.collapseEquals(merged, Cell::getKey);
     }
 
-    public Cell getCell(@NotNull final ByteBuffer key) throws IOException {
+    /*public Cell getCell(@NotNull final ByteBuffer key) throws IOException {
         final Iterator<Cell> iter = cellIterator(key);
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Not found");
@@ -150,7 +149,7 @@ public class DAOImpl implements DAO {
         } else {
             throw new NoSuchElementException("Not found");
         }
-    }
+    }*/
 
     @Override
     public void upsert(@NotNull final ByteBuffer key,

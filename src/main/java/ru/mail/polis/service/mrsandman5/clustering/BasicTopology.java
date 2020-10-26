@@ -1,7 +1,7 @@
 package ru.mail.polis.service.mrsandman5.clustering;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.mrsandman5.replication.Replicas;
+import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 
 import java.nio.ByteBuffer;
 import java.util.HashSet;
@@ -35,10 +35,14 @@ public final class BasicTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
-                              @NotNull final Replicas replicas) {
+                              @NotNull final ReplicasFactor replicasFactor) {
+        if (replicasFactor.getFrom() > nodes.size()) {
+            throw new IllegalArgumentException("Number of required nodes is too big!");
+        }
+
         final Set<T> result = new HashSet<>();
         int startIndex = getHash(key);
-        while (result.size() < replicas.getFrom()) {
+        while (result.size() < replicasFactor.getFrom()) {
             result.add(nodes.get(startIndex));
             startIndex++;
             if (startIndex == nodes.size()) {

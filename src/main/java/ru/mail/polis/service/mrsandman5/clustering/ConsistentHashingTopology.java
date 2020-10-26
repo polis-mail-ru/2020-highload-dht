@@ -4,9 +4,11 @@ import com.google.common.base.Charsets;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.mrsandman5.replication.Replicas;
+import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 
 import java.nio.ByteBuffer;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
@@ -42,15 +44,29 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
         final var hash = hashFunction.hashBytes(key.duplicate()).asLong();
         final var nodeEntry = ring.ceilingEntry(hash);
         return nodeEntry == null
-                ? ring.firstEntry().getValue().getPhysicalNode()
-                : nodeEntry.getValue().getPhysicalNode();
+                ? ring.firstEntry().getValue().physicalNode
+                : nodeEntry.getValue().physicalNode;
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @NotNull
     @Override
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
-                              @NotNull final Replicas replicas) {
-        return null;
+                              @NotNull final ReplicasFactor replicasFactor) {
+        if (replicasFactor.getFrom() > topology.size()) {
+            throw new IllegalArgumentException("Number of required nodes is too big!");
+        }
+
+        final var hash = hashFunction.hashBytes(key.duplicate()).asLong();
+        final Set<T> result = new HashSet<>();
+        Iterator<VirtualNode<T>> it = ring.tailMap(hash).values().iterator();
+        while (result.size() < replicasFactor.getFrom()) {
+            if (!it.hasNext()) {
+                it = ring.values().iterator();
+            }
+            result.add(it.next().physicalNode);
+        }
+        return result;
     }
 
     @Override
@@ -91,10 +107,6 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
 
         String getName() {
             return physicalNode + "-" + replicaIndex;
-        }
-
-        T getPhysicalNode() {
-            return physicalNode;
         }
     }
 }

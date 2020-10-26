@@ -16,6 +16,7 @@ public final class ResponseUtils {
     public static final String TIMEOUT = "?timeout=1000";
     public static final String PROXY = "Is-Proxy: True";
     public static final String TIMESTAMP = "Timestamp: ";
+    //public static final String PATH = "/v0/entity?id=";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
 
     private ResponseUtils(){}
@@ -48,21 +49,6 @@ public final class ResponseUtils {
     public static Response nonemptyResponse(@NotNull final String code,
                                             final byte[] values) {
         return new Response(code, values);
-    }
-
-    public static long getTimestamp(@NotNull final Response response) {
-        final String timestamp = response.getHeader(TIMESTAMP);
-        if (response.getStatus() == 200) {
-            if (timestamp == null) {
-                throw new IllegalArgumentException();
-            }
-        } else {
-            if (timestamp == null) {
-                return -1;
-            }
-        }
-        return Long.parseLong(timestamp);
-        //return timestamp == null ? -1 : Long.parseLong(timestamp);
     }
 
     public static String getStatus(@NotNull final Response response) {
