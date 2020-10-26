@@ -41,7 +41,7 @@ public final class DAOImpl implements DAO {
         try {
             final byte[] valueByteArray = db.get(BufferConverter.convertBytes(key));
             if (valueByteArray == null) {
-                log.error("No such value key {}.", key);
+                log.info("No such value key {}.", key);
                 throw new NoSuchElementException("Not such value by this key");
             }
             return ByteBuffer.wrap(valueByteArray);
@@ -103,13 +103,7 @@ public final class DAOImpl implements DAO {
         try {
             final var options = new Options()
                     .setCreateIfMissing(true)
-                    .setCompressionType(CompressionType.NO_COMPRESSION)
-                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
-                    .setEnableWriteThreadAdaptiveYield(true)
-                    .setLevelCompactionDynamicLevelBytes(true)
-                    .setAllowConcurrentMemtableWrite(true)
-                    .setBytesPerSync(1048576)
-                    .setCompactionPriority(CompactionPriority.MinOverlappingRatio);
+                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {
