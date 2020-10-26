@@ -1,12 +1,14 @@
 package ru.mail.polis.service.mariarheon;
 
-import one.nio.http.Request;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 public class Util {
+    private Util() {
+        /* nothing */
+    }
+
     /**
      * Converts any collection to new sorted list.
      *
@@ -15,8 +17,8 @@ public class Util {
      * @return - sorted list.
      */
     public static
-    <T extends Comparable<? super T>> List<T> asSortedList(Collection<T> c) {
-        List<T> list = new ArrayList<T>(c);
+    <T extends Comparable<? super T>> List<T> asSortedList(final Collection<T> c) {
+        final List<T> list = new ArrayList<T>(c);
         java.util.Collections.sort(list);
         return list;
     }

@@ -47,9 +47,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final String SERV_UN = "Service unavailable: ";
     private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
     private static final String MYSELF_PARAMETER = "myself";
-    private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final String REMOVED_PERMANENTLY = "310 Removed Permanently";
-    private static final String DELETED_VALUE_PASSWORD = "P**J$#RFh7e3j89ri(((8873uj33*&&*&&";
+    private static final String DELETED_SPECIAL_VALUE = "P**J$#RFh7e3j89ri(((8873uj33*&&*&&";
 
     /**
      * Asynchronous Service Implementation.
@@ -93,9 +92,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
         if (myself != null) {
-            var resp = processRequest(key, request);
+            final var resp = processRequest(key, request);
             try {
-                trySendResponse(session, resp.get());
+                if (resp == null) {
+                    trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+                } else {
+                    trySendResponse(session, resp.get());
+                }
             } catch (InterruptedException | ExecutionException e) {
                 logger.error(SERV_UN, e);
             }
@@ -125,10 +128,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 answers.add(passOn(node, request));
             }
         }
-        Response requiredResponse = null;
-        int goodAnswers = 0;
-        int notFoundAnswers = 0;
-        boolean wasRemoved = false;
+        final var composer = new ReplicasResponseComposer();
         for (final var answer : answers) {
             if (answer == null) {
                 continue;
@@ -139,27 +139,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             } catch (InterruptedException | ExecutionException e) {
                 continue;
             }
-            if (response.getStatus() >= 200 && response.getStatus() <= 202) {
-                if (requiredResponse == null) {
-                    requiredResponse = response;
-                }
-                goodAnswers++;
-            }
-            if (response.getStatus() == 404) {
-                notFoundAnswers++;
-            }
-            if (response.getStatus() == 310) {
-                wasRemoved = true;
-            }
+            composer.addResponse(response, replicas.getAckCount());
         }
-        int ackCount = goodAnswers + notFoundAnswers;
-        if (wasRemoved) {
-            requiredResponse = new ZeroResponse(Response.NOT_FOUND);
-        } else if (ackCount < replicas.getAckCount()) {
-            requiredResponse = new ZeroResponse(NOT_ENOUGH_REPLICAS);
-        } else if (goodAnswers == 0 && notFoundAnswers > 0) {
-            requiredResponse = new ZeroResponse(Response.NOT_FOUND);
-        }
+        final var requiredResponse = composer.getComposedResponse();
         trySendResponse(session, requiredResponse);
     }
 
@@ -192,7 +174,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
             final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
             final var ar = ByteBufferUtils.toArray(response);
-            if (Arrays.equals(ar, DELETED_VALUE_PASSWORD.getBytes(StandardCharsets.UTF_8))) {
+            if (Arrays.equals(ar, DELETED_SPECIAL_VALUE.getBytes(StandardCharsets.UTF_8))) {
                 return new ZeroResponse(REMOVED_PERMANENTLY);
             }
             return Response.ok(ar);
@@ -227,7 +209,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 return new ZeroResponse(Response.BAD_REQUEST);
             }
             dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                    ByteBufferUtils.toByteBuffer(DELETED_VALUE_PASSWORD.getBytes(StandardCharsets.UTF_8)));
+                    ByteBufferUtils.toByteBuffer(DELETED_SPECIAL_VALUE.getBytes(StandardCharsets.UTF_8)));
             return new ZeroResponse(Response.ACCEPTED);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
@@ -280,7 +262,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
     }
 
-    private static Request addMyselfParamToRequest(Request request) {
+    private static Request addMyselfParamToRequest(final Request request) {
         if (request.getParameter(MYSELF_PARAMETER) != null) {
             return request;
         }

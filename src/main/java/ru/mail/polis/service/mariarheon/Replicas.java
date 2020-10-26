@@ -21,17 +21,17 @@ public class Replicas {
             this.totalNodes = nodeCount;
             return;
         }
-        int slashWhere = ackFromString.indexOf('/');
+        final int slashWhere = ackFromString.indexOf('/');
         if (slashWhere == -1) {
             throw new ReplicasParamParseException(SLASH_SHOULD_BE_PRESENTED_ERROR_MSG);
         }
-        String ackStr = ackFromString.substring(0, slashWhere);
-        String fromStr = ackFromString.substring(slashWhere + 1);
+        final String ackStr = ackFromString.substring(0, slashWhere);
+        final String fromStr = ackFromString.substring(slashWhere + 1);
         try {
             this.ackCount = Integer.parseInt(ackStr);
             this.totalNodes = Integer.parseInt(fromStr);
         } catch (NumberFormatException ex) {
-            throw new ReplicasParamParseException(NON_INTEGER_IN_VALUE_ERROR_MSG);
+            throw new ReplicasParamParseException(NON_INTEGER_IN_VALUE_ERROR_MSG, ex);
         }
         if (this.totalNodes > nodeCount) {
             this.totalNodes = nodeCount;

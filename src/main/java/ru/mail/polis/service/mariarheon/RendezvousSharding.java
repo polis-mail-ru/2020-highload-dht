@@ -73,12 +73,11 @@ public class RendezvousSharding {
         final int startIndex = getResponsibleNodeIndex(key);
         final var res = new ArrayList<String>();
         for (int i = 0; i < replicas.getTotalNodes(); i++) {
-            int current = (startIndex + i) % getNodesCount();
+            final int current = (startIndex + i) % getNodesCount();
             res.add(nodes.get(current));
         }
         return res;
     }
-
 
     /**
      * Returns true if passed node is the current one.
