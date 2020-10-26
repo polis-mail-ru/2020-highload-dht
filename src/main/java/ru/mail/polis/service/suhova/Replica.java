@@ -23,14 +23,14 @@ public class Replica {
     }
 
     /**
-     * Create Replica
+     * Create Replica.
      *
      * @param replica replica
      * @return new Replica
      */
     @NotNull
     public static Replica of(@NotNull final String replica) {
-        List<String> values = Splitter.on('/').splitToList(replica);
+        final List<String> values = Splitter.on('/').splitToList(replica);
         if (values.size() != 2) {
             throw new IllegalArgumentException("Incorrect replica parameter");
         }

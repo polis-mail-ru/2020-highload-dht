@@ -4,8 +4,8 @@ import one.nio.http.Response;
 
 import java.util.List;
 
-public class Consensus {
-    final static String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+public final class Consensus {
+    private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
 
     private Consensus() {
     }
@@ -17,12 +17,12 @@ public class Consensus {
      * @param ack       - ack
      * @return resulting response
      */
-    public static Response get(List<Response> responses, final int ack) {
+    public static Response get(final List<Response> responses, final int ack) {
         int count = 0;
         int count404 = 0;
         boolean isDeleted = false;
         Response okValue = new Response(Response.NOT_FOUND, Response.EMPTY);
-        for (Response response : responses) {
+        for (final Response response : responses) {
             final int status = response.getStatus();
             if (status == 200) {
                 count++;
@@ -54,7 +54,7 @@ public class Consensus {
      * @param ack       - ack
      * @return resulting response
      */
-    public static Response put(List<Response> responses, final int ack) {
+    public static Response put(final List<Response> responses, final int ack) {
         return simpleResponse(responses, ack, 201, Response.CREATED);
     }
 
@@ -65,7 +65,7 @@ public class Consensus {
      * @param ack       - ack
      * @return resulting response
      */
-    public static Response delete(List<Response> responses, final int ack) {
+    public static Response delete(final List<Response> responses, final int ack) {
         return simpleResponse(responses, ack, 202, Response.ACCEPTED);
     }
 
@@ -74,7 +74,7 @@ public class Consensus {
                                            final int status,
                                            final String result) {
         int ackCount = 0;
-        for (Response response : responses) {
+        for (final Response response : responses) {
             if (response.getStatus() == status) {
                 ackCount++;
             }

@@ -5,7 +5,6 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.dao.Record;
 
 import java.io.File;
 import java.io.IOException;
@@ -134,6 +133,7 @@ public class TurboDAO implements DAO {
 
     @Override
     @NotNull
+
     public Cell getCell(@NotNull final ByteBuffer key) throws NoSuchElementException {
         final Iterator<Cell> iter = cellIterator(key);
         if (!iter.hasNext()) {

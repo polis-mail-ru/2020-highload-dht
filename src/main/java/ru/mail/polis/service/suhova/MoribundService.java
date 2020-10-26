@@ -18,17 +18,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.suhova.Topology;
-import ru.mail.polis.dao.suhova.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -78,7 +74,6 @@ public class MoribundService extends HttpServer implements Service {
                 throw new IllegalArgumentException("Duplicate node!");
             }
         }
-
         executor = new ThreadPoolExecutor(
             workersCount, queueSize,
             0L, TimeUnit.MILLISECONDS,
@@ -89,42 +84,6 @@ public class MoribundService extends HttpServer implements Service {
                 .build(),
             new ThreadPoolExecutor.AbortPolicy()
         );
-    }
-
-    private Response get(@NotNull final String id) {
-        try {
-            final Value value = dao.getCell(toByteBuffer(id)).getValue();
-            final Response response;
-            if (value.isTombstone()) {
-                response = new Response(Response.OK, Response.EMPTY);
-            } else {
-                response = new Response(Response.OK, toByteArray(value.getData()));
-            }
-            response.addHeader("isTombstone" + value.isTombstone());
-            return response;
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
-    }
-
-    private Response put(final @NotNull String id, final Request request) {
-        try {
-            dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException e) {
-            logger.error("FAIL PUT! id: {}, request: {}, error: {}", id, request.getBody(), e.getMessage());
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
-    private Response delete(@NotNull final String id) {
-        try {
-            dao.remove(toByteBuffer(id));
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (IOException e) {
-            logger.error("FAIL DELETE! id: {}, error: {}", id, e.getMessage());
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
     }
 
     /**
@@ -165,19 +124,17 @@ public class MoribundService extends HttpServer implements Service {
      * @param session - session
      * @param request - request
      */
-    public void sendProxyResponse(final String id,
-                                  final HttpSession session,
-                                  final Request request) {
+    public void sendProxyResponse(final String id, final HttpSession session, final Request request) {
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    session.sendResponse(get(id));
+                    session.sendResponse(DAOServiceMethods.get(id, dao));
                     break;
                 case Request.METHOD_PUT:
-                    session.sendResponse(put(id, request));
+                    session.sendResponse(DAOServiceMethods.put(id, request, dao));
                     break;
                 case Request.METHOD_DELETE:
-                    session.sendResponse(delete(id));
+                    session.sendResponse(DAOServiceMethods.delete(id, dao));
                     break;
                 default:
                     break;
@@ -237,15 +194,15 @@ public class MoribundService extends HttpServer implements Service {
             final List<Response> responses;
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    responses = getAllResponses(nodes, get(id), request);
+                    responses = getAllResponses(nodes, DAOServiceMethods.get(id, dao), request);
                     session.sendResponse(Consensus.get(responses, ack));
                     break;
                 case Request.METHOD_PUT:
-                    responses = getAllResponses(nodes, put(id, request), request);
+                    responses = getAllResponses(nodes, DAOServiceMethods.put(id, request, dao), request);
                     session.sendResponse(Consensus.put(responses, ack));
                     break;
                 case Request.METHOD_DELETE:
-                    responses = getAllResponses(nodes, delete(id), request);
+                    responses = getAllResponses(nodes, DAOServiceMethods.delete(id, dao), request);
                     session.sendResponse(Consensus.delete(responses, ack));
                     break;
                 default:
@@ -288,19 +245,6 @@ public class MoribundService extends HttpServer implements Service {
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
-    }
-
-    private static ByteBuffer toByteBuffer(@NotNull final String id) {
-        return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static byte[] toByteArray(@NotNull final ByteBuffer byteBuffer) {
-        if (!byteBuffer.hasRemaining()) {
-            return Response.EMPTY;
-        }
-        final byte[] result = new byte[byteBuffer.remaining()];
-        byteBuffer.get(result);
-        return result;
     }
 
     @Override
