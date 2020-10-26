@@ -97,19 +97,11 @@ public final class AsyncService extends HttpServer implements Service {
     public void status(final HttpSession session) throws IOException {
         try {
             this.es.execute(() -> {
-                handleStatusError(session);
+                AsyncServiceUtility.handleStatusError(session);
             });
         } catch (RejectedExecutionException e) {
             logger.error("Internal error in status handling", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-    
-    private void handleStatusError(HttpSession session) {
-        try {
-            session.sendResponse(Response.ok("OK"));
-        } catch (IOException e) {
-            logger.error("Error in sending status", e);
         }
     }
     

@@ -49,7 +49,21 @@ public final class AsyncServiceUtility {
         }
     }
     
+    public static void handleStatusError(@NotNull final HttpSession session) {
+        try {
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            AsyncService.logger.error("Error in sending status", e);
+        }
+    }
     
+    /**
+     * Getting raw value.
+     * @param key key
+     * @param session session for response
+     * @param dao dao for getting
+     * @throws IOException rethrow from session
+     */
     public static void getRaw(@NotNull final ByteBuffer key,
                               @NotNull final HttpSession session,
                               @NotNull final DAO dao) throws IOException {
