@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
@@ -89,7 +90,7 @@ public class DAOImpl implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         return Iterators.transform(cellIterator(from),
-                cell -> Record.of(Objects.requireNonNull(cell).getKey(), cell.getValue().getData()));
+                cell -> Record.of(Objects.requireNonNull(cell).getKey(), Objects.requireNonNull(cell.getValue().getData())));
     }
 
     /**
@@ -135,6 +136,20 @@ public class DAOImpl implements DAO {
 
         final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
         return Iters.collapseEquals(merged, Cell::getKey);
+    }
+
+    public Cell getCell(@NotNull final ByteBuffer key) throws IOException {
+        final Iterator<Cell> iter = cellIterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        final Cell next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next;
+        } else {
+            throw new NoSuchElementException("Not found");
+        }
     }
 
     @Override

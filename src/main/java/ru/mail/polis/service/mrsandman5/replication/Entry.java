@@ -1,13 +1,18 @@
 package ru.mail.polis.service.mrsandman5.replication;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.impl.DAOImpl;
+import ru.mail.polis.dao.impl.models.Cell;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
 
 public final class Entry implements Comparable<Entry> {
 
-    enum State{
+    public enum State{
         PRESENT,
         REMOVED,
         ABSENT
@@ -62,5 +67,28 @@ public final class Entry implements Comparable<Entry> {
                 .filter(value -> value.getState() != State.ABSENT)
                 .max(Comparator.comparingLong(Entry::getTimestamp))
                 .orElseGet(Entry::absent);
+    }
+
+    public static Entry get(final byte[] key,
+                            @NotNull final DAOImpl dao) throws IOException {
+        final ByteBuffer buffer = ByteBuffer.wrap(key);
+        final Iterator<Cell> cells = dao.cellIterator(buffer);
+        if (!cells.hasNext()) {
+            return Entry.absent();
+        }
+
+        final Cell cell = cells.next();
+        if (!cell.getKey().equals(buffer)) {
+            return Entry.absent();
+        }
+
+        if (cell.getValue().getData() == null) {
+            return Entry.removed(cell.getValue().getTimestamp());
+        } else {
+            final ByteBuffer value = cell.getValue().getData();
+            final byte[] buf = new byte[value.remaining()];
+            value.duplicate().get(buf);
+            return Entry.present(cell.getValue().getTimestamp(), buf);
+        }
     }
 }

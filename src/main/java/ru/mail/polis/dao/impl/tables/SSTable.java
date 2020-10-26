@@ -3,6 +3,7 @@ package ru.mail.polis.dao.impl.tables;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.models.Value;
+import ru.mail.polis.utils.ByteUtils;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.File;
@@ -15,6 +16,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 @ThreadSafe
 public final class SSTable implements Table {
@@ -54,25 +56,25 @@ public final class SSTable implements Table {
                 final ByteBuffer key = cell.getKey();
                 offsets.add(offset);
                 offset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
-                fc.write(fromInt(key.duplicate().remaining()));
+                fc.write(ByteUtils.fromInt(key.duplicate().remaining()));
                 fc.write(key);
 
                 final Value value = cell.getValue();
                 if (value.isTombstone()) {
-                    fc.write(fromLong(-cell.getValue().getTimestamp()));
+                    fc.write(ByteUtils.fromLong(-cell.getValue().getTimestamp()));
                 } else {
-                    fc.write(fromLong(cell.getValue().getTimestamp()));
-                    final ByteBuffer data = cell.getValue().getData().duplicate();
+                    fc.write(ByteUtils.fromLong(cell.getValue().getTimestamp()));
+                    final ByteBuffer data = Objects.requireNonNull(cell.getValue().getData()).duplicate();
                     offset += data.remaining();
                     fc.write(data);
                 }
             }
 
             for (final Integer anOffset : offsets) {
-                fc.write(fromInt(anOffset));
+                fc.write(ByteUtils.fromInt(anOffset));
             }
 
-            fc.write(fromInt(offsets.size()));
+            fc.write(ByteUtils.fromInt(offsets.size()));
         }
     }
 
@@ -185,13 +187,5 @@ public final class SSTable implements Table {
     @Override
     public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException();
-    }
-
-    private static ByteBuffer fromInt(final int value) {
-        return ByteBuffer.allocate(Integer.BYTES).rewind().putInt(value).rewind();
-    }
-
-    private static ByteBuffer fromLong(final long value) {
-        return ByteBuffer.allocate(Long.BYTES).rewind().putLong(value).rewind();
     }
 }

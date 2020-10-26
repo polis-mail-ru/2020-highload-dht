@@ -14,7 +14,7 @@ public interface Topology<T> {
 
     @NotNull
     Set<T> replicasFor(@NotNull final ByteBuffer key,
-                      @NotNull final Replicas replicas);
+                       @NotNull final Replicas replicas);
 
     boolean isNotMe(@NotNull final T node);
 

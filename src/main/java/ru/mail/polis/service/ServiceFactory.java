@@ -19,6 +19,7 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.mrsandman5.ServiceImpl;
+import ru.mail.polis.service.mrsandman5.clustering.BasicTopology;
 import ru.mail.polis.service.mrsandman5.clustering.ConsistentHashingTopology;
 
 import java.io.IOException;
@@ -31,7 +32,7 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-    private static final int VNODE_COUNT = 100;
+    //private static final int VNODE_COUNT = 100;
     private static final int WORKERS = Runtime.getRuntime().availableProcessors();
 
     private ServiceFactory() {
@@ -59,7 +60,8 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final var nodes = new ConsistentHashingTopology<>(topology, "http://localhost:" + port, VNODE_COUNT);
+        final var nodes = new BasicTopology<>(topology, "http://localhost:" + port);
+        //final var nodes = new ConsistentHashingTopology<>(topology, "http://localhost:" + port, VNODE_COUNT);
         return ServiceImpl.create(port, nodes, dao, WORKERS);
     }
 }

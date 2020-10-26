@@ -1,15 +1,16 @@
 package ru.mail.polis.service.mrsandman5.replication;
 
+import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
+import java.util.List;
 
 public final class Replicas {
 
     private final int ack;
     private final int from;
 
-    public Replicas(final int ack,
+    private Replicas(final int ack,
                     final int from) {
         if (ack > from || ack < 1) {
             throw new IllegalArgumentException("Wrong replicas arguments");
@@ -24,20 +25,17 @@ public final class Replicas {
     }
 
     @NotNull
+    @SuppressWarnings("UnstableApiUsage")
     public static Replicas parser(@NotNull final String replicas) {
-        final var params = replicas.split("/");
-        if (params.length != 2) {
-            throw new IllegalArgumentException("Wrong replicas: " + Arrays.toString(params));
-        }
-
-        return new Replicas(Integer.parseInt(params[0]), Integer.parseInt(params[1]));
-    }
-
-    public int getAck() {
-        return ack;
+        final List<String> params = Splitter.on('/').splitToList(replicas);
+        return new Replicas(Integer.parseInt(params.get(0)), Integer.parseInt(params.get(1)));
     }
 
     public int getFrom() {
         return from;
+    }
+
+    public int getAck() {
+        return ack;
     }
 }

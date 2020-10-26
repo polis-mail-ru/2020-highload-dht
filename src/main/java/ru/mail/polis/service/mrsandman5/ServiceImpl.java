@@ -16,15 +16,23 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.impl.DAOImpl;
+import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
 import ru.mail.polis.service.mrsandman5.replication.Replicas;
+import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -32,9 +40,9 @@ import static java.util.stream.Collectors.toMap;
 public final class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private static final String TIMEOUT = "?timeout=1000";
+
     @NotNull
-    private final DAO dao;
+    private final DAOImpl dao;
     @NotNull
     private final Topology<String> topology;
     private final Replicas quorum;
@@ -73,7 +81,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                        @NotNull final DAO dao) throws IOException {
         super(config);
         this.topology = topology;
-        this.dao = dao;
+        this.dao = (DAOImpl) dao;
         this.quorum = Replicas.quorum(topology.all().size());
         this.httpClients = topology.others()
                 .stream()
@@ -91,14 +99,15 @@ public final class ServiceImpl extends HttpServer implements Service {
                          @NotNull final Request request,
                          @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
-        if (id.isEmpty()) {
-            sendEmptyResponse(session, Response.BAD_REQUEST);
+        if (id == null || id.isEmpty()) {
+            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
 
+        final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
         final Replicas replicasFactor = replicas == null ? quorum : Replicas.parser(replicas);
         if (replicasFactor.getFrom() > topology.all().size()) {
-            sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
             return;
         }
         final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
@@ -109,43 +118,169 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                asyncExecute(session, () -> get(key));
+                replicasGet(session, request, key, proxied, replicasFactor);
                 break;
             case Request.METHOD_PUT:
-                asyncExecute(session, () -> put(key, request.getBody()));
+                replicasPut(session, request, key, proxied, replicasFactor);
                 break;
             case Request.METHOD_DELETE:
-                asyncExecute(session, () -> delete(key));
+                replicasDelete(session, request, key, proxied, replicasFactor);
                 break;
             default:
                 log.error("Non-supported request : {}", id);
-                sendEmptyResponse(session, Response.METHOD_NOT_ALLOWED);
+                ResponseUtils.sendEmptyResponse(session, Response.METHOD_NOT_ALLOWED);
                 break;
         }
     }
 
+    private List<Response> replication(@NotNull final Action action,
+                                       @NotNull final Request request,
+                                       @NotNull final ByteBuffer key,
+                                       @NotNull final Replicas replicas) {
+        request.addHeader(ResponseUtils.PROXY);
+        return topology.replicasFor(key, replicas)
+                .stream()
+                .map(node -> {
+                    try {
+                        return !topology.isNotMe(node)
+                                ? action.act()
+                                : proxy(node, request);
+                    } catch (IOException e) {
+                        log.error("Action error: ", e);
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+    }
+
     private Response get(@NotNull final ByteBuffer key) throws IOException {
+        final Cell cell;
         try {
-            final var value = dao.get(key);
-            return new Response(Response.OK, toByteArray(value));
+            cell = dao.getCell(key);
+            if (cell.getValue().isTombstone()) {
+                final Response response = ResponseUtils.emptyResponse(Response.NOT_FOUND);
+                response.addHeader(ResponseUtils.TIMESTAMP + cell.getValue().getTimestamp());
+                return response;
+            }
+            final byte[] body = new byte[Objects.requireNonNull(cell.getValue().getData()).remaining()];
+            final Response response = ResponseUtils.nonemptyResponse(Response.OK, body);
+            response.addHeader(ResponseUtils.TIMESTAMP + cell.getValue().getTimestamp());
+            return response;
         } catch (NoSuchElementException e) {
-            return emptyResponse(Response.NOT_FOUND);
+            return ResponseUtils.emptyResponse(Response.NOT_FOUND);
         }
+    }
+
+    private void replicasGet(@NotNull final HttpSession session,
+                             @NotNull final Request request,
+                             @NotNull final ByteBuffer key,
+                             final boolean proxied,
+                             @NotNull final Replicas replicas) {
+        if (proxied) {
+            asyncExecute(session, () -> get(key));
+            return;
+        }
+        asyncExecute(() -> {
+            try {
+                final List<Response> result = replication(() -> get(key), request, key, replicas)
+                        .stream()
+                        .filter(node -> node.getHeaders()[0].equals(Response.OK) || node.getHeaders()[0].equals(Response.ACCEPTED))
+                        .collect(Collectors.toList());
+                if (result.size() < replicas.getAck()) {
+                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
+                    return;
+                }
+                session.sendResponse(mergeResponses(result));
+            } catch (IOException e) {
+               log.error("Replication error: ", e);
+               ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            }
+        });
+    }
+
+    private Response mergeResponses(@NotNull final List<Response> result) {
+        final Map<Response, Integer> responses = new TreeMap<>(Comparator.comparing(ResponseUtils::getStatus));
+        result.forEach(resp -> {
+            final Integer val = responses.get(resp);
+            responses.put(resp, val == null ? 0 : val + 1);
+        });
+        Response finalResult = null;
+        int maxCount = -1;
+        long time = Long.MIN_VALUE;
+        for (final Map.Entry<Response, Integer> entry : responses.entrySet()) {
+            if (entry.getValue() >= maxCount && ResponseUtils.getTimestamp(entry.getKey()) > time) {
+                time = ResponseUtils.getTimestamp(entry.getKey());
+                maxCount = entry.getValue();
+                finalResult = entry.getKey();
+            }
+        }
+        return finalResult;
     }
 
     private Response put(@NotNull final ByteBuffer key,
                          final byte[] bytes) throws IOException {
-        if (bytes == null) {
-            return emptyResponse(Response.BAD_REQUEST);
-        }
         final var body = ByteBuffer.wrap(bytes);
         dao.upsert(key, body);
-        return emptyResponse(Response.CREATED);
+        return ResponseUtils.emptyResponse(Response.CREATED);
+    }
+
+    private void replicasPut(@NotNull final HttpSession session,
+                             @NotNull final Request request,
+                             @NotNull final ByteBuffer key,
+                             final boolean proxied,
+                             @NotNull final Replicas replicas) {
+        if (proxied) {
+            asyncExecute(session, () -> put(key, request.getBody()));
+            return;
+        }
+        asyncExecute(() -> {
+            final List<Response> result = replication(() -> put(key, request.getBody()), request, key, replicas)
+                    .stream()
+                    .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
+                    .collect(Collectors.toList());
+            try {
+                if (result.size() < replicas.getAck()) {
+                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
+                } else {
+                    session.sendResponse(ResponseUtils.emptyResponse(Response.CREATED));
+                }
+            } catch (IOException e) {
+                log.error("Ack number is less than required: ", e);
+                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            }
+        });
     }
 
     private Response delete(@NotNull final ByteBuffer key) throws IOException {
         dao.remove(key);
-        return emptyResponse(Response.ACCEPTED);
+        return ResponseUtils.emptyResponse(Response.ACCEPTED);
+    }
+
+    private void replicasDelete(@NotNull final HttpSession session,
+                                @NotNull final Request request,
+                                @NotNull final ByteBuffer key,
+                                final boolean proxied,
+                                @NotNull final Replicas replicas) {
+        if (proxied) {
+            asyncExecute(session, () -> delete(key));
+            return;
+        }
+        asyncExecute(() -> {
+            final List<Response> result = replication(() -> delete(key), request, key, replicas)
+                    .stream()
+                    .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
+                    .collect(Collectors.toList());
+            try {
+                if (result.size() < replicas.getAck()) {
+                    session.sendResponse(ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
+                } else {
+                    session.sendResponse(ResponseUtils.emptyResponse(Response.ACCEPTED));
+                }
+            } catch (IOException e) {
+                log.error("Ack number is less than required: ", e);
+                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+            }
+        });
     }
 
     /** Request method for status return.
@@ -153,7 +288,7 @@ public final class ServiceImpl extends HttpServer implements Service {
      * */
     @Path("/v0/status")
     public Response status(@NotNull final HttpSession session) {
-        return emptyResponse(Response.OK);
+        return ResponseUtils.emptyResponse(Response.OK);
     }
 
     private Response proxy(@NotNull final String node,
@@ -162,70 +297,36 @@ public final class ServiceImpl extends HttpServer implements Service {
             return httpClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
             log.error("Unable to proxy request", e);
-            return emptyResponse(Response.INTERNAL_ERROR);
+            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
         }
     }
 
     @NotNull
     private static HttpClient createHttpClient(@NotNull final String node) {
-        return new HttpClient(new ConnectionString(node + TIMEOUT));
+        return new HttpClient(new ConnectionString(node + ResponseUtils.TIMEOUT));
     }
 
     @Override
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
-        sendEmptyResponse(session, Response.BAD_REQUEST);
-    }
-
-    @NotNull
-    private static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
-        if (!buffer.hasRemaining()) {
-            return Response.EMPTY;
-        }
-        final var bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-        return bytes;
+        ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
     }
 
     private void asyncExecute(@NotNull final HttpSession session,
-                              @NotNull final ResponseSupplier supplier) {
+                              @NotNull final Action action) {
         asyncExecute(() -> {
             try {
-                sendResponse(session, supplier.supply());
+                ResponseUtils.sendResponse(session, action.act());
             } catch (IOException e) {
                 log.error("Unable to create response", e);
-                sendEmptyResponse(session, Response.INTERNAL_ERROR);
+                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
             }
         });
     }
 
-    private static void sendResponse(@NotNull final HttpSession session,
-                                     @NotNull final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            try {
-                log.error("Unable to send response", e);
-                session.sendError(Response.INTERNAL_ERROR, null);
-            } catch (IOException ex) {
-                log.error("Unable to send error", e);
-            }
-        }
-    }
-
-    private static void sendEmptyResponse(@NotNull final HttpSession session,
-                                          @NotNull final String code) {
-        sendResponse(session, emptyResponse(code));
-    }
-
-    @NotNull
-    private static Response emptyResponse(@NotNull final String code) {
-        return new Response(code, Response.EMPTY);
-    }
-
     @FunctionalInterface
-    interface ResponseSupplier {
+    private interface Action {
         @NotNull
-        Response supply() throws IOException;
+        Response act() throws IOException;
     }
 }
