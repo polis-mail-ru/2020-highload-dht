@@ -267,27 +267,32 @@ public class Utility {
         return values;
     }
     
-    @NotNull
-    public static Comparator<Table.Value> deadComparator() {
-        return (a, b) -> {
-            if (a.isDead()) {
-                return -1;
-            }
-            if (b.isDead()) {
-                return 1;
-            }
-            
-            return 0;
-        };
-    }
-    
+    /**
+     * Response's value validation.
+     * @return comparator
+     */
     @NotNull
     public static Comparator<Table.Value> valueResponseComparator() {
         return Comparator.comparing(Table.Value::getTimeStamp)
                 .reversed()
-                .thenComparing(deadComparator());
+                .thenComparing((a, b) -> {
+                    if (a.isDead()) {
+                        return -1;
+                    }
+                    if (b.isDead()) {
+                        return 1;
+                    }
+    
+                    return 0;
+                });
     }
     
+    /**
+     * Parsing replicas.
+     * @param replicas string for parsing
+     * @param service AsyncService with nodes
+     * @return replication configuration
+     */
     public static Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas,
                                                                             @NotNull final AsyncService service) {
         final Utility.ReplicationConfiguration parsedReplica;
