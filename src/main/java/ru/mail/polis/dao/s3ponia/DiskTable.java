@@ -241,8 +241,4 @@ public class DiskTable implements Closeable, Table {
     public void close() throws IOException {
         fileChannel.close();
     }
-    
-    public void erase() throws IOException {
-        Files.delete(filePath);
-    }
 }

@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.s3ponia.Table;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -42,6 +43,15 @@ public interface DAO extends Closeable {
      */
     @NotNull
     Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
+    
+    /**
+     * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
+     * in <b>ascending</b> order according to {@link Record#compareTo(Record)}.
+     * N.B. The iterator should be obtained as fast as possible, e.g.
+     * one should not "seek" to start point ("from" element) in linear time ;)
+     */
+    @NotNull
+    Iterator<Table.ICell> iteratorRaw(@NotNull ByteBuffer from) throws IOException;
 
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
@@ -78,6 +88,25 @@ public interface DAO extends Closeable {
         }
 
         final Record next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next.getValue();
+        } else {
+            throw new NoSuchElementException("Not found");
+        }
+    }
+    /**
+     * Obtains {@link Record} corresponding to given key.
+     *
+     * @throws NoSuchElementException if no such record
+     */
+    @NotNull
+    default Table.Value getRaw(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Table.ICell> iter = iteratorRaw(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+        
+        final Table.ICell next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {

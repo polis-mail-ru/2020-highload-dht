@@ -9,54 +9,54 @@ import java.util.Iterator;
 
 public interface Table extends Closeable {
     int getGeneration();
-
+    
     interface ICell extends Comparable<ICell> {
         @NotNull
         ByteBuffer getKey();
-
+        
         @NotNull
         Value getValue();
     }
-
+    
     class Cell implements ICell {
         @NotNull
         private final ByteBuffer key;
         @NotNull
         private final Value value;
-
+        
         protected Cell(@NotNull final ByteBuffer key, @NotNull final Value value) {
             this.key = key;
             this.value = value;
         }
-
+        
         static Cell of(@NotNull final ByteBuffer key, @NotNull final Value value) {
             return new Cell(key, value);
         }
-
+        
         @Override
         @NotNull
         public ByteBuffer getKey() {
             return key.asReadOnlyBuffer();
         }
-
+        
         @Override
         @NotNull
         public Value getValue() {
             return value;
         }
-
+        
         @Override
         public int compareTo(@NotNull final ICell o) {
             return Comparator.comparing(ICell::getKey).thenComparing(ICell::getValue).compare(this, o);
         }
     }
-
+    
     class Value implements Comparable<Value> {
         private final ByteBuffer byteBuffer;
-        private static final long DEAD_FLAG = 0x4000000000000000L;
+        private static final long DEAD_FLAG = 1L << 63;
         private final long deadFlagTimeStamp;
         private final int generation;
-
+        
         /**
          * Value constructor.
          *
@@ -69,61 +69,72 @@ public interface Table extends Closeable {
             this.deadFlagTimeStamp = deadFlagTimeStamp;
             this.generation = generation;
         }
-
+        
         static Value dead(final int generation) {
             return new Value(ByteBuffer.allocate(0), System.currentTimeMillis(), generation).setDeadFlag();
         }
-
-        static Value of(final ByteBuffer value, final int generation) {
+        
+        public static Value of(final ByteBuffer value, final int generation) {
             return new Value(value, System.currentTimeMillis(), generation);
         }
-
-        static Value of(final ByteBuffer value, final long deadFlagTimeStamp, final int generation) {
+    
+        public static Value of(final ByteBuffer value, final long deadFlagTimeStamp, final int generation) {
             return new Value(value, deadFlagTimeStamp, generation);
         }
-
-        ByteBuffer getValue() {
+        
+        public ByteBuffer getValue() {
             return byteBuffer.asReadOnlyBuffer();
         }
-
-        Value setDeadFlag() {
+    
+        public Value setDeadFlag() {
             return Value.of(byteBuffer, deadFlagTimeStamp | DEAD_FLAG, generation);
         }
-
-        Value unsetDeadFlag() {
+    
+        public Value unsetDeadFlag() {
             return Value.of(byteBuffer, deadFlagTimeStamp & ~DEAD_FLAG, generation);
         }
-
-        boolean isDead() {
+    
+        public static boolean isDead(final long deadFlagTimeStamp) {
+            return (deadFlagTimeStamp & DEAD_FLAG) != 0;
+        }
+        
+        public boolean isDead() {
             return (this.deadFlagTimeStamp & DEAD_FLAG) != 0;
         }
-
+        
         public long getDeadFlagTimeStamp() {
-            return deadFlagTimeStamp + generation;
+            return deadFlagTimeStamp;
         }
-
+    
+        public static long getTimeStampFromLong(final long deadFlagTimeStamp) {
+            return deadFlagTimeStamp & ~DEAD_FLAG;
+        }
+    
         public long getTimeStamp() {
             return deadFlagTimeStamp & ~DEAD_FLAG;
         }
-
+        
         public int getGeneration() {
             return generation;
         }
-
+        
         public int size() {
             return byteBuffer.capacity();
         }
-
+        
         @Override
         public int compareTo(@NotNull final Value o) {
-            return Comparator.comparing(Value::getGeneration).reversed().compare(this, o);
+            return Comparator.comparing(Value::getTimeStamp)
+                           .thenComparing(Value::getGeneration)
+                           .reversed()
+                           .compare(this, o);
         }
     }
-
+    
     int size();
-
+    
     Iterator<ICell> iterator();
-
+    
     /**
      * Provides iterator (possibly empty) over {@link Cell}s starting at "from" key (inclusive)
      * in <b>ascending</b> order according to {@link Cell#compareTo(ICell)}.
@@ -131,10 +142,10 @@ public interface Table extends Closeable {
      * one should not "seek" to start point ("from" element) in linear time ;)
      */
     Iterator<ICell> iterator(@NotNull final ByteBuffer from);
-
+    
     ByteBuffer get(@NotNull final ByteBuffer key);
-
+    
     void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value);
-
+    
     void remove(@NotNull final ByteBuffer key);
 }
