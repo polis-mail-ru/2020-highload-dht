@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
+import ru.mail.polis.dao.Record;
 
 import java.io.File;
 import java.io.IOException;
