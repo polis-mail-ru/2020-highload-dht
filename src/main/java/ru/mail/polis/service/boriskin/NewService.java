@@ -69,12 +69,11 @@ public class NewService extends HttpServer implements Service {
      * @param queueSize размер очереди
      * @throws IOException возможна ошибка при неправильных параметрах
      */
-    public NewService(
-            final int port,
-            @NotNull final DAO dao,
-            final int workers,
-            final int queueSize,
-            @NotNull final Topology<String> topology) throws IOException {
+    public NewService(final int port,
+                      @NotNull final DAO dao,
+                      final int workers,
+                      final int queueSize,
+                      @NotNull final Topology<String> topology) throws IOException {
         super(getConfigFrom(port));
         assert 0 < workers;
         assert 0 < queueSize;
@@ -101,8 +100,7 @@ public class NewService extends HttpServer implements Service {
     }
 
     @NotNull
-    private static HttpServerConfig getConfigFrom(
-            final int port) {
+    private static HttpServerConfig getConfigFrom(final int port) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         acceptorConfig.deferAccept = true;
@@ -113,8 +111,7 @@ public class NewService extends HttpServer implements Service {
     }
 
     @NotNull
-    private static byte[] toByteArray(
-            @NotNull final ByteBuffer byteBuffer) {
+    private static byte[] toByteArray(@NotNull final ByteBuffer byteBuffer) {
         if (!byteBuffer.hasRemaining()) {
             return Response.EMPTY;
         }
@@ -131,13 +128,12 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request) throws IOException {
+    public void get(@Param(value = "id", required = true) final String id,
+                    @NotNull final HttpSession httpSession,
+                    @NotNull final Request request) throws IOException {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        operation(key, httpSession, request, Operations.GETTING);
+        runExecutorService(key, httpSession, request, Operations.GETTING);
     }
 
     /**
@@ -148,13 +144,12 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(
-            @Param(value = "id", required = true) final String id,
-            final Request request,
-            @NotNull final HttpSession httpSession) throws IOException {
+    public void put(@Param(value = "id", required = true) final String id,
+                    final Request request,
+                    @NotNull final HttpSession httpSession) throws IOException {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        operation(key, httpSession, request, Operations.UPSERTING);
+        runExecutorService(key, httpSession, request, Operations.UPSERTING);
     }
 
     /**
@@ -164,28 +159,25 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request) throws IOException {
+    public void delete(@Param(value = "id", required = true) final String id,
+                       @NotNull final HttpSession httpSession,
+                       @NotNull final Request request) throws IOException {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        operation(key, httpSession, request, Operations.REMOVING);
+        runExecutorService(key, httpSession, request, Operations.REMOVING);
     }
 
-    private void idValidation(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession) {
+    private void idValidation(@Param(value = "id", required = true) final String id,
+                              @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
             resp(httpSession, Response.BAD_REQUEST);
         }
     }
 
-    private void runExecutorService(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request,
-            @NotNull final Operations operation) throws IOException {
+    private void runExecutorService(@NotNull final ByteBuffer key,
+                                    @NotNull final HttpSession httpSession,
+                                    @NotNull final Request request,
+                                    @NotNull final Operations operation) throws IOException {
         final String node = topology.primaryFor(key);
         if (topology.isMyNode(node)) { // локальный ли запрос?
             try {
@@ -199,11 +191,10 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
-    private void operation(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request,
-            @NotNull final Operations operation) {
+    private void operation(@NotNull final ByteBuffer key,
+                           @NotNull final HttpSession httpSession,
+                           @NotNull final Request request,
+                           @NotNull final Operations operation) {
         try {
             switch (operation) {
                 case GETTING:
@@ -224,9 +215,8 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
-    private void doGet(
-        @NotNull final ByteBuffer key,
-        @NotNull final HttpSession httpSession) throws IOException {
+    private void doGet(@NotNull final ByteBuffer key,
+                       @NotNull final HttpSession httpSession) throws IOException {
         try {
             httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
         } catch (NoSuchElementException noSuchElementException) {
@@ -237,9 +227,8 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
-    private void doUpsert(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
+    private void doUpsert(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession httpSession,
             final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
@@ -250,9 +239,8 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
-    private void doRemove(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) throws IOException {
+    private void doRemove(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession httpSession) throws IOException {
         try {
             dao.remove(key);
             resp(httpSession, Response.ACCEPTED);
@@ -262,10 +250,9 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
-    private void proxy(
-            @NotNull final String node,
-            @NotNull final HttpSession httpSession,
-            @NotNull final Request request) {
+    private void proxy(@NotNull final String node,
+                       @NotNull final HttpSession httpSession,
+                       @NotNull final Request request) {
         try {
             request.addHeader("X-Proxy-For: " + node);
             httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
@@ -281,8 +268,7 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession сессия
      */
     @Path("/v0/status")
-    public Response status(
-            final HttpSession httpSession) {
+    public Response status(final HttpSession httpSession) {
         return Response.ok("OK");
     }
 
@@ -293,16 +279,14 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession Диалоговое состояние
      */
     @Override
-    public void handleDefault(
-            final Request request,
-            final HttpSession httpSession) {
+    public void handleDefault(final Request request,
+                              final HttpSession httpSession) {
         logger.error("Непонятный запрос: {}", request);
         resp(httpSession, Response.BAD_REQUEST);
     }
 
-    private void resp(
-            @NotNull final HttpSession httpSession,
-            @NotNull final String response) {
+    private void resp(@NotNull final HttpSession httpSession,
+                      @NotNull final String response) {
         try {
             httpSession.sendResponse(new Response(response, Response.EMPTY));
         } catch (IOException ioException) {
