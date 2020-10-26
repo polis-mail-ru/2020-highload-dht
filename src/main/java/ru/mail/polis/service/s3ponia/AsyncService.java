@@ -178,35 +178,6 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    public List<Response> proxyReplicas(@NotNull final String[] nodes,
-                                        final int ack,
-                                        @NotNull final Request request) {
-        request.addHeader(PROXY_HEADER + ":" + policy.homeNode());
-        List<Response> futures = new ArrayList<>(nodes.length);
-        for (final String node : nodes) {
-            try {
-                if (!node.equals(policy.homeNode())) {
-                    final var proxyVal = proxy(node, request);
-                    if (proxyVal != null)
-                        futures.add(this.urlToClient.get(node).invoke(request));
-                }
-            } catch (InterruptedException | PoolException | IOException | HttpException ignored) {
-            }
-        }
-        
-        List<Response> responses = new ArrayList<>(ack);
-        final var futureIterator = futures.iterator();
-        while (futureIterator.hasNext() && responses.size() < ack && responses.isEmpty()) {
-            final Response futureValue;
-            futureValue = futureIterator.next();
-            if (futureValue.getStatus() != 500 /* INTERNAL ERROR */) {
-                responses.add(futureValue);
-            }
-        }
-        
-        return responses;
-    }
-    
     @NotNull
     private static HttpServerConfig configFrom(final int port) {
         final AcceptorConfig ac = new AcceptorConfig();
@@ -290,8 +261,7 @@ public final class AsyncService extends HttpServer implements Service {
     public static long getDeadFlagTimeStamp(@NotNull final Response response) {
         final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
         assert header != null;
-        final var deadTimestamp = Long.parseLong(header.value);
-        return deadTimestamp;
+        return Long.parseLong(header.value);
     }
     
     public static boolean isDead(@NotNull final Response response) {
@@ -340,6 +310,7 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
+        int ackCounter = 0;
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
         final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
         final List<Table.Value> values = new ArrayList<>(parsed.from);
@@ -349,10 +320,10 @@ public final class AsyncService extends HttpServer implements Service {
             if (!node.equals(policy.homeNode())) {
                 futureResponses.add(this.es.submit(() -> proxy(node, request)));
             } else {
+                ++ackCounter;
                 try {
                     values.add(dao.getRaw(key));
-                } catch (NoSuchElementException ex) {
-                    values.add(Table.Value.of(ByteBuffer.allocate(0), Long.MAX_VALUE, -1).setDeadFlag());
+                } catch (NoSuchElementException ignored) {
                 }
             }
         }
@@ -366,27 +337,33 @@ public final class AsyncService extends HttpServer implements Service {
                 logger.error("Error in proxing");
                 continue;
             }
-            if (response != null && response.getStatus() != 500 /* INTERNAL ERROR */) {
+            if (response != null && response.getStatus() == 200 /* OK */) {
+                ++ackCounter;
                 final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
                         getDeadFlagTimeStamp(response), -1);
                 values.add(val);
             }
         }
         
+        if (ackCounter < parsed.ack) {
+            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
+            return;
+        }
+        
         if (values.isEmpty()) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+            session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
             return;
         }
         
         values.sort(Comparator.comparing(Table.Value::getTimeStamp)
+                            .reversed()
                             .thenComparing(
                                     (a, b) -> {
-                                        logger.error("Hi equal");
                                         if (a.isDead()) {
-                                            return 1;
+                                            return -1;
                                         }
                                         if (b.isDead()) {
-                                            return -1;
+                                            return 1;
                                         }
                             
                                         return 0;
@@ -411,7 +388,8 @@ public final class AsyncService extends HttpServer implements Service {
             parsedReplica = defaultConfigurations.get(nodeCount - 1);
         }
         
-        if (parsedReplica == null || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
+        if (parsedReplica == null || parsedReplica.ack <= 0
+                    || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
             return null;
         }
         
@@ -489,7 +467,7 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        final var currTime = System.nanoTime();
+        final var currTime = System.currentTimeMillis();
         if (validateId(id, session, "Invalid id in put")) return;
         
         final var key = byteBufferFromString(id);
@@ -497,10 +475,11 @@ public final class AsyncService extends HttpServer implements Service {
         
         final var header = Header.getHeader(TIME_HEADER, request);
         if (header != null) {
+            final var time = Long.parseLong(header.value);
             this.es.execute(
                     () -> {
                         try {
-                            upsertWithTimeStamp(key, value, session, Long.parseLong(header.value));
+                            upsertWithTimeStamp(key, value, session, time);
                         } catch (IOException ioException) {
                             logger.error("Error in sending put request", ioException);
                         }
@@ -567,7 +546,7 @@ public final class AsyncService extends HttpServer implements Service {
             this.es.execute(
                     () -> {
                         try {
-                            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
                         } catch (IOException ioException) {
                             logger.error("Error in sending error", ioException);
                         }
@@ -650,7 +629,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         int acceptedCounter = 0;
-        final var currTime = System.nanoTime();
+        final var currTime = System.currentTimeMillis();
         
         request.addHeader(TIME_HEADER + ": " + currTime);
         
@@ -700,7 +679,7 @@ public final class AsyncService extends HttpServer implements Service {
             this.es.execute(
                     () -> {
                         try {
-                            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
                         } catch (IOException ioException) {
                             logger.error("Error in sending error", ioException);
                         }

@@ -69,17 +69,17 @@ public interface Table extends Closeable {
             this.deadFlagTimeStamp = deadFlagTimeStamp;
             this.generation = generation;
         }
-        
-        static Value dead(final int generation) {
-            return new Value(ByteBuffer.allocate(0), System.nanoTime(), generation).setDeadFlag();
+    
+        public static Value dead(final int generation) {
+            return new Value(ByteBuffer.allocate(0), System.currentTimeMillis(), generation).setDeadFlag();
         }
     
-        static Value dead(final int generation, final long timeStamp) {
+        public static Value dead(final int generation, final long timeStamp) {
             return new Value(ByteBuffer.allocate(0), timeStamp, generation).setDeadFlag();
         }
         
         public static Value of(final ByteBuffer value, final int generation) {
-            return new Value(value, System.nanoTime(), generation);
+            return new Value(value, System.currentTimeMillis(), generation);
         }
     
         public static Value of(final ByteBuffer value, final long deadFlagTimeStamp, final int generation) {
