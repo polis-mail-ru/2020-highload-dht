@@ -16,12 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NavigableMap;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -232,5 +227,34 @@ public class MyDAO implements DAO {
         } finally {
             readWriteLock.writeLock().unlock();
         }
+    }
+
+    @Override
+    public Cell getCell(@NotNull final ByteBuffer key) throws IOException {
+        final Iterator<Cell> iter = getIterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Error: cell not found");
+        }
+
+        final Cell next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next;
+        } else {
+            throw new NoSuchElementException("Error: cell not found");
+        }
+    }
+
+    private Iterator<Cell> getIterator(@NotNull final ByteBuffer from) throws IOException {
+        final List<Iterator<Cell>> filesIterators = new ArrayList<>();
+
+        for (final Table fileTable : ssTables.values()) {
+            filesIterators.add(fileTable.iterator(from));
+        }
+
+        filesIterators.add(memTablePool.iterator(from));
+
+        final Iterator<Cell> mergedCells = Iterators.mergeSorted(filesIterators,
+                Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
+        return Iters.collapseEquals(mergedCells, Cell::getKey);
     }
 }

@@ -63,14 +63,9 @@ public class TablesPool implements Table, Closeable {
         } finally {
             lock.readLock().unlock();
         }
-        final UnmodifiableIterator<Cell> merged = Iterators.mergeSorted(iterators, Comparator.naturalOrder());
-        final Iterator<Cell> withoutEquals = Iters.collapseEquals(merged, Cell::getKey);
-
-        return Iterators.filter(withoutEquals,
-                cell -> {
-                    assert cell != null;
-                    return !cell.getValue().isTombstone();
-                });
+        final UnmodifiableIterator<Cell> merged = Iterators.mergeSorted(iterators,
+                Comparator.comparing(Cell::getKey).thenComparing(Cell::getValue));
+        return Iters.collapseEquals(merged, Cell::getKey);
     }
 
     @Override

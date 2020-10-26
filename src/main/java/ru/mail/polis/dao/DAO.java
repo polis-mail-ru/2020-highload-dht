@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.kate.moreva.Cell;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -103,4 +104,6 @@ public interface DAO extends Closeable {
     default void compact() throws IOException {
         // Implement me when you get to stage 3
     }
+
+    Cell getCell(@NotNull final ByteBuffer key) throws IOException;
 }

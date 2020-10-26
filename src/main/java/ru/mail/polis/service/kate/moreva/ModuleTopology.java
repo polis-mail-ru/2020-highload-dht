@@ -3,10 +3,7 @@ package ru.mail.polis.service.kate.moreva;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Modular topology.
@@ -34,6 +31,21 @@ public class ModuleTopology implements Topology<String> {
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
         return nodes.get((key.hashCode() & Integer.MAX_VALUE) % nodes.size());
+    }
+
+    @NotNull
+    @Override
+    public Set<String> primaryFor(@NotNull ByteBuffer key, @NotNull Replicas replicas) {
+        final Set<String> result = new HashSet<>();
+        int index = key.hashCode() & Integer.MAX_VALUE % nodes.size();
+        while (result.size() < replicas.getFrom()) {
+            result.add(nodes.get(index));
+            index++;
+            if (index == nodes.size()) {
+                index = 0;
+            }
+        }
+        return result;
     }
 
     @Override

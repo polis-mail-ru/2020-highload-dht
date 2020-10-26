@@ -17,18 +17,26 @@ import one.nio.server.AcceptorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.kate.moreva.Cell;
+import ru.mail.polis.dao.kate.moreva.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Simple Http Server Service implementation.
@@ -39,6 +47,9 @@ import java.util.concurrent.TimeUnit;
 public class MySimpleHttpServer extends HttpServer implements Service {
 
     private static final String SERVER_ERROR = "Server error can't send response";
+    private static final String TIMESTAMP = "Timestamp: ";
+    private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+    private static final String PROXY_HEADER = "X-Proxy-For:";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
     private final DAO dao;
     private final ExecutorService executorService;
@@ -115,7 +126,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     /**
      * Method for working with value in the DAO by the key.
-     *
      * {@code 200, data} (data is found).
      * {@code 404} (data is not found).
      * {@code 201} (new data created).
@@ -126,7 +136,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
                        final Request request,
-                       final HttpSession session) {
+                       final HttpSession session, @Param("replicas") final String replicas) {
         try {
             executorService.execute(() -> {
                 if (id.isBlank()) {
@@ -134,45 +144,216 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                     handleError(session, Response.BAD_REQUEST);
                     return;
                 }
+                final boolean isProxy = isProxied(request);
+                final Replicas replicasFactor = isProxy ||
+                        replicas == null ? Replicas.quorum(nodeClients.size() + 1) : Replicas.parser(replicas);
+
+                if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
+                    handleError(session, Response.BAD_REQUEST);
+                    return;
+                }
                 final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
 
-                final String node = topology.primaryFor(key);
-                if (topology.isMe(node)) {
-                    defineMethod(request, session, key);
-                } else {
-                    proxyRequest(session, proxy(node, request));
-                }
+                defineMethod(request, session, key, replicasFactor, isProxy);
             });
         } catch (RejectedExecutionException e) {
             handleError(session, Response.SERVICE_UNAVAILABLE);
         }
     }
 
-    private void defineMethod(final Request request, final HttpSession session, final ByteBuffer key) {
+    private void defineMethod(final Request request,
+                              final HttpSession session,
+                              final ByteBuffer key,
+                              final Replicas replicasFactor,
+                              final boolean isProxy) {
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                getMethod(key, request, session, replicasFactor, isProxy);
+                break;
+            case Request.METHOD_PUT:
+                putMethod(key, request, session, replicasFactor, isProxy);
+                break;
+            case Request.METHOD_DELETE:
+                deleteMethod(key, request, session, replicasFactor, isProxy);
+                break;
+            default:
+                log.error("Not allowed method on /v0/entity");
+                handleError(session, Response.METHOD_NOT_ALLOWED);
+                break;
+        }
+
+    }
+
+    private void getMethod(final ByteBuffer key,
+                           final Request request,
+                           final HttpSession session,
+                           final Replicas replicas,
+                           final boolean isProxy) {
+        if (isProxy) {
+            sendLoggedResponse(session, getEntity(key));
+            return;
+        }
+        final List<Response> result = replication(getEntity(key), request, key, replicas)
+                .stream()
+                .filter(resp -> getStatus(resp).equals(Response.OK)
+                        || getStatus(resp).equals(Response.NOT_FOUND))
+                .collect(Collectors.toList());
+        if (result.size() < replicas.getAck()) {
+            handleError(session, NOT_ENOUGH_REPLICAS);
+            return;
+        }
+        sendLoggedResponse(session, mergeResponses(result));
+    }
+
+    /**
+     * Subsidiary method to get value.
+     * {@code 200, data} (data is found).
+     * {@code 404} (data is not found).
+     * {@code 500} (internal server error occurred).
+     */
+    private Response getEntity(final ByteBuffer key) {
+        final Cell cell;
         try {
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    getEntity(key, session);
-                    break;
-                case Request.METHOD_PUT:
-                    putEntity(key, request, session);
-                    break;
-                case Request.METHOD_DELETE:
-                    deleteEntity(key, session);
-                    break;
-                default:
-                    log.error("Not allowed method on /v0/entity");
-                    handleError(session, Response.METHOD_NOT_ALLOWED);
-                    break;
+            cell = dao.getCell(key);
+            Value cellValue = cell.getValue();
+            if (cellValue.isTombstone()) {
+                final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                response.addHeader(TIMESTAMP + cellValue.getTimestamp());
+                return response;
+            }
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] body = new byte[value.remaining()];
+            value.get(body);
+            final Response response = new Response(Response.OK, body);
+            response.addHeader(TIMESTAMP + cell.getValue().getTimestamp());
+            return response;
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("GET method failed on /v0/entity for id {}", key.get(), e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+
+    }
+
+    private void putMethod(final ByteBuffer key,
+                           final Request request,
+                           final HttpSession session,
+                           final Replicas replicas,
+                           final boolean isProxy) {
+        if (isProxy) {
+            sendLoggedResponse(session, putEntity(key, request));
+            return;
+        }
+        final List<Response> result = replication(putEntity(key, request), request, key, replicas)
+                .stream()
+                .filter(response -> getStatus(response).equals(Response.CREATED))
+                .collect(Collectors.toList());
+        correctReplication(result.size(), replicas, session, Response.CREATED);
+    }
+
+    /**
+     * Subsidiary method to put new value.
+     * {@code 201} (new data created).
+     * {@code 500} (internal server error occurred).
+     */
+    private Response putEntity(final ByteBuffer key, final Request request) {
+        try {
+            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("PUT method failed on /v0/entity for id {}, request body {}.", key.get(), request.getBody(), e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    private void deleteMethod(final ByteBuffer key,
+                              final Request request,
+                              final HttpSession session,
+                              final Replicas replicas, final boolean isProxy) {
+        if (isProxy) {
+            sendLoggedResponse(session, deleteEntity(key));
+            return;
+        }
+        final List<Response> result = replication(deleteEntity(key), request, key, replicas)
+                .stream()
+                .filter(response -> getStatus(response).equals(Response.ACCEPTED))
+                .collect(Collectors.toList());
+        correctReplication(result.size(), replicas, session, Response.ACCEPTED);
+    }
+
+    /**
+     * Subsidiary method to delete value by the key.
+     * {@code 202} (data deleted).
+     * {@code 500} (internal server error occurred).
+     */
+    private Response deleteEntity(final ByteBuffer key) {
+        try {
+            dao.remove(key);
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    private void correctReplication(final int ack,
+                                    final Replicas replicas,
+                                    final HttpSession session,
+                                    final String response) {
+        try {
+            if (ack < replicas.getAck()) {
+                handleError(session, NOT_ENOUGH_REPLICAS);
+            } else {
+                session.sendResponse(new Response(response, Response.EMPTY));
             }
         } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
+            handleError(session, Response.INTERNAL_ERROR);
         }
+    }
+
+    private Response mergeResponses(final List<Response> result) {
+        final Map<Response, Integer> responses = new ConcurrentSkipListMap<>(Comparator.comparing(this::getStatus));
+        result.forEach(resp -> {
+            final Integer val = responses.get(resp);
+            responses.put(resp, val == null ? 0 : val + 1);
+        });
+        Response finalResult = null;
+        int maxCount = -1;
+        long time = Long.MIN_VALUE;
+        for (final Map.Entry<Response, Integer> entry : responses.entrySet()) {
+            if (entry.getValue() >= maxCount && getTimestamp(entry.getKey()) > time) {
+                time = getTimestamp(entry.getKey());
+                maxCount = entry.getValue();
+                finalResult = entry.getKey();
+            }
+        }
+        return finalResult;
+    }
+
+    private String getStatus(final Response response) {
+        return response.getHeaders()[0];
+    }
+
+    private List<Response> replication(final Response response,
+                                       final Request request,
+                                       final ByteBuffer key,
+                                       final Replicas replicas) {
+        final Set<String> nodes = topology.primaryFor(key, replicas);
+        final List<Response> result = new ArrayList<>(nodes.size());
+        for (final String node : nodes) {
+            if (topology.isMe(node)) {
+                result.add(response);
+            } else {
+                result.add(proxy(node, request));
+            }
+        }
+        return result;
     }
 
     private Response proxy(final String node, final Request request) {
         try {
-            request.addHeader("X-Proxy-For: " + node);
+            request.addHeader(PROXY_HEADER + node);
             return nodeClients.get(node).invoke(request);
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
             log.error("Proxy request error", e);
@@ -180,56 +361,20 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    /**
-     * Subsidiary method to get value.
-     *
-     * {@code 200, data} (data is found).
-     * {@code 404} (data is not found).
-     * {@code 500} (internal server error occurred).
-     */
-    private void getEntity(final ByteBuffer key, final HttpSession session) throws IOException {
-        try {
-            final ByteBuffer value = dao.get(key).duplicate();
-            final byte[] body = new byte[value.remaining()];
-            value.get(body);
-            session.sendResponse(new Response(Response.OK, body));
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("GET method failed on /v0/entity for id {}", key.get(), e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
+    private boolean isProxied(final Request request) {
+        return request.getHeader(PROXY_HEADER) != null;
     }
 
-    /**
-     * Subsidiary method to put new value.
-     *
-     * {@code 201} (new data created).
-     * {@code 500} (internal server error occurred).
-     */
-    private void putEntity(final ByteBuffer key, final Request request, final HttpSession session) throws IOException {
-        try {
-            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("PUT method failed on /v0/entity for id {}, request body {}.", key.get(), request.getBody(), e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
+    public static long getTimestamp(final Response response) {
+        final String timestamp = response.getHeader(TIMESTAMP);
+        return timestamp == null ? -1 : Long.parseLong(timestamp);
     }
 
-    /**
-     * Subsidiary method to delete value by the key.
-     *
-     * {@code 202} (data deleted).
-     * {@code 500} (internal server error occurred).
-     */
-    private void deleteEntity(final ByteBuffer key, final HttpSession session) throws IOException {
+    private void sendLoggedResponse(final HttpSession session, final Response response) {
         try {
-            dao.remove(key);
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+            session.sendResponse(response);
         } catch (IOException e) {
-            log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error(SERVER_ERROR, e);
         }
     }
 
@@ -239,14 +384,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         } catch (IOException e) {
             log.error(SERVER_ERROR, e);
         }
-    }
 
-    private void proxyRequest(final HttpSession session, final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
     }
 
     @Override

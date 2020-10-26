@@ -9,13 +9,14 @@ public class Value implements Comparable<Value> {
     private final ByteBuffer data;
 
     Value(final ByteBuffer data, final long timestamp) {
+        assert timestamp >= 0;
         this.data = data;
         this.timestamp = timestamp;
     }
 
     Value(final ByteBuffer data) {
         this.data = data;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = Time.currentTime();
     }
 
     Value(final long timestamp) {
@@ -27,15 +28,15 @@ public class Value implements Comparable<Value> {
         this(null);
     }
 
-    ByteBuffer getData() {
+    public ByteBuffer getData() {
         return data;
     }
 
-    long getTimestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 
-    boolean isTombstone() {
+    public boolean isTombstone() {
         return data == null;
     }
 
