@@ -60,7 +60,7 @@ public final class AsyncService extends HttpServer implements Service {
     public AsyncService(final int port, @NotNull final DAO dao,
                         final int workers, final int queueSize,
                         @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
-        super(configFrom(port));
+        super(Utility.configFrom(port));
         assert 0 < workers;
         assert 0 < queueSize;
         this.policy = policy;
@@ -90,17 +90,6 @@ public final class AsyncService extends HttpServer implements Service {
         return urlToClient;
     }
     
-    @NotNull
-    private static HttpServerConfig configFrom(final int port) {
-        final AcceptorConfig ac = new AcceptorConfig();
-        ac.port = port;
-        
-        final HttpServerConfig config = new HttpServerConfig();
-        config.acceptors = new AcceptorConfig[1];
-        config.acceptors[0] = ac;
-        return config;
-    }
-    
     /**
      * Handling status request.
      *
@@ -109,18 +98,16 @@ public final class AsyncService extends HttpServer implements Service {
     @Path("/v0/status")
     public void status(final HttpSession session) throws IOException {
         try {
-            this.es.execute(() -> handlingStatusError(session));
+            this.es.execute(() -> {
+                try {
+                    session.sendResponse(Response.ok("OK"));
+                } catch (IOException e) {
+                    logger.error("Error in sending status", e);
+                }
+            });
         } catch (RejectedExecutionException e) {
             logger.error("Internal error in status handling", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-    
-    private void handlingStatusError(@NotNull final HttpSession session) {
-        try {
-            session.sendResponse(Response.ok("OK"));
-        } catch (IOException e) {
-            logger.error("Error in sending status", e);
         }
     }
     
@@ -279,7 +266,7 @@ public final class AsyncService extends HttpServer implements Service {
                         key.capacity(), value.capacity(), this.policy.homeNode(), ioException);
             }
         }
-    
+        
         AsyncServiceUtility.sendAckFromResp(this.es, parsed, createdCounter,
                 new Response(Response.CREATED, EMPTY),
                 session);
@@ -355,7 +342,7 @@ public final class AsyncService extends HttpServer implements Service {
                         key.capacity(), request.getBody().length, this.policy.homeNode(), ioException);
             }
         }
-    
+        
         AsyncServiceUtility.sendAckFromResp(this.es, parsed, acceptedCounter,
                 new Response(Response.ACCEPTED, EMPTY), session);
     }

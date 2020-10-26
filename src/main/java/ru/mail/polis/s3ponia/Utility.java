@@ -2,15 +2,14 @@ package ru.mail.polis.s3ponia;
 
 import com.google.common.base.Splitter;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
+import one.nio.http.HttpServerConfig;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
+import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.s3ponia.Table;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -195,6 +194,22 @@ public class Utility {
     
                     return 0;
                 });
+    }
+    
+    /**
+     * Configuring http server from port.
+     * @param port http server's port
+     * @return HttpServerConfig
+     */
+    @NotNull
+    public static HttpServerConfig configFrom(final int port) {
+        final AcceptorConfig ac = new AcceptorConfig();
+        ac.port = port;
+        
+        final HttpServerConfig config = new HttpServerConfig();
+        config.acceptors = new AcceptorConfig[1];
+        config.acceptors[0] = ac;
+        return config;
     }
     
     /**
