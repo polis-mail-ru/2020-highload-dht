@@ -145,8 +145,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                     return;
                 }
                 final boolean isProxy = isProxied(request);
-                final Replicas replicasFactor = isProxy ||
-                        replicas == null ? Replicas.quorum(nodeClients.size() + 1) : Replicas.parser(replicas);
+                final Replicas replicasFactor = isProxy
+                        || replicas == null ? Replicas.quorum(nodeClients.size() + 1) : Replicas.parser(replicas);
 
                 if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
                     handleError(session, Response.BAD_REQUEST);
@@ -215,7 +215,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final Cell cell;
         try {
             cell = dao.getCell(key);
-            Value cellValue = cell.getValue();
+            final Value cellValue = cell.getValue();
             if (cellValue.isTombstone()) {
                 final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
                 response.addHeader(TIMESTAMP + cellValue.getTimestamp());

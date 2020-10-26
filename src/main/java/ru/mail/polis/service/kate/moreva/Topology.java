@@ -13,7 +13,6 @@ public interface Topology<N> {
     @NotNull
     Set<N> primaryFor(@NotNull ByteBuffer key, @NotNull Replicas replicas);
 
-
     int size();
 
     boolean isMe(@NotNull N node);

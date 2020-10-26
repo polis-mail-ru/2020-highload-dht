@@ -8,16 +8,19 @@ public class Replicas {
     private final int ack;
     private final int from;
 
-    private Replicas(final int ack, final int from) {
+    public Replicas(final int ack, final int from) {
         this.ack = ack;
         this.from = from;
     }
 
     public static Replicas quorum(final int count) {
-        int n = count / 2 + 1;
+        final int n = count / 2 + 1;
         return new Replicas(n, count);
     }
 
+    /**
+     * Parses the request to get the needed number of answers (ack) and nodes (from).
+     * */
     public static Replicas parser(final String replicas) {
         final List<String> params = Splitter.on('/').splitToList(replicas);
         if (params.size() != 2) {

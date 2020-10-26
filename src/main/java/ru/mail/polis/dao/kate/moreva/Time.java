@@ -4,13 +4,8 @@ public class Time {
     private static int count;
     private static long lastTime;
 
-    private Time() {
-    }
-
     /**
-     * Method for return current time in nano seconds.
-     *
-     * @return time
+     * Method returns current time in nano seconds.
      */
     static long currentTime() {
         synchronized (Time.class) {
