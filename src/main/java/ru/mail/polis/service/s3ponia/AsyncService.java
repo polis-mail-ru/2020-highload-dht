@@ -1,6 +1,5 @@
 package ru.mail.polis.service.s3ponia;
 
-import com.google.common.base.Splitter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
@@ -20,7 +19,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
+import ru.mail.polis.s3ponia.Utility;
 import ru.mail.polis.service.Service;
+
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -50,77 +51,13 @@ public final class AsyncService extends HttpServer implements Service {
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
-    private final List<ReplicationConfiguration> defaultConfigurations = Arrays.asList(
-            new ReplicationConfiguration(1, 1),
-            new ReplicationConfiguration(2, 2),
-            new ReplicationConfiguration(2, 3),
-            new ReplicationConfiguration(3, 4),
-            new ReplicationConfiguration(3, 5)
+    private final List<Utility.ReplicationConfiguration> defaultConfigurations = Arrays.asList(
+            new Utility.ReplicationConfiguration(1, 1),
+            new Utility.ReplicationConfiguration(2, 2),
+            new Utility.ReplicationConfiguration(2, 3),
+            new Utility.ReplicationConfiguration(3, 4),
+            new Utility.ReplicationConfiguration(3, 5)
     );
-    
-    private static class Header {
-        final String key;
-        final String value;
-        
-        public Header(@NotNull final String key, @NotNull final String value) {
-            this.key = key;
-            this.value = value;
-        }
-        
-        public static Header getHeader(@NotNull final String key, @NotNull final Request response) {
-            final var headers = response.getHeaders();
-            final var headerCount = response.getHeaderCount();
-            int keyLength = key.length();
-            
-            for (int i = 1; i < headerCount; ++i) {
-                if (headers[i].regionMatches(true, 0, key, 0, keyLength)) {
-                    final var value = headers[i].substring(headers[i].indexOf(':') + 1).stripLeading();
-                    return new Header(headers[i], value);
-                }
-            }
-            
-            return null;
-        }
-        
-        public static Header getHeader(@NotNull final String key, @NotNull final Response response) {
-            final var headers = response.getHeaders();
-            final var headerCount = response.getHeaderCount();
-            int keyLength = key.length();
-            
-            for (int i = 1; i < headerCount; ++i) {
-                if (headers[i].regionMatches(true, 0, key, 0, keyLength)) {
-                    final var value = headers[i].substring(headers[i].indexOf(':') + 1).stripLeading();
-                    return new Header(headers[i], value);
-                }
-            }
-            
-            return null;
-        }
-    }
-    
-    private static class ReplicationConfiguration {
-        final int ack;
-        final int from;
-        
-        public ReplicationConfiguration(final int ack, final int from) {
-            this.ack = ack;
-            this.from = from;
-        }
-        
-        public static ReplicationConfiguration parse(@NotNull final String s) {
-            final var splitStrings = Splitter.on('/').splitToList(s);
-            if (splitStrings.size() != 2) {
-                return null;
-            }
-            
-            try {
-                return new ReplicationConfiguration(Integer.parseInt(splitStrings.get(0)),
-                        Integer.parseInt(splitStrings.get(1)));
-            } catch (NumberFormatException e) {
-                return null;
-            }
-        }
-    }
     
     /**
      * AsyncService's constructor.
@@ -226,25 +163,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    /**
-     * Process getting from dao.
-     *
-     * @param key     key for getting
-     * @param session HttpSession for response
-     * @throws IOException rethrow from sendResponse
-     */
-    public void get(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
-        try {
-            session.sendResponse(Response.ok(fromByteBuffer(dao.get(key))));
-        } catch (NoSuchElementException noSuchElementException) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("IOException in getting key(size: {}) from dao", key.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-    
-    public void getRaw(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
+    private void getRaw(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
         try {
             final var val = dao.getRaw(key);
             final var resp = Response.ok(fromByteBuffer(val.getValue()));
@@ -258,24 +177,10 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    public static long getDeadFlagTimeStamp(@NotNull final Response response) {
-        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
+    private static long getDeadFlagTimeStamp(@NotNull final Response response) {
+        final var header = Utility.Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
         assert header != null;
         return Long.parseLong(header.value);
-    }
-    
-    public static boolean isDead(@NotNull final Response response) {
-        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
-        assert header != null;
-        final var deadTimestamp = Long.parseLong(header.value);
-        return Table.Value.isDead(deadTimestamp);
-    }
-    
-    public static long getTimeStamp(@NotNull final Response response) {
-        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
-        assert header != null;
-        final var deadTimestamp = Long.parseLong(header.value);
-        return Table.Value.getTimeStampFromLong(deadTimestamp);
     }
     
     /**
@@ -309,43 +214,25 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
-        
-        int ackCounter = 0;
+
+//        int ackCounter = 0;
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
-        final List<Table.Value> values = new ArrayList<>(parsed.from);
+        final List<Table.Value> values = getValues(request, parsed, nodeReplicas);
+        boolean homeInReplicas = false;
         
         for (final var node :
                 nodeReplicas) {
-            if (!node.equals(policy.homeNode())) {
-                futureResponses.add(this.es.submit(() -> proxy(node, request)));
-            } else {
-                ++ackCounter;
+            if (node.equals(policy.homeNode())) {
                 try {
                     values.add(dao.getRaw(key));
                 } catch (NoSuchElementException ignored) {
+                    homeInReplicas = true;
                 }
             }
         }
         
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error in proxing");
-                continue;
-            }
-            if (response != null && response.getStatus() == 200 /* OK */) {
-                ++ackCounter;
-                final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
-                        getDeadFlagTimeStamp(response), -1);
-                values.add(val);
-            }
-        }
         
-        if (ackCounter < parsed.ack) {
+        if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
             return;
         }
@@ -378,12 +265,40 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    public ReplicationConfiguration parseAndValidateReplicas(final String replicas) throws IOException {
-        final ReplicationConfiguration parsedReplica;
+    @NotNull
+    private List<Table.Value> getValues(@NotNull Request request, Utility.ReplicationConfiguration parsed, String[] nodeReplicas) {
+        final List<Future<Response>> futureResponses = getFutures(request, parsed, nodeReplicas);
+        final List<Table.Value> values = getValuesFromFutures(parsed, futureResponses);
+        return values;
+    }
+    
+    @NotNull
+    private List<Table.Value> getValuesFromFutures(Utility.ReplicationConfiguration parsed, List<Future<Response>> futureResponses) {
+        final List<Table.Value> values = new ArrayList<>(parsed.from);
+        for (final var resp :
+                futureResponses) {
+            final Response response;
+            try {
+                response = resp.get();
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error in proxing");
+                continue;
+            }
+            if (response != null && response.getStatus() == 200 /* OK */) {
+                final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
+                        getDeadFlagTimeStamp(response), -1);
+                values.add(val);
+            }
+        }
+        return values;
+    }
+    
+    private Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas) throws IOException {
+        final Utility.ReplicationConfiguration parsedReplica;
         final var nodeCount = this.policy.all().length;
         
         if (replicas != null) {
-            parsedReplica = ReplicationConfiguration.parse(replicas);
+            parsedReplica = Utility.ReplicationConfiguration.parse(replicas);
         } else {
             parsedReplica = defaultConfigurations.get(nodeCount - 1);
         }
@@ -415,31 +330,10 @@ public final class AsyncService extends HttpServer implements Service {
      * @param session HttpSession for response
      * @throws IOException rethrow from sendResponse
      */
-    public void upsert(@NotNull final ByteBuffer key,
-                       @NotNull final ByteBuffer value,
-                       @NotNull final HttpSession session) throws IOException {
-        try {
-            dao.upsert(key, value);
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
-                    key.capacity(), value.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-    
-    /**
-     * Process upserting to dao.
-     *
-     * @param key     key for upserting
-     * @param value   value for upserting
-     * @param session HttpSession for response
-     * @throws IOException rethrow from sendResponse
-     */
-    public void upsertWithTimeStamp(@NotNull final ByteBuffer key,
-                                    @NotNull final ByteBuffer value,
-                                    @NotNull final HttpSession session,
-                                    final long timeStamp) throws IOException {
+    private void upsertWithTimeStamp(@NotNull final ByteBuffer key,
+                                     @NotNull final ByteBuffer value,
+                                     @NotNull final HttpSession session,
+                                     final long timeStamp) throws IOException {
         try {
             dao.upsertWithTimeStamp(key, value, timeStamp);
             session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
@@ -473,7 +367,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var key = byteBufferFromString(id);
         final var value = ByteBuffer.wrap(request.getBody());
         
-        final var header = Header.getHeader(TIME_HEADER, request);
+        final var header = Utility.Header.getHeader(TIME_HEADER, request);
         if (header != null) {
             final var time = Long.parseLong(header.value);
             this.es.execute(
@@ -496,19 +390,16 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        int createdCounter = 0;
         
         request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
+        int createdCounter = getCounter(request, parsed, nodes);
         
         for (final var node :
                 nodes) {
             
-            if (!node.equals(policy.homeNode())) {
-                futureResponses.add(this.es.submit(() -> proxy(node, request)));
-            } else {
+            if (node.equals(policy.homeNode())) {
                 try {
                     dao.upsertWithTimeStamp(key, value, currTime);
                     ++createdCounter;
@@ -519,40 +410,7 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                continue;
-            }
-            if (response != null && response.getStatus() == 201 /* CREATED */) {
-                ++createdCounter;
-            }
-        }
-        
-        if (createdCounter >= parsed.ack) {
-            this.es.execute(
-                    () -> {
-                        try {
-                            session.sendResponse(new Response(Response.CREATED, EMPTY));
-                        } catch (IOException ioException) {
-                            logger.error("Error in putting", ioException);
-                        }
-                    }
-            );
-        } else {
-            this.es.execute(
-                    () -> {
-                        try {
-                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-                        } catch (IOException ioException) {
-                            logger.error("Error in sending error", ioException);
-                        }
-                    }
-            );
-        }
+        sendAckFromResp(session, parsed, createdCounter, new Response(Response.CREATED, EMPTY), "Error in putting");
     }
     
     /**
@@ -562,26 +420,9 @@ public final class AsyncService extends HttpServer implements Service {
      * @param session HttpSession for response
      * @throws IOException rethrow from sendResponse
      */
-    public void delete(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
-        try {
-            dao.remove(key);
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("IOException in removing key(size: {}) from dao", key.capacity());
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-    
-    /**
-     * Process deleting from dao.
-     *
-     * @param key     record's key to delete
-     * @param session HttpSession for response
-     * @throws IOException rethrow from sendResponse
-     */
-    public void deleteWithtimeStamp(@NotNull final ByteBuffer key,
-                                    @NotNull final HttpSession session,
-                                    final long timeStamp) throws IOException {
+    private void deleteWithTimeStamp(@NotNull final ByteBuffer key,
+                                     @NotNull final HttpSession session,
+                                     final long timeStamp) throws IOException {
         try {
             dao.removeWithTimeStamp(key, timeStamp);
             session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
@@ -602,16 +443,17 @@ public final class AsyncService extends HttpServer implements Service {
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
+        final var currTime = System.currentTimeMillis();
         if (validateId(id, session, "Invalid id in put")) return;
         
         final var key = byteBufferFromString(id);
         
-        final var header = Header.getHeader(TIME_HEADER, request);
+        final var header = Utility.Header.getHeader(TIME_HEADER, request);
         if (header != null) {
             this.es.execute(
                     () -> {
                         try {
-                            deleteWithtimeStamp(key, session, Long.parseLong(header.value));
+                            deleteWithTimeStamp(key, session, Long.parseLong(header.value));
                         } catch (IOException ioException) {
                             logger.error("Error in sending put request", ioException);
                         }
@@ -619,6 +461,7 @@ public final class AsyncService extends HttpServer implements Service {
             );
             return;
         }
+        request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var parsed = parseAndValidateReplicas(replicas);
         
@@ -628,23 +471,17 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        int acceptedCounter = 0;
-        final var currTime = System.currentTimeMillis();
-        
-        request.addHeader(TIME_HEADER + ": " + currTime);
-        
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
+        int acceptedCounter = getCounter(request, parsed, nodes);
         
         for (final var node :
                 nodes) {
             
-            if (!node.equals(policy.homeNode())) {
-                futureResponses.add(this.es.submit(() -> proxy(node, request)));
-            } else {
+            if (node.equals(policy.homeNode())) {
                 try {
                     dao.removeWithTimeStamp(key, currTime);
                     ++acceptedCounter;
+                    break;
                 } catch (IOException ioException) {
                     logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
                             key.capacity(), request.getBody().length, this.policy.homeNode(), ioException);
@@ -652,26 +489,22 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                continue;
-            }
-            if (response != null && response.getStatus() == 202 /* ACCEPTED */) {
-                ++acceptedCounter;
-            }
-        }
-        
+        sendAckFromResp(session, parsed, acceptedCounter,
+                new Response(Response.ACCEPTED, EMPTY), "Error in sending resp");
+    }
+    
+    private void sendAckFromResp(@NotNull HttpSession session,
+                                 @NotNull final Utility.ReplicationConfiguration parsed,
+                                 final int acceptedCounter,
+                                 final Response resp,
+                                 @NotNull final String s) {
         if (acceptedCounter >= parsed.ack) {
             this.es.execute(
                     () -> {
                         try {
-                            session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
+                            session.sendResponse(resp);
                         } catch (IOException ioException) {
-                            logger.error("Error in putting", ioException);
+                            logger.error(s, ioException);
                         }
                     }
             );
@@ -686,6 +519,45 @@ public final class AsyncService extends HttpServer implements Service {
                     }
             );
         }
+    }
+    
+    private int getCounter(@NotNull final Request request,
+                           @NotNull final Utility.ReplicationConfiguration parsed,
+                           @NotNull final String[] nodes) {
+        final List<Future<Response>> futureResponses = getFutures(request, parsed, nodes);
+        
+        int acceptedCounter = 0;
+        
+        for (final var resp :
+                futureResponses) {
+            final Response response;
+            try {
+                response = resp.get();
+            } catch (InterruptedException | ExecutionException e) {
+                continue;
+            }
+            if (response != null &&
+                        (response.getStatus() == 202 /* ACCEPTED */ || response.getStatus() == 201 /* CREATED */)) {
+                ++acceptedCounter;
+            }
+        }
+        return acceptedCounter;
+    }
+    
+    @NotNull
+    private List<Future<Response>> getFutures(@NotNull final Request request,
+                                              @NotNull final Utility.ReplicationConfiguration parsed,
+                                              @NotNull final String[] nodes) {
+        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
+        
+        for (final var node :
+                nodes) {
+            
+            if (!node.equals(policy.homeNode())) {
+                futureResponses.add(this.es.submit(() -> proxy(node, request)));
+            }
+        }
+        return futureResponses;
     }
     
     @Override
