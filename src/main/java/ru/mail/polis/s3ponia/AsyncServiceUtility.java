@@ -49,6 +49,10 @@ public final class AsyncServiceUtility {
         }
     }
     
+    /**
+     * Handling error in status.
+     * @param session session for response
+     */
     public static void handleStatusError(@NotNull final HttpSession session) {
         try {
             session.sendResponse(Response.ok("OK"));
@@ -93,7 +97,7 @@ public final class AsyncServiceUtility {
             @NotNull final AsyncService service) {
         try {
             request.addHeader(Utility.PROXY_HEADER + ":" + node);
-            return service.getUrlToClient().get(node).invoke(request);
+            return service.urlToClient.get(node).invoke(request);
         } catch (IOException | InterruptedException | HttpException | PoolException exception) {
             return null;
         }
@@ -166,8 +170,8 @@ public final class AsyncServiceUtility {
         for (final var node :
                 nodes) {
             
-            if (!node.equals(service.getPolicy().homeNode())) {
-                futureResponses.add(service.getEs().submit(() -> proxy(node, request, service)));
+            if (!node.equals(service.policy.homeNode())) {
+                futureResponses.add(service.es.submit(() -> proxy(node, request, service)));
             }
         }
         return futureResponses;

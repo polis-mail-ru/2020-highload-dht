@@ -40,10 +40,10 @@ public final class AsyncService extends HttpServer implements Service {
             new Utility.ReplicationConfiguration(3, 4),
             new Utility.ReplicationConfiguration(3, 5)
     );
-    private final DAO dao;
-    private final ExecutorService es;
-    private final ShardingPolicy<ByteBuffer, String> policy;
-    private final Map<String, HttpClient> urlToClient;
+    public final DAO dao;
+    public final ExecutorService es;
+    public final ShardingPolicy<ByteBuffer, String> policy;
+    public final Map<String, HttpClient> urlToClient;
     
     /**
      * AsyncService's constructor.
@@ -74,18 +74,6 @@ public final class AsyncService extends HttpServer implements Service {
                                 t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
-    }
-    
-    public ShardingPolicy<ByteBuffer, String> getPolicy() {
-        return policy;
-    }
-    
-    public ExecutorService getEs() {
-        return es;
-    }
-    
-    public Map<String, HttpClient> getUrlToClient() {
-        return urlToClient;
     }
     
     /**
