@@ -60,7 +60,9 @@ public class MemTable implements Table {
     }
     
     @Override
-    public void upsertWithTimeStamp(@NotNull ByteBuffer key, @NotNull ByteBuffer value, final long timeStamp) {
+    public void upsertWithTimeStamp(@NotNull final ByteBuffer key,
+                                    @NotNull final ByteBuffer value,
+                                    final long timeStamp) {
         memory.addAndGet(key.limit() + value.limit() + Long.BYTES + Integer.BYTES);
         keyToRecord.put(key, Table.Value.of(value, timeStamp, generation));
     }
@@ -72,7 +74,8 @@ public class MemTable implements Table {
     }
     
     @Override
-    public void removeWithTimeStamp(@NotNull ByteBuffer key, long timeStamp) {
+    public void removeWithTimeStamp(@NotNull final ByteBuffer key,
+                                    final long timeStamp) {
         memory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);
         keyToRecord.put(key, Table.Value.dead(generation, timeStamp));
     }

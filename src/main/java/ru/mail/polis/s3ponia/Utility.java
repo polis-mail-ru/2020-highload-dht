@@ -19,7 +19,7 @@ public class Utility {
         private static Header getHeader(@NotNull final String key,
                                         @NotNull final String[] headers,
                                         final int headerCount) {
-            int keyLength = key.length();
+            final int keyLength = key.length();
             for (int i = 1; i < headerCount; ++i) {
                 if (headers[i].regionMatches(true, 0, key, 0, keyLength)) {
                     final var value = headers[i].substring(headers[i].indexOf(':') + 1).stripLeading();

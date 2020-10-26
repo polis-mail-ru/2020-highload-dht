@@ -261,10 +261,9 @@ public final class AsyncService extends HttpServer implements Service {
     @NotNull
     private List<Table.Value> getValues(@NotNull final Request request,
                                         @NotNull final Utility.ReplicationConfiguration parsed,
-                                        @NotNull final String[] nodeReplicas) {
+                                        @NotNull final String... nodeReplicas) {
         final List<Future<Response>> futureResponses = getFutures(request, parsed, nodeReplicas);
-        final List<Table.Value> values = getValuesFromFutures(parsed, futureResponses);
-        return values;
+        return getValuesFromFutures(parsed, futureResponses);
     }
     
     @NotNull
@@ -293,11 +292,8 @@ public final class AsyncService extends HttpServer implements Service {
         final Utility.ReplicationConfiguration parsedReplica;
         final var nodeCount = this.policy.all().length;
         
-        if (replicas != null) {
-            parsedReplica = Utility.ReplicationConfiguration.parse(replicas);
-        } else {
-            parsedReplica = defaultConfigurations.get(nodeCount - 1);
-        }
+        parsedReplica = replicas != null ? Utility.ReplicationConfiguration.parse(replicas) :
+                                defaultConfigurations.get(nodeCount - 1);
         
         if (parsedReplica == null || parsedReplica.ack <= 0
                     || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
@@ -356,9 +352,8 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        final var currTime = System.currentTimeMillis();
         if (validateId(id, session, "Invalid id in put")) return;
-        
+    
         final var key = byteBufferFromString(id);
         final var value = ByteBuffer.wrap(request.getBody());
         
@@ -379,7 +374,8 @@ public final class AsyncService extends HttpServer implements Service {
         
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
-        
+    
+        final var currTime = System.currentTimeMillis();
         request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
@@ -432,11 +428,9 @@ public final class AsyncService extends HttpServer implements Service {
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        final var currTime = System.currentTimeMillis();
         if (validateId(id, session, "Invalid id in put")) return;
         
         final var key = byteBufferFromString(id);
-        
         final var header = Utility.Header.getHeader(TIME_HEADER, request);
         if (header != null) {
             this.es.execute(
@@ -450,6 +444,8 @@ public final class AsyncService extends HttpServer implements Service {
             );
             return;
         }
+        
+        final var currTime = System.currentTimeMillis();
         request.addHeader(TIME_HEADER + ": " + currTime);
         
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
@@ -491,7 +487,7 @@ public final class AsyncService extends HttpServer implements Service {
         return parsed;
     }
     
-    private void sendAckFromResp(@NotNull HttpSession session,
+    private void sendAckFromResp(@NotNull final HttpSession session,
                                  @NotNull final Utility.ReplicationConfiguration parsed,
                                  final int acceptedCounter,
                                  final Response resp,

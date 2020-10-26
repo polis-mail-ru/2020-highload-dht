@@ -223,7 +223,9 @@ public class DiskTable implements Closeable, Table {
     }
     
     @Override
-    public void upsertWithTimeStamp(@NotNull ByteBuffer key, @NotNull ByteBuffer value, long timeStamp) {
+    public void upsertWithTimeStamp(@NotNull final ByteBuffer key,
+                                    @NotNull final ByteBuffer value,
+                                    final long timeStamp) {
         throw new UnsupportedOperationException();
     }
     
@@ -233,7 +235,8 @@ public class DiskTable implements Closeable, Table {
     }
     
     @Override
-    public void removeWithTimeStamp(@NotNull ByteBuffer key, long timeStamp) {
+    public void removeWithTimeStamp(@NotNull final ByteBuffer key,
+                                    final long timeStamp) {
         throw new UnsupportedOperationException();
     }
     

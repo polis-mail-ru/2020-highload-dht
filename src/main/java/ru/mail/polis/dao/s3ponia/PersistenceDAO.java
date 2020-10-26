@@ -86,20 +86,7 @@ public final class PersistenceDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final TableSet snapshot;
-        readWriteLock.readLock().lock();
-        try {
-            snapshot = this.tableSet;
-        } finally {
-            readWriteLock.readLock().unlock();
-        }
-
-        final var diskIterators = new ArrayList<Iterator<Table.ICell>>();
-        diskIterators.add(snapshot.memTable.iterator(from));
-        snapshot.diskTables.forEach((a, table) -> diskIterators.add(table.iterator(from)));
-        snapshot.flushingTables.forEach(table -> diskIterators.add(table.iterator(from)));
-        final var merge = Iterators.mergeSorted(diskIterators, Table.ICell::compareTo);
-        final var newest = Iters.collapseEquals(merge, Table.ICell::getKey);
+        final var newest = iteratorRaw(from);
         final var removeDead = Iterators.filter(newest, el -> !el.getValue().isDead());
 
         return Iterators.transform(removeDead, c -> Record.of(c.getKey(), c.getValue().getValue()));
@@ -107,7 +94,7 @@ public final class PersistenceDAO implements DAO {
     
     @NotNull
     @Override
-    public Iterator<Table.ICell> iteratorRaw(@NotNull ByteBuffer from) {
+    public Iterator<Table.ICell> iteratorRaw(@NotNull final ByteBuffer from) {
         final TableSet snapshot;
         readWriteLock.readLock().lock();
         try {
