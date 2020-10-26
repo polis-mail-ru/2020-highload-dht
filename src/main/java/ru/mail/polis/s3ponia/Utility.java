@@ -135,7 +135,7 @@ public class Utility {
     }
     
     /**
-     * Produce list of responses over proxy(node, request, service)/
+     * Produce list of responses over proxy(node, request, service).
      * @param request request for proxy
      * @param configuration replication configuration
      * @param service AsyncService for proxying
@@ -238,10 +238,16 @@ public class Utility {
         return getValuesFromFutures(parsed, futureResponses);
     }
     
+    /**
+     * Get Future values and store to list.
+     * @param configuration replication configuration
+     * @param futureResponses list of future responses
+     * @return list of Table.Value
+     */
     @NotNull
-    public static List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration parsed,
+    public static List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration configuration,
                                                          @NotNull final List<Future<Response>> futureResponses) {
-        final List<Table.Value> values = new ArrayList<>(parsed.from);
+        final List<Table.Value> values = new ArrayList<>(configuration.from);
         for (final var resp :
                 futureResponses) {
             final Response response;

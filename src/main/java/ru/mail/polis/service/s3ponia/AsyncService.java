@@ -220,7 +220,8 @@ public final class AsyncService extends HttpServer implements Service {
         if (homeInReplicas) {
             try {
                 values.add(dao.getRaw(key));
-            } catch (NoSuchElementException ignored) {
+            } catch (NoSuchElementException exception) {
+                logger.error("Error in getting key(size : {})", key.capacity(), exception);
             }
         }
         
