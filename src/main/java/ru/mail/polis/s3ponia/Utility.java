@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -264,5 +265,42 @@ public class Utility {
             }
         }
         return values;
+    }
+    
+    @NotNull
+    public static Comparator<Table.Value> deadComparator() {
+        return (a, b) -> {
+            if (a.isDead()) {
+                return -1;
+            }
+            if (b.isDead()) {
+                return 1;
+            }
+            
+            return 0;
+        };
+    }
+    
+    @NotNull
+    public static Comparator<Table.Value> valueResponseComparator() {
+        return Comparator.comparing(Table.Value::getTimeStamp)
+                .reversed()
+                .thenComparing(deadComparator());
+    }
+    
+    public static Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas,
+                                                                            @NotNull final AsyncService service) {
+        final Utility.ReplicationConfiguration parsedReplica;
+        final var nodeCount = service.getPolicy().all().length;
+        
+        parsedReplica = replicas == null ? AsyncService.DEFAULT_CONFIGURATIONS.get(nodeCount - 1) :
+                                Utility.ReplicationConfiguration.parse(replicas);
+        
+        if (parsedReplica == null || parsedReplica.ack <= 0
+                    || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
+            return null;
+        }
+        
+        return parsedReplica;
     }
 }

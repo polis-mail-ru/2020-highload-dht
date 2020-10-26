@@ -38,17 +38,17 @@ import java.util.concurrent.TimeUnit;
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private static final byte[] EMPTY = Response.EMPTY;
-    private final DAO dao;
-    private final ExecutorService es;
-    private final ShardingPolicy<ByteBuffer, String> policy;
-    private final Map<String, HttpClient> urlToClient;
-    private final List<Utility.ReplicationConfiguration> defaultConfigurations = Arrays.asList(
+    public static final List<Utility.ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
             new Utility.ReplicationConfiguration(1, 1),
             new Utility.ReplicationConfiguration(2, 2),
             new Utility.ReplicationConfiguration(2, 3),
             new Utility.ReplicationConfiguration(3, 4),
             new Utility.ReplicationConfiguration(3, 5)
     );
+    private final DAO dao;
+    private final ExecutorService es;
+    private final ShardingPolicy<ByteBuffer, String> policy;
+    private final Map<String, HttpClient> urlToClient;
     
     /**
      * AsyncService's constructor.
@@ -220,10 +220,7 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        values.sort(Comparator.comparing(Table.Value::getTimeStamp)
-                            .reversed()
-                            .thenComparing(deadComparator())
-        );
+        values.sort(Utility.valueResponseComparator());
         
         final var bestVal = values.get(0);
         if (bestVal.isDead()) {
@@ -231,35 +228,6 @@ public final class AsyncService extends HttpServer implements Service {
         } else {
             session.sendResponse(Response.ok(fromByteBuffer(bestVal.getValue())));
         }
-    }
-    
-    @NotNull
-    private Comparator<Table.Value> deadComparator() {
-        return (a, b) -> {
-            if (a.isDead()) {
-                return -1;
-            }
-            if (b.isDead()) {
-                return 1;
-            }
-            
-            return 0;
-        };
-    }
-    
-    private Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
-        final Utility.ReplicationConfiguration parsedReplica;
-        final var nodeCount = this.policy.all().length;
-        
-        parsedReplica = replicas != null ? Utility.ReplicationConfiguration.parse(replicas) :
-                                defaultConfigurations.get(nodeCount - 1);
-        
-        if (parsedReplica == null || parsedReplica.ack <= 0
-                    || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
-            return null;
-        }
-        
-        return parsedReplica;
     }
     
     /**
@@ -421,7 +389,7 @@ public final class AsyncService extends HttpServer implements Service {
     private Utility.ReplicationConfiguration getReplicationConfiguration(
             @NotNull final String replicas,
             @NotNull final HttpSession session) throws IOException {
-        final var parsed = parseAndValidateReplicas(replicas);
+        final var parsed = Utility.parseAndValidateReplicas(replicas, this);
         
         if (parsed == null) {
             logger.error("Bad replicas param {}", replicas);
