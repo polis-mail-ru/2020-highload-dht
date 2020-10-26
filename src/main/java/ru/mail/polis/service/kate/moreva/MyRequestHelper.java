@@ -5,11 +5,16 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.kate.moreva.Cell;
+import ru.mail.polis.dao.kate.moreva.Value;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 public class MyRequestHelper {
@@ -19,9 +24,77 @@ public class MyRequestHelper {
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
 
+    private final DAO dao;
+
+    public MyRequestHelper(DAO dao) {
+        this.dao = dao;
+    }
+
+    /**
+     * Subsidiary method to get value.
+     * {@code 200, data} (data is found).
+     * {@code 404} (data is not found).
+     * {@code 500} (internal server error occurred).
+     */
+    public Response getEntity(final ByteBuffer key) {
+        final Cell cell;
+        try {
+            cell = dao.getCell(key);
+            final Value cellValue = cell.getValue();
+            if (cellValue.isTombstone()) {
+                final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                response.addHeader(TIMESTAMP + cellValue.getTimestamp());
+                return response;
+            }
+            final ByteBuffer value = dao.get(key).duplicate();
+            final byte[] body = new byte[value.remaining()];
+            value.get(body);
+            final Response response = new Response(Response.OK, body);
+            response.addHeader(TIMESTAMP + cell.getValue().getTimestamp());
+            return response;
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("GET method failed on /v0/entity for id {}", key.get(), e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+
+    }
+
+    /**
+     * Subsidiary method to put new value.
+     * {@code 201} (new data created).
+     * {@code 500} (internal server error occurred).
+     */
+    public Response putEntity(final ByteBuffer key, final Request request) {
+        try {
+            dao.upsert(key, ByteBuffer.wrap(request.getBody()));
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("PUT method failed on /v0/entity for id {}, request body {}.", key.get(), request.getBody(), e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    /**
+     * Subsidiary method to delete value by the key.
+     * {@code 202} (data deleted).
+     * {@code 500} (internal server error occurred).
+     */
+    public Response deleteEntity(final ByteBuffer key) {
+        try {
+            dao.remove(key);
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+
     /**
      * Merges responses for GET request.
-     * */
+     */
     public Response mergeResponses(final List<Response> result) {
         final Map<Response, Integer> responses = new ConcurrentSkipListMap<>(Comparator.comparing(this::getStatus));
         result.forEach(resp -> {
@@ -41,23 +114,37 @@ public class MyRequestHelper {
         return finalResult;
     }
 
+    /**
+     * Returns response status.
+     */
     public String getStatus(final Response response) {
         return response.getHeaders()[0];
     }
 
+    /**
+     * Checks whether the request is proxied.
+     */
     public boolean isProxied(final Request request) {
         return request.getHeader(PROXY_HEADER) != null;
     }
 
+    /**
+     * Returns response timestamp.
+     */
     public static long getTimestamp(final Response response) {
         final String timestamp = response.getHeader(TIMESTAMP);
         return timestamp == null ? -1 : Long.parseLong(timestamp);
     }
 
+    /**
+     * Creates request according to replication status.
+     * {@code 504} (not enough replicas).
+     * {@param response} (enough replicas).
+     */
     public void correctReplication(final int ack,
-                                    final Replicas replicas,
-                                    final HttpSession session,
-                                    final String response) {
+                                   final Replicas replicas,
+                                   final HttpSession session,
+                                   final String response) {
         try {
             if (ack < replicas.getAck()) {
                 handleResponse(session, NOT_ENOUGH_REPLICAS);
@@ -69,6 +156,9 @@ public class MyRequestHelper {
         }
     }
 
+    /**
+     * Creates new response from @param response and sends it.
+     */
     public void handleResponse(final HttpSession session, final String response) {
         try {
             session.sendResponse(new Response(response, Response.EMPTY));
@@ -77,6 +167,9 @@ public class MyRequestHelper {
         }
     }
 
+    /**
+     * Sends response.
+     */
     public void sendLoggedResponse(final HttpSession session, final Response response) {
         try {
             session.sendResponse(response);
