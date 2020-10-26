@@ -2,7 +2,6 @@ package ru.mail.polis.service.s3ponia;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -12,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +23,6 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -41,12 +38,11 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static ru.mail.polis.s3ponia.Utility.*;
+
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private static final byte[] EMPTY = Response.EMPTY;
-    private static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
-    private static final String PROXY_HEADER = "X-Proxy-From";
-    private static final String TIME_HEADER = "XTime";
     private final DAO dao;
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
@@ -90,6 +86,18 @@ public final class AsyncService extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
     }
     
+    public ShardingPolicy<ByteBuffer, String> getPolicy() {
+        return policy;
+    }
+    
+    public ExecutorService getEs() {
+        return es;
+    }
+    
+    public Map<String, HttpClient> getUrlToClient() {
+        return urlToClient;
+    }
+    
     private Map<String, HttpClient> urltoClientFromSet(@NotNull final String... nodes) {
         final Map<String, HttpClient> result = new HashMap<>();
         for (final var url : nodes) {
@@ -101,18 +109,6 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         return result;
-    }
-    
-    private Response proxy(
-            @NotNull final String node,
-            @NotNull final Request request) throws IOException {
-        try {
-            request.addHeader(PROXY_HEADER + ":" + node);
-            return this.urlToClient.get(node).invoke(request);
-        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            logger.error("Can't proxy request", exception);
-            return null;
-        }
     }
     
     @NotNull
@@ -194,7 +190,10 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (validateId(id, session, "Invalid id in get")) return;
+        if (validateId(id)) {
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+            return;
+        }
         
         final var key = byteBufferFromString(id);
         if (request.getHeader(PROXY_HEADER) != null) {
@@ -212,22 +211,18 @@ public final class AsyncService extends HttpServer implements Service {
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
         final List<Table.Value> values = getValues(request, parsed, nodeReplicas);
-        boolean homeInReplicas = false;
-        
-        for (final var node :
-                nodeReplicas) {
-            if (node.equals(policy.homeNode())) {
-                try {
-                    values.add(dao.getRaw(key));
-                } catch (NoSuchElementException ignored) {
-                    homeInReplicas = true;
-                }
-            }
-        }
+        boolean homeInReplicas = isHomeInReplicas(nodeReplicas);
         
         if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
             return;
+        }
+        
+        if (homeInReplicas) {
+            try {
+                values.add(dao.getRaw(key));
+            } catch (NoSuchElementException ignored) {
+            }
         }
         
         if (values.isEmpty()) {
@@ -237,17 +232,7 @@ public final class AsyncService extends HttpServer implements Service {
         
         values.sort(Comparator.comparing(Table.Value::getTimeStamp)
                             .reversed()
-                            .thenComparing(
-                                    (a, b) -> {
-                                        if (a.isDead()) {
-                                            return -1;
-                                        }
-                                        if (b.isDead()) {
-                                            return 1;
-                                        }
-                            
-                                        return 0;
-                                    })
+                            .thenComparing(deadComparator())
         );
         
         final var bestVal = values.get(0);
@@ -259,10 +244,36 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     @NotNull
+    private Comparator<Table.Value> deadComparator() {
+        return (a, b) -> {
+            if (a.isDead()) {
+                return -1;
+            }
+            if (b.isDead()) {
+                return 1;
+            }
+            
+            return 0;
+        };
+    }
+    
+    private boolean isHomeInReplicas(String[] nodeReplicas) {
+        boolean homeInReplicas = false;
+        
+        for (final var node :
+                nodeReplicas) {
+            if (node.equals(policy.homeNode())) {
+                homeInReplicas = true;
+            }
+        }
+        return homeInReplicas;
+    }
+    
+    @NotNull
     private List<Table.Value> getValues(@NotNull final Request request,
                                         @NotNull final Utility.ReplicationConfiguration parsed,
                                         @NotNull final String... nodeReplicas) {
-        final List<Future<Response>> futureResponses = getFutures(request, parsed, nodeReplicas);
+        final List<Future<Response>> futureResponses = getFutures(request, parsed, this, nodeReplicas);
         return getValuesFromFutures(parsed, futureResponses);
     }
     
@@ -303,17 +314,6 @@ public final class AsyncService extends HttpServer implements Service {
         return parsedReplica;
     }
     
-    private boolean validateId(@NotNull final String id,
-                               @NotNull final HttpSession session,
-                               @NotNull final String s) throws IOException {
-        if (id.isEmpty()) {
-            logger.error(s);
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return true;
-        }
-        return false;
-    }
-    
     /**
      * Process upserting to dao.
      *
@@ -336,10 +336,6 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    private ByteBuffer byteBufferFromString(@NotNull final String s) {
-        return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
-    }
-    
     /**
      * Basic implementation of http put handling.
      *
@@ -352,8 +348,11 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
-        if (validateId(id, session, "Invalid id in put")) return;
-    
+        if (validateId(id)) {
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+            return;
+        }
+        
         final var key = byteBufferFromString(id);
         final var value = ByteBuffer.wrap(request.getBody());
         
@@ -374,24 +373,22 @@ public final class AsyncService extends HttpServer implements Service {
         
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
-    
+        
         final var currTime = System.currentTimeMillis();
         request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int createdCounter = getCounter(request, parsed, nodes);
+        int createdCounter = getCounter(request, parsed, this, nodes);
         
-        for (final var node :
-                nodes) {
-            
-            if (node.equals(policy.homeNode())) {
-                try {
-                    dao.upsertWithTimeStamp(key, value, currTime);
-                    ++createdCounter;
-                } catch (IOException ioException) {
-                    logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
-                            key.capacity(), value.capacity(), this.policy.homeNode(), ioException);
-                }
+        final boolean homeInReplicas = isHomeInReplicas(nodes);
+        
+        if (homeInReplicas) {
+            try {
+                dao.upsertWithTimeStamp(key, value, currTime);
+                ++createdCounter;
+            } catch (IOException ioException) {
+                logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
+                        key.capacity(), value.capacity(), this.policy.homeNode(), ioException);
             }
         }
         
@@ -428,7 +425,10 @@ public final class AsyncService extends HttpServer implements Service {
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (validateId(id, session, "Invalid id in put")) return;
+        if (validateId(id)) {
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+            return;
+        }
         
         final var key = byteBufferFromString(id);
         final var header = Utility.Header.getHeader(TIME_HEADER, request);
@@ -452,20 +452,16 @@ public final class AsyncService extends HttpServer implements Service {
         if (parsed == null) return;
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int acceptedCounter = getCounter(request, parsed, nodes);
+        int acceptedCounter = getCounter(request, parsed, this, nodes);
+        final var homeInReplicas = isHomeInReplicas(nodes);
         
-        for (final var node :
-                nodes) {
-            
-            if (node.equals(policy.homeNode())) {
-                try {
-                    dao.removeWithTimeStamp(key, currTime);
-                    ++acceptedCounter;
-                    break;
-                } catch (IOException ioException) {
-                    logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
-                            key.capacity(), request.getBody().length, this.policy.homeNode(), ioException);
-                }
+        if (homeInReplicas) {
+            try {
+                dao.removeWithTimeStamp(key, currTime);
+                ++acceptedCounter;
+            } catch (IOException ioException) {
+                logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
+                        key.capacity(), request.getBody().length, this.policy.homeNode(), ioException);
             }
         }
         
@@ -513,45 +509,6 @@ public final class AsyncService extends HttpServer implements Service {
                     }
             );
         }
-    }
-    
-    private int getCounter(@NotNull final Request request,
-                           @NotNull final Utility.ReplicationConfiguration parsed,
-                           @NotNull final String... nodes) {
-        final List<Future<Response>> futureResponses = getFutures(request, parsed, nodes);
-        
-        int acceptedCounter = 0;
-        
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                continue;
-            }
-            if (response != null
-                        && (response.getStatus() == 202 /* ACCEPTED */ || response.getStatus() == 201 /* CREATED */)) {
-                ++acceptedCounter;
-            }
-        }
-        return acceptedCounter;
-    }
-    
-    @NotNull
-    private List<Future<Response>> getFutures(@NotNull final Request request,
-                                              @NotNull final Utility.ReplicationConfiguration parsed,
-                                              @NotNull final String... nodes) {
-        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
-        
-        for (final var node :
-                nodes) {
-            
-            if (!node.equals(policy.homeNode())) {
-                futureResponses.add(this.es.submit(() -> proxy(node, request)));
-            }
-        }
-        return futureResponses;
     }
     
     @Override
