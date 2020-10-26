@@ -58,7 +58,13 @@ public class MemTable implements Table {
         memory.addAndGet(key.limit() + value.limit() + Long.BYTES + Integer.BYTES);
         keyToRecord.put(key, Table.Value.of(value, generation));
     }
-
+    
+    @Override
+    public void upsertWithTimeStamp(@NotNull ByteBuffer key, @NotNull ByteBuffer value, final long timeStamp) {
+        memory.addAndGet(key.limit() + value.limit() + Long.BYTES + Integer.BYTES);
+        keyToRecord.put(key, Table.Value.of(value, timeStamp, generation));
+    }
+    
     @Override
     public void remove(@NotNull final ByteBuffer key) {
         memory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);

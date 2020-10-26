@@ -24,6 +24,7 @@ import ru.mail.polis.dao.s3ponia.Table;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.sql.Timestamp;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -120,6 +121,14 @@ public interface DAO extends Closeable {
     void upsert(
             @NotNull ByteBuffer key,
             @NotNull ByteBuffer value) throws IOException;
+    
+    /**
+     * Inserts or updates value by given key.
+     */
+    void upsertWithTimeStamp(
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value,
+            final long timeStamp) throws IOException;
 
     /**
      * Removes value by given key.

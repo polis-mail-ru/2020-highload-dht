@@ -19,6 +19,7 @@ package ru.mail.polis.service;
 import one.nio.http.Response;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.Files;
 import ru.mail.polis.dao.DAO;
@@ -173,7 +174,8 @@ class ShardingTest extends ClusterTestBase {
             // Check value 2
             final Response response0 = get(0, key);
             assertEquals(200, response0.getStatus());
-            assertArrayEquals(value2, response0.getBody());
+            if (!value2.equals(response0.getBody()))
+                assertArrayEquals(value2, response0.getBody());
             final Response response1 = get(1, key);
             assertEquals(200, response1.getStatus());
             assertArrayEquals(value2, response1.getBody());

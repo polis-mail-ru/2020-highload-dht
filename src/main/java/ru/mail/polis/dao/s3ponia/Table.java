@@ -147,5 +147,8 @@ public interface Table extends Closeable {
     
     void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value);
     
+    void upsertWithTimeStamp(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value,
+                             final long timeStamp);
+    
     void remove(@NotNull final ByteBuffer key);
 }

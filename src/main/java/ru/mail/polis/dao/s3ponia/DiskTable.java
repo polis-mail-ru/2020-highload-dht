@@ -222,7 +222,12 @@ public class DiskTable implements Closeable, Table {
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
-
+    
+    @Override
+    public void upsertWithTimeStamp(@NotNull ByteBuffer key, @NotNull ByteBuffer value, long timeStamp) {
+        throw new UnsupportedOperationException();
+    }
+    
     @Override
     public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException();

@@ -140,7 +140,25 @@ public final class PersistenceDAO implements DAO {
             flush();
         }
     }
-
+    
+    @Override
+    public void upsertWithTimeStamp(@NotNull ByteBuffer key,
+                                    @NotNull ByteBuffer value,
+                                    final long timeStamp) throws IOException {
+        final boolean flushPending;
+        readWriteLock.readLock().lock();
+        try {
+            this.tableSet.memTable.upsertWithTimeStamp(key, value, timeStamp);
+            flushPending = this.tableSet.memTable.size() >= THRESHOLD * maxMemory;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+    
+        if (flushPending) {
+            flush();
+        }
+    }
+    
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         final boolean flushPending;
