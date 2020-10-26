@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.boriskin;
+package ru.mail.polis.service.boriskin;
 
 import org.jetbrains.annotations.NotNull;
 

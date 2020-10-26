@@ -18,7 +18,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.boriskin.Topology;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -179,15 +178,17 @@ public class NewService extends HttpServer implements Service {
                                     @NotNull final Request request,
                                     @NotNull final Operations operation) throws IOException {
         final String node = topology.primaryFor(key);
-        if (topology.isMyNode(node)) { // локальный ли запрос?
-            try {
-                executorService.execute(() -> operation(key, httpSession, request, operation));
-            } catch (RejectedExecutionException rejectedExecutionException) {
-                logger.error("Ошибка при выполнении операции {} ", operation, rejectedExecutionException);
-                resp(httpSession, Response.SERVICE_UNAVAILABLE);
-            }
-        } else {
-            proxy(node, httpSession, request);
+        try {
+            executorService.execute(() -> {
+                if (topology.isMyNode(node)) { // локальный ли запрос?
+                    operation(key, httpSession, request, operation);
+                } else {
+                    proxy(node, httpSession, request);
+                }
+            });
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            logger.error("Ошибка при выполнении операции {} ", operation, rejectedExecutionException);
+            resp(httpSession, Response.SERVICE_UNAVAILABLE);
         }
     }
 
