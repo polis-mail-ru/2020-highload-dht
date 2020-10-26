@@ -9,6 +9,7 @@ import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
 
@@ -381,5 +382,29 @@ public class Utility {
                     }
             );
         }
+    }
+    
+    
+    /**
+     * Combine parseAndValidateReplicas and handling error in 1 step.
+     * @param replicas string for replicas parsing
+     * @param session HttpSession for sending responses
+     * @param service AsyncService for parseAndValidateReplicas
+     * @return replication configuration
+     * @throws IOException
+     */
+    @Nullable
+    public static Utility.ReplicationConfiguration getReplicationConfiguration(
+            @NotNull final String replicas,
+            @NotNull final HttpSession session,
+            @NotNull final AsyncService service) throws IOException {
+        final var parsed = parseAndValidateReplicas(replicas, service);
+        
+        if (parsed == null) {
+            AsyncService.logger.error("Bad replicas param {}", replicas);
+            session.sendResponse(new Response(Response.BAD_REQUEST, AsyncService.EMPTY));
+            return null;
+        }
+        return parsed;
     }
 }

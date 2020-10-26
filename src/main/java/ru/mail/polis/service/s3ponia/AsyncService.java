@@ -12,7 +12,6 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -165,7 +164,7 @@ public final class AsyncService extends HttpServer implements Service {
             });
             return;
         }
-        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final Utility.ReplicationConfiguration parsed = Utility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
@@ -257,7 +256,7 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final Utility.ReplicationConfiguration parsed = Utility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
         
         final var currTime = System.currentTimeMillis();
@@ -336,7 +335,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var currTime = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + currTime);
         
-        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final Utility.ReplicationConfiguration parsed = Utility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
@@ -355,20 +354,6 @@ public final class AsyncService extends HttpServer implements Service {
         
         Utility.sendAckFromResp(this.es, parsed, acceptedCounter,
                 new Response(Response.ACCEPTED, EMPTY), session);
-    }
-    
-    @Nullable
-    private Utility.ReplicationConfiguration getReplicationConfiguration(
-            @NotNull final String replicas,
-            @NotNull final HttpSession session) throws IOException {
-        final var parsed = Utility.parseAndValidateReplicas(replicas, this);
-        
-        if (parsed == null) {
-            logger.error("Bad replicas param {}", replicas);
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return null;
-        }
-        return parsed;
     }
     
     @Override
