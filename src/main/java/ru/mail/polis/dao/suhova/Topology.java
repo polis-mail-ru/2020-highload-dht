@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 public interface Topology<N> {
     @NotNull
-    N getNodeByKey(@NotNull final String key);
+    N[] getNodesByKey(@NotNull final String key, final int n);
 
     @NotNull
     boolean isMe(@NotNull N node);

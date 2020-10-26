@@ -7,6 +7,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 
+import ru.mail.polis.Record;
+
 /**
  * Generates {@link Record}s for test purposes.
  */
@@ -53,7 +55,7 @@ class RecordsGenerator implements Iterator<Record> {
         // store the latest value by key or update previously stored one
         if (samples != null) {
             if (i % samplePeriod == 0 ||
-                    samples.containsKey(keyPayload)) {
+                samples.containsKey(keyPayload)) {
                 samples.put(keyPayload, valuePayload);
             }
         }
@@ -65,4 +67,3 @@ class RecordsGenerator implements Iterator<Record> {
         return Collections.unmodifiableMap(samples);
     }
 }
-

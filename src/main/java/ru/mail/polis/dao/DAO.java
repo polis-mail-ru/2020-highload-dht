@@ -18,6 +18,8 @@ package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.mail.polis.Record;
+import ru.mail.polis.dao.suhova.Cell;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -83,6 +85,14 @@ public interface DAO extends Closeable {
             throw new NoSuchElementException("Not found");
         }
     }
+
+    /**
+     * Obtains {@link Cell} corresponding to given key.
+     *
+     * @return cell value
+     */
+    @NotNull
+    Cell getCell(@NotNull ByteBuffer key);
 
     /**
      * Inserts or updates value by given key.

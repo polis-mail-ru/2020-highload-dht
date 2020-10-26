@@ -2,6 +2,8 @@ package ru.mail.polis.dao.suhova;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Set;
 
 public class RendezvousTopology implements Topology<String> {
@@ -14,7 +16,7 @@ public class RendezvousTopology implements Topology<String> {
      * Implementation {@link Topology}.
      *
      * @param topology - nodes
-     * @param me - current node
+     * @param me       - current node
      */
     public RendezvousTopology(@NotNull final Set<String> topology,
                               @NotNull final String me) {
@@ -26,17 +28,12 @@ public class RendezvousTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String getNodeByKey(@NotNull final String key) {
-        int minHash = Integer.MAX_VALUE;
-        String minNode = me;
-        for (final String node : topology) {
-            final int hash = (node + key).hashCode();
-            if (hash < minHash) {
-                minHash = hash;
-                minNode = node;
-            }
-        }
-        return minNode;
+    public String[] getNodesByKey(@NotNull final String key, final int n) {
+        if (n == size()) return topology;
+        return Arrays.stream(topology)
+            .sorted(Comparator.comparingInt(node -> (node + key).hashCode()))
+            .limit(n)
+            .toArray(String[]::new);
     }
 
     @NotNull

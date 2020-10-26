@@ -62,6 +62,7 @@ public final class ServiceFactory {
             dao,
             Runtime.getRuntime().availableProcessors(),
             16,
+            1000,
             new RendezvousTopology(topology, "http://localhost:" + port)
         );
     }

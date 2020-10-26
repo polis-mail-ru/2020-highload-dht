@@ -30,6 +30,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import ru.mail.polis.Record;
 import ru.mail.polis.TestBase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -77,20 +78,20 @@ class ConcurrentTest extends TestBase {
     private void concurrentWrites(int threadsCount,
                                   int recordsCount, int samplePeriod,
                                   @NotNull final File data)
-            throws IOException, InterruptedException {
+        throws IOException, InterruptedException {
         final RecordsGenerator records = new RecordsGenerator(recordsCount, samplePeriod);
         try (final DAO dao = DAOFactory.create(data)) {
             final ExecutorService executor = new ThreadPoolExecutor(threadsCount, threadsCount,
-                    1, TimeUnit.MINUTES,
-                    new ArrayBlockingQueue<>(1024),
-                    (r, usedExecutor) -> {
-                        try {
-                            // test thread will be blocked and wait
-                            usedExecutor.getQueue().put(r);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
+                1, TimeUnit.MINUTES,
+                new ArrayBlockingQueue<>(1024),
+                (r, usedExecutor) -> {
+                    try {
+                        // test thread will be blocked and wait
+                        usedExecutor.getQueue().put(r);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
             while (records.hasNext()) {
                 final Record record = records.next();
                 executor.submit(() -> {
@@ -122,22 +123,22 @@ class ConcurrentTest extends TestBase {
     }
 
     private void concurrentReadWrite(int threadsCount,
-                                  int recordsCount,
-                                  @NotNull final File data)
-            throws IOException, InterruptedException {
+                                     int recordsCount,
+                                     @NotNull final File data)
+        throws IOException, InterruptedException {
         final RecordsGenerator records = new RecordsGenerator(recordsCount, 0);
         try (final DAO dao = DAOFactory.create(data)) {
             final ExecutorService executor = new ThreadPoolExecutor(threadsCount, threadsCount,
-                    1, TimeUnit.MINUTES,
-                    new ArrayBlockingQueue<>(1024),
-                    (r, usedExecutor) -> {
-                        try {
-                            // test thread will be blocked and wait
-                            usedExecutor.getQueue().put(r);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    });
+                1, TimeUnit.MINUTES,
+                new ArrayBlockingQueue<>(1024),
+                (r, usedExecutor) -> {
+                    try {
+                        // test thread will be blocked and wait
+                        usedExecutor.getQueue().put(r);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
             final AtomicInteger matches = new AtomicInteger();
             while (records.hasNext()) {
                 final Record record = records.next();
