@@ -2,9 +2,9 @@ package ru.mail.polis.dao.suhova;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
-import ru.mail.polis.dao.Record;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,6 +19,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -127,6 +128,22 @@ public class TurboDAO implements DAO {
         }
         if (needsFlush) {
             flush();
+        }
+    }
+
+    @Override
+    @NotNull
+    public Cell getCell(@NotNull ByteBuffer key) throws NoSuchElementException {
+        final Iterator<Cell> iter = cellIterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        final Cell next = iter.next();
+        if (next.getKey().equals(key)) {
+            return next;
+        } else {
+            throw new NoSuchElementException("Not found");
         }
     }
 
