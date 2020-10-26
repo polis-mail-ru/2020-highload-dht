@@ -280,7 +280,7 @@ public final class AsyncService extends HttpServer implements Service {
         
         Utility.sendAckFromResp(this.es, parsed, createdCounter,
                 new Response(Response.CREATED, EMPTY),
-                "Error in putting", session);
+                session);
     }
     
     /**
@@ -354,7 +354,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         Utility.sendAckFromResp(this.es, parsed, acceptedCounter,
-                new Response(Response.ACCEPTED, EMPTY), "Error in sending resp", session);
+                new Response(Response.ACCEPTED, EMPTY), session);
     }
     
     @Nullable

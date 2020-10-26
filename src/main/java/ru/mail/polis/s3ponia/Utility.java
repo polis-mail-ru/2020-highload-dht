@@ -8,7 +8,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
@@ -24,7 +23,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
 
 public class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
@@ -355,14 +353,12 @@ public class Utility {
      * @param configuration replication configuration
      * @param ackCounter counter of ack responses
      * @param resp response to send if ackCounter >= configuration.ack
-     * @param s logging string when error occurred
      * @param session session for sending responses
      */
     public static void sendAckFromResp(@NotNull final ExecutorService es,
-                                       @NotNull final Utility.ReplicationConfiguration configuration,
+                                       @NotNull final ReplicationConfiguration configuration,
                                        final int ackCounter,
                                        final Response resp,
-                                       @NotNull final String s,
                                        @NotNull final HttpSession session) {
         if (ackCounter >= configuration.ack) {
             es.execute(
@@ -370,7 +366,7 @@ public class Utility {
                         try {
                             session.sendResponse(resp);
                         } catch (IOException ioException) {
-                            AsyncService.logger.error(s, ioException);
+                            AsyncService.logger.error("Error in sending resp", ioException);
                         }
                     }
             );
