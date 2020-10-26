@@ -7,10 +7,10 @@ import one.nio.http.Response;
  * by responses retrieved from replicas.
  */
 public class ReplicasResponseComposer {
-    private Response requiredResponse = null;
-    private int goodAnswers = 0;
-    private int notFoundAnswers = 0;
-    private boolean wasRemoved = false;
+    private Response requiredResponse;
+    private int goodAnswers;
+    private int notFoundAnswers;
+    private boolean wasRemoved;
     private int ackCount;
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
 
@@ -43,10 +43,10 @@ public class ReplicasResponseComposer {
      */
     public Response getComposedResponse() {
         var res = requiredResponse;
-        final int ackCount = goodAnswers + notFoundAnswers;
+        final int ackCountRetrieved = goodAnswers + notFoundAnswers;
         if (wasRemoved) {
             res = new ZeroResponse(Response.NOT_FOUND);
-        } else if (ackCount < this.ackCount) {
+        } else if (ackCountRetrieved < this.ackCount) {
             res = new ZeroResponse(NOT_ENOUGH_REPLICAS);
         } else if (goodAnswers == 0 && notFoundAnswers > 0) {
             res = new ZeroResponse(Response.NOT_FOUND);

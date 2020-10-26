@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class Util {
+public final class Util {
     private Util() {
         /* nothing */
     }
