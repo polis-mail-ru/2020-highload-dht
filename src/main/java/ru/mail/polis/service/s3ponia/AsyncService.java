@@ -15,6 +15,7 @@ import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -207,13 +208,8 @@ public final class AsyncService extends HttpServer implements Service {
             });
             return;
         }
-        final var parsed = parseAndValidateReplicas(replicas);
-        
-        if (parsed == null) {
-            logger.error("Bad replicas param {}", replicas);
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
+        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        if (parsed == null) return;
 
 //        int ackCounter = 0;
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
@@ -381,16 +377,11 @@ public final class AsyncService extends HttpServer implements Service {
             );
             return;
         }
-        
-        final var parsed = parseAndValidateReplicas(replicas);
-        
-        if (parsed == null) {
-            logger.error("Bad replicas param {}", replicas);
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
-        
-        
+    
+        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        if (parsed == null) return;
+    
+    
         request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
@@ -462,15 +453,10 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         request.addHeader(TIME_HEADER + ": " + currTime);
-        
-        final var parsed = parseAndValidateReplicas(replicas);
-        
-        if (parsed == null) {
-            logger.error("Bad replicas param {}", replicas);
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
-        
+    
+        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        if (parsed == null) return;
+    
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
         int acceptedCounter = getCounter(request, parsed, nodes);
         
@@ -491,6 +477,18 @@ public final class AsyncService extends HttpServer implements Service {
         
         sendAckFromResp(session, parsed, acceptedCounter,
                 new Response(Response.ACCEPTED, EMPTY), "Error in sending resp");
+    }
+    
+    @Nullable
+    private Utility.ReplicationConfiguration getReplicationConfiguration(@Param("replicas") String replicas, @NotNull HttpSession session) throws IOException {
+        final var parsed = parseAndValidateReplicas(replicas);
+        
+        if (parsed == null) {
+            logger.error("Bad replicas param {}", replicas);
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+            return null;
+        }
+        return parsed;
     }
     
     private void sendAckFromResp(@NotNull HttpSession session,
