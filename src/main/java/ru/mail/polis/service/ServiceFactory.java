@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.boriskin.NewModularTopology;
+import ru.mail.polis.service.boriskin.NewModularTopology;
 import ru.mail.polis.service.boriskin.NewService;
 
 import java.io.IOException;

@@ -265,12 +265,12 @@ public class NewService extends HttpServer implements Service {
     private void proxy(
             @NotNull final String node,
             @NotNull final HttpSession httpSession,
-            @NotNull final Request request) throws IOException {
+            @NotNull final Request request) {
         try {
             request.addHeader("X-Proxy-For: " + node);
             httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
         } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            logger.error("Can't proxy request ", exception);
+            logger.error("Не получилось проксировать запрос ", exception);
             resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
@@ -281,7 +281,8 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession сессия
      */
     @Path("/v0/status")
-    public Response status(final HttpSession httpSession) {
+    public Response status(
+            final HttpSession httpSession) {
         return Response.ok("OK");
     }
 
@@ -290,13 +291,11 @@ public class NewService extends HttpServer implements Service {
      *
      * @param request Запрос
      * @param httpSession Диалоговое состояние
-     * @throws IOException Возможна проблема ввода-вывода
      */
     @Override
     public void handleDefault(
             final Request request,
-            final HttpSession httpSession
-    ) throws IOException {
+            final HttpSession httpSession) {
         logger.error("Непонятный запрос: {}", request);
         resp(httpSession, Response.BAD_REQUEST);
     }

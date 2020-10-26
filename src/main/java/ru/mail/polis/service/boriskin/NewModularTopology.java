@@ -1,6 +1,7 @@
-package ru.mail.polis.dao.boriskin;
+package ru.mail.polis.service.boriskin;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.boriskin.Topology;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
