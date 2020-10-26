@@ -3,14 +3,12 @@ package ru.mail.polis.service.s3ponia;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -189,28 +187,6 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     /**
-     * Process upserting to dao.
-     *
-     * @param key     key for upserting
-     * @param value   value for upserting
-     * @param session HttpSession for response
-     * @throws IOException rethrow from sendResponse
-     */
-    private void upsertWithTimeStamp(@NotNull final ByteBuffer key,
-                                     @NotNull final ByteBuffer value,
-                                     @NotNull final HttpSession session,
-                                     final long timeStamp) throws IOException {
-        try {
-            dao.upsertWithTimeStamp(key, value, timeStamp);
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
-                    key.capacity(), value.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-    
-    /**
      * Basic implementation of http put handling.
      *
      * @param id      key
@@ -236,7 +212,7 @@ public final class AsyncService extends HttpServer implements Service {
             this.es.execute(
                     () -> {
                         try {
-                            upsertWithTimeStamp(key, value, session, time);
+                            AsyncServiceUtility.upsertWithTimeStamp(key, value, session, time, this.dao);
                         } catch (IOException ioException) {
                             logger.error("Error in sending put request", ioException);
                         }

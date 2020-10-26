@@ -7,19 +7,45 @@ import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-public class AsyncServiceUtility {
+public final class AsyncServiceUtility {
     
     private AsyncServiceUtility() {
+    }
+    
+    /**
+     * Process upserting to dao.
+     *
+     * @param key     key for upserting
+     * @param value   value for upserting
+     * @param session HttpSession for response
+     * @param dao
+     * @throws IOException rethrow from sendResponse
+     */
+    public static void upsertWithTimeStamp(@NotNull final ByteBuffer key,
+                                           @NotNull final ByteBuffer value,
+                                           @NotNull final HttpSession session,
+                                           final long timeStamp,
+                                           @NotNull final DAO dao) throws IOException {
+        try {
+            dao.upsertWithTimeStamp(key, value, timeStamp);
+            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        } catch (IOException ioException) {
+            AsyncService.logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
+                    key.capacity(), value.capacity(), ioException);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
     }
     
     /**

@@ -3,13 +3,16 @@ package ru.mail.polis.s3ponia;
 import com.google.common.base.Splitter;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -20,7 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-public class Utility {
+public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
     public static final String PROXY_HEADER = "X-Proxy-From";
     public static final String TIME_HEADER = "XTime";
