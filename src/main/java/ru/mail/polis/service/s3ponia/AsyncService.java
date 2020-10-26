@@ -10,7 +10,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,7 +23,6 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -35,8 +33,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public final class AsyncService extends HttpServer implements Service {
-    private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
-    private static final byte[] EMPTY = Response.EMPTY;
+    public static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
+    public static final byte[] EMPTY = Response.EMPTY;
     public static final List<Utility.ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
             new Utility.ReplicationConfiguration(1, 1),
             new Utility.ReplicationConfiguration(2, 2),
@@ -66,7 +64,7 @@ public final class AsyncService extends HttpServer implements Service {
         assert 0 < workers;
         assert 0 < queueSize;
         this.policy = policy;
-        this.urlToClient = urltoClientFromSet(this.policy.all());
+        this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
         this.dao = dao;
         this.es = new ThreadPoolExecutor(
                 workers,
@@ -92,19 +90,6 @@ public final class AsyncService extends HttpServer implements Service {
         return urlToClient;
     }
     
-    private Map<String, HttpClient> urltoClientFromSet(@NotNull final String... nodes) {
-        final Map<String, HttpClient> result = new HashMap<>();
-        for (final var url : nodes) {
-            if (url.equals(this.policy.homeNode())) {
-                continue;
-            }
-            if (result.put(url, new HttpClient(new ConnectionString(url))) != null) {
-                throw new RuntimeException("Duplicated url in nodes.");
-            }
-        }
-        return result;
-    }
-    
     @NotNull
     private static HttpServerConfig configFrom(final int port) {
         final AcceptorConfig ac = new AcceptorConfig();
@@ -114,20 +99,6 @@ public final class AsyncService extends HttpServer implements Service {
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
         return config;
-    }
-    
-    @NotNull
-    private static byte[] fromByteBuffer(@NotNull final ByteBuffer b) {
-        final byte[] out = new byte[b.remaining()];
-        b.get(out);
-        return out;
-    }
-    
-    @NotNull
-    public static AsyncService of(final int port, @NotNull final DAO dao,
-                                  final int workers, final int queueSize,
-                                  @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
-        return new AsyncService(port, dao, workers, queueSize, policy);
     }
     
     /**
@@ -156,7 +127,7 @@ public final class AsyncService extends HttpServer implements Service {
     private void getRaw(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
         try {
             final var val = dao.getRaw(key);
-            final var resp = Response.ok(fromByteBuffer(val.getValue()));
+            final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
             resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
             session.sendResponse(resp);
         } catch (NoSuchElementException noSuchElementException) {
@@ -225,7 +196,7 @@ public final class AsyncService extends HttpServer implements Service {
         if (bestVal.isDead()) {
             session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
         } else {
-            session.sendResponse(Response.ok(fromByteBuffer(bestVal.getValue())));
+            session.sendResponse(Response.ok(Utility.fromByteBuffer(bestVal.getValue())));
         }
     }
     
@@ -307,7 +278,9 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         
-        sendAckFromResp(session, parsed, createdCounter, new Response(Response.CREATED, EMPTY), "Error in putting");
+        Utility.sendAckFromResp(this.es, parsed, createdCounter,
+                new Response(Response.CREATED, EMPTY),
+                "Error in putting", session);
     }
     
     /**
@@ -380,8 +353,8 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         
-        sendAckFromResp(session, parsed, acceptedCounter,
-                new Response(Response.ACCEPTED, EMPTY), "Error in sending resp");
+        Utility.sendAckFromResp(this.es, parsed, acceptedCounter,
+                new Response(Response.ACCEPTED, EMPTY), "Error in sending resp", session);
     }
     
     @Nullable
@@ -396,34 +369,6 @@ public final class AsyncService extends HttpServer implements Service {
             return null;
         }
         return parsed;
-    }
-    
-    private void sendAckFromResp(@NotNull final HttpSession session,
-                                 @NotNull final Utility.ReplicationConfiguration parsed,
-                                 final int acceptedCounter,
-                                 final Response resp,
-                                 @NotNull final String s) {
-        if (acceptedCounter >= parsed.ack) {
-            this.es.execute(
-                    () -> {
-                        try {
-                            session.sendResponse(resp);
-                        } catch (IOException ioException) {
-                            logger.error(s, ioException);
-                        }
-                    }
-            );
-        } else {
-            this.es.execute(
-                    () -> {
-                        try {
-                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-                        } catch (IOException ioException) {
-                            logger.error("Error in sending error", ioException);
-                        }
-                    }
-            );
-        }
     }
     
     @Override

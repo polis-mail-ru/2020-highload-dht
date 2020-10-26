@@ -1,10 +1,14 @@
 package ru.mail.polis.s3ponia;
 
 import com.google.common.base.Splitter;
+import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
+import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
@@ -14,9 +18,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
@@ -307,5 +315,75 @@ public class Utility {
         }
         
         return parsedReplica;
+    }
+    
+    /**
+     * Make map String to HttpClient from nodes list.
+     * @param homeNode node ignored in nodes
+     * @param nodes list of nodes
+     * @return map string to httpclient
+     */
+    public static Map<String, HttpClient> urltoClientFromSet(@NotNull final String homeNode,
+                                                             @NotNull final String... nodes) {
+        final Map<String, HttpClient> result = new HashMap<>();
+        for (final var url : nodes) {
+            if (url.equals(homeNode)) {
+                continue;
+            }
+            if (result.put(url, new HttpClient(new ConnectionString(url))) != null) {
+                throw new RuntimeException("Duplicated url in nodes.");
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Make byte array from ByteBuffer.
+     * @param b ByteBuffer
+     * @return byte array
+     */
+    @NotNull
+    public static byte[] fromByteBuffer(@NotNull final ByteBuffer b) {
+        final byte[] out = new byte[b.remaining()];
+        b.get(out);
+        return out;
+    }
+    
+    /**
+     * Execute sending response depend on accepted counter.
+     * @param es ExecutorService for executing
+     * @param configuration replication configuration
+     * @param ackCounter counter of ack responses
+     * @param resp response to send if ackCounter >= configuration.ack
+     * @param s logging string when error occurred
+     * @param session session for sending responses
+     */
+    public static void sendAckFromResp(@NotNull final ExecutorService es,
+                                       @NotNull final Utility.ReplicationConfiguration configuration,
+                                       final int ackCounter,
+                                       final Response resp,
+                                       @NotNull final String s,
+                                       @NotNull final HttpSession session) {
+        if (ackCounter >= configuration.ack) {
+            es.execute(
+                    () -> {
+                        try {
+                            session.sendResponse(resp);
+                        } catch (IOException ioException) {
+                            AsyncService.logger.error(s, ioException);
+                        }
+                    }
+            );
+        } else {
+            es.execute(
+                    () -> {
+                        try {
+                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, AsyncService.EMPTY));
+                        } catch (IOException ioException) {
+                            AsyncService.logger.error("Error in sending error", ioException);
+                        }
+                    }
+            );
+        }
     }
 }
