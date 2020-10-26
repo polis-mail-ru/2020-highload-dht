@@ -135,12 +135,12 @@ public class Utility {
     }
     
     /**
-     * Produce List<Future<Response>> over proxy(node, request, service)/
+     * Produce list of responses over proxy(node, request, service)/
      * @param request request for proxy
      * @param configuration replication configuration
      * @param service AsyncService for proxying
      * @param nodes dest nodes
-     * @return List<Future<Response>>
+     * @return list of responses
      */
     @NotNull
     public static List<Future<Response>> getFutures(@NotNull final Request request,
@@ -191,16 +191,49 @@ public class Utility {
         return acceptedCounter;
     }
     
+    /**
+     * Checks is homeNode in nodeReplicas.
+     * @param homeNode homeNode
+     * @param nodeReplicas array of replicas
+     * @return is home in replicas
+     */
+    public static boolean isHomeInReplicas(String homeNode, String... nodeReplicas) {
+        boolean homeInReplicas = false;
+        
+        for (final var node :
+                nodeReplicas) {
+            if (node.equals(homeNode)) {
+                homeInReplicas = true;
+                break;
+            }
+        }
+        return homeInReplicas;
+    }
+    
+    /**
+     * Getting DeadFlagTimeStamp from Table.Value.
+     * @param response response
+     * @return DeadFlagTimeStamp
+     */
     public static long getDeadFlagTimeStamp(@NotNull final Response response) {
         final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
         assert header != null;
         return Long.parseLong(header.value);
     }
     
+    /**
+     * GetFutures and GetValuesFromFutures in one step.
+     * @param request request for GetFutures and GetValuesFromFutures
+     * @param parsed parsed for GetFutures and GetValuesFromFutures
+     * @param service service for GetFutures and GetValuesFromFutures
+     * @param nodeReplicas nodeReplicas for GetFutures and GetValuesFromFutures
+     * @return list of Table.Value
+     */
     @NotNull
     public static List<Table.Value> getValues(@NotNull final Request request,
                                               @NotNull final ReplicationConfiguration parsed,
-                                              AsyncService service, @NotNull final String... nodeReplicas) {
+                                              @NotNull final AsyncService service,
+                                              @NotNull final String... nodeReplicas) {
         final List<Future<Response>> futureResponses = getFutures(request, parsed, service, nodeReplicas);
         return getValuesFromFutures(parsed, futureResponses);
     }

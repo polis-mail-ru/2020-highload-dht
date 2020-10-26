@@ -42,6 +42,7 @@ import static ru.mail.polis.s3ponia.Utility.TIME_HEADER;
 import static ru.mail.polis.s3ponia.Utility.byteBufferFromString;
 import static ru.mail.polis.s3ponia.Utility.getCounter;
 import static ru.mail.polis.s3ponia.Utility.getValues;
+import static ru.mail.polis.s3ponia.Utility.isHomeInReplicas;
 import static ru.mail.polis.s3ponia.Utility.validateId;
 
 public final class AsyncService extends HttpServer implements Service {
@@ -209,7 +210,7 @@ public final class AsyncService extends HttpServer implements Service {
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
         final List<Table.Value> values = getValues(request, parsed, this, nodeReplicas);
-        boolean homeInReplicas = isHomeInReplicas(nodeReplicas);
+        final boolean homeInReplicas = isHomeInReplicas(policy.homeNode(), nodeReplicas);
         
         if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
@@ -253,18 +254,6 @@ public final class AsyncService extends HttpServer implements Service {
             
             return 0;
         };
-    }
-    
-    private boolean isHomeInReplicas(String[] nodeReplicas) {
-        boolean homeInReplicas = false;
-        
-        for (final var node :
-                nodeReplicas) {
-            if (node.equals(policy.homeNode())) {
-                homeInReplicas = true;
-            }
-        }
-        return homeInReplicas;
     }
     
     private ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
@@ -348,7 +337,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
         int createdCounter = getCounter(request, parsed, this, nodes);
         
-        final boolean homeInReplicas = isHomeInReplicas(nodes);
+        final boolean homeInReplicas = isHomeInReplicas(policy.homeNode(), nodes);
         
         if (homeInReplicas) {
             try {
@@ -421,7 +410,7 @@ public final class AsyncService extends HttpServer implements Service {
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
         int acceptedCounter = getCounter(request, parsed, this, nodes);
-        final var homeInReplicas = isHomeInReplicas(nodes);
+        final var homeInReplicas = isHomeInReplicas(policy.homeNode(), nodes);
         
         if (homeInReplicas) {
             try {
