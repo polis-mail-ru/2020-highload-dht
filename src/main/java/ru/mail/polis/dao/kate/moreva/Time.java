@@ -1,10 +1,10 @@
 package ru.mail.polis.dao.kate.moreva;
 
-public class Time {
+public final class Time {
     private static int count;
     private static long lastTime;
 
-    private Time () {
+    private Time() {
         throw new IllegalStateException("Utility class");
     }
 

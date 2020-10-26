@@ -43,7 +43,6 @@ import java.util.stream.Collectors;
  */
 
 public class MySimpleHttpServer extends HttpServer implements Service {
-    private static final String SERVER_ERROR = "Server error can't send response";
     private static final String TIMESTAMP = "Timestamp: ";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final String PROXY_HEADER = "X-Proxy-For:";
@@ -103,11 +102,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        try {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
+        requestHelper.handleResponse(session, Response.BAD_REQUEST);
     }
 
     /**
@@ -116,11 +111,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        try {
-            session.sendResponse(new Response(Response.OK, Response.EMPTY));
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
+        requestHelper.handleResponse(session, Response.OK);
     }
 
     /**
@@ -140,23 +131,21 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             executorService.execute(() -> {
                 if (id.isBlank()) {
                     log.error("Request with empty id on /v0/entity");
-                    handleError(session, Response.BAD_REQUEST);
+                    requestHelper.handleResponse(session, Response.BAD_REQUEST);
                     return;
                 }
                 final boolean isProxy = requestHelper.isProxied(request);
                 final Replicas replicasFactor = isProxy
                         || replicas == null ? Replicas.quorum(nodeClients.size() + 1) : Replicas.parser(replicas);
-
                 if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
-                    handleError(session, Response.BAD_REQUEST);
+                    requestHelper.handleResponse(session, Response.BAD_REQUEST);
                     return;
                 }
                 final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-
                 defineMethod(request, session, key, replicasFactor, isProxy);
             });
         } catch (RejectedExecutionException e) {
-            handleError(session, Response.SERVICE_UNAVAILABLE);
+            requestHelper.handleResponse(session, Response.SERVICE_UNAVAILABLE);
         }
     }
 
@@ -177,10 +166,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 break;
             default:
                 log.error("Not allowed method on /v0/entity");
-                handleError(session, Response.METHOD_NOT_ALLOWED);
+                requestHelper.handleResponse(session, Response.METHOD_NOT_ALLOWED);
                 break;
         }
-
     }
 
     private void getMethod(final ByteBuffer key,
@@ -189,7 +177,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                            final Replicas replicas,
                            final boolean isProxy) {
         if (isProxy) {
-            sendLoggedResponse(session, getEntity(key));
+            requestHelper.sendLoggedResponse(session, getEntity(key));
             return;
         }
         final List<Response> result = replication(getEntity(key), request, key, replicas)
@@ -198,10 +186,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                         || requestHelper.getStatus(resp).equals(Response.NOT_FOUND))
                 .collect(Collectors.toList());
         if (result.size() < replicas.getAck()) {
-            handleError(session, NOT_ENOUGH_REPLICAS);
+            requestHelper.handleResponse(session, NOT_ENOUGH_REPLICAS);
             return;
         }
-        sendLoggedResponse(session, requestHelper.mergeResponses(result));
+        requestHelper.sendLoggedResponse(session, requestHelper.mergeResponses(result));
     }
 
     /**
@@ -241,14 +229,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                            final Replicas replicas,
                            final boolean isProxy) {
         if (isProxy) {
-            sendLoggedResponse(session, putEntity(key, request));
+            requestHelper.sendLoggedResponse(session, putEntity(key, request));
             return;
         }
         final List<Response> result = replication(putEntity(key, request), request, key, replicas)
                 .stream()
                 .filter(response -> requestHelper.getStatus(response).equals(Response.CREATED))
                 .collect(Collectors.toList());
-        correctReplication(result.size(), replicas, session, Response.CREATED);
+        requestHelper.correctReplication(result.size(), replicas, session, Response.CREATED);
     }
 
     /**
@@ -271,14 +259,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                               final HttpSession session,
                               final Replicas replicas, final boolean isProxy) {
         if (isProxy) {
-            sendLoggedResponse(session, deleteEntity(key));
+            requestHelper.sendLoggedResponse(session, deleteEntity(key));
             return;
         }
         final List<Response> result = replication(deleteEntity(key), request, key, replicas)
                 .stream()
                 .filter(response -> requestHelper.getStatus(response).equals(Response.ACCEPTED))
                 .collect(Collectors.toList());
-        correctReplication(result.size(), replicas, session, Response.ACCEPTED);
+        requestHelper.correctReplication(result.size(), replicas, session, Response.ACCEPTED);
     }
 
     /**
@@ -293,21 +281,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         } catch (IOException e) {
             log.error("DELETE method failed on /v0/entity for id {}.", key.get(), e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
-    private void correctReplication(final int ack,
-                                    final Replicas replicas,
-                                    final HttpSession session,
-                                    final String response) {
-        try {
-            if (ack < replicas.getAck()) {
-                handleError(session, NOT_ENOUGH_REPLICAS);
-            } else {
-                session.sendResponse(new Response(response, Response.EMPTY));
-            }
-        } catch (IOException e) {
-            handleError(session, Response.INTERNAL_ERROR);
         }
     }
 
@@ -335,23 +308,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             log.error("Proxy request error", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-    }
-
-    private void sendLoggedResponse(final HttpSession session, final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
-    }
-
-    private void handleError(final HttpSession session, final String response) {
-        try {
-            session.sendResponse(new Response(response, Response.EMPTY));
-        } catch (IOException e) {
-            log.error(SERVER_ERROR, e);
-        }
-
     }
 
     @Override
