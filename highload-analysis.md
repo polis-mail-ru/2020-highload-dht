@@ -13,59 +13,63 @@
 ```
 
 ![CPU PUT](/async/cpu-put.svg)
-Деление ресурсов между потоком работы и селектором делится в соответствии 63.55% и 30.30%. На пересылку запроса(функция passOn) тратится примерно 20.69%, на саму функцию put 19.21%.
+На поток-обработчик теперь тратится сравнительно больше ресурсов CPU, нежели чем на пул рабочих потоков. Было 78%/22%; стало 70%/27%.
+
+Рабочие потоки теперь также тратят ресурсы CPU на передачу запроса на другой узел (метод passOnInternal), который ответственен за исполнение операции и передачу клиенту ответа. А именно, 19% всех ресурсов CPU тратит на данное действие. При этом передача клиенту ответа занимает сравнительно меньшее количество ресурсов, нежели передача делегированному узлу и получение от него ответа.
 
 ```
 /async-profiler -d 15 -f alloc-put.svg -e alloc 291344
 ```
 
 ![ALLOC PUT](/async/alloc-put.svg)
-В данном случае поток работы занимает 70.25% ресурсов, из которых на пересылку тратится 43.15% а на выполнение put-а 25.16%. На селектор тратится 29.75%.
+Видно, что на новой диаграмме появились траты на ресурсы памяти из-за наличия операции passOnInternal, которая выполняет делегирование обработки запроса иному узлу. Большую часть расходов при этой операции берёт на себя метод invoke() класса HttpClient, скорей всего, для хранения результата ответа в виде массива байт. Остальная часть диаграммы изменилась незначительно.
 
 ```
 /async-profiler -d 15 -f lock-put.svg -e lock 291344
 ```
 
 ![LOCK PUT](/async/lock-put.svg)
-Блокировки потоков работы отнимают практически 100%.
+При сравнении диаграмм, ясно видно, что теперь ожидания на блокировках в потоке, отвечающем за обработку HTTP-запросов, значительно дольше. На рабочие потоки ожидание приходилось 59%, на поток-обработчик - 41%. Теперь же на рабочие - 44%, на поток-обработчик - 56%. В новом коде методы put, get и delete объединены в метод handleEntityRequest. Так как данный результат профилирования был направлен на выполнение операции put, можем считать метод put старого кода равнозначным методу handleEntityRequest нового кода. Ввиду вышесказанного заметим, что в новой диаграмме появилось дополнительное ожидание при выполнении handleEntityRequest, связанное с тем, что при делегировании обработки HTTP-запроса иному узлу, необходимо делегировать передачу запроса другому узлу рабочему потоку, но все потоки могут быть в данный момент уже заняты, поэтому при выполнении execute() класса ThreadPoolExecutor может происходить ожидание. На диаграмме предыдущего этапа такого нет. Тем не менее при выполнении операции put/handleEntityRequest на обоих диаграммах видим подобное поведение, как результат занятости рабочих потоков.
+
+Когда рабочие потоки не заняты, они ожидают задачи, что видно на левых частях диаграммы. Метод take класса ArrayBlockingQueue ожидает поступления задачи рабочему потоку от потока SelectorThread. В этом нюансе обе диаграммы имеют близкие структуры.
 
 ```
-wrk2 -t4 -c64 -d2m -R5000 -s wrk/put.lua —latency http://127.0.0.1:8080
+wrk2 -t4 -c64 -d2m -R5000 -s wrk/put.lua --latency http://127.0.0.1:8080
 Running 2m test @ http://127.0.0.1:8080
-4 threads and 64 connections
-Thread calibration: mean lat.: 2.857ms, rate sampling interval: 10ms
-Thread calibration: mean lat.: 2.903ms, rate sampling interval: 10ms
-Thread calibration: mean lat.: 2.962ms, rate sampling interval: 10ms
-Thread calibration: mean lat.: 2.822ms, rate sampling interval: 10ms
-Thread Stats Avg Stdev Max +/- Stdev
-Latency 3.92ms 14.27ms 193.41ms 95.26%
-Req/Sec 1.32k 245.42 5.33k 94.05%
-Latency Distribution (HdrHistogram - Recorded Latency)
-50.000% 1.06ms
-75.000% 1.45ms
-90.000% 2.08ms
-99.000% 83.07ms
-99.900% 154.24ms
-99.990% 178.94ms
-99.999% 189.95ms
-100.000% 193.54ms
+  4 threads and 64 connections
+  Thread calibration: mean lat.: 1.351ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.352ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.357ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.337ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.21ms  633.99us  23.90ms   78.84%
+    Req/Sec     1.32k   117.66     3.11k    76.61%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    1.15ms
+ 75.000%    1.54ms
+ 90.000%    1.88ms
+ 99.000%    2.57ms
+ 99.900%    7.20ms
+ 99.990%   16.99ms
+ 99.999%   20.53ms
+100.000%   23.92ms
  
-#[Mean = 3.925, StdDeviation = 14.267]
-#[Max = 193.408, Total count = 549592]
-#[Buckets = 27, SubBuckets = 2048]
+#[Mean    =        1.215, StdDeviation   =        0.634]
+#[Max     =       23.904, Total count    =       549597]
+#[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
- 
-599834 requests in 2.00m, 52.06MB read
-Requests/sec: 4998.64
-Transfer/sec: 444.22KB 
-Transfer/sec: 445.48KB
+  599836 requests in 2.00m, 52.06MB read
+Requests/sec:   4998.68
+Transfer/sec:    444.22KB
 ```
 Итоги:
 <ol>
-<li>обработано 599834 запроса за 2 минуты</li>
+<li>обработано 599836 запроса за 2 минуты</li>
 <li>прочитано 52.06MB данных</li>
-<li>сервер держит заданную нагрузку на уровне 4998.64 запросов в секунду</li>
+<li>сервер держит заданную нагрузку на уровне 4998.68 запросов в секунду</li>
 </ol>
+
+Видно, что скорость обработки запросов по сравнению с предыдущей реализацией (без шардирования) уменьшилась в 2 раза (9997.98/4998.68 = 2), что связано с накладными расходами на делегирование некоторых запросов ответственным за их исполнение узлам.
 
 ### GET 
 
@@ -82,54 +86,59 @@ Transfer/sec: 445.48KB
 ```
 
 ![CPU GET](/async/cpu-get.svg)
-Деление ресурсов между потоком работы и селектором делится в соответствии 64.51% и 29.01%. На пересылки тратится примерно 23.669%, на саму функцию get 18.87%.
+Подобно результату анализа диаграмм для cpu-put, здесь мы наблюдаем дополнительные траты процессорных ресурсов на делегирование выполнения операции другому узлу.
+
+Заметим, что вместо метода putInternal, здесь на обоих диаграммах мы видим метод getInternal.
 
 ```
 /async-profiler -d 15 -f alloc-get.svg -e alloc 291344
 ```
 
 ![ALLOC GET](/async/alloc-get.svg)
-В данном случае поток работы занимает 74.16% ресурсов, из которых на пересылку тратится 50.76% а на выполнение get-а 20.34%. На селектор тратится 25.84%.
+Подобно результату анализа диаграмм для alloc-put, здесь мы наблюдаем дополнительные затраты на память при исполнении метода passOnInternal(), отвечающего за делегирование обработки запроса другим узлом. Также, заметим, что поток, обрабатывающий запросы (SelectorThread), тратит дополнительные ресурсы памяти при делегировании обработки операции passOn рабочему потоку из пула.
 
 ```
 /async-profiler -d 15 -f lock-get.svg -e lock 291344
 ```
 
 ![LOCK GET](/async/lock-get.svg)
-Блокировки потоков работы отнимают практически 100%.
+По аналогии с результатами анализа сравнения диаграмм при профилировании lock-put, видим, что дополнительные ожидания появились ввиду наличия делегирования ответственному за выполнение операции узлу.
 
-```
-wrk2 -t4 -c64 -d2m -R5000 -s wrk/get.lua —latency http://127.0.0.1:8080
+``` 
+wrk2 -t4 -c64 -d2m -R5000 -s wrk/get.lua --latency http://127.0.0.1:8080
 Running 2m test @ http://127.0.0.1:8080
-4 threads and 64 connections
-Thread calibration: mean lat.: 1.314ms, rate sampling interval: 10ms
-Thread calibration: mean lat.: 1.325ms, rate sampling interval: 10ms
-Thread calibration: mean lat.: 1.313ms, rate sampling interval: 10ms
-Thread calibration: mean lat.: 1.305ms, rate sampling interval: 10ms
-Thread Stats Avg Stdev Max +/- Stdev
-Latency 3.85ms 12.85ms 173.06ms 94.86%
-Req/Sec 1.32k 237.91 6.00k 91.34%
-Latency Distribution (HdrHistogram - Recorded Latency)
-50.000% 1.07ms
-75.000% 1.47ms
-90.000% 3.50ms
-99.000% 68.42ms
-99.900% 140.29ms
-99.990% 158.98ms
-99.999% 169.98ms
-100.000% 173.18ms
+  4 threads and 64 connections
+  Thread calibration: mean lat.: 1.165ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.167ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.152ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.160ms, rate sampling interval: 10ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.20ms  689.97us  23.82ms   83.71%
+    Req/Sec     1.32k   130.19     3.78k    86.60%
+  Latency Distribution (HdrHistogram - Recorded Latency)
+ 50.000%    1.14ms
+ 75.000%    1.51ms
+ 90.000%    1.85ms
+ 99.000%    2.74ms
+ 99.900%    9.12ms
+ 99.990%   16.82ms
+ 99.999%   21.17ms
+100.000%   23.84ms
  
-#[Mean = 3.846, StdDeviation = 12.850]
-#[Max = 173.056, Total count = 549595]
-#[Buckets = 27, SubBuckets = 2048]
+#[Mean    =        1.204, StdDeviation   =        0.690]
+#[Max     =       23.824, Total count    =       549598]
+#[Buckets =           27, SubBuckets     =         2048]
 ----------------------------------------------------------
-599836 requests in 2.00m, 52.20MB read
-Requests/sec: 4998.63
-Transfer/sec: 445.48KB
+  599835 requests in 2.00m, 52.20MB read
+Requests/sec:   4998.66
+Transfer/sec:    445.48KB
+
 ```
 Итоги:
 <ol>
-<li>обработано 599836 запроса за 2 минуты</li>
+<li>обработано 599835 запроса за 2 минуты</li>
 <li>прочитано 52.20MB данных</li>
-<li>сервер держит заданную нагрузку на уровне 4998.63 запросов в секунду</li>
+<li>сервер держит заданную нагрузку на уровне 4998.66 запросов в секунду</li>
 </ol>
+
+Как видно, последствия шардирования таким же образом повлияли при использовании метода get, как и при put, т.е. скорость исполнения запросов понизилась в 2 раза, что можно объяснить тем, что запросы get также делегируются ответственным за исполнение узлам.

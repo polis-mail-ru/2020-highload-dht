@@ -9,6 +9,7 @@ import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -18,7 +19,8 @@ public class RendezvousSharding {
     private final Set<String> nodes;
     private final String currentNode;
     private final Map<String, HttpClient> clients;
-    private static final String TIMEOUT_SUFFIX = "?timeout=100";
+    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofMillis(100);
+    private static final String TIMEOUT_QUERY_PARAM = "?timeout=";
 
     /**
      * Constructor for RendezvousSharding.
@@ -33,7 +35,8 @@ public class RendezvousSharding {
         clients = new HashMap<>();
         for (final String node : nodes) {
             if (!node.equals(currentNode)) {
-                clients.put(node, new HttpClient(new ConnectionString(node + TIMEOUT_SUFFIX)));
+                clients.put(node, new HttpClient(new ConnectionString(node +
+                        TIMEOUT_QUERY_PARAM + HTTP_CLIENT_TIMEOUT.toMillis())));
             }
         }
     }
