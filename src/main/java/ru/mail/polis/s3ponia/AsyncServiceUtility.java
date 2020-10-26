@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -30,7 +31,7 @@ public final class AsyncServiceUtility {
      * @param key     key for upserting
      * @param value   value for upserting
      * @param session HttpSession for response
-     * @param dao
+     * @param dao dao to upsert
      * @throws IOException rethrow from sendResponse
      */
     public static void upsertWithTimeStamp(@NotNull final ByteBuffer key,
@@ -44,6 +45,23 @@ public final class AsyncServiceUtility {
         } catch (IOException ioException) {
             AsyncService.logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
                     key.capacity(), value.capacity(), ioException);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+    
+    
+    public static void getRaw(@NotNull final ByteBuffer key,
+                              @NotNull final HttpSession session,
+                              @NotNull final DAO dao) throws IOException {
+        try {
+            final var val = dao.getRaw(key);
+            final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
+            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
+            session.sendResponse(resp);
+        } catch (NoSuchElementException noSuchElementException) {
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        } catch (IOException ioException) {
+            AsyncService.logger.error("IOException in getting key(size: {}) from dao", key.capacity(), ioException);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }

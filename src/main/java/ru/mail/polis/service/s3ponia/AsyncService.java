@@ -97,11 +97,7 @@ public final class AsyncService extends HttpServer implements Service {
     public void status(final HttpSession session) throws IOException {
         try {
             this.es.execute(() -> {
-                try {
-                    session.sendResponse(Response.ok("OK"));
-                } catch (IOException e) {
-                    logger.error("Error in sending status", e);
-                }
+                handleStatusError(session);
             });
         } catch (RejectedExecutionException e) {
             logger.error("Internal error in status handling", e);
@@ -109,17 +105,11 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    private void getRaw(@NotNull final ByteBuffer key, @NotNull final HttpSession session) throws IOException {
+    private void handleStatusError(HttpSession session) {
         try {
-            final var val = dao.getRaw(key);
-            final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
-            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
-            session.sendResponse(resp);
-        } catch (NoSuchElementException noSuchElementException) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("IOException in getting key(size: {}) from dao", key.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            session.sendResponse(Response.ok("OK"));
+        } catch (IOException e) {
+            logger.error("Error in sending status", e);
         }
     }
     
@@ -143,7 +133,7 @@ public final class AsyncService extends HttpServer implements Service {
         if (request.getHeader(Utility.PROXY_HEADER) != null) {
             this.es.execute(() -> {
                 try {
-                    getRaw(key, session);
+                    AsyncServiceUtility.getRaw(key, session, this.dao);
                 } catch (IOException ioException) {
                     logger.error("Error in raw getting.", ioException);
                 }

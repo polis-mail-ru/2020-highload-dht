@@ -3,16 +3,13 @@ package ru.mail.polis.s3ponia;
 import com.google.common.base.Splitter;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
