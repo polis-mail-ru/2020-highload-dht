@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
 public class ReplicationLsm {
@@ -37,11 +36,10 @@ public class ReplicationLsm {
     /**
      * class const.
      *
-     * @param dao DAO instance
-     * @param workerPoolSize selector pool size
-     * @param queueSize blocking queue capacity
-     * @param topology topology implementation instance
-     * @param timeout connection timeout
+     * @param dao - DAO instance
+     * @param topology - topology implementation instance
+     * @param nodesToClients - HashMap-implemented mapping available nodes over HTTP clients
+     * @param repliFactor - replication factor
      */
     ReplicationLsm(@NotNull final DAO dao,
             @NotNull final Topology<String> topology,
@@ -136,7 +134,7 @@ public class ReplicationLsm {
      * PUT handler impl for single node topology.
      *
      * @param key - target key
-     * @param byteVal byte array processed as a key-bound value
+     * @param byteVal - byte array processed as a key-bound value
      * @param req - HTTP request
      * @return HTTP response
      */
@@ -166,7 +164,7 @@ public class ReplicationLsm {
      * PUT handler applicable for multi-node topology.
      *
      * @param id - key searched
-     * @param value byte array processed as a key-bound value
+     * @param value - byte array processed as a key-bound value
      * @param ackValue - replication quorum factor ('ack' parameter)
      * @param isForwardedRequest - true if incoming request header indicates
      *                           invocation of proxy-providing method on a previous node
@@ -216,7 +214,7 @@ public class ReplicationLsm {
      * DELETE handler impl for single node topology.
      *
      * @param key - target key
-     * @param req HTTP request
+     * @param req - HTTP request
      * @return HTTP response
      */
     Response deleteWithOnlyNode(
@@ -291,7 +289,7 @@ public class ReplicationLsm {
     /**
      * implements request proxying in case of mismatching current receiver ID (self ID) and target one.
      *
-     * @param nodeId request forwarding node ID
+     * @param nodeId - request forwarding node ID
      * @param req HTTP request
      */
     private Response proxy(@NotNull final String nodeId, @NotNull final Request req) {

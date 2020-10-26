@@ -16,8 +16,8 @@ public class ModularTopology implements Topology<String> {
     /**
      * topology impl class const.
      *
-     * @param nodes set of cluster-establishing nodes
-     * @param thisNode node which is distinguished as a current request handler
+     * @param nodes - set of cluster-establishing nodes
+     * @param thisNode - node which is distinguished as a current request handler
      */
     public ModularTopology(@NotNull final Set<String> nodes, @NotNull final String thisNode) {
 
@@ -47,7 +47,7 @@ public class ModularTopology implements Topology<String> {
      * generates array containing node replica IDs.
      *
      * @param id - node ID
-     * @param numOfReplicas number of node replicas
+     * @param numOfReplicas - number of node replicas
      * @return array of String-defined IDs
      */
     @NotNull
@@ -68,7 +68,7 @@ public class ModularTopology implements Topology<String> {
     /**
      * evaluates if current node ID matches target one.
      *
-     * @param nodeId currently working node ID
+     * @param nodeId - currently working node ID
      * @return true if ID match found, otherwise false
      */
     @Override

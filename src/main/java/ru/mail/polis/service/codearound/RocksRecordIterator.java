@@ -17,6 +17,8 @@ public class RocksRecordIterator implements Iterator<Record> {
 
     /**
      * enables iterator move to next element of stuff within file content.
+     *
+     * @return true if current element followed by another else
      */
     @Override
     public boolean hasNext() {
@@ -25,6 +27,8 @@ public class RocksRecordIterator implements Iterator<Record> {
 
     /**
      * performs evaluation of an element (record) at next step of file reading by iterator.
+     *
+     * @return Record instance
      */
     @Override
     public Record next() {

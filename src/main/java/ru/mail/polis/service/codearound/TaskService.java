@@ -45,8 +45,8 @@ public class TaskService extends HttpServer implements Service {
     /**
      * returns server status info, feed to respective requests as well.
      *
-     * @param id key either to push a new record or to modify existing one
-     * @param req client request
+     * @param id - key either to push a new record or to modify existing one
+     * @param req - client request
      * @return server response
      */
     @Path("/v0/entity")
@@ -96,7 +96,7 @@ public class TaskService extends HttpServer implements Service {
      * PUT request handler.
      *
      * @param key - key searched
-     * @param req client request
+     * @param req - client request
      * @return server response
      */
     private Response upsert(final ByteBuffer key, final Request req) {
@@ -129,7 +129,7 @@ public class TaskService extends HttpServer implements Service {
     /**
      * default handler.
      *
-     * @param req client request
+     * @param req - client request
      * @param session ongoing session instance
      */
     @Override
@@ -140,7 +140,7 @@ public class TaskService extends HttpServer implements Service {
     /**
      * duplicates key searched.
      *
-     * @param key key searched
+     * @param key - key searched
      * @return copy of key
      */
     public ByteBuffer duplicateValue(final ByteBuffer key) {

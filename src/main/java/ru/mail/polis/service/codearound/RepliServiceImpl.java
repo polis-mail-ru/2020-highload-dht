@@ -44,12 +44,12 @@ public class RepliServiceImpl extends HttpServer implements Service {
     /**
      * class const.
      *
-     * @param port request listening and entrance port
-     * @param dao DAO instance
-     * @param workerPoolSize selector pool size
-     * @param queueSize blocking queue capacity
-     * @param topology topology implementation instance
-     * @param timeout connection timeout
+     * @param port - request listening and entrance port
+     * @param dao - DAO instance
+     * @param workerPoolSize - selector pool size
+     * @param queueSize - blocking queue capacity
+     * @param topology - topology implementation instance
+     * @param timeout - connection timeout
      */
     public RepliServiceImpl(final int port,
                             @NotNull final DAO dao,
@@ -91,7 +91,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
     /**
      * handles formation request to inform client the server is alive and ready to exchange.
      *
-     * @param session ongoing session instance
+     * @param session - ongoing session instance
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) throws IOException {
@@ -101,9 +101,9 @@ public class RepliServiceImpl extends HttpServer implements Service {
     /**
      * resolves request handling by HTTP REST methods, provides any client with response (incl. server outcome code).
      *
-     * @param id String object to be processed as a key in terms of data storage design
-     * @param req HTTP request
-     * @param session ongoing session instance
+     * @param id - String object to be processed as a key in terms of data storage design
+     * @param req - HTTP request
+     * @param session - ongoing session instance
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
@@ -174,8 +174,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
     /**
      * handler determined to run by default.
      *
-     * @param req client host request
-     * @param session ongoing session instance
+     * @param req - client host request
+     * @param session - ongoing session instance
      */
     @Override
     public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {

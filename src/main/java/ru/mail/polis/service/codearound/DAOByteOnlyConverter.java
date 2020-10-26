@@ -13,7 +13,7 @@ public final class DAOByteOnlyConverter {
     /**
      * applies size manipulation to ensure proper conversion from ByteBuffer object to plain byte array.
      *
-     * @param buf ByteBuffer object to be arithmetically tuned to byte array
+     * @param buf - ByteBuffer object to be arithmetically tuned to byte array
      * @return a byte array object
      */
     public static byte[] tuneBufToArray(final ByteBuffer buf) {
@@ -28,7 +28,7 @@ public final class DAOByteOnlyConverter {
     /**
      * applies size manipulation to ensure proper conversion from byte array to ByteBuffer instance.
      *
-     * @param byteArray byte array to be arithmetically tuned to ByteBuffer instance
+     * @param byteArray - byte array to be arithmetically tuned to ByteBuffer instance
      * @return ByteBuffer object
      */
     public static ByteBuffer tuneArrayToBuf(final byte[] byteArray) {
@@ -42,7 +42,7 @@ public final class DAOByteOnlyConverter {
     /**
      * converts ByteBuffer-defined value to byte array.
      *
-     * @param buf ByteBuffer object to be handled to return byte array.
+     * @param buf - ByteBuffer object to be handled to return byte array.
      * @return byte array object
      */
     public static byte[] readByteArray(final ByteBuffer buf) {

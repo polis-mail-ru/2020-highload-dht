@@ -35,7 +35,7 @@ public final class Value {
      * resolves handling value as an existing one.
      *
      * @param buffer - some value
-     * @param timestamp - timestamp to trace back value modification moment
+     * @param timestamp - timestamp to enable tracing back value modification moment
      * @return Value instance
      */
     public static Value resolveExistingValue(final ByteBuffer buffer, final long timestamp) {
@@ -45,7 +45,7 @@ public final class Value {
     /**
      * resolves handling value as a deleted one.
      *
-     * @param timestamp - timestamp to trace back value modification moment
+     * @param timestamp - timestamp to enable tracing back value modification moment
      * @return Value instance
      */
     public static Value resolveDeletedValue(final long timestamp) {
