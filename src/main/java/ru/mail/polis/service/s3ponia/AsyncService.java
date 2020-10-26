@@ -22,7 +22,6 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -30,9 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +41,7 @@ import static ru.mail.polis.s3ponia.Utility.ReplicationConfiguration;
 import static ru.mail.polis.s3ponia.Utility.TIME_HEADER;
 import static ru.mail.polis.s3ponia.Utility.byteBufferFromString;
 import static ru.mail.polis.s3ponia.Utility.getCounter;
-import static ru.mail.polis.s3ponia.Utility.getFutures;
+import static ru.mail.polis.s3ponia.Utility.getValues;
 import static ru.mail.polis.s3ponia.Utility.validateId;
 
 public final class AsyncService extends HttpServer implements Service {
@@ -180,12 +177,6 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    private static long getDeadFlagTimeStamp(@NotNull final Response response) {
-        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
-        assert header != null;
-        return Long.parseLong(header.value);
-    }
-    
     /**
      * Basic implementation of http get handling.
      *
@@ -217,7 +208,7 @@ public final class AsyncService extends HttpServer implements Service {
         if (parsed == null) return;
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final List<Table.Value> values = getValues(request, parsed, nodeReplicas);
+        final List<Table.Value> values = getValues(request, parsed, this, nodeReplicas);
         boolean homeInReplicas = isHomeInReplicas(nodeReplicas);
         
         if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
@@ -274,36 +265,6 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         return homeInReplicas;
-    }
-    
-    @NotNull
-    private List<Table.Value> getValues(@NotNull final Request request,
-                                        @NotNull final ReplicationConfiguration parsed,
-                                        @NotNull final String... nodeReplicas) {
-        final List<Future<Response>> futureResponses = getFutures(request, parsed, this, nodeReplicas);
-        return getValuesFromFutures(parsed, futureResponses);
-    }
-    
-    @NotNull
-    private List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration parsed,
-                                                   @NotNull final List<Future<Response>> futureResponses) {
-        final List<Table.Value> values = new ArrayList<>(parsed.from);
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error in proxing");
-                continue;
-            }
-            if (response != null && response.getStatus() == 200 /* OK */) {
-                final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
-                        getDeadFlagTimeStamp(response), -1);
-                values.add(val);
-            }
-        }
-        return values;
     }
     
     private ReplicationConfiguration parseAndValidateReplicas(final String replicas) {

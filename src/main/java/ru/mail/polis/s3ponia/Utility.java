@@ -6,6 +6,7 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
 
 import java.io.IOException;
@@ -188,5 +189,40 @@ public class Utility {
             }
         }
         return acceptedCounter;
+    }
+    
+    public static long getDeadFlagTimeStamp(@NotNull final Response response) {
+        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
+        assert header != null;
+        return Long.parseLong(header.value);
+    }
+    
+    @NotNull
+    public static List<Table.Value> getValues(@NotNull final Request request,
+                                              @NotNull final ReplicationConfiguration parsed,
+                                              AsyncService service, @NotNull final String... nodeReplicas) {
+        final List<Future<Response>> futureResponses = getFutures(request, parsed, service, nodeReplicas);
+        return getValuesFromFutures(parsed, futureResponses);
+    }
+    
+    @NotNull
+    public static List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration parsed,
+                                                         @NotNull final List<Future<Response>> futureResponses) {
+        final List<Table.Value> values = new ArrayList<>(parsed.from);
+        for (final var resp :
+                futureResponses) {
+            final Response response;
+            try {
+                response = resp.get();
+            } catch (InterruptedException | ExecutionException e) {
+                continue;
+            }
+            if (response != null && response.getStatus() == 200 /* OK */) {
+                final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
+                        getDeadFlagTimeStamp(response), -1);
+                values.add(val);
+            }
+        }
+        return values;
     }
 }
