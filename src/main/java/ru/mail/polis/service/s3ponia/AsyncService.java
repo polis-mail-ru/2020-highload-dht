@@ -517,7 +517,7 @@ public final class AsyncService extends HttpServer implements Service {
     
     private int getCounter(@NotNull final Request request,
                            @NotNull final Utility.ReplicationConfiguration parsed,
-                           @NotNull final String[] nodes) {
+                           @NotNull final String... nodes) {
         final List<Future<Response>> futureResponses = getFutures(request, parsed, nodes);
         
         int acceptedCounter = 0;
@@ -541,7 +541,7 @@ public final class AsyncService extends HttpServer implements Service {
     @NotNull
     private List<Future<Response>> getFutures(@NotNull final Request request,
                                               @NotNull final Utility.ReplicationConfiguration parsed,
-                                              @NotNull final String[] nodes) {
+                                              @NotNull final String... nodes) {
         final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
         
         for (final var node :

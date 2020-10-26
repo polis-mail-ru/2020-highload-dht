@@ -49,7 +49,8 @@ public class ModularPolicy implements ShardingPolicy<ByteBuffer, String> {
     
     @NotNull
     @Override
-    public String[] getNodeReplicas(@NotNull ByteBuffer key, final int replicas) {
+    public String[] getNodeReplicas(@NotNull final ByteBuffer key,
+                                    final int replicas) {
         final long startNodeId = keysHashFunction.apply(key) & Integer.MAX_VALUE;
         final String[] nodeReplicas = new String[replicas];
         for (int i = 0; i < replicas; i++) {
