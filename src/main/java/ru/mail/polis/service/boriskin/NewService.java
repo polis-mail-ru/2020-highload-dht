@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -115,9 +116,7 @@ public class NewService extends HttpServer implements Service {
         idValidation(id, httpSession);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        getting(
-                key,
-                httpSession);
+        getting(key, httpSession);
     }
 
     /**
@@ -136,10 +135,7 @@ public class NewService extends HttpServer implements Service {
         idValidation(id, httpSession);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        upserting(
-                key,
-                request,
-                httpSession);
+        upserting(key, request, httpSession);
     }
 
     /**
@@ -156,33 +152,31 @@ public class NewService extends HttpServer implements Service {
         idValidation(id, httpSession);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        removing(
-                key,
-                httpSession);
+        removing(key, httpSession);
     }
 
     private void idValidation(
             @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
-            try {
-                httpSession.sendResponse(resp(Response.BAD_REQUEST));
-            } catch (IOException ioException) {
-                logger.error("Не плучается отправить запрос", ioException);
-            }
+            resp(httpSession, Response.BAD_REQUEST);
         }
     }
 
     private void getting(
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                doGet(key, httpSession);
-            } catch (IOException ioException) {
-                logger.error("Ошибка в getting ", ioException);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    doGet(key, httpSession);
+                } catch (IOException ioException) {
+                    logger.error("Ошибка в getting ", ioException);
+                }
+            });
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            respServiceUnavailable(httpSession, rejectedExecutionException);
+        }
     }
 
     private void doGet(
@@ -190,14 +184,12 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) throws IOException {
         try {
             httpSession.sendResponse(
-                    Response.ok(
-                            toByteArray(dao.get(key)))
-            );
+                    Response.ok(toByteArray(dao.get(key))));
         } catch (NoSuchElementException e) {
-            httpSession.sendResponse(resp(Response.NOT_FOUND));
+            resp(httpSession, Response.NOT_FOUND);
         } catch (IOException ioException) {
             logger.error("Ошибка в GET: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
@@ -206,16 +198,17 @@ public class NewService extends HttpServer implements Service {
             final Request request,
             @NotNull final HttpSession httpSession) {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-        executorService.execute(() -> {
-            try {
-                doUpsert(
-                        key,
-                        httpSession,
-                        value);
-            } catch (IOException ioException) {
-                logger.error("Ошибка в upserting ", ioException);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    doUpsert(key, httpSession, value);
+                } catch (IOException ioException) {
+                    logger.error("Ошибка в upserting ", ioException);
+                }
+            });
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            respServiceUnavailable(httpSession, rejectedExecutionException);
+        }
     }
 
     private void doUpsert(
@@ -224,25 +217,27 @@ public class NewService extends HttpServer implements Service {
             final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
-            httpSession.sendResponse(resp(Response.CREATED));
+            resp(httpSession, Response.CREATED);
         } catch (IOException ioException) {
             logger.error("Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
     private void removing(
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                doRemove(
-                        key,
-                        httpSession);
-            } catch (IOException ioException) {
-                logger.error("Ошибка в removing ", ioException);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    doRemove(key, httpSession);
+                } catch (IOException ioException) {
+                    logger.error("Ошибка в removing ", ioException);
+                }
+            });
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            respServiceUnavailable(httpSession, rejectedExecutionException);
+        }
     }
 
     private void doRemove(
@@ -250,13 +245,18 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) throws IOException {
         try {
             dao.remove(key);
-            httpSession.sendResponse(
-                    resp(Response.ACCEPTED)
-            );
+            resp(httpSession, Response.ACCEPTED);
         } catch (IOException ioException) {
             logger.error("Ошибка в DELETE: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
+    }
+
+    private void respServiceUnavailable(
+            @NotNull final HttpSession httpSession,
+            @NotNull final RejectedExecutionException rejectedExecutionException) {
+        logger.error("Ошибка при выполнении операции ", rejectedExecutionException);
+        resp(httpSession, Response.SERVICE_UNAVAILABLE);
     }
 
     /**
@@ -266,13 +266,11 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                httpSession.sendResponse(Response.ok("OK"));
-            } catch (IOException ioException) {
-                logger.error("Ошибка при ответе", ioException);
-            }
-        });
+        try {
+            httpSession.sendResponse(Response.ok("OK"));
+        } catch (IOException ioException) {
+            logger.error("Ошибка при ответе ", ioException);
+        }
     }
 
     /**
@@ -280,19 +278,23 @@ public class NewService extends HttpServer implements Service {
      *
      * @param request Запрос
      * @param httpSession Диалоговое состояние
-     * @throws IOException Возможна проблема ввода-вывода
      */
     @Override
     public void handleDefault(
             final Request request,
-            final HttpSession httpSession
-    ) throws IOException {
+            final HttpSession httpSession) {
         logger.error("Непонятный запрос: {}", request);
-        httpSession.sendResponse(resp(Response.BAD_REQUEST));
+        resp(httpSession, Response.BAD_REQUEST);
     }
 
-    private Response resp(final String response) {
-        return new Response(response, Response.EMPTY);
+    private void resp(
+            @NotNull final HttpSession httpSession,
+            @NotNull final String response) {
+        try {
+            httpSession.sendResponse(new Response(response, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("Ошибка при отправке ответа ({}) ", response, ioException);
+        }
     }
 
     @Override
