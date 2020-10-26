@@ -19,6 +19,7 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.manikhin.AsyncServiceImpl;
+import ru.mail.polis.service.manikhin.Topology;
 
 import java.io.IOException;
 import java.util.Set;
@@ -56,6 +57,9 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new AsyncServiceImpl(port, dao, Runtime.getRuntime().availableProcessors(), 1024);
+        final int countWorkers = Runtime.getRuntime().availableProcessors();
+        final Topology nodes = new Topology(topology, "http://localhost:" + port);
+
+        return new AsyncServiceImpl(port, dao, nodes, countWorkers, 1024, 100);
     }
 }
