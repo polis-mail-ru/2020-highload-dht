@@ -134,6 +134,13 @@ public interface DAO extends Closeable {
      * Removes value by given key.
      */
     void remove(@NotNull ByteBuffer key) throws IOException;
+    
+    /**
+     * Inserts or updates value by given key.
+     */
+    void removeWithTimeStamp(
+            @NotNull ByteBuffer key,
+            final long timeStamp) throws IOException;
 
     /**
      * Perform compaction

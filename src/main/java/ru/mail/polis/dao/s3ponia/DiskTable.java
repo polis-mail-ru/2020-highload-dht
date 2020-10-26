@@ -6,7 +6,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
@@ -18,9 +17,9 @@ public class DiskTable implements Closeable, Table {
     private final int[] shifts;
     private final int generation;
     private final FileChannel fileChannel;
-
+    
     private final Path filePath;
-
+    
     public Path getFilePath() {
         return filePath;
     }
@@ -192,32 +191,32 @@ public class DiskTable implements Closeable, Table {
         buff.flip().asIntBuffer().get(shifts);
         shifts[elementsQuantity] = arrayShift;
     }
-
+    
     @Override
     public int getGeneration() {
         return generation;
     }
-
+    
     @Override
     public int size() {
         return shifts.length;
     }
-
+    
     @Override
     public Iterator<Table.ICell> iterator() {
         return new DiskTableIterator();
     }
-
+    
     @Override
     public Iterator<Table.ICell> iterator(@NotNull final ByteBuffer from) {
         return new DiskTableIterator(from);
     }
-
+    
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException();
@@ -232,7 +231,12 @@ public class DiskTable implements Closeable, Table {
     public void remove(@NotNull final ByteBuffer key) {
         throw new UnsupportedOperationException();
     }
-
+    
+    @Override
+    public void removeWithTimeStamp(@NotNull ByteBuffer key, long timeStamp) {
+        throw new UnsupportedOperationException();
+    }
+    
     static DiskTable of(final Path path) {
         try {
             return new DiskTable(path);

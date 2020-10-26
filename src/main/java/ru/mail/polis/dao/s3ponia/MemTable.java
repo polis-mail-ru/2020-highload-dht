@@ -70,7 +70,13 @@ public class MemTable implements Table {
         memory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);
         keyToRecord.put(key, Table.Value.dead(generation));
     }
-
+    
+    @Override
+    public void removeWithTimeStamp(@NotNull ByteBuffer key, long timeStamp) {
+        memory.addAndGet(key.limit() + Long.BYTES + Integer.BYTES);
+        keyToRecord.put(key, Table.Value.dead(generation, timeStamp));
+    }
+    
     @Override
     public void close() {
         keyToRecord.clear();

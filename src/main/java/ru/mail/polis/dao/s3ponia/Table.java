@@ -71,11 +71,15 @@ public interface Table extends Closeable {
         }
         
         static Value dead(final int generation) {
-            return new Value(ByteBuffer.allocate(0), System.currentTimeMillis(), generation).setDeadFlag();
+            return new Value(ByteBuffer.allocate(0), System.nanoTime(), generation).setDeadFlag();
+        }
+    
+        static Value dead(final int generation, final long timeStamp) {
+            return new Value(ByteBuffer.allocate(0), timeStamp, generation).setDeadFlag();
         }
         
         public static Value of(final ByteBuffer value, final int generation) {
-            return new Value(value, System.currentTimeMillis(), generation);
+            return new Value(value, System.nanoTime(), generation);
         }
     
         public static Value of(final ByteBuffer value, final long deadFlagTimeStamp, final int generation) {
@@ -151,4 +155,7 @@ public interface Table extends Closeable {
                              final long timeStamp);
     
     void remove(@NotNull final ByteBuffer key);
+    
+    void removeWithTimeStamp(@NotNull final ByteBuffer key,
+                             final long timeStamp);
 }

@@ -341,12 +341,12 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.ack);
-        final List<Table.Value> values = new ArrayList<>(parsed.ack);
+        final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
+        final List<Table.Value> values = new ArrayList<>(parsed.from);
         
         for (final var node :
                 nodeReplicas) {
-            if (!node.equals(policy.homeNode()) && node.equals(urlFromKey(key))) {
+            if (!node.equals(policy.homeNode())) {
                 futureResponses.add(this.es.submit(() -> proxy(node, request)));
             } else {
                 try {
@@ -363,6 +363,7 @@ public final class AsyncService extends HttpServer implements Service {
             try {
                 response = resp.get();
             } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error in proxing");
                 continue;
             }
             if (response != null && response.getStatus() != 500 /* INTERNAL ERROR */) {
@@ -377,7 +378,20 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        values.sort(Comparator.comparing(Table.Value::getTimeStamp));
+        values.sort(Comparator.comparing(Table.Value::getTimeStamp)
+                            .thenComparing(
+                                    (a, b) -> {
+                                        logger.error("Hi equal");
+                                        if (a.isDead()) {
+                                            return 1;
+                                        }
+                                        if (b.isDead()) {
+                                            return -1;
+                                        }
+                            
+                                        return 0;
+                                    })
+        );
         
         final var bestVal = values.get(0);
         if (bestVal.isDead()) {
@@ -462,9 +476,6 @@ public final class AsyncService extends HttpServer implements Service {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
     
-    private String urlFromKey(@NotNull final ByteBuffer key) {
-        return this.policy.getNode(key);
-    }
     
     /**
      * Basic implementation of http put handling.
@@ -478,6 +489,7 @@ public final class AsyncService extends HttpServer implements Service {
                     @Param(value = "replicas") final String replicas,
                     @NotNull final Request request,
                     @NotNull final HttpSession session) throws IOException {
+        final var currTime = System.nanoTime();
         if (validateId(id, session, "Invalid id in put")) return;
         
         final var key = byteBufferFromString(id);
@@ -506,7 +518,6 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         int createdCounter = 0;
-        final var currTime = System.currentTimeMillis();
         
         request.addHeader(TIME_HEADER + ": " + currTime);
         
@@ -516,7 +527,7 @@ public final class AsyncService extends HttpServer implements Service {
         for (final var node :
                 nodes) {
             
-            if (!node.equals(policy.homeNode()) && node.equals(urlFromKey(key))) {
+            if (!node.equals(policy.homeNode())) {
                 futureResponses.add(this.es.submit(() -> proxy(node, request)));
             } else {
                 try {
@@ -539,9 +550,6 @@ public final class AsyncService extends HttpServer implements Service {
             }
             if (response != null && response.getStatus() == 201 /* CREATED */) {
                 ++createdCounter;
-                if (createdCounter >= parsed.ack) {
-                    break;
-                }
             }
         }
         
@@ -552,6 +560,16 @@ public final class AsyncService extends HttpServer implements Service {
                             session.sendResponse(new Response(Response.CREATED, EMPTY));
                         } catch (IOException ioException) {
                             logger.error("Error in putting", ioException);
+                        }
+                    }
+            );
+        } else {
+            this.es.execute(
+                    () -> {
+                        try {
+                            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+                        } catch (IOException ioException) {
+                            logger.error("Error in sending error", ioException);
                         }
                     }
             );
@@ -576,6 +594,25 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     /**
+     * Process deleting from dao.
+     *
+     * @param key     record's key to delete
+     * @param session HttpSession for response
+     * @throws IOException rethrow from sendResponse
+     */
+    public void deleteWithtimeStamp(@NotNull final ByteBuffer key,
+                                    @NotNull final HttpSession session,
+                                    final long timeStamp) throws IOException {
+        try {
+            dao.removeWithTimeStamp(key, timeStamp);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("IOException in removing key(size: {}) from dao", key.capacity());
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+    
+    /**
      * Basic implementation of http put handling.
      *
      * @param id key in database to delete
@@ -589,6 +626,21 @@ public final class AsyncService extends HttpServer implements Service {
         if (validateId(id, session, "Invalid id in put")) return;
         
         final var key = byteBufferFromString(id);
+        
+        final var header = Header.getHeader(TIME_HEADER, request);
+        if (header != null) {
+            this.es.execute(
+                    () -> {
+                        try {
+                            deleteWithtimeStamp(key, session, Long.parseLong(header.value));
+                        } catch (IOException ioException) {
+                            logger.error("Error in sending put request", ioException);
+                        }
+                    }
+            );
+            return;
+        }
+        
         final var parsed = parseAndValidateReplicas(replicas);
         
         if (parsed == null) {
@@ -598,6 +650,9 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         int acceptedCounter = 0;
+        final var currTime = System.nanoTime();
+        
+        request.addHeader(TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
         final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
@@ -605,11 +660,11 @@ public final class AsyncService extends HttpServer implements Service {
         for (final var node :
                 nodes) {
             
-            if (!node.equals(policy.homeNode()) && node.equals(urlFromKey(key))) {
+            if (!node.equals(policy.homeNode())) {
                 futureResponses.add(this.es.submit(() -> proxy(node, request)));
             } else {
                 try {
-                    dao.remove(key);
+                    dao.removeWithTimeStamp(key, currTime);
                     ++acceptedCounter;
                 } catch (IOException ioException) {
                     logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
@@ -628,9 +683,6 @@ public final class AsyncService extends HttpServer implements Service {
             }
             if (response != null && response.getStatus() == 202 /* ACCEPTED */) {
                 ++acceptedCounter;
-                if (acceptedCounter >= parsed.ack) {
-                    break;
-                }
             }
         }
         
@@ -641,6 +693,16 @@ public final class AsyncService extends HttpServer implements Service {
                             session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
                         } catch (IOException ioException) {
                             logger.error("Error in putting", ioException);
+                        }
+                    }
+            );
+        } else {
+            this.es.execute(
+                    () -> {
+                        try {
+                            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+                        } catch (IOException ioException) {
+                            logger.error("Error in sending error", ioException);
                         }
                     }
             );
