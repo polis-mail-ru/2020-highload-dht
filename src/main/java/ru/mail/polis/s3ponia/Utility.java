@@ -128,7 +128,7 @@ public class Utility {
     
     @NotNull
     public static List<Future<Response>> getFutures(@NotNull final Request request,
-                                                    @NotNull final Utility.ReplicationConfiguration parsed,
+                                                    @NotNull final ReplicationConfiguration parsed,
                                                     @NotNull final AsyncService service,
                                                     @NotNull final String... nodes) {
         final List<Future<Response>> futureResponses = new ArrayList<>(parsed.from);
