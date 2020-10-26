@@ -26,7 +26,7 @@ public class MyRequestHelper {
 
     private final DAO dao;
 
-    public MyRequestHelper(DAO dao) {
+    public MyRequestHelper(final DAO dao) {
         this.dao = dao;
     }
 
@@ -90,7 +90,6 @@ public class MyRequestHelper {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
-
 
     /**
      * Merges responses for GET request.
