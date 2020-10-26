@@ -12,7 +12,7 @@ public final class Value {
 
     private final boolean isValueDeleted;
     private final long timestamp;
-    private final ByteBuffer buf;
+    private final ByteBuffer buffer;
 
     /**
      * class instance const.
@@ -20,26 +20,26 @@ public final class Value {
      * @param isValueDeleted - evaluated to be true if value isn't obtainable on specific node replica
      *                       after deletion committed
      * @param timestamp - timestamp to trace back value modification moment
-     * @param buf - some value
+     * @param buffer - some value
      */
     private Value(final boolean isValueDeleted,
                   final long timestamp,
-                  final ByteBuffer buf) {
+                  final ByteBuffer buffer) {
 
         this.isValueDeleted = isValueDeleted;
         this.timestamp = timestamp;
-        this.buf = buf;
+        this.buffer = buffer;
     }
 
     /**
      * resolves handling value as an existing one.
      *
-     * @param buf - some value
+     * @param buffer - some value
      * @param timestamp - timestamp to trace back value modification moment
      * @return Value instance
      */
-    public static Value resolveExistingValue(final ByteBuffer buf, final long timestamp) {
-        return new Value(false, timestamp, buf);
+    public static Value resolveExistingValue(final ByteBuffer buffer, final long timestamp) {
+        return new Value(false, timestamp, buffer);
     }
 
     /**
@@ -76,7 +76,7 @@ public final class Value {
      * @return true if actual status is the same as 'missing' (based on value = null)
      */
     boolean isValueMissing() {
-        return buf == null;
+        return buffer == null;
     }
 
     /**
@@ -98,7 +98,7 @@ public final class Value {
             LOGGER.info("Target record has been removed");
             throw new IOException();
         } else {
-            return buf;
+            return buffer;
         }
     }
 
@@ -138,9 +138,9 @@ public final class Value {
         short isDeleted;
         isDeleted = isValueDeleted ? (short) 1 : (short) -1;
 
-        return ByteBuffer.allocate(Short.BYTES + Long.BYTES + buf.remaining())
+        return ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining())
                 .putShort(isDeleted)
                 .putLong(timestamp)
-                .put(buf.duplicate()).array();
+                .put(buffer.duplicate()).array();
     }
 }
