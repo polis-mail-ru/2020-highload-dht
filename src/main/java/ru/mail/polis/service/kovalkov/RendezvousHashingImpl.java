@@ -38,10 +38,10 @@ public class RendezvousHashingImpl implements Topology<String> {
         final byte[] keyBytes = new byte[key.remaining()];
         key.duplicate().get(keyBytes).clear();
         final Map<Integer,String> nodesAndHashes = new TreeMap<>();
-        for (int i = 0; i < allNodes.length; i++) {
+        for (String allNode : allNodes) {
             nodesAndHashes.put(
-                    murmur3_32().newHasher().putInt(allNodes[i]
-                            .chars().sum()).putBytes(keyBytes).hash().hashCode(),allNodes[i]);
+                    murmur3_32().newHasher().putInt(allNode
+                            .chars().sum()).putBytes(keyBytes).hash().hashCode(), allNode);
         }
         final String ownerNode = nodesAndHashes.get(nodesAndHashes.keySet()
                 .stream().findFirst().orElse(null));
