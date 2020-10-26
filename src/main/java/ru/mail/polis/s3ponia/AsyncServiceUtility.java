@@ -223,7 +223,7 @@ public final class AsyncServiceUtility {
     public static Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas,
                                                                             @NotNull final AsyncService service) {
         final Utility.ReplicationConfiguration parsedReplica;
-        final var nodeCount = service.getPolicy().all().length;
+        final var nodeCount = service.policy.all().length;
         
         parsedReplica = replicas == null ? AsyncService.DEFAULT_CONFIGURATIONS.get(nodeCount - 1) :
                                 Utility.ReplicationConfiguration.parse(replicas);
