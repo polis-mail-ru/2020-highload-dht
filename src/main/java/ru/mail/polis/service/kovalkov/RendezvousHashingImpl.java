@@ -38,7 +38,7 @@ public class RendezvousHashingImpl implements Topology<String> {
         final byte[] keyBytes = new byte[key.remaining()];
         key.duplicate().get(keyBytes).clear();
         final Map<Integer,String> nodesAndHashes = new TreeMap<>();
-        for (String allNode : allNodes) {
+        for (final String allNode : allNodes) {
             nodesAndHashes.put(
                     murmur3_32().newHasher().putInt(allNode
                             .chars().sum()).putBytes(keyBytes).hash().hashCode(), allNode);
