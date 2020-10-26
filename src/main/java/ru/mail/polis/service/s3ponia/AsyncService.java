@@ -38,7 +38,15 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static ru.mail.polis.s3ponia.Utility.*;
+import static ru.mail.polis.s3ponia.Utility.DEADFLAG_TIMESTAMP_HEADER;
+import static ru.mail.polis.s3ponia.Utility.PROXY_HEADER;
+import static ru.mail.polis.s3ponia.Utility.TIME_HEADER;
+import static ru.mail.polis.s3ponia.Utility.byteBufferFromString;
+import static ru.mail.polis.s3ponia.Utility.getCounter;
+import static ru.mail.polis.s3ponia.Utility.getFutures;
+import static ru.mail.polis.s3ponia.Utility.validateId;
+import static ru.mail.polis.s3ponia.Utility.Header;
+import static ru.mail.polis.s3ponia.Utility.ReplicationConfiguration;
 
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
@@ -47,12 +55,12 @@ public final class AsyncService extends HttpServer implements Service {
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
-    private final List<Utility.ReplicationConfiguration> defaultConfigurations = Arrays.asList(
-            new Utility.ReplicationConfiguration(1, 1),
-            new Utility.ReplicationConfiguration(2, 2),
-            new Utility.ReplicationConfiguration(2, 3),
-            new Utility.ReplicationConfiguration(3, 4),
-            new Utility.ReplicationConfiguration(3, 5)
+    private final List<ReplicationConfiguration> defaultConfigurations = Arrays.asList(
+            new ReplicationConfiguration(1, 1),
+            new ReplicationConfiguration(2, 2),
+            new ReplicationConfiguration(2, 3),
+            new ReplicationConfiguration(3, 4),
+            new ReplicationConfiguration(3, 5)
     );
     
     /**
@@ -174,7 +182,7 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     private static long getDeadFlagTimeStamp(@NotNull final Response response) {
-        final var header = Utility.Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
+        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
         assert header != null;
         return Long.parseLong(header.value);
     }
@@ -206,7 +214,7 @@ public final class AsyncService extends HttpServer implements Service {
             });
             return;
         }
-        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
@@ -271,14 +279,14 @@ public final class AsyncService extends HttpServer implements Service {
     
     @NotNull
     private List<Table.Value> getValues(@NotNull final Request request,
-                                        @NotNull final Utility.ReplicationConfiguration parsed,
+                                        @NotNull final ReplicationConfiguration parsed,
                                         @NotNull final String... nodeReplicas) {
         final List<Future<Response>> futureResponses = getFutures(request, parsed, this, nodeReplicas);
         return getValuesFromFutures(parsed, futureResponses);
     }
     
     @NotNull
-    private List<Table.Value> getValuesFromFutures(@NotNull final Utility.ReplicationConfiguration parsed,
+    private List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration parsed,
                                                    @NotNull final List<Future<Response>> futureResponses) {
         final List<Table.Value> values = new ArrayList<>(parsed.from);
         for (final var resp :
@@ -299,11 +307,11 @@ public final class AsyncService extends HttpServer implements Service {
         return values;
     }
     
-    private Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
-        final Utility.ReplicationConfiguration parsedReplica;
+    private ReplicationConfiguration parseAndValidateReplicas(final String replicas) {
+        final ReplicationConfiguration parsedReplica;
         final var nodeCount = this.policy.all().length;
         
-        parsedReplica = replicas != null ? Utility.ReplicationConfiguration.parse(replicas) :
+        parsedReplica = replicas != null ? ReplicationConfiguration.parse(replicas) :
                                 defaultConfigurations.get(nodeCount - 1);
         
         if (parsedReplica == null || parsedReplica.ack <= 0
@@ -356,7 +364,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var key = byteBufferFromString(id);
         final var value = ByteBuffer.wrap(request.getBody());
         
-        final var header = Utility.Header.getHeader(TIME_HEADER, request);
+        final var header = Header.getHeader(TIME_HEADER, request);
         if (header != null) {
             final var time = Long.parseLong(header.value);
             this.es.execute(
@@ -371,7 +379,7 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
         
         final var currTime = System.currentTimeMillis();
@@ -431,7 +439,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         final var key = byteBufferFromString(id);
-        final var header = Utility.Header.getHeader(TIME_HEADER, request);
+        final var header = Header.getHeader(TIME_HEADER, request);
         if (header != null) {
             this.es.execute(
                     () -> {
@@ -448,7 +456,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var currTime = System.currentTimeMillis();
         request.addHeader(TIME_HEADER + ": " + currTime);
         
-        final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
+        final ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
@@ -470,7 +478,7 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     @Nullable
-    private Utility.ReplicationConfiguration getReplicationConfiguration(
+    private ReplicationConfiguration getReplicationConfiguration(
             @NotNull final String replicas,
             @NotNull final HttpSession session) throws IOException {
         final var parsed = parseAndValidateReplicas(replicas);
@@ -484,7 +492,7 @@ public final class AsyncService extends HttpServer implements Service {
     }
     
     private void sendAckFromResp(@NotNull final HttpSession session,
-                                 @NotNull final Utility.ReplicationConfiguration parsed,
+                                 @NotNull final ReplicationConfiguration parsed,
                                  final int acceptedCounter,
                                  final Response resp,
                                  @NotNull final String s) {
