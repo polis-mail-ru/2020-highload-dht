@@ -90,6 +90,7 @@ public interface DAO extends Closeable {
         
         return temp.getValue();
     }
+    
     /**
      * Obtains {@link Record} corresponding to given key.
      *

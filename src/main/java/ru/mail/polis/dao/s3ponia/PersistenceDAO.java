@@ -131,8 +131,8 @@ public final class PersistenceDAO implements DAO {
     }
     
     @Override
-    public void upsertWithTimeStamp(@NotNull ByteBuffer key,
-                                    @NotNull ByteBuffer value,
+    public void upsertWithTimeStamp(@NotNull final ByteBuffer key,
+                                    @NotNull final ByteBuffer value,
                                     final long timeStamp) throws IOException {
         final boolean flushPending;
         readWriteLock.readLock().lock();
@@ -154,7 +154,7 @@ public final class PersistenceDAO implements DAO {
     }
     
     @Override
-    public void removeWithTimeStamp(@NotNull ByteBuffer key, long timeStamp) throws IOException {
+    public void removeWithTimeStamp(@NotNull final ByteBuffer key, final long timeStamp) throws IOException {
         final boolean flushPending;
         readWriteLock.readLock().lock();
         try {
