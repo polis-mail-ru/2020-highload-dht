@@ -197,7 +197,8 @@ public class Utility {
      * @param nodeReplicas array of replicas
      * @return is home in replicas
      */
-    public static boolean isHomeInReplicas(String homeNode, String... nodeReplicas) {
+    public static boolean isHomeInReplicas(@NotNull final String homeNode,
+                                           @NotNull final String... nodeReplicas) {
         boolean homeInReplicas = false;
         
         for (final var node :
