@@ -100,7 +100,6 @@ public class MoribundService extends HttpServer implements Service {
             } else {
                 response = new Response(Response.OK, toByteArray(value.getData()));
             }
-            response.addHeader("version" + value.getVersion());
             response.addHeader("isTombstone" + value.isTombstone());
             return response;
         } catch (NoSuchElementException e) {
@@ -151,10 +150,10 @@ public class MoribundService extends HttpServer implements Service {
                 }
                 return;
             }
-            if (request.getHeader("isProxy") != null) {
-                sendProxyResponse(id, session, request);
-            } else {
+            if (request.getHeader("isProxy") == null) {
                 sendReplicationResponse(id, replicas, session, request);
+            } else {
+                sendProxyResponse(id, session, request);
             }
         });
     }
@@ -188,6 +187,20 @@ public class MoribundService extends HttpServer implements Service {
         }
     }
 
+    private List<Response> getAllResponses(final String[] nodes,
+                                           final Response currentNodeResponse,
+                                           final Request request) {
+        final List<Response> responses = new ArrayList<>();
+        for (final String node : nodes) {
+            if (topology.isMe(node)) {
+                responses.add(currentNodeResponse);
+            } else {
+                responses.add(proxy(node, request));
+            }
+        }
+        return responses;
+    }
+
     /**
      * Send the resulting response after polling all nodes.
      *
@@ -201,7 +214,8 @@ public class MoribundService extends HttpServer implements Service {
                                         final HttpSession session,
                                         final Request request) {
         request.addHeader("isProxy");
-        final int ack, from;
+        final int ack;
+        final int from;
         if (replicas == null) {
             ack = ackDefault;
             from = fromDefault;
@@ -218,39 +232,20 @@ public class MoribundService extends HttpServer implements Service {
                 return;
             }
         }
-
         final String[] nodes = topology.getNodesByKey(id, from);
         try {
-            List<Response> responses = new ArrayList<>();
+            final List<Response> responses;
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    for (String node : nodes) {
-                        if (topology.isMe(node)) {
-                            responses.add(get(id));
-                        } else {
-                            responses.add(proxy(node, request));
-                        }
-                    }
+                    responses = getAllResponses(nodes, get(id), request);
                     session.sendResponse(Consensus.get(responses, ack));
                     break;
                 case Request.METHOD_PUT:
-                    for (String node : nodes) {
-                        if (topology.isMe(node)) {
-                            responses.add(put(id, request));
-                        } else {
-                            responses.add(proxy(node, request));
-                        }
-                    }
+                    responses = getAllResponses(nodes, put(id, request), request);
                     session.sendResponse(Consensus.put(responses, ack));
                     break;
                 case Request.METHOD_DELETE:
-                    for (String node : nodes) {
-                        if (topology.isMe(node)) {
-                            responses.add(delete(id));
-                        } else {
-                            responses.add(proxy(node, request));
-                        }
-                    }
+                    responses = getAllResponses(nodes, delete(id), request);
                     session.sendResponse(Consensus.delete(responses, ack));
                     break;
                 default:
@@ -258,9 +253,8 @@ public class MoribundService extends HttpServer implements Service {
             }
         } catch (
             IOException ioException) {
-            logger.error("Can't send response.", ioException);
+            logger.error("Can't send resulting response.", ioException);
         }
-
     }
 
     /**

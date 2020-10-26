@@ -133,7 +133,7 @@ public class TurboDAO implements DAO {
 
     @Override
     @NotNull
-    public Cell getCell(@NotNull ByteBuffer key) throws NoSuchElementException {
+    public Cell getCell(@NotNull final ByteBuffer key) throws NoSuchElementException {
         final Iterator<Cell> iter = cellIterator(key);
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Not found");

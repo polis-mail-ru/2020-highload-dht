@@ -29,7 +29,7 @@ public class RendezvousTopology implements Topology<String> {
     @NotNull
     @Override
     public String[] getNodesByKey(@NotNull final String key, final int n) {
-        if (n == size()) return topology;
+        if (n == size()) return topology.clone();
         return Arrays.stream(topology)
             .sorted(Comparator.comparingInt(node -> (node + key).hashCode()))
             .limit(n)
