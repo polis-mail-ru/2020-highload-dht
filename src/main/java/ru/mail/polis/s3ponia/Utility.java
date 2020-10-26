@@ -16,11 +16,10 @@ public class Utility {
             this.value = value;
         }
         
-        public static Header getHeader(@NotNull final String key, @NotNull final Request response) {
-            final var headers = response.getHeaders();
-            final var headerCount = response.getHeaderCount();
+        private static Header getHeader(@NotNull final String key,
+                                        @NotNull final String[] headers,
+                                        final int headerCount) {
             int keyLength = key.length();
-            
             for (int i = 1; i < headerCount; ++i) {
                 if (headers[i].regionMatches(true, 0, key, 0, keyLength)) {
                     final var value = headers[i].substring(headers[i].indexOf(':') + 1).stripLeading();
@@ -31,19 +30,18 @@ public class Utility {
             return null;
         }
         
+        public static Header getHeader(@NotNull final String key, @NotNull final Request response) {
+            final var headers = response.getHeaders();
+            final var headerCount = response.getHeaderCount();
+            
+            return getHeader(key, headers, headerCount);
+        }
+        
         public static Header getHeader(@NotNull final String key, @NotNull final Response response) {
             final var headers = response.getHeaders();
             final var headerCount = response.getHeaderCount();
-            int keyLength = key.length();
-            
-            for (int i = 1; i < headerCount; ++i) {
-                if (headers[i].regionMatches(true, 0, key, 0, keyLength)) {
-                    final var value = headers[i].substring(headers[i].indexOf(':') + 1).stripLeading();
-                    return new Header(headers[i], value);
-                }
-            }
-            
-            return null;
+    
+            return getHeader(key, headers, headerCount);
         }
     }
     

@@ -23,7 +23,6 @@ import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.s3ponia.Utility;
 import ru.mail.polis.service.Service;
 
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -211,7 +210,6 @@ public final class AsyncService extends HttpServer implements Service {
         final Utility.ReplicationConfiguration parsed = getReplicationConfiguration(replicas, session);
         if (parsed == null) return;
 
-//        int ackCounter = 0;
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
         final List<Table.Value> values = getValues(request, parsed, nodeReplicas);
         boolean homeInReplicas = false;
