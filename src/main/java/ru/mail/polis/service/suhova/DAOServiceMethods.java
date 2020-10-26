@@ -16,6 +16,9 @@ import java.util.NoSuchElementException;
 public final class DAOServiceMethods {
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
 
+    private DAOServiceMethods() {
+    }
+
     /**
      * Get a value from DAO and send response with it.
      *
@@ -23,7 +26,7 @@ public final class DAOServiceMethods {
      * @param dao - dao
      * @return response
      */
-    public static Response get(@NotNull final String id, @NotNull DAO dao) {
+    public static Response get(@NotNull final String id, @NotNull final DAO dao) {
         try {
             final Value value = dao.getCell(toByteBuffer(id)).getValue();
             final Response response;
@@ -46,7 +49,7 @@ public final class DAOServiceMethods {
      * @param dao - dao
      * @return response
      */
-    public static Response put(final @NotNull String id, final Request request, @NotNull DAO dao) {
+    public static Response put(final @NotNull String id, final Request request, @NotNull final DAO dao) {
         try {
             dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
@@ -63,7 +66,7 @@ public final class DAOServiceMethods {
      * @param dao - dao
      * @return response
      */
-    public static Response delete(@NotNull final String id, @NotNull DAO dao) {
+    public static Response delete(@NotNull final String id, @NotNull final DAO dao) {
         try {
             dao.remove(toByteBuffer(id));
             return new Response(Response.ACCEPTED, Response.EMPTY);
