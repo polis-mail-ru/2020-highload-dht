@@ -24,14 +24,12 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -45,7 +43,6 @@ import java.util.stream.Collectors;
  */
 
 public class MySimpleHttpServer extends HttpServer implements Service {
-
     private static final String SERVER_ERROR = "Server error can't send response";
     private static final String TIMESTAMP = "Timestamp: ";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
@@ -55,6 +52,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private final ExecutorService executorService;
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodeClients;
+    private final MyRequestHelper requestHelper;
 
     /**
      * Http Server constructor.
@@ -70,6 +68,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         assert numberOfWorkers > 0;
         assert queueSize > 0;
         this.nodeClients = new HashMap<>();
+        this.requestHelper = new MyRequestHelper();
         for (final String node : topology.all()) {
             if (topology.isMe(node)) {
                 continue;
@@ -144,7 +143,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                     handleError(session, Response.BAD_REQUEST);
                     return;
                 }
-                final boolean isProxy = isProxied(request);
+                final boolean isProxy = requestHelper.isProxied(request);
                 final Replicas replicasFactor = isProxy
                         || replicas == null ? Replicas.quorum(nodeClients.size() + 1) : Replicas.parser(replicas);
 
@@ -195,14 +194,14 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final List<Response> result = replication(getEntity(key), request, key, replicas)
                 .stream()
-                .filter(resp -> getStatus(resp).equals(Response.OK)
-                        || getStatus(resp).equals(Response.NOT_FOUND))
+                .filter(resp -> requestHelper.getStatus(resp).equals(Response.OK)
+                        || requestHelper.getStatus(resp).equals(Response.NOT_FOUND))
                 .collect(Collectors.toList());
         if (result.size() < replicas.getAck()) {
             handleError(session, NOT_ENOUGH_REPLICAS);
             return;
         }
-        sendLoggedResponse(session, mergeResponses(result));
+        sendLoggedResponse(session, requestHelper.mergeResponses(result));
     }
 
     /**
@@ -247,7 +246,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final List<Response> result = replication(putEntity(key, request), request, key, replicas)
                 .stream()
-                .filter(response -> getStatus(response).equals(Response.CREATED))
+                .filter(response -> requestHelper.getStatus(response).equals(Response.CREATED))
                 .collect(Collectors.toList());
         correctReplication(result.size(), replicas, session, Response.CREATED);
     }
@@ -277,7 +276,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final List<Response> result = replication(deleteEntity(key), request, key, replicas)
                 .stream()
-                .filter(response -> getStatus(response).equals(Response.ACCEPTED))
+                .filter(response -> requestHelper.getStatus(response).equals(Response.ACCEPTED))
                 .collect(Collectors.toList());
         correctReplication(result.size(), replicas, session, Response.ACCEPTED);
     }
@@ -312,29 +311,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    private Response mergeResponses(final List<Response> result) {
-        final Map<Response, Integer> responses = new ConcurrentSkipListMap<>(Comparator.comparing(this::getStatus));
-        result.forEach(resp -> {
-            final Integer val = responses.get(resp);
-            responses.put(resp, val == null ? 0 : val + 1);
-        });
-        Response finalResult = null;
-        int maxCount = -1;
-        long time = Long.MIN_VALUE;
-        for (final Map.Entry<Response, Integer> entry : responses.entrySet()) {
-            if (entry.getValue() >= maxCount && getTimestamp(entry.getKey()) > time) {
-                time = getTimestamp(entry.getKey());
-                maxCount = entry.getValue();
-                finalResult = entry.getKey();
-            }
-        }
-        return finalResult;
-    }
-
-    private String getStatus(final Response response) {
-        return response.getHeaders()[0];
-    }
-
     private List<Response> replication(final Response response,
                                        final Request request,
                                        final ByteBuffer key,
@@ -359,15 +335,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             log.error("Proxy request error", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-    }
-
-    private boolean isProxied(final Request request) {
-        return request.getHeader(PROXY_HEADER) != null;
-    }
-
-    public static long getTimestamp(final Response response) {
-        final String timestamp = response.getHeader(TIMESTAMP);
-        return timestamp == null ? -1 : Long.parseLong(timestamp);
     }
 
     private void sendLoggedResponse(final HttpSession session, final Response response) {

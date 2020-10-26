@@ -4,6 +4,10 @@ public class Time {
     private static int count;
     private static long lastTime;
 
+    private Time () {
+        throw new IllegalStateException("Utility class");
+    }
+
     /**
      * Method returns current time in nano seconds.
      */
