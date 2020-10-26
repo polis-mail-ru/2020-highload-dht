@@ -314,7 +314,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
                     dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
                     ack++;
                 } else {
-                    final Response response = nodesToClients.get(node).put(NORMAL_REQUEST_HEADER + id, value, FORWARD_REQUEST_HEADER);
+                    final Response response = nodesToClients.get(node)
+                            .put(NORMAL_REQUEST_HEADER + id, value, FORWARD_REQUEST_HEADER);
                     if (response.getStatus() == 201) {
                         ack++;
                     }

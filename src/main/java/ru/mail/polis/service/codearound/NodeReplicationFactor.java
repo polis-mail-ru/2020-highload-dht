@@ -19,8 +19,8 @@ class NodeReplicationFactor {
     private final int ack;
     private final int from;
     private static final Logger LOGGER = LoggerFactory.getLogger(NodeReplicationFactor.class);
-    private static final String REPLIFACTOR_ERROR_LOG = "One or both of replication factors can't be handled appropriately," +
-            "validation failed";
+    private static final String REPLIFACTOR_ERROR_LOG = "One or both of replication factors can't be " +
+            "handled appropriately, validation failed";
 
     /**
      * class instance const.

@@ -24,7 +24,7 @@ public final class NodeReplicaUtils {
     }
 
     /**
-     * executes synchronizing records through node replicas.
+     * performs synchronizing record replicas through nodes.
      *
      * @param values - collection of values ever pushed to storage
      * @return Value instance
@@ -42,14 +42,14 @@ public final class NodeReplicaUtils {
     }
 
     /**
-     * retrieves reference on array containing node replicas.
+     * retrieves reference on array filled with same-key replicas.
      *
      * @param key - key searched through nodes within the cluster
      * @param repliFactor - replication factor
      * @param isForwardedRequest - true if incoming request header indicates
      *                             invocation of proxy-providing method on a previous node
      * @param topology - implementable cluster topology
-     * @return array of node replicas
+     * @return array of replicas
      */
     public static String[] getNodeReplica(
             @NotNull final ByteBuffer key,
@@ -69,10 +69,10 @@ public final class NodeReplicaUtils {
     }
 
     /**
-     * issues response to client in case of key search success on replica in charge of handling request at a moment.
+     * issues some response for GET request upon processing replica (if any) pushed to external instance of storage.
      *
      * @param values - collection of values ever pushed to storage
-     * @param nodeReplicas - array of node replicas
+     * @param nodeReplicas - array of replicas
      * @param isForwardedRequest - true if incoming request header indicates
      *                                 invocation of proxy-providing method on a previous node
      * @return HTTP response
@@ -96,8 +96,7 @@ public final class NodeReplicaUtils {
     }
 
     /**
-     * issues response to client in case of key search success on any node replica that's different from one in charge
-     * of handling request at a moment.
+     * issues some response for GET request upon processing replica (if any) pushed to internal instance of storage.
      *
      * @param key - key searched
      * @param dao - implementable DAO
