@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
+import ru.mail.polis.s3ponia.AsyncServiceUtility;
 import ru.mail.polis.s3ponia.Utility;
 import ru.mail.polis.service.Service;
 
@@ -164,11 +165,12 @@ public final class AsyncService extends HttpServer implements Service {
             });
             return;
         }
-        final Utility.ReplicationConfiguration parsed = Utility.getReplicationConfiguration(replicas, session, this);
+        final Utility.ReplicationConfiguration parsed =
+                AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
         
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final List<Table.Value> values = Utility.getValues(request, parsed, this, nodeReplicas);
+        final List<Table.Value> values = AsyncServiceUtility.getValues(request, parsed, this, nodeReplicas);
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodeReplicas);
         
         if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
@@ -256,14 +258,15 @@ public final class AsyncService extends HttpServer implements Service {
             return;
         }
         
-        final Utility.ReplicationConfiguration parsed = Utility.getReplicationConfiguration(replicas, session, this);
+        final Utility.ReplicationConfiguration parsed =
+                AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
         
         final var currTime = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + currTime);
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int createdCounter = Utility.getCounter(request, parsed, this, nodes);
+        int createdCounter = AsyncServiceUtility.getCounter(request, parsed, this, nodes);
         
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
         
@@ -276,8 +279,8 @@ public final class AsyncService extends HttpServer implements Service {
                         key.capacity(), value.capacity(), this.policy.homeNode(), ioException);
             }
         }
-        
-        Utility.sendAckFromResp(this.es, parsed, createdCounter,
+    
+        AsyncServiceUtility.sendAckFromResp(this.es, parsed, createdCounter,
                 new Response(Response.CREATED, EMPTY),
                 session);
     }
@@ -335,11 +338,12 @@ public final class AsyncService extends HttpServer implements Service {
         final var currTime = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + currTime);
         
-        final Utility.ReplicationConfiguration parsed = Utility.getReplicationConfiguration(replicas, session, this);
+        final Utility.ReplicationConfiguration parsed =
+                AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
         
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int acceptedCounter = Utility.getCounter(request, parsed, this, nodes);
+        int acceptedCounter = AsyncServiceUtility.getCounter(request, parsed, this, nodes);
         final var homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
         
         if (homeInReplicas) {
@@ -351,8 +355,8 @@ public final class AsyncService extends HttpServer implements Service {
                         key.capacity(), request.getBody().length, this.policy.homeNode(), ioException);
             }
         }
-        
-        Utility.sendAckFromResp(this.es, parsed, acceptedCounter,
+    
+        AsyncServiceUtility.sendAckFromResp(this.es, parsed, acceptedCounter,
                 new Response(Response.ACCEPTED, EMPTY), session);
     }
     
