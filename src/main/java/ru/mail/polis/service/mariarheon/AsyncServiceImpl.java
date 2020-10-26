@@ -21,9 +21,13 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +45,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final RendezvousSharding sharding;
     private static final String RESP_ERR = "Response can't be sent: ";
     private static final String SERV_UN = "Service unavailable: ";
+    private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
+    private static final String MYSELF_PARAMETER = "myself";
+    private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+    private static final String REMOVED_PERMANENTLY = "310 Removed Permanently";
+    private static final String DELETED_VALUE_PASSWORD = "P**J$#RFh7e3j89ri(((8873uj33*&&*&&";
 
     /**
      * Asynchronous Service Implementation.
@@ -65,100 +74,184 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     /** Get/set/delete key-value entity.
+     *
      * @param key - record id.
+     * @param replicasParam - ack/from, where ack is how many answers should be retrieved,
+     *                 from - total count of nodes
      * @param session - session.
      * @param request - request.
      **/
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void handleEntityRequest(final @Param(value = "id", required = true) String key,
+                    final @Param(value = "replicas") String replicasParam,
+                    final @Param(value = MYSELF_PARAMETER) String myself,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
-        final String reqNode = sharding.getResponsibleNode(key);
-        if (!sharding.isMe(reqNode)) {
-            passOn(reqNode, request, session);
+        if (key.isEmpty()) {
+            trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
             return;
         }
+        if (myself != null) {
+            var resp = processRequest(key, request);
+            try {
+                trySendResponse(session, resp.get());
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error(SERV_UN, e);
+            }
+            return;
+        }
+        final Replicas replicas;
         try {
-            service.execute(() -> {
+            replicas = new Replicas(replicasParam, sharding.getNodesCount());
+        } catch (ReplicasParamParseException ex) {
+            logger.error(BAD_REPL_PARAM, ex);
+            trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
+            return;
+        }
+        sendToReplicas(key, replicas, session, request);
+    }
+
+    private void sendToReplicas(final @Param(value = "id", required = true) String key,
+                                @NotNull final Replicas replicas,
+                                @NotNull final HttpSession session,
+                                final @Param("request") Request request) {
+        final var responsibleNodes = sharding.getResponsibleNodes(key, replicas);
+        final var answers = new ArrayList<Future<Response>>(responsibleNodes.size());
+        for (final var node : responsibleNodes) {
+            if (sharding.isMe(node)) {
+                answers.add(processRequest(key, request));
+            } else {
+                answers.add(passOn(node, request));
+            }
+        }
+        Response requiredResponse = null;
+        int goodAnswers = 0;
+        int notFoundAnswers = 0;
+        boolean wasRemoved = false;
+        for (final var answer : answers) {
+            if (answer == null) {
+                continue;
+            }
+            final Response response;
+            try {
+                response = answer.get();
+            } catch (InterruptedException | ExecutionException e) {
+                continue;
+            }
+            if (response.getStatus() >= 200 && response.getStatus() <= 202) {
+                if (requiredResponse == null) {
+                    requiredResponse = response;
+                }
+                goodAnswers++;
+            }
+            if (response.getStatus() == 404) {
+                notFoundAnswers++;
+            }
+            if (response.getStatus() == 310) {
+                wasRemoved = true;
+            }
+        }
+        int ackCount = goodAnswers + notFoundAnswers;
+        if (wasRemoved) {
+            requiredResponse = new ZeroResponse(Response.NOT_FOUND);
+        } else if (ackCount < replicas.getAckCount()) {
+            requiredResponse = new ZeroResponse(NOT_ENOUGH_REPLICAS);
+        } else if (goodAnswers == 0 && notFoundAnswers > 0) {
+            requiredResponse = new ZeroResponse(Response.NOT_FOUND);
+        }
+        trySendResponse(session, requiredResponse);
+    }
+
+    private Future<Response> processRequest(final @Param(value = "id", required = true) String key,
+                                final @Param("request") Request request) {
+        try {
+            return service.submit(() -> {
                 switch (request.getMethod()) {
                     case METHOD_GET:
-                        get(key, session);
-                        break;
+                        return get(key);
                     case METHOD_PUT:
-                        put(key, request, session);
-                        break;
+                        return put(key, request);
                     case METHOD_DELETE:
-                        delete(key, session);
-                        break;
+                        return delete(key);
                     default:
-                        break;
+                        return null;
                 }
             });
         } catch (RejectedExecutionException ex) {
             logger.error(SERV_UN, ex);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            return null;
         }
     }
 
-    private void get(final String key,
-                     final HttpSession session) {
+    private Response get(final String key) {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.getInternal() method: key is empty");
-                trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
-                return;
+                return new ZeroResponse(Response.BAD_REQUEST);
             }
             final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            trySendResponse(session, Response.ok(ByteBufferUtils.toArray(response)));
+            final var ar = ByteBufferUtils.toArray(response);
+            if (Arrays.equals(ar, DELETED_VALUE_PASSWORD.getBytes(StandardCharsets.UTF_8))) {
+                return new ZeroResponse(REMOVED_PERMANENTLY);
+            }
+            return Response.ok(ar);
         } catch (NoSuchElementException ex) {
-            trySendResponse(session, new ZeroResponse(Response.NOT_FOUND));
+            return new ZeroResponse(Response.NOT_FOUND);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.getInternal() method; internal error: ", ex);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            return new ZeroResponse(Response.INTERNAL_ERROR);
         }
     }
 
-    private void put(final String key,
-                     final Request request,
-                     final HttpSession session) {
+    private Response put(final String key,
+                     final Request request) {
         try {
             if (key.isEmpty()) {
                 logger.info("ServiceImpl.putInternal() method: key is empty");
-                trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
-                return;
+                return new ZeroResponse(Response.BAD_REQUEST);
             }
             dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
                     ByteBufferUtils.toByteBuffer(request.getBody()));
-            trySendResponse(session, new ZeroResponse(Response.CREATED));
+            return new ZeroResponse(Response.CREATED);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.putInternal() method; internal error: ", ex);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            return new ZeroResponse(Response.INTERNAL_ERROR);
         }
     }
 
-    private void passOn(@NotNull final String reqNode,
-                        @NotNull final Request request,
-                        @NotNull final HttpSession session) {
+    private Response delete(final String key) {
         try {
-            service.execute(() -> {
-                passOnInternal(reqNode, request, session);
-            });
+            if (key.isEmpty()) {
+                logger.info("ServiceImpl.delete() method: key is empty");
+                return new ZeroResponse(Response.BAD_REQUEST);
+            }
+            dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
+                    ByteBufferUtils.toByteBuffer(DELETED_VALUE_PASSWORD.getBytes(StandardCharsets.UTF_8)));
+            return new ZeroResponse(Response.ACCEPTED);
+        } catch (IOException ex) {
+            logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
+            return new ZeroResponse(Response.INTERNAL_ERROR);
+        }
+    }
+
+    private Future<Response> passOn(@NotNull final String reqNode,
+                                    @NotNull final Request request) {
+        try {
+            return service.submit(() -> passOnInternal(reqNode, request));
         } catch (RejectedExecutionException ex) {
             logger.error(SERV_UN, ex);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            return null;
         }
     }
 
-    private void passOnInternal(@NotNull final String reqNode,
-                                @NotNull final Request request,
-                                @NotNull final HttpSession session) {
+    private Response passOnInternal(@NotNull final String reqNode,
+                                @NotNull final Request request) {
         try {
-            final var resp = sharding.passOn(reqNode, request);
-            trySendResponse(session, resp);
+            return sharding.passOn(reqNode, addMyselfParamToRequest(request));
         } catch (InterruptedException | IOException | HttpException | PoolException e) {
             logger.error("Failed to pass on the request: ", e);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            return new ZeroResponse(Response.INTERNAL_ERROR);
         }
     }
 
@@ -168,22 +261,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(response);
         } catch (IOException ex) {
             logger.error(RESP_ERR, session, ex);
-        }
-    }
-
-    private void delete(final String key,
-                        final HttpSession session) {
-        try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.delete() method: key is empty");
-                trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
-                return;
-            }
-            dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            trySendResponse(session, new ZeroResponse(Response.ACCEPTED));
-        } catch (IOException ex) {
-            logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
         }
     }
 
@@ -203,4 +280,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
     }
 
+    private static Request addMyselfParamToRequest(Request request) {
+        if (request.getParameter(MYSELF_PARAMETER) != null) {
+            return request;
+        }
+        final var newURI = request.getURI() + "&" + MYSELF_PARAMETER + "=";
+        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
+        for (int i = 0; i < request.getHeaderCount(); i++) {
+            res.addHeader(request.getHeaders()[i]);
+        }
+        res.setBody(request.getBody());
+        return res;
+    }
 }
