@@ -39,10 +39,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class NewService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(NewService.class);
-
     @NotNull
     private final ExecutorService executorService;
-
     @NotNull
     private final DAO dao;
 
@@ -61,10 +59,8 @@ public class NewService extends HttpServer implements Service {
             final int workers,
             final int queueSize) throws IOException {
         super(getConfigFrom(port));
-
         assert 0 < workers;
         assert 0 < queueSize;
-
         this.dao = dao;
         this.executorService = new ThreadPoolExecutor(
                 workers,
@@ -85,7 +81,6 @@ public class NewService extends HttpServer implements Service {
         acceptorConfig.port = port;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
-
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
@@ -96,7 +91,6 @@ public class NewService extends HttpServer implements Service {
         if (!byteBuffer.hasRemaining()) {
             return Response.EMPTY;
         }
-
         final byte[] result = new byte[byteBuffer.remaining()];
         byteBuffer.get(result);
         assert !byteBuffer.hasRemaining();
@@ -114,9 +108,12 @@ public class NewService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         idValidation(id, httpSession);
-
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        getting(key, httpSession);
+        try {
+            executorService.execute(() -> getting(key, httpSession));
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            respServiceUnavailable(httpSession, rejectedExecutionException);
+        }
     }
 
     /**
@@ -130,12 +127,14 @@ public class NewService extends HttpServer implements Service {
     public void put(
             @Param(value = "id", required = true) final String id,
             final Request request,
-            @NotNull final HttpSession httpSession
-    ) {
+            @NotNull final HttpSession httpSession) {
         idValidation(id, httpSession);
-
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        upserting(key, request, httpSession);
+        try {
+            executorService.execute(() -> upserting(key, request, httpSession));
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            respServiceUnavailable(httpSession, rejectedExecutionException);
+        }
     }
 
     /**
@@ -147,12 +146,14 @@ public class NewService extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(
             @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession
-    ) {
+            @NotNull final HttpSession httpSession) {
         idValidation(id, httpSession);
-
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        removing(key, httpSession);
+        try {
+            executorService.execute(() -> removing(key, httpSession));
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            respServiceUnavailable(httpSession, rejectedExecutionException);
+        }
     }
 
     private void idValidation(
@@ -167,15 +168,9 @@ public class NewService extends HttpServer implements Service {
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession) {
         try {
-            executorService.execute(() -> {
-                try {
-                    doGet(key, httpSession);
-                } catch (IOException ioException) {
-                    logger.error("Ошибка в getting ", ioException);
-                }
-            });
-        } catch (RejectedExecutionException rejectedExecutionException) {
-            respServiceUnavailable(httpSession, rejectedExecutionException);
+            doGet(key, httpSession);
+        } catch (IOException ioException) {
+            logger.error("Ошибка в getting ", ioException);
         }
     }
 
@@ -199,15 +194,9 @@ public class NewService extends HttpServer implements Service {
             @NotNull final HttpSession httpSession) {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         try {
-            executorService.execute(() -> {
-                try {
-                    doUpsert(key, httpSession, value);
-                } catch (IOException ioException) {
-                    logger.error("Ошибка в upserting ", ioException);
-                }
-            });
-        } catch (RejectedExecutionException rejectedExecutionException) {
-            respServiceUnavailable(httpSession, rejectedExecutionException);
+            doUpsert(key, httpSession, value);
+        } catch (IOException ioException) {
+            logger.error("Ошибка в upserting ", ioException);
         }
     }
 
@@ -228,15 +217,9 @@ public class NewService extends HttpServer implements Service {
             @NotNull final ByteBuffer key,
             @NotNull final HttpSession httpSession) {
         try {
-            executorService.execute(() -> {
-                try {
-                    doRemove(key, httpSession);
-                } catch (IOException ioException) {
-                    logger.error("Ошибка в removing ", ioException);
-                }
-            });
-        } catch (RejectedExecutionException rejectedExecutionException) {
-            respServiceUnavailable(httpSession, rejectedExecutionException);
+            doRemove(key, httpSession);
+        } catch (IOException ioException) {
+            logger.error("Ошибка в removing ", ioException);
         }
     }
 
@@ -255,7 +238,7 @@ public class NewService extends HttpServer implements Service {
     private void respServiceUnavailable(
             @NotNull final HttpSession httpSession,
             @NotNull final RejectedExecutionException rejectedExecutionException) {
-        logger.error("Ошибка при выполнении операции ", rejectedExecutionException);
+        logger.error("Ошибка, превышен допустимый размер очередди задач ", rejectedExecutionException);
         resp(httpSession, Response.SERVICE_UNAVAILABLE);
     }
 
