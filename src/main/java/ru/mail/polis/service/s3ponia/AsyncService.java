@@ -174,65 +174,10 @@ public final class AsyncService extends HttpServer implements Service {
         }
         
         try {
-            this.es.execute(() -> putImpl(id, replicas, request, session));
-        } catch (Exception e) {
+            this.es.execute(() -> AsyncServiceUtility.putImpl(id, replicas, request, session, this));
+        } catch (RejectedExecutionException e) {
             logger.error("Error in execute", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-    
-    private void putImpl(
-            @NotNull final String id,
-            @NotNull final String replicas,
-            @NotNull final Request request,
-            @NotNull final HttpSession session) {
-        try {
-            final var key = Utility.byteBufferFromString(id);
-            final var value = ByteBuffer.wrap(request.getBody());
-            
-            final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
-            if (header != null) {
-                final var time = Long.parseLong(header.value);
-                this.es.execute(
-                        () -> {
-                            try {
-                                AsyncServiceUtility.upsertWithTimeStamp(key, value, session, time, this.dao);
-                            } catch (IOException ioException) {
-                                logger.error("Error in sending put request", ioException);
-                            }
-                        }
-                );
-                return;
-            }
-            
-            final Utility.ReplicationConfiguration parsed =
-                    AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
-            if (parsed == null) return;
-            
-            final var currTime = System.currentTimeMillis();
-            request.addHeader(Utility.TIME_HEADER + ": " + currTime);
-            
-            final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-            int createdCounter = AsyncServiceUtility.getCounter(request, parsed, this, nodes);
-            
-            final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
-            
-            if (homeInReplicas) {
-                try {
-                    dao.upsertWithTimeStamp(key, value, currTime);
-                    ++createdCounter;
-                } catch (IOException ioException) {
-                    logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
-                            key.capacity(), value.capacity(), this.policy.homeNode(), ioException);
-                }
-            }
-            
-            AsyncServiceUtility.sendAckFromResp(this.es, parsed, createdCounter,
-                    new Response(Response.CREATED, EMPTY),
-                    session);
-        } catch (Exception e) {
-            logger.error("Error", e);
-            e.printStackTrace();
         }
     }
     

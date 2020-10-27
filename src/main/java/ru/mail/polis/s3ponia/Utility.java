@@ -17,8 +17,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";

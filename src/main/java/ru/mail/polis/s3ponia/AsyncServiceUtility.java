@@ -23,6 +23,62 @@ public final class AsyncServiceUtility {
     private AsyncServiceUtility() {
     }
     
+    public static void putImpl(
+            @NotNull final String id,
+            @NotNull final String replicas,
+            @NotNull final Request request,
+            @NotNull final HttpSession session,
+            @NotNull final AsyncService service) {
+        try {
+            final var key = Utility.byteBufferFromString(id);
+            final var value = ByteBuffer.wrap(request.getBody());
+            
+            final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
+            if (header != null) {
+                final var time = Long.parseLong(header.value);
+                service.es.execute(
+                        () -> {
+                            try {
+                                AsyncServiceUtility.upsertWithTimeStamp(key, value, session, time, service.dao);
+                            } catch (IOException ioException) {
+                                AsyncService.logger.error("Error in sending put request", ioException);
+                            }
+                        }
+                );
+                return;
+            }
+            
+            final Utility.ReplicationConfiguration parsed =
+                    AsyncServiceUtility.getReplicationConfiguration(replicas, session, service);
+            if (parsed == null) return;
+            
+            final var currTime = System.currentTimeMillis();
+            request.addHeader(Utility.TIME_HEADER + ": " + currTime);
+            
+            final var nodes = service.policy.getNodeReplicas(key, parsed.from);
+            int createdCounter = AsyncServiceUtility.getCounter(request, parsed, service, nodes);
+            
+            final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
+            
+            if (homeInReplicas) {
+                try {
+                    service.dao.upsertWithTimeStamp(key, value, currTime);
+                    ++createdCounter;
+                } catch (IOException ioException) {
+                    AsyncService.logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
+                            key.capacity(), value.capacity(), service.policy.homeNode(), ioException);
+                }
+            }
+            
+            AsyncServiceUtility.sendAckFromResp(service.es, parsed, createdCounter,
+                    new Response(Response.CREATED, AsyncService.EMPTY),
+                    session);
+        } catch (Exception e) {
+            AsyncService.logger.error("Error", e);
+            e.printStackTrace();
+        }
+    }
+    
     /**
      * Process upserting to dao.
      *
@@ -118,17 +174,18 @@ public final class AsyncServiceUtility {
                                  @NotNull final AsyncService service,
                                  @NotNull final String... nodes) {
         final List<Response> futureResponses = getFutures(request, configuration, service, nodes);
-
+        
         int acceptedCounter = 0;
-
+        
         for (final var resp :
                 futureResponses) {
             final Response response;
             response = resp;
-            if (response != null
-                        && (response.getStatus() == 202 /* ACCEPTED */ || response.getStatus() == 201 /* CREATED */)) {
-                ++acceptedCounter;
+            if (response == null
+                        || (response.getStatus() != 202 /* ACCEPTED */ && response.getStatus() != 201 /* CREATED */)) {
+                continue;
             }
+            ++acceptedCounter;
         }
         return acceptedCounter;
     }
