@@ -1,5 +1,6 @@
-package ru.mail.polis.service.kovalkov;
+package ru.mail.polis.service.kovalkov.sharding;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +30,16 @@ public class ModHashingImpl implements Topology<String> {
         Arrays.sort(this.allNodes);
     }
 
+    @NotNull
     @Override
-    public String identifyByKey(final ByteBuffer key) {
+    public String identifyByKey(@NotNull final ByteBuffer key) {
         return allNodes[(key.hashCode() & Integer.MAX_VALUE) % nodeCount()];
+    }
+
+    @NotNull
+    @Override
+    public String[] replicasFor(@NotNull ByteBuffer key, int replicas) {
+        return new String[0];
     }
 
     @Override
@@ -39,6 +47,7 @@ public class ModHashingImpl implements Topology<String> {
         return allNodes.length;
     }
 
+    @NotNull
     @Override
     public String[] allNodes() {
         return allNodes.clone();

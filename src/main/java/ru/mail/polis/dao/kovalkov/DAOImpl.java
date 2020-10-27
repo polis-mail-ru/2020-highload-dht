@@ -2,8 +2,6 @@ package ru.mail.polis.dao.kovalkov;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.BuiltinComparator;
-import org.rocksdb.CompactionPriority;
-import org.rocksdb.CompressionType;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -103,13 +101,7 @@ public final class DAOImpl implements DAO {
         try {
             final var options = new Options()
                     .setCreateIfMissing(true)
-                    .setCompressionType(CompressionType.NO_COMPRESSION)
-                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
-                    .setEnableWriteThreadAdaptiveYield(true)
-                    .setLevelCompactionDynamicLevelBytes(true)
-                    .setAllowConcurrentMemtableWrite(true)
-                    .setBytesPerSync(1048576)
-                    .setCompactionPriority(CompactionPriority.MinOverlappingRatio);
+                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {

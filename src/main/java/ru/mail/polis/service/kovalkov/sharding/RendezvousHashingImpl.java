@@ -1,5 +1,6 @@
-package ru.mail.polis.service.kovalkov;
+package ru.mail.polis.service.kovalkov.sharding;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,8 +34,9 @@ public class RendezvousHashingImpl implements Topology<String> {
         Arrays.sort(this.allNodes);
     }
 
+    @NotNull
     @Override
-    public String identifyByKey(final ByteBuffer key) {
+    public String identifyByKey(@NotNull final ByteBuffer key) {
         final byte[] keyBytes = new byte[key.remaining()];
         key.duplicate().get(keyBytes).clear();
         final Map<Integer,String> nodesAndHashes = new TreeMap<>();
@@ -52,6 +54,12 @@ public class RendezvousHashingImpl implements Topology<String> {
             throw new RuntimeException("Hash code can't be equals null");
         }
         return ownerNode;
+    }
+
+    @NotNull
+    @Override
+    public String[] replicasFor(@NotNull ByteBuffer key, int replicas) {
+        return new String[0];
     }
 
     @Override

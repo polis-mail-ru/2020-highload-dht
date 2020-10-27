@@ -38,10 +38,10 @@ import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
 
-public class SharedAsyncServiceImpl extends HttpServer implements Service {
+public class ReplicationServiceImpl extends HttpServer implements Service {
     private static final String IO_EX = "IO exception. Internal error response";
-    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private final Map<String,HttpClient> nodesClient = new HashMap<>();
+    private static final Logger log = LoggerFactory.getLogger(ReplicationServiceImpl.class);
+    private final Map<String, HttpClient> nodesClient = new HashMap<>();
     private final Topology<String> topology;
     private final ExecutorService service;
     private final DAO dao;
@@ -53,7 +53,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param dao - dao implementation.
      * @param topology  - cluster configuration
      */
-    public SharedAsyncServiceImpl(final HttpServerConfig config,
+    public ReplicationServiceImpl(final HttpServerConfig config,
                                   final DAO dao, final Topology<String> topology) throws IOException {
         super(config);
         this.dao = dao;

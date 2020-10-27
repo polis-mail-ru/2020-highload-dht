@@ -18,7 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.kovalkov.ModHashingImpl;
+import ru.mail.polis.service.kovalkov.sharding.ModHashingImpl;
 import ru.mail.polis.service.kovalkov.SharedAsyncServiceImpl;
 
 import java.io.IOException;
