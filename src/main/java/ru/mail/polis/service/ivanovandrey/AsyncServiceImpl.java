@@ -92,16 +92,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private Response forwardRequest(@NotNull final String cluster, final Request request) {
-
         try {
             return clients.get(cluster).invoke(SimpleTopology.getSpecialRequest(request));
-        } catch (InterruptedException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        } catch (PoolException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        } catch (IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        } catch (HttpException e) {
+        } catch (InterruptedException | IOException | HttpException | PoolException e){
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -279,26 +272,5 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    @Override
-    public synchronized void stop() {
-        super.stop();
-        service.shutdown();
-        try {
-            if (!service.awaitTermination(1, TimeUnit.SECONDS)) {
-                service.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            try {
-                service.shutdownNow();
-            } catch (RuntimeException ex) {
-                log.error("Server can't be shutdown: ", ex);
-            }
-        }
-        for (final var client : clients.entrySet()) {
-            client.getValue().close();
-        }
-        clients.clear();
     }
 }
