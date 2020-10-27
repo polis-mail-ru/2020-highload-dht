@@ -294,6 +294,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 }
         );
     }
+
     /**
      * HTTP method handler for placing a value by the key in the DAO storage.
      *
