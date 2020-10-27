@@ -65,6 +65,11 @@ public final class Value {
         return bytes;
     }
 
+    /**
+     * Creates new Value from bytes
+     * @param bytes - from what to create Value
+     * @return Value
+     */
     public static Value composeFromBytes(final byte[] bytes) {
         final ByteBuffer buffer = ByteBuffer.wrap(bytes);
         final short isValueDeleted = buffer.getShort();
@@ -73,6 +78,11 @@ public final class Value {
         return new Value(isValueDeleted == 1, timestamp, buffer);
     }
 
+    /**
+     * Retrieves value written to byte[] with specific timestamp attribute.
+     *
+     * @return timestamp-exposing value written to byte array
+     */
     public byte[] getValueBytes() {
         final short isDeleted = isValueDeleted ? (short) 1 : (short) -1;
 

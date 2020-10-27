@@ -104,7 +104,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         try {
             if (id == null || id.isEmpty()) {
                 session.sendResponse(
-                    new Response(Response.BAD_REQUEST, Response.EMPTY)
+                        new Response(Response.BAD_REQUEST, Response.EMPTY)
                 );
                 return;
             }
@@ -149,16 +149,20 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
 
     private void get(final ByteBuffer key, final HttpSession session) {
         try {
-            this.executor.execute(() -> {
-                try {
-                    getValue(key, session);
-                } catch (IOException e) {
-                    logger.error("Couldn't send response", e);
-                }
-            });
+            executeGet(key, session);
         } catch (RejectedExecutionException e) {
             logger.error("Execution exception in GET", e);
         }
+    }
+
+    private void executeGet(final ByteBuffer key, final HttpSession session) throws RejectedExecutionException {
+        this.executor.execute(() -> {
+            try {
+                getValue(key, session);
+            } catch (IOException e) {
+                logger.error("Couldn't send response", e);
+            }
+        });
     }
 
     private void getValue(final ByteBuffer key, final HttpSession session) throws IOException {
@@ -184,36 +188,46 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     }
 
     private void put(
-        final ByteBuffer key,
-        final Request request,
-        final HttpSession session
+            final ByteBuffer key,
+            final Request request,
+            final HttpSession session
     ) {
         try {
-            this.executor.execute(() -> {
-                try {
-                    this.putValue(key, ByteBuffer.wrap(request.getBody()), session);
-                } catch (IOException e) {
-                    logger.error("PUT error:", e);
-                }
-            });
+            executePut(key, request, session);
         } catch (RejectedExecutionException e) {
             logger.error("Execution exception in PUT", e);
         }
     }
 
+    private void executePut(
+            final ByteBuffer key,
+            final Request request,
+            final HttpSession session
+    ) throws RejectedExecutionException {
+        this.executor.execute(() -> {
+            try {
+                this.putValue(key, ByteBuffer.wrap(request.getBody()), session);
+            } catch (IOException e) {
+                logger.error("PUT error:", e);
+            }
+        });
+    }
+
     private void delete(final ByteBuffer key, final HttpSession session) {
         try {
-            this.executor.execute(() -> {
-                try {
-                    dao.remove(key);
-                    session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (IOException e) {
-                    this.handleError(session);
-                    logger.error("DELETE error:", e);
-                }
-            });
+            executeDelete(key, session);
         } catch (RejectedExecutionException e) {
             logger.error("Execution exception in DELETE", e);
+        }
+    }
+
+    private void executeDelete(final ByteBuffer key, final HttpSession session) throws RejectedExecutionException {
+        try {
+            dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException e) {
+            this.handleError(session);
+            logger.error("DELETE error:", e);
         }
     }
 
@@ -245,7 +259,8 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
 
     /**
      * This forwards request to other nodes in the cluster.
-     * @param nodeId - id of target node
+     *
+     * @param nodeId  - id of target node
      * @param request - request to forward
      * @return response from forwarded request
      */

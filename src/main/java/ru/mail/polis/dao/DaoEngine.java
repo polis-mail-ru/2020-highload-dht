@@ -29,9 +29,13 @@ public class DaoEngine implements DAO {
     private RocksDB db;
     private static final Logger LOGGER = Logger.getLogger(DaoEngine.class.getName());
 
+    /**
+     * Database implementation based on RocksDB
+     * @param db - RocksDB instance
+     */
     public DaoEngine(final RocksDB db) {
             this.db = db;
-        }
+    }
 
     public DaoEngine(@NotNull final File data) {
         final BuiltinComparator comparator = BuiltinComparator.BYTEWISE_COMPARATOR;

@@ -35,9 +35,13 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     static final String GATEWAY_TIMEOUT_ERROR_LOG = "Your request failed due to timeout";
     private static final int CONNECTION_TIMEOUT = 1000;
 
-    private static final Map<String, String> MESSAGE_MAP = Map.ofEntries(
-            entry("IO_ERROR", "IO exception raised"),
-            entry("NOT_ALLOWED_METHOD_ERROR","Method not allowed")
+    private enum ERROR_NAMES {
+        IO_ERROR, NOT_ALLOWED_METHOD_ERROR
+    }
+
+    private static final Map<ERROR_NAMES, String> MESSAGE_MAP = Map.ofEntries(
+            entry(ERROR_NAMES.IO_ERROR, "IO exception raised"),
+            entry(ERROR_NAMES.NOT_ALLOWED_METHOD_ERROR, "Method not allowed")
     );
 
     private final ExecutorService exec;
@@ -48,10 +52,10 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
 
     ReplicationServiceImpl(
             final int port,
-           @NotNull final DAO dao,
-           final int workerPoolSize,
-           final int queueSize,
-           @NotNull final Topology topology
+            @NotNull final DAO dao,
+            final int workerPoolSize,
+            final int queueSize,
+            @NotNull final Topology topology
     ) throws IOException {
 
         super(getConfig(port));
@@ -149,7 +153,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 runExecutor(session, () -> handler.singleDelete(key, request));
                 break;
             default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get("NOT_ALLOWED_METHOD_ERROR"));
+                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ERROR_NAMES.NOT_ALLOWED_METHOD_ERROR));
                 break;
         }
     }
@@ -189,7 +193,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 );
                 break;
             default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get("NOT_ALLOWED_METHOD_ERROR"));
+                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ERROR_NAMES.NOT_ALLOWED_METHOD_ERROR));
                 break;
         }
     }
@@ -204,7 +208,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             try {
                 session.sendResponse(runner.execute());
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get("IO_ERROR"));
+                LOGGER.error(MESSAGE_MAP.get(ERROR_NAMES.IO_ERROR));
             }
         });
     }
