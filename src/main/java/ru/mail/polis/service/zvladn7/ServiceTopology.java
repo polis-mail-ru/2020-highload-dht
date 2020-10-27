@@ -1,10 +1,12 @@
 package ru.mail.polis.service.zvladn7;
 
+import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -15,8 +17,6 @@ public class ServiceTopology implements Topology<String> {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceTopology.class);
     static final int VIRTUAL_NODES_PER_NODE = 10;
-    private static final int HASH_STEP_VALUE = 77;
-    private static final int OFFSET_FOR_NODE_HASH_VALUE = 10;
 
     @NotNull
     private final String local;
@@ -34,10 +34,10 @@ public class ServiceTopology implements Topology<String> {
         this.local = local;
         this.hashRing = new TreeMap<>();
 
-        int hashHelpValue = HASH_STEP_VALUE;
-        for (final String node : nodeSet) {
-            attachToRing(node, hashHelpValue);
-            hashHelpValue += HASH_STEP_VALUE;
+        final String[] nodes = nodeSet.toArray(new String[0]);
+        Arrays.sort(nodes);
+        for (final String node : nodes) {
+            attachToRing(node);
         }
     }
 
@@ -105,24 +105,17 @@ public class ServiceTopology implements Topology<String> {
         return local;
     }
 
-    private void attachToRing(@NotNull final String node, final int hashValue) {
+    private void attachToRing(@NotNull final String node) {
         log.debug("Start attaching node: {} to hash ring", node);
         for (int i = 0; i < VIRTUAL_NODES_PER_NODE; ++i) {
-            final int hash = calculateHash(node, i, hashValue);
-            hashRing.put(hash, node);
+            String stringToHash = node + i;
+            int hashCode = Hash.murmur3(stringToHash);
+            while (hashRing.containsKey(hashCode)) {
+                stringToHash = node + i;
+                hashCode = Hash.murmur3(stringToHash);
+            }
+            log.debug("{} and {} : {}", node, i, hashCode);
+            hashRing.put(hashCode, node);
         }
-    }
-
-    private int calculateHash(final String node, final int i, final int hashValue) {
-        final StringBuilder virtualNode = new StringBuilder(node).insert(OFFSET_FOR_NODE_HASH_VALUE, hashValue);
-        virtualNode.insert(i, i);
-        int hash = virtualNode.toString().hashCode();
-        while (hashRing.containsKey(hash)) {
-            virtualNode.insert(i, i);
-            hash = virtualNode.toString().hashCode();
-        }
-        log.debug("{} : {}", virtualNode, hash);
-
-        return hash;
     }
 }
