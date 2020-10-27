@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.util.Replicas;
 import ru.mail.polis.util.Util;
 
 import java.io.IOException;
@@ -46,12 +47,14 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private final Logger log = LoggerFactory.getLogger(ClusterServiceImpl.class);
     private final String thisNode;
 
+    private static final String PROXY_HEADER = "X-OK-Proxy: True";
+
     private static final String EXECUTOR_ERROR = "Request rejected";
     private static final String RESPONSE_ERROR = "Can not send response.";
     private static final String PROXY_ERROR = "Can not proxy request";
     private static final String INTERNAL_ERROR = "Internal Server Error";
     private static final String NOT_FOUND_ERROR = "Data not found";
-    
+
     /**
      * Config HttpServer, DAO and ExecutorService.
      *
@@ -60,6 +63,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
      * @param executors - number of executors
      * @param queueSize - size of queue in ThreadPoolExecutor
      * @param topology - set of cluster nodes
+     * @param timeout - timeout of connection
      */
     public ClusterServiceImpl(
             final int port,
@@ -119,42 +123,22 @@ public class ClusterServiceImpl extends HttpServer implements Service {
      * Get, set or delete data by id.
      *
      * @param id key of entity
+     * @param replicas number of nodes that must confirm the operation
      * @param request request with the entity value in body (for METHOD_PUT)
      * @param session - HttpSession
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
+                       @Param(value = "replicas") final String replicas,
                        @Param("request") final Request request,
                        final HttpSession session) {
         try {
             exec.execute(() -> {
-                final String requestNode;
                 final Response response;
-                if (id.isEmpty()) {
-                    response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+                if (request.getHeader(PROXY_HEADER) == null) {
+                    response = getResponseFromGateNode(id, replicas, request);
                 } else {
-                    requestNode = Util.getNode(topology, id);
-                    if (isCurrentNode(requestNode)) {
-                        switch (request.getMethod()) {
-                            case METHOD_GET:
-                                response = getSync(id);
-                                break;
-                            case METHOD_PUT:
-                                response = putSync(id, request.getBody());
-                                break;
-                            case METHOD_DELETE:
-                                response = deleteSync(id);
-                                break;
-                            default:
-                                log.error("Unknown method");
-                                response = new Response(
-                                        Response.METHOD_NOT_ALLOWED,
-                                        Response.EMPTY);
-                                break;
-                        }
-                    } else {
-                        response = proxy(clients.get(requestNode), request);
-                    }
+                    response = getResponseFromCurrent(request, id);
                 }
                 sendResponse(session, response);
             });
@@ -162,6 +146,56 @@ public class ClusterServiceImpl extends HttpServer implements Service {
             sendResponse(session,new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             log.error(EXECUTOR_ERROR, ex);
         }
+    }
+
+    private Response getResponseFromGateNode(final String id,
+                                              final String replicas,
+                                              final Request request) {
+        final Set<String> requestNodes;
+        final Response response;
+        final Replicas replicasInfo = (replicas == null) ?
+                new Replicas(topology.size()) : new Replicas(replicas);
+        if (id.isEmpty() || (replicasInfo.getAsk() <= 0) ||
+                (replicasInfo.getAsk() > replicasInfo.getFrom())) {
+            response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        } else {
+            requestNodes = Util.getNodes(topology, id, replicasInfo.getFrom());
+            for (String requestNode : requestNodes) {
+                if (isCurrentNode(requestNode)) {
+                    replicasInfo.analyseResponse(
+                            getResponseFromCurrent(request, id),
+                            request.getMethod());
+                } else {
+                    replicasInfo.analyseResponse(
+                            proxy(clients.get(requestNode), request),
+                            request.getMethod());
+                }
+            }
+            response = replicasInfo.formFinalResponse(request.getMethod());
+        }
+        return response;
+    }
+
+    private Response getResponseFromCurrent (final Request request, final String id) {
+        final Response response;
+        switch (request.getMethod()) {
+            case METHOD_GET:
+                response = getSync(id);
+                break;
+            case METHOD_PUT:
+                response = putSync(id, request.getBody());
+                break;
+            case METHOD_DELETE:
+                response = deleteSync(id);
+                break;
+            default:
+                log.error("Unknown method");
+                response = new Response(
+                        Response.METHOD_NOT_ALLOWED,
+                        Response.EMPTY);
+                break;
+        }
+        return response;
     }
 
     private void sendResponse(final HttpSession session, final Response response) {
@@ -174,10 +208,11 @@ public class ClusterServiceImpl extends HttpServer implements Service {
 
     private Response proxy(final HttpClient client, final Request request) {
         try {
+            request.addHeader(PROXY_HEADER);
             return client.invoke(request);
         } catch (IOException | InterruptedException | HttpException | PoolException e) {
             log.error(PROXY_ERROR, e);
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -197,7 +232,8 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private Response putSync(final String id,
                          final byte[] body) {
         try {
-            dao.upsert(ByteBuffer.wrap(id.getBytes(UTF_8)),
+            dao.upsertWithTimestamp(
+                    ByteBuffer.wrap(id.getBytes(UTF_8)),
                     ByteBuffer.wrap(body));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
@@ -208,7 +244,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
 
     private Response deleteSync(final String id) {
         try {
-            dao.remove(ByteBuffer.wrap(id.getBytes(UTF_8)));
+            dao.removeWithTimestamp(ByteBuffer.wrap(id.getBytes(UTF_8)));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
             log.error(INTERNAL_ERROR, ex);

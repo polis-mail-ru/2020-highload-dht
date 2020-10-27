@@ -57,9 +57,36 @@ public class RocksDBStorage implements DAO {
     }
 
     @Override
+    public void upsertWithTimestamp(@NotNull final ByteBuffer key,
+                             @NotNull final ByteBuffer value) throws IOException {
+        final Timestamp timestamp = new Timestamp(
+                Util.byteBufferToBytes(value),
+                System.currentTimeMillis(),
+                Timestamp.STATE_DATA);
+        try {
+            db.put(Util.pack(key),timestamp.getTimestampData());
+        } catch (RocksDBException ex) {
+            throw new IOException(ex);
+        }
+    }
+
+    @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(Util.pack(key));
+        } catch (RocksDBException ex) {
+            throw new IOException(ex);
+        }
+    }
+
+    @Override
+    public void removeWithTimestamp(@NotNull final ByteBuffer key) throws IOException {
+        final Timestamp timestamp = new Timestamp(
+                null,
+                System.currentTimeMillis(),
+                Timestamp.STATE_DELETED);
+        try {
+            db.put(Util.pack(key),timestamp.getTimestampData());
         } catch (RocksDBException ex) {
             throw new IOException(ex);
         }
