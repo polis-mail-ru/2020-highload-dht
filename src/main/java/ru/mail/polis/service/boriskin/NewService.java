@@ -99,58 +99,35 @@ public class NewService extends HttpServer implements Service {
 
     /**
      * HTTP GET /v0/entity?id="ID" -- получает данные по ключу.
-     *
-     * @param id ключ
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public void get(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession) {
-        idValidation(id, httpSession);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        try {
-            executorService.execute(() -> getting(key, httpSession));
-        } catch (RejectedExecutionException rejectedExecutionException) {
-            respServiceUnavailable(httpSession, rejectedExecutionException);
-        }
-    }
-
-    /**
      * HTTP PUT /v0/entity?id="ID" -- создает/перезаписывает (upsert) данные по ключу.
-     *
-     * @param id ключ
-     * @param request данные
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void put(
-            @Param(value = "id", required = true) final String id,
-            final Request request,
-            @NotNull final HttpSession httpSession) {
-        idValidation(id, httpSession);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        try {
-            executorService.execute(() -> upserting(key, request, httpSession));
-        } catch (RejectedExecutionException rejectedExecutionException) {
-            respServiceUnavailable(httpSession, rejectedExecutionException);
-        }
-    }
-
-    /**
      * HTTP DELETE /v0/entity?id="ID" - удаляет данные по ключу.
      *
      * @param id ключ
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void delete(
+    public void entity(
             @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession) {
+            @NotNull final HttpSession httpSession,
+            final Request request) {
         idValidation(id, httpSession);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         try {
-            executorService.execute(() -> removing(key, httpSession));
+            executorService.execute(() -> {
+                switch (request.getMethod()) {
+                    case Request.METHOD_GET:
+                        getting(key, httpSession);
+                        break;
+                    case Request.METHOD_PUT:
+                        upserting(key, request, httpSession);
+                        break;
+                    case Request.METHOD_DELETE:
+                        removing(key, httpSession);
+                        break;
+                    default:
+                        logger.error("Неверный запрос");
+                        resp(httpSession, Response.METHOD_NOT_ALLOWED);
+                }
+            });
         } catch (RejectedExecutionException rejectedExecutionException) {
             respServiceUnavailable(httpSession, rejectedExecutionException);
         }
