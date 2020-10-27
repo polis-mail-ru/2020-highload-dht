@@ -303,3 +303,113 @@ hashing(4.5%), proxy(19%)
 ###ВЫВОД
 
 При увеличении размера кластера таким методом нужно будет платить повышенными временными затратами на обработку и переадресацию запросов к нужной ноде и увеличенным потребление RAM. 
+
+#TASK_5
+
+##PUT
+
+    wrk -t4 -c32 -d40s -R10000 --latency -s wrk2/putScript.lua http://127.0.0.1:8080
+    Running 40s test @ http://127.0.0.1:8080
+      4 threads and 32 connections
+      Thread calibration: mean lat.: 1.831ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 1.899ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 1.857ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 1.809ms, rate sampling interval: 10ms
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Latency     1.97ms    2.25ms  26.93ms   94.38%
+        Req/Sec     2.65k   498.55     8.11k    88.68%
+      Latency Distribution (HdrHistogram - Recorded Latency)
+     50.000%    1.46ms
+     75.000%    2.11ms
+     90.000%    3.09ms
+     99.000%   13.77ms
+     99.900%   21.76ms
+     99.990%   25.04ms
+     99.999%   26.48ms
+    100.000%   26.94ms
+    
+    #[Mean    =        1.973, StdDeviation   =        2.249]
+    #[Max     =       26.928, Total count    =       299589]
+    #[Buckets =           27, SubBuckets     =         2048]
+    ----------------------------------------------------------
+      399820 requests in 40.00s, 25.55MB read
+    Requests/sec:   9995.44
+    Transfer/sec:    654.00KB
+    
+99.9% запросов были выполнены с задержкой меньше 21.76ms, задрежка почти в 3 раза больше, чем в предыдущей реализации.
+99% запросов были выполнены с задержкой меньше 13.77ms, задержка больше в 8 раз, чем на прошлом этапе.
+Вывод: увеличение надежности в разы увеличивает время ответа сервера. Но показатели перцентиль все еще в норме.
+
+###CPU
+
+![Alt text](./async-profiler/cpu/putCPUv5.svg)
+
+На грфике видно ряд новых методов. В основном это вынос старого(чуть-чуть улучшенного функционала).
+Новый метод 'getResponseFromNode', отвечающий за отправку запросов на все ноды и аккамулированию ответов сервера занимает 31% CPU.
+Скорей всего именно из-за метода 'getResponseFromNode' увеличилось время ответа сервера.
+
+###ALLOC
+
+![Alt text](./async-profiler/alloc/putAllocV5.svg)
+
+Аналогично графику CPU. Под метод 'getResponseFromNode' выделяется 28%.
+
+###LOCK
+
+![Alt text](./async-profiler/lock/putLockV5.svg)
+
+Блокировки возникают на очереди между селекторами HTTP сервера и пулом потоков-воркеров.
+
+##GET
+
+    wrk -t4 -c32 -d40s -R10000 --latency -s wrk2/getScript.lua http://127.0.0.1:8080
+    Running 40s test @ http://127.0.0.1:8080
+      4 threads and 32 connections
+      Thread calibration: mean lat.: 1.746ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 1.736ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 1.773ms, rate sampling interval: 10ms
+      Thread calibration: mean lat.: 1.751ms, rate sampling interval: 10ms
+      Thread Stats   Avg      Stdev     Max   +/- Stdev
+        Latency     1.88ms    1.16ms  28.56ms   80.93%
+        Req/Sec     2.64k   321.88     6.20k    75.75%
+      Latency Distribution (HdrHistogram - Recorded Latency)
+     50.000%    1.65ms
+     75.000%    2.32ms
+     90.000%    3.20ms
+     99.000%    6.08ms
+     99.900%   11.04ms
+     99.990%   16.15ms
+     99.999%   19.60ms
+    100.000%   28.58ms
+    
+    #[Mean    =        1.883, StdDeviation   =        1.165]
+    #[Max     =       28.560, Total count    =       299568]
+    #[Buckets =           27, SubBuckets     =         2048]
+    ----------------------------------------------------------
+      399793 requests in 40.00s, 43.91MB read
+    Requests/sec:   9994.88
+    Transfer/sec:      1.10MB
+    
+99.9% запросов были выполнены с задержкой меньше 16.15ms, задрежка на 35% больше, чем в предыдущей реализации.
+99% запросов были выполнены с задержкой меньше 6.08ms, задержка больше в 4 раз, чем на прошлом этапе.
+Вывод: увеличение надежности в разы увеличивает время ответа сервера. Но показатели перцентиль все еще в норме.
+
+###CPU
+
+![Alt text](./async-profiler/cpu/getCPUv5.svg)
+
+На грфике видно ряд новых методов. В основном это вынос старого(чуть-чуть улучшенного функционала).
+Новый метод 'getResponseFromNode', отвечающий за отправку запросов на все ноды и аккамулированию ответов сервера занимает 29% CPU.
+Скорей всего именно из-за метода 'getResponseFromNode' увеличилось время ответа сервера.
+
+###ALLOC
+
+![Alt text](./async-profiler/alloc/getAllocV5.svg)
+
+Аналогично графику CPU. Под метод 'getResponseFromNode' выделяется 15%.
+
+###LOCK
+
+![Alt text](./async-profiler/lock/getLockV5.svg)
+
+Блокировки возникают на очереди между селекторами HTTP сервера и пулом потоков-воркеров.
