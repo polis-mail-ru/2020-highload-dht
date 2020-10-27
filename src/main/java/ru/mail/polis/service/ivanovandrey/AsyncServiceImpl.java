@@ -2,7 +2,6 @@ package ru.mail.polis.service.ivanovandrey;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -12,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -100,7 +98,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private Response forwardRequest(@NotNull final String cluster, final Request request){
+    private Response forwardRequest(@NotNull final String cluster, final Request request) {
         try {
             return clients.get(cluster).invoke(SimpleTopology.getSpecialRequest(request));
         } catch (Exception e) {
@@ -293,6 +291,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
         } catch (InterruptedException e) {
             service.shutdownNow();
+            throw new RuntimeException(e);
         }
         for (final var client : clients.entrySet()) {
             client.getValue().close();
