@@ -21,10 +21,10 @@ public class Timestamp {
      * @param state - correct data or deleted data
      */
     public Timestamp(final byte[] data, final Long timestampValue, final Byte state) {
-        if (data != null) {
-            this.data = data.clone();
-        } else {
+        if (data == null) {
             this.data = null;
+        } else {
+            this.data = data.clone();
         }
         this.timestampValue = timestampValue;
         this.state = state;
@@ -70,11 +70,14 @@ public class Timestamp {
         return true;
     }
 
+    /**
+     * returns "data" field.
+     */
     public byte[] getData() {
         if (isDataNotEmpty()) {
             return data.clone();
         }
-        return null;
+        return new byte[0];
     }
 
     public Long getTimestampValue() {
