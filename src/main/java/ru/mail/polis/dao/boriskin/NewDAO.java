@@ -253,9 +253,7 @@ public class NewDAO implements DAO {
         final File temp =
                 new File(base, snapshot.gen + TEMP);
         SortedStringTable.writeData(
-                snapshot
-                        .currMemTable
-                        .iterator(ByteBuffer.allocate(0)),
+                snapshot.currMemTable.iterator(ByteBuffer.allocate(0)),
                 temp);
         // превращаем в постоянный файл
         final File dest =
@@ -293,7 +291,6 @@ public class NewDAO implements DAO {
                         snapshot.ssTableCollection.size());
         final Iterator<TableCell> cells =
                 returnIteratorOverMergedCollapsedFiltered(snapshot, point, fileIterators);
-
         readWriteLock.writeLock().lock();
         try {
             this.tables = this.tables.compactSSTables();
@@ -303,11 +300,7 @@ public class NewDAO implements DAO {
         final File temp = new File(base, snapshot.gen + TEMP);
         SortedStringTable.writeData(cells, temp);
         final File dest = new File(base, snapshot.gen + DB);
-        Files.move(
-                temp.toPath(),
-                dest.toPath(),
-                StandardCopyOption.ATOMIC_MOVE);
-
+        Files.move(temp.toPath(), dest.toPath(), StandardCopyOption.ATOMIC_MOVE);
         readWriteLock.writeLock().lock();
         try {
             this.tables =
@@ -325,9 +318,10 @@ public class NewDAO implements DAO {
         }
     }
 
-    private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(final TableSet snapshot,
-                                                                          final ByteBuffer point,
-                                                                          final List<Iterator<TableCell>> iteratorList) throws IOException {
+    private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(
+            final TableSet snapshot,
+            final ByteBuffer point,
+            final List<Iterator<TableCell>> iteratorList) throws IOException {
         for (final Table table : snapshot.ssTableCollection.descendingMap().values()) {
             iteratorList.add(table.iterator(point));
         }

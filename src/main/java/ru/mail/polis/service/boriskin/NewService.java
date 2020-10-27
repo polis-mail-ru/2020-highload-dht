@@ -126,7 +126,7 @@ public class NewService extends HttpServer implements Service {
                                 + "[from = " + replicationFactor.getFrom() + "] > [ nodeSetSize = " + nodeSetSize);
             }
         } catch (IllegalArgumentException illegalArgumentException) {
-            resp(httpSession, Response.BAD_REQUEST);
+            resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
         runExecutorService(httpSession, request, replicationFactor);
@@ -136,7 +136,7 @@ public class NewService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         if (id == null || id.isEmpty()) {
-            resp(httpSession, Response.BAD_REQUEST);
+            resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
     }
 
@@ -162,7 +162,7 @@ public class NewService extends HttpServer implements Service {
             final Request request,
             final HttpSession httpSession) {
         logger.error("Непонятный запрос: {}", request);
-        resp(httpSession, Response.BAD_REQUEST);
+        resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     private void runExecutorService(
@@ -173,7 +173,7 @@ public class NewService extends HttpServer implements Service {
             executorService.execute(() -> operation(httpSession, request, replicationFactor));
         } catch (RejectedExecutionException rejectedExecutionException) {
             logger.error("Ошибка, превышен допустимый размер очередди задач ", rejectedExecutionException);
-            resp(httpSession, Response.SERVICE_UNAVAILABLE);
+            resp(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 
@@ -199,18 +199,8 @@ public class NewService extends HttpServer implements Service {
                                 new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
                 break;
             default:
-                resp(httpSession, Response.METHOD_NOT_ALLOWED);
+                resp(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                 break;
-        }
-    }
-
-    private void resp(
-            @NotNull final HttpSession httpSession,
-            @NotNull final String response) {
-        try {
-            httpSession.sendResponse(new Response(response, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("Ошибка при отправке ответа ({}) ", response, ioException);
         }
     }
 

@@ -61,16 +61,7 @@ final class ReplicaWorker {
     Response getting(
             @NotNull final MetaInfoRequest mir) {
         if (mir.isAlreadyProxied()) {
-            try {
-                return Value.transform(
-                        Value.from(
-                                dao.getTableCell(
-                                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
-                        true);
-            } catch (IOException ioException) {
-                logger.error("Ошибка: ", ioException);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
+            return doGet(mir);
         }
 
         final List<String> replicas =
@@ -111,6 +102,7 @@ final class ReplicaWorker {
                 new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
         }
+
         if (isUnreachable(acks, mir)) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         } else {
@@ -119,17 +111,25 @@ final class ReplicaWorker {
     }
 
     @NotNull
+    private Response doGet(
+            @NotNull final MetaInfoRequest mir) {
+        try {
+            return Value.transform(
+                    Value.from(
+                            dao.getTableCell(
+                                    ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
+                    true);
+        } catch (IOException ioException) {
+            logger.error("Ошибка: ", ioException);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    @NotNull
     Response upserting(
             @NotNull final MetaInfoRequest mir) {
         if (mir.isAlreadyProxied()) {
-            try {
-                dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
-                return new Response(Response.CREATED, Response.EMPTY);
-            } catch (NoSuchElementException e) {
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (IOException e) {
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
+            return doUpsert(mir);
         }
 
         final List<String> replicas =
@@ -164,21 +164,31 @@ final class ReplicaWorker {
     }
 
     @NotNull
+    private Response doUpsert(
+            @NotNull final MetaInfoRequest mir) {
+        try {
+            dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    @NotNull
     Response removing(
             @NotNull final MetaInfoRequest mir) {
         if (mir.isAlreadyProxied()) {
-            try {
-                dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
-                return new Response(Response.ACCEPTED, Response.EMPTY);
-            } catch (NoSuchElementException e) {
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (IOException e) {
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
+            return doRemove(mir);
         }
 
-        final List<String> replicas = topology.replicas(
-                ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getReplicaFactor().getFrom());
+        final List<String> replicas =
+                topology.replicas(
+                        ByteBuffer.wrap(
+                                mir.getId().getBytes(Charsets.UTF_8)),
+                        mir.getReplicaFactor().getFrom()
+                );
 
         int acks = 0;
         if (replicas.contains(topology.recogniseMyself())) {
@@ -201,6 +211,19 @@ final class ReplicaWorker {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         } else {
             return new Response(Response.ACCEPTED, Response.EMPTY);
+        }
+    }
+
+    @NotNull
+    private Response doRemove(
+            @NotNull final MetaInfoRequest mir) {
+        try {
+            dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
