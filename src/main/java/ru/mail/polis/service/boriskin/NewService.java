@@ -24,13 +24,31 @@ import java.util.concurrent.TimeUnit;
 import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER;
 
 /**
- * Поддержка следующего HTTP REST API протокола:
- * 1. HTTP GET /v0/entity?id="ID" -- получить данные по ключу.
- * Возвращает 200 OK и данные или 404 Not Found
- * 2. HTTP PUT /v0/entity?id="ID" -- создать/перезаписать (upsert) данные по ключу.
- * Возвращает 201 Created
- * 3. HTTP DELETE /v0/entity?id="ID" -- удалить данные по ключу.
- * Возвращает 202 Accepted
+ * Поддержка следующего расширенного HTTP REST API протокола:
+ *
+ * 1. HTTP GET /v0/entity?id="ID"[&replicas=ack/from] -- получить данные по ключу "ID".
+ * Возвращает:
+ * 200 OK и данные,
+ *      если ответили хотя бы ack из from реплик;
+ * 404 Not Found,
+ *      если ни одна из ack реплик, вернувших ответ,
+ *      не содержит данные (либо данные удалены хотя бы на одной из ack ответивших реплик);
+ * 504 Not Enough Replicas,
+ *      если не получили 200/404 от ack реплик из всего множества from реплик.
+ *
+ * 2. HTTP PUT /v0/entity?id="ID"[&replicas=ack/from] -- создать/перезаписать данные по ключу "ID".
+ * Возвращает:
+ * 201 Created,
+ *      если хотя бы ack из from реплик подтвердили операцию;
+ * 504 Not Enough Replicas,
+ *      если не набралось ack подтверждений из всего множества from реплик.
+ *
+ * 3. HTTP DELETE /v0/entity?id="ID"[&replicas=ack/from] -- удалить данные по ключу "ID".
+ * Возвращает:
+ * 202 Accepted,
+ *      если хотя бы ack из from реплик подтвердили операцию;
+ * 504 Not Enough Replicas,
+ *      если не набралось ack подтверждений из всего множества from реплик.
  *
  * @author makary
  */
@@ -85,7 +103,7 @@ public class NewService extends HttpServer implements Service {
 
     /**
      * HTTP GET /v0/entity?id="ID" -- получает данные по ключу.
-     * HTTP PUT /v0/entity?id="ID" -- создает/перезаписывает (upsert) данные по ключу.
+     * HTTP PUT /v0/entity?id="ID" -- создает/перезаписывает данные по ключу.
      * HTTP DELETE /v0/entity?id="ID" - удаляет данные по ключу.
      *
      * @param id ключ
@@ -107,7 +125,7 @@ public class NewService extends HttpServer implements Service {
             final int nodeSetSize = topology.all().size();
             if (replicationFactor.getFrom() > nodeSetSize) {
                 throw new IllegalArgumentException(
-                        "Неправильный RF:" +
+                        "Неправильный фактор репликации:" +
                                 "[from = " + replicationFactor.getFrom() + "] > [ nodeSetSize = " + nodeSetSize);
             }
         } catch (IllegalArgumentException illegalArgumentException) {
@@ -167,9 +185,26 @@ public class NewService extends HttpServer implements Service {
             @NotNull final Request request,
             @NotNull final ReplicaFactor replicationFactor) {
         final boolean alreadyProxied = request.getHeader(PROXY_HEADER) != null;
-        resp(
-                httpSession,
-                replicaWorker.entity(new MetaInfoRequest(request, replicationFactor, alreadyProxied), request));
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                resp(httpSession,
+                        replicaWorker.getting(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            case Request.METHOD_PUT:
+                resp(httpSession,
+                        replicaWorker.upserting(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            case Request.METHOD_DELETE:
+                resp(httpSession,
+                        replicaWorker.removing(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            default:
+                resp(httpSession, Response.METHOD_NOT_ALLOWED);
+                break;
+        }
     }
 
     private void resp(

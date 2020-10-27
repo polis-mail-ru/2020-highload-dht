@@ -71,11 +71,11 @@ public final class NewTopology implements ConsistentHashingTopology {
     @Override
     public List<String> replicas(
             @NotNull final ByteBuffer key,
-            final int point) {
-        if (point > nodeSet.size()) {
+            final int from) {
+        if (from > nodeSet.size()) {
             throw new IllegalArgumentException(
                     "Неверный RF:" +
-                            "[point = " + point + "] > [ nodeSetSize = " + all().size());
+                            "[point = " + from + "] > [ nodeSetSize = " + all().size());
         }
 
         final ArrayList<String> replicas = new ArrayList<>();
@@ -90,7 +90,7 @@ public final class NewTopology implements ConsistentHashingTopology {
                         .values()
                         .iterator();
 
-        while (cntReplicas != point) {
+        while (cntReplicas != from) {
             if (!iterator.hasNext()) {
                 iterator = ring.values().iterator();
             }

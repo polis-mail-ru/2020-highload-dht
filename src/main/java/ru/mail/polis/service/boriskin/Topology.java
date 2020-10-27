@@ -17,7 +17,7 @@ public interface Topology<N> {
     Set<N> all();
 
     @NotNull
-    List<N> replicas(@NotNull ByteBuffer key, int point);
+    List<N> replicas(@NotNull ByteBuffer key, int from);
 
     @NotNull
     N recogniseMyself();
