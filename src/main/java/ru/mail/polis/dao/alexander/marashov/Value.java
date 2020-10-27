@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
-final class Value implements Comparable<Value> {
+final public class Value implements Comparable<Value> {
 
     private final long timestamp;
     private final ByteBuffer data;
@@ -14,7 +14,7 @@ final class Value implements Comparable<Value> {
      * Creates the tombstone if data is null
      */
     public Value(final long timestamp, final ByteBuffer data) {
-        assert timestamp > 0L;
+        assert timestamp >= 0L;
         this.timestamp = timestamp;
         this.data = data;
     }
@@ -26,6 +26,15 @@ final class Value implements Comparable<Value> {
     @Override
     public int compareTo(@NotNull final Value o) {
         return -Long.compare(this.timestamp, o.timestamp);
+    }
+
+    @Override
+    public int hashCode() {
+        if (isTombstone()) {
+            return Long.hashCode(timestamp);
+        } else {
+            return Long.hashCode(timestamp) + data.hashCode();
+        }
     }
 
     public ByteBuffer getData() {

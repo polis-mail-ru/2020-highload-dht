@@ -85,6 +85,14 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
+        final Iterator<Cell> fresh = rowIterator(from);
+        final Iterator<Cell> alive = Iterators.filter(fresh, i -> !i.getValue().isTombstone());
+        return Iterators.transform(alive, i -> Record.of(i.getKey(), i.getValue().getData()));
+    }
+
+    @NotNull
+    @Override
+    public Iterator<Cell> rowIterator(@NotNull final ByteBuffer from) throws IOException {
         final TableSnapshot snapshot;
         lock.readLock().lock();
         try {
@@ -102,9 +110,7 @@ public class DAOImpl implements DAO {
             iterators.add(t.iterator(from));
         }
         final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Cell.COMPARATOR);
-        final Iterator<Cell> fresh = Iters.collapseEquals(merged, Cell::getKey);
-        final Iterator<Cell> alive = Iterators.filter(fresh, i -> !i.getValue().isTombstone());
-        return Iterators.transform(alive, i -> Record.of(i.getKey(), i.getValue().getData()));
+        return Iters.collapseEquals(merged, Cell::getKey);
     }
 
     @Override

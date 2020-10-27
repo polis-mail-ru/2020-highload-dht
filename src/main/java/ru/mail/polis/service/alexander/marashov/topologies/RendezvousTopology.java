@@ -39,13 +39,28 @@ public class RendezvousTopology implements Topology<String> {
     @NotNull
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
+        return primariesFor(key, 1)[0];
+    }
+
+    @NotNull
+    @Override
+    public String[] primariesFor(@NotNull final ByteBuffer key, final int count) {
+
+        assert count <= nodes.length;
+        assert count > 0;
+
         final int keyHashCode = key.hashCode();
         final NodeKeyPair[] pairs = new NodeKeyPair[nodes.length];
         for (int i = 0; i < nodes.length; i++) {
             pairs[i] = new NodeKeyPair(nodes[i], keyHashCode);
         }
         Arrays.sort(pairs);
-        return pairs[0].getNode();
+
+        final String[] primaries = new String[count];
+        for (int i = 0; i < count; ++i) {
+            primaries[i] = pairs[i].getNode();
+        }
+        return primaries;
     }
 
     @NotNull
