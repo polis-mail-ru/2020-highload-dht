@@ -10,6 +10,7 @@ import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -32,7 +33,7 @@ public final class Entry implements Comparable<Entry> {
                  @Nullable final byte[] data,
                  @NotNull final State state) {
         this.timestamp = timestamp;
-        this.data = data;
+        this.data = data == null ? null : Arrays.copyOf(data, data.length);
         this.state = state;
     }
 
@@ -42,7 +43,7 @@ public final class Entry implements Comparable<Entry> {
 
     @Nullable
     public byte[] getData() {
-        return data;
+        return data == null ? null : data.clone();
     }
 
     @NotNull
