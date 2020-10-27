@@ -30,7 +30,7 @@ public class DaoEngine implements DAO {
     private static final Logger LOGGER = Logger.getLogger(DaoEngine.class.getName());
 
     /**
-     * Database implementation based on RocksDB
+     * Database implementation based on RocksDB.
      * @param db - RocksDB instance
      */
     public DaoEngine(final RocksDB db) {

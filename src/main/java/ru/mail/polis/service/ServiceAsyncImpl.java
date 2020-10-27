@@ -47,11 +47,8 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     private final Map<String, HttpClient> nodeToClient;
 
     ServiceAsyncImpl(
-            final int port,
-            @NotNull final DAO dao,
-            final int workersCount,
-            final int queueSize,
-            @NotNull final Topology topology
+            final int port, @NotNull final DAO dao, final int workersCount,
+            final int queueSize, @NotNull final Topology topology
     ) throws IOException {
         super(getConfig(port, workersCount));
         this.dao = dao;
@@ -103,9 +100,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     ) {
         try {
             if (id == null || id.isEmpty()) {
-                session.sendResponse(
-                        new Response(Response.BAD_REQUEST, Response.EMPTY)
-                );
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 return;
             }
 
@@ -187,11 +182,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
-    private void put(
-            final ByteBuffer key,
-            final Request request,
-            final HttpSession session
-    ) {
+    private void put(final ByteBuffer key, final Request request, final HttpSession session) {
         try {
             executePut(key, request, session);
         } catch (RejectedExecutionException e) {
@@ -200,9 +191,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     }
 
     private void executePut(
-            final ByteBuffer key,
-            final Request request,
-            final HttpSession session
+            final ByteBuffer key, final Request request, final HttpSession session
     ) throws RejectedExecutionException {
         this.executor.execute(() -> {
             try {
