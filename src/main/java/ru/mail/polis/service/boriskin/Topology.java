@@ -3,6 +3,8 @@ package ru.mail.polis.service.boriskin;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Set;
 
 public interface Topology<N> {
 
@@ -11,8 +13,12 @@ public interface Topology<N> {
 
     boolean isMyNode(@NotNull N node);
 
-    int sizeOfAllNodesInCluster();
+    @NotNull
+    Set<N> all();
 
     @NotNull
-    N[] all();
+    List<N> replicas(@NotNull ByteBuffer key, int point);
+
+    @NotNull
+    N recogniseMyself();
 }
