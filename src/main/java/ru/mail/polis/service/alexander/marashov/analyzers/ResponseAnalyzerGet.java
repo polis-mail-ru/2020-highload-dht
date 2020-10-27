@@ -88,10 +88,11 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
         for (final Map.Entry<Value, Integer> answerEntry : answersMap.entrySet()) {
             final Value value = answerEntry.getKey();
             final int count = answerEntry.getValue();
+
             if (
                     correctValue == null
                             || count > maxCount
-                            || count == maxCount && value.compareTo(correctValue) > 0
+                            || (count == maxCount && value.compareTo(correctValue) > 0)
             ) {
                 maxCount = count;
                 correctValue = value;

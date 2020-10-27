@@ -3,8 +3,8 @@ package ru.mail.polis.service.alexander.marashov.topologies;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.Objects;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
@@ -92,7 +92,8 @@ public class RendezvousTopology implements Topology<String> {
 
         /**
          * NodeKeyPair calculates the hash code of the node combined with the key's hash code.
-         * @param node - string representing the node
+         *
+         * @param node        - string representing the node
          * @param keyHashCode - integer hash code of the key
          */
         public NodeKeyPair(@NotNull final String node, final int keyHashCode) {

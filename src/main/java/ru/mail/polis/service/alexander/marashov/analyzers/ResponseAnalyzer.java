@@ -76,7 +76,7 @@ public abstract class ResponseAnalyzer<V> {
     }
 
     /**
-     *
+     * Wait for condition signal or timeout.
      * @param l - number of time units.
      * @param timeUnit - units for measuring time.
      * @throws InterruptedException if the wait is interrupted.

@@ -8,6 +8,14 @@ public class SimpleResponseAnalyzer extends ResponseAnalyzer<Boolean> {
     private final int successCode;
     private final String successResponseString;
 
+    /**
+     * Simple response analyzer that accumulates responses from DAO's methods and analyzes them.
+     *
+     * @param neededReplicasCount - how many replicas is required.
+     * @param totalReplicasCount - how many replicas is expected.
+     * @param successCode - status code that means correct answer.
+     * @param successResponseString - correct response status.
+     */
     public SimpleResponseAnalyzer(
             final int neededReplicasCount,
             final int totalReplicasCount,
