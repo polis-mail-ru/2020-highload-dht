@@ -25,7 +25,6 @@ import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER;
 
 /**
  * Поддержка следующего расширенного HTTP REST API протокола:
- *
  * 1. HTTP GET /v0/entity?id="ID"[&replicas=ack/from] -- получить данные по ключу "ID".
  * Возвращает:
  * 200 OK и данные,
@@ -35,14 +34,12 @@ import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER;
  *      не содержит данные (либо данные удалены хотя бы на одной из ack ответивших реплик);
  * 504 Not Enough Replicas,
  *      если не получили 200/404 от ack реплик из всего множества from реплик.
- *
  * 2. HTTP PUT /v0/entity?id="ID"[&replicas=ack/from] -- создать/перезаписать данные по ключу "ID".
  * Возвращает:
  * 201 Created,
  *      если хотя бы ack из from реплик подтвердили операцию;
  * 504 Not Enough Replicas,
  *      если не набралось ack подтверждений из всего множества from реплик.
- *
  * 3. HTTP DELETE /v0/entity?id="ID"[&replicas=ack/from] -- удалить данные по ключу "ID".
  * Возвращает:
  * 202 Accepted,
@@ -78,13 +75,13 @@ public class NewService extends HttpServer implements Service {
                       @NotNull final Topology<String> topology) throws IOException {
         super(getConfigFrom(port));
         this.executorService = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors() + 1,
+                Runtime.getRuntime().availableProcessors(),
                 new ThreadFactoryBuilder().setNameFormat("worker-%d").build());
         this.topology = topology;
         this.defaultReplicaFactor = ReplicaFactor.from(topology.all().size());
         this.replicaWorker = new ReplicaWorker(
                 Executors.newFixedThreadPool(
-                        Runtime.getRuntime().availableProcessors() + 1,
+                        Runtime.getRuntime().availableProcessors(),
                         new ThreadFactoryBuilder().setNameFormat("proxy-worker-%d").build()),
                 dao,
                 topology);
@@ -125,8 +122,8 @@ public class NewService extends HttpServer implements Service {
             final int nodeSetSize = topology.all().size();
             if (replicationFactor.getFrom() > nodeSetSize) {
                 throw new IllegalArgumentException(
-                        "Неправильный фактор репликации:" +
-                                "[from = " + replicationFactor.getFrom() + "] > [ nodeSetSize = " + nodeSetSize);
+                        "Неправильный фактор репликации:"
+                                + "[from = " + replicationFactor.getFrom() + "] > [ nodeSetSize = " + nodeSetSize);
             }
         } catch (IllegalArgumentException illegalArgumentException) {
             resp(httpSession, Response.BAD_REQUEST);
@@ -185,26 +182,29 @@ public class NewService extends HttpServer implements Service {
             @NotNull final Request request,
             @NotNull final ReplicaFactor replicationFactor) {
         final boolean alreadyProxied = request.getHeader(PROXY_HEADER) != null;
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                resp(httpSession,
-                        replicaWorker.getting(
-                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
-                break;
-            case Request.METHOD_PUT:
-                resp(httpSession,
-                        replicaWorker.upserting(
-                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
-                break;
-            case Request.METHOD_DELETE:
-                resp(httpSession,
-                        replicaWorker.removing(
-                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
-                break;
-            default:
-                resp(httpSession, Response.METHOD_NOT_ALLOWED);
-                break;
-        }
+//        switch (request.getMethod()) {
+//            case Request.METHOD_GET:
+//                resp(httpSession,
+//                        replicaWorker.getting(
+//                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+//                break;
+//            case Request.METHOD_PUT:
+//                resp(httpSession,
+//                        replicaWorker.upserting(
+//                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+//                break;
+//            case Request.METHOD_DELETE:
+//                resp(httpSession,
+//                        replicaWorker.removing(
+//                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+//                break;
+//            default:
+//                resp(httpSession, Response.METHOD_NOT_ALLOWED);
+//                break;
+//        }
+        resp(httpSession, replicaWorker.entity(
+                new MetaInfoRequest(request, replicationFactor, alreadyProxied),
+                request));
     }
 
     private void resp(

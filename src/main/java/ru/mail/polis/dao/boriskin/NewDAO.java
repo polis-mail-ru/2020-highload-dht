@@ -59,7 +59,6 @@ public class NewDAO implements DAO {
         this.base = base;
         assert maxHeapThreshold >= 0L;
         this.maxHeapThreshold = maxHeapThreshold;
-
         final NavigableMap<Long, Table> ssTableCollection =
                 new TreeMap<>();
         final AtomicLong identifierThreshold =
@@ -102,7 +101,6 @@ public class NewDAO implements DAO {
                                     path.getFileName().toString();
                             final long gen =
                                     Integer.parseInt(fName.substring(0, fName.indexOf(DB)));
-
                             // более свежая версия из того, что лежит на диске
                             identifierThreshold.set(
                                     Math.max(
@@ -129,8 +127,7 @@ public class NewDAO implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(
-            @NotNull final ByteBuffer point) throws IOException {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer point) throws IOException {
         // после мерджа ячеек разных таблиц,
         // при возвращении итератора пользователю:
         // в этот момент превращает их в рекорды (transform)
@@ -165,7 +162,6 @@ public class NewDAO implements DAO {
         for (final Table table : snapshot.tablesReadyToFlush) {
             iteratorList.add(table.iterator(point));
         }
-
         // итератор мерджит разные потоки и выбирает самое актуальное значение
         final Iterator<TableCell> alive =
                 returnIteratorOverMergedCollapsedFiltered(
@@ -185,8 +181,7 @@ public class NewDAO implements DAO {
      * @throws IOException если ошибка ввод-вывод
      */
     @Nullable
-    public TableCell getTableCell(
-            @NotNull final ByteBuffer key) throws IOException {
+    public TableCell getTableCell(@NotNull final ByteBuffer key) throws IOException {
         final Iterator<TableCell> iter = iterateThroughTableCells(key);
         if (!iter.hasNext()) {
             return null;
@@ -221,8 +216,7 @@ public class NewDAO implements DAO {
     }
 
     @Override
-    public void remove(
-            @NotNull final ByteBuffer key) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         final boolean flushPending;
         readWriteLock.readLock().lock();
         try {
@@ -257,7 +251,6 @@ public class NewDAO implements DAO {
         } finally {
             readWriteLock.writeLock().unlock();
         }
-
         // в начале нужно писать во временный файл
         final File temp =
                 new File(base, snapshot.gen + TEMP);
@@ -266,7 +259,6 @@ public class NewDAO implements DAO {
                         .currMemTable
                         .iterator(ByteBuffer.allocate(0)),
                 temp);
-
         // превращаем в постоянный файл
         final File dest =
                 new File(base, snapshot.gen + DB);
@@ -274,7 +266,6 @@ public class NewDAO implements DAO {
                 temp.toPath(),
                 dest.toPath(),
                 StandardCopyOption.ATOMIC_MOVE);
-
         readWriteLock.writeLock().lock();
         try {
             this.tables =
@@ -297,7 +288,6 @@ public class NewDAO implements DAO {
         } finally {
             readWriteLock.readLock().unlock();
         }
-
         final ByteBuffer point =
                 ByteBuffer.allocate(0);
         final List<Iterator<TableCell>> fileIterators =
@@ -331,7 +321,6 @@ public class NewDAO implements DAO {
         } finally {
             readWriteLock.writeLock().unlock();
         }
-
         for (final long gen : snapshot.ssTableCollection.keySet()) {
             final File f = new File(base, gen + DB);
             Files.delete(f.toPath());
@@ -345,7 +334,6 @@ public class NewDAO implements DAO {
         for (final Table table : snapshot.ssTableCollection.descendingMap().values()) {
             iteratorList.add(table.iterator(point));
         }
-
         final Iterator<TableCell> merged =
                 Iterators.mergeSorted(iteratorList, Comparator.naturalOrder());
 

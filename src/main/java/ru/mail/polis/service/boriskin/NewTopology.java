@@ -4,7 +4,17 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Визуализация:
@@ -74,8 +84,8 @@ public final class NewTopology implements ConsistentHashingTopology {
             final int from) {
         if (from > nodeSet.size()) {
             throw new IllegalArgumentException(
-                    "Неверный RF:" +
-                            "[point = " + from + "] > [ nodeSetSize = " + all().size());
+                    "Неверный RF:"
+                            + "[point = " + from + "] > [ nodeSetSize = " + all().size());
         }
 
         final ArrayList<String> replicas = new ArrayList<>();
@@ -153,12 +163,14 @@ public final class NewTopology implements ConsistentHashingTopology {
             return false;
         }
         nodeSet.remove(node);
-        ring.replaceAll((t, vn) -> getVNode(node, vn));
+        ring.replaceAll((t, vn) -> getNode(node, vn));
         return true;
     }
 
     @NotNull
-    private Node getVNode(@NotNull String node, Node vn) {
+    private Node getNode(
+            @NotNull final String node,
+            final Node vn) {
         if (node.equals(vn.getAddress())) {
             vn.setAddress(randomise(all(), 1).get(0));
         }

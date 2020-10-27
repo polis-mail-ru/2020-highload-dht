@@ -58,19 +58,11 @@ final class ReplicaWorker {
     }
 
     @NotNull
-    Response getting(
-            @NotNull final MetaInfoRequest mir) {
+    Response entity(
+            @NotNull final MetaInfoRequest mir,
+            @NotNull final Request request) {
         if (mir.isAlreadyProxied()) {
-            try {
-                return Value.transform(
-                        Value.from(
-                                dao.getTableCell(
-                                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
-                        true) ;
-            } catch (IOException ioException) {
-                logger.error("Ошибка: ", ioException);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
+            return doFinalOperation(mir, request);
         }
 
         final List<String> replicas =
@@ -80,128 +72,127 @@ final class ReplicaWorker {
                         mir.getReplicaFactor().getFrom()
                 );
 
-        int acks = 0;
         final ArrayList<Value> values = new ArrayList<>();
+        int acks = 0;
         if (replicas.contains(topology.recogniseMyself())) {
             try {
-                values.add(
-                        Value.from(
-                                dao.getTableCell(
-                                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8))))
-                );
-                acks++;
-            } catch (IOException ioException) {
-                logger.error("Нода: {}. Ошибка в GET {} ",
-                        topology.recogniseMyself(), mir.getId(), ioException);
+                acks = doIfMyNodeIsInReplicas(mir, request, values);
+            } catch (IllegalStateException illegalStateException) {
+                return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
         }
 
         for (final Response response : getResponses(replicas, mir)) {
-            try {
-                if (response.getStatus() == 404) {
-                    acks++;
-                    return isUnreachable(acks, mir)
-                            ? new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY) : response;
-                } else {
-                    values.add(Value.from(response));
-                    acks++;
-                }
-            } catch (IllegalArgumentException illegalArgumentException) {
-                logger.error("Нода: {}. Непонятный запрос ",
-                        topology.recogniseMyself(), illegalArgumentException);
-                new Response(Response.BAD_REQUEST, Response.EMPTY);
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    try {
+                        if (response.getStatus() == 404) {
+                            acks++;
+                            return isUnreachable(acks, mir)
+                                    ? new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY) : response;
+                        } else {
+                            values.add(Value.from(response));
+                            acks++;
+                            break;
+                        }
+                    } catch (IllegalArgumentException illegalArgumentException) {
+                        logger.error("Нода: {}. Непонятный запрос ",
+                                topology.recogniseMyself(), illegalArgumentException);
+                        return new Response(Response.BAD_REQUEST, Response.EMPTY);
+                    }
+                case Request.METHOD_PUT:
+                    if (response.getStatus() == 201) {
+                        acks++;
+                    }
+                    break;
+                case Request.METHOD_DELETE:
+                    if (response.getStatus() == 202) {
+                        acks++;
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException("Неверный запрос");
             }
         }
+
         if (isUnreachable(acks, mir)) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         } else {
-            return Value.transform(Value.merge(values), false);
+            return doIfNotUnreachable(request, values);
         }
     }
 
-    @NotNull
-    Response upserting(
-            @NotNull final MetaInfoRequest mir) {
-        if (mir.isAlreadyProxied()) {
-            try {
-                dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
+    private Response doIfNotUnreachable(
+            @NotNull final Request request,
+            final ArrayList<Value> values) {
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                return Value.transform(Value.merge(values), false);
+            case Request.METHOD_PUT:
                 return new Response(Response.CREATED, Response.EMPTY);
-            } catch (NoSuchElementException e) {
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (IOException e) {
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        }
-
-        final List<String> replicas =
-                topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
-
-        int acks = 0;
-        if (replicas.contains(topology.recogniseMyself())) {
-            try {
-                dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
-                acks++;
-            } catch (IOException e) {
-                logger.error("[{}] Can't upsert {}={}",
-                        topology.recogniseMyself(), mir.getId(), mir.getValue(), e);
-            }
-        }
-
-        for (final Response response : getResponses(replicas, mir)) {
-            if (response.getStatus() == 201) {
-                acks++;
-            }
-        }
-
-        if (isUnreachable(acks, mir)) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        } else {
-            return new Response(Response.CREATED, Response.EMPTY);
+            case Request.METHOD_DELETE:
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            default:
+                throw new IllegalStateException("Неверный запрос");
         }
     }
 
-    @NotNull
-    Response removing(
-            @NotNull final MetaInfoRequest mir) {
-        if (mir.isAlreadyProxied()) {
-            try {
-                dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
-                return new Response(Response.ACCEPTED, Response.EMPTY);
-            } catch (NoSuchElementException e) {
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (IOException e) {
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        }
-
-        final List<String> replicas = topology.replicas(
-                ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getReplicaFactor().getFrom());
-
+    private int doIfMyNodeIsInReplicas(
+            @NotNull final MetaInfoRequest mir,
+            @NotNull final Request request,
+            final ArrayList<Value> values) {
         int acks = 0;
-        if (replicas.contains(topology.recogniseMyself())) {
-            try {
-                dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
-                acks++;
-            } catch (IOException e) {
-                logger.error("[{}] Can't remove {}={}",
-                        topology.recogniseMyself(), mir.getId(), mir.getValue(), e);
+        try {
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    values.add(
+                            Value.from(
+                                    dao.getTableCell(
+                                            ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))));
+                    break;
+                case Request.METHOD_PUT:
+                    dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
+                    break;
+                case Request.METHOD_DELETE:
+                    dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
+                    break;
+                default:
+                    throw new IllegalStateException("Неверный запрос");
             }
+            acks++;
+            return acks;
+        } catch (IOException ioException) {
+            logger.error("Нода: {}. Ошибка при {} в {} : ",
+                    topology.recogniseMyself(), request, mir.getId(), ioException);
+            return acks;
         }
+    }
 
-        for (final Response response : getResponses(replicas, mir)) {
-            if (response.getStatus() == 202) {
-                acks++;
+    private Response doFinalOperation(
+            @NotNull final MetaInfoRequest mir,
+            @NotNull final Request request) {
+        try {
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    return Value.transform(
+                            Value.from(
+                                    dao.getTableCell(
+                                            ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
+                            true) ;
+                case Request.METHOD_PUT:
+                    dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
+                    return new Response(Response.CREATED, Response.EMPTY);
+                case Request.METHOD_DELETE:
+                    dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
+                    return new Response(Response.ACCEPTED, Response.EMPTY);
+                default:
+                    return new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY);
             }
-        }
-
-        if (isUnreachable(acks, mir)) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        } else {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException ioException) {
+            logger.error("Ошибка: ", ioException);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -223,7 +214,7 @@ final class ReplicaWorker {
 
         final int responsesSize =
                 replicas.contains(topology.recogniseMyself())
-                ? replicas.size() - 1 : replicas.size();
+                        ? replicas.size() - 1 : replicas.size();
 
         final ArrayList<Response> responses = new ArrayList<>();
         for (int i = 0; i < responsesSize; i++){
@@ -250,3 +241,4 @@ final class ReplicaWorker {
         }
     }
 }
+
