@@ -38,7 +38,7 @@ class Topology {
         return clusterNodes.get((key.hashCode() & Integer.MAX_VALUE) % clusterNodes.size());
     }
 
-    String[] getReplicas(@NotNull final ByteBuffer id, int numOfReplicas) {
+    String[] getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) {
 
         int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % clusterNodes.size();
         final String[] nodeReplicas = new String[numOfReplicas];

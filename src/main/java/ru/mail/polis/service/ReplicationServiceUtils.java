@@ -2,8 +2,6 @@ package ru.mail.polis.service;
 
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;

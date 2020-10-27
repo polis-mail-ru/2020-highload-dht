@@ -159,7 +159,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             HttpSession session,
             final String id,
             ReplicationFactor replicationFactor,
-            boolean isForwardedRequest
+            final boolean isForwardedRequest
     ) throws IOException {
         switch (request.getMethod()) {
             case Request.METHOD_GET:

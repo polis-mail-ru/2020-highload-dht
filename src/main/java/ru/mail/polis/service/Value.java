@@ -74,7 +74,7 @@ public final class Value {
     }
 
     public byte[] getValueBytes() {
-        short isDeleted = isValueDeleted ? (short) 1 : (short) -1;
+        final short isDeleted = isValueDeleted ? (short) 1 : (short) -1;
 
         return ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining())
                 .putShort(isDeleted)
