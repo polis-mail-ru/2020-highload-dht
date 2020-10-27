@@ -1,7 +1,16 @@
 package ru.mail.polis.service.ivanovandrey;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
@@ -94,7 +103,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private Response forwardRequest(@NotNull final String cluster, final Request request) {
         try {
             return clients.get(cluster).invoke(SimpleTopology.getSpecialRequest(request));
-        } catch (InterruptedException | IOException | HttpException | PoolException e){
+        } catch (InterruptedException | IOException | HttpException | PoolException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
