@@ -60,7 +60,7 @@ public class RendezvousTopology implements Topology<String> {
     @Override
     public String[] getReplicas(@NotNull final ByteBuffer key, final int countReplicas) {
         if (countReplicas == nodes.length) {
-            return nodes;
+            return nodes.clone();
         }
 
         final Map<Integer, String> replicasHash = new HashMap<>();

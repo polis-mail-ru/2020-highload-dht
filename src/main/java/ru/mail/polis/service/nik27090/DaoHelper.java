@@ -26,6 +26,12 @@ public class DaoHelper {
          this.dao = dao;
     }
 
+    /**
+     * Resolves the received values.
+     *
+     * @param result - collected responses
+     * @return - result response
+     */
     public Response resolveGet(@NotNull final List<Response> result) {
         final Map<Response, Integer> responses = new HashMap<>();
         result.forEach(resp -> {
@@ -50,6 +56,12 @@ public class DaoHelper {
         return timestamp == null ? -1L : Long.parseLong(timestamp);
     }
 
+    /**
+     * Get value with timestamp.
+     *
+     * @param key - key for key-value storage
+     * @return - response of request
+     */
     public Response getEntity(final ByteBuffer key) {
         final Cell cell;
         try {
@@ -74,6 +86,12 @@ public class DaoHelper {
         }
     }
 
+    /**
+     * Try delete value.
+     *
+     * @param key - keu for key-value storage
+     * @return - response of request
+     */
     public Response delEntity(final ByteBuffer key) {
         try {
             dao.remove(key);
@@ -84,6 +102,13 @@ public class DaoHelper {
         }
     }
 
+    /**
+     * Try create or update key-value.
+     *
+     * @param key - key for key-value storage
+     * @param value - value
+     * @return - response of request
+     */
     public Response putEntity(final ByteBuffer key, final ByteBuffer value) {
         try {
             dao.upsert(key, value);

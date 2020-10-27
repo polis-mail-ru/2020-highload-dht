@@ -16,6 +16,26 @@ import java.util.Map;
 public class HttpHelper {
     private static final Logger log = LoggerFactory.getLogger(HttpHelper.class);
 
+    private static final String NOT_ENOUGH_REPLICAS = "Not enough replicas error with ack: {}, from: {}";
+
+    public void calculateResponse(final HttpSession session,
+                                  final int sizeNotFailedResponse,
+                                  final AckFrom ackFrom,
+                                  final Response goodResponse) {
+        if (sizeNotFailedResponse < ackFrom.getAck()) {
+            log.error(NOT_ENOUGH_REPLICAS, ackFrom.getAck(), ackFrom.getFrom());
+            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+        } else {
+            sendResponse(session, goodResponse);
+        }
+    }
+
+    /**
+     * Add response in session.
+     *
+     * @param session - current session
+     * @param response - response of session
+     */
     public void sendResponse(@NotNull final HttpSession session, @NotNull final Response response) {
         try {
             session.sendResponse(response);
