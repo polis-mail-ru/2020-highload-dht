@@ -106,7 +106,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         final ReplicasFactor replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
         if (replicasFactor.getAck() < 1
                 || replicasFactor.getFrom() < replicasFactor.getAck()
-                || replicasFactor.getFrom() > this.topology.all().size()){
+                || replicasFactor.getFrom() > this.topology.all().size()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
@@ -170,7 +170,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         asyncExecute(() -> {
             try {
                 final List<Entry> result = new ArrayList<>();
-                for (Response response : replication(() -> get(key), request, key, replicasFactor)) {
+                for (final Response response : replication(() -> get(key), request, key, replicasFactor)) {
                     if (ResponseUtils.getStatus(response).equals(Response.OK)
                             || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
                         final Entry resp = Entry.responseToEntry(response);

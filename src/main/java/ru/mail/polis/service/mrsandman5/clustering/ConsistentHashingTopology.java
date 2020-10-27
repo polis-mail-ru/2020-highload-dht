@@ -17,11 +17,12 @@ import java.util.TreeMap;
  * */
 public final class ConsistentHashingTopology<T> implements Topology<T> {
 
+    private final static String BETA = "UnstableApiUsage";
     private final T me;
     @NotNull
     private final Set<T> topology;
     private final NavigableMap<Long, VirtualNode<T>> ring = new TreeMap<>();
-    @SuppressWarnings("UnstableApiUsage")
+    @SuppressWarnings(BETA)
     private final HashFunction hashFunction = Hashing.murmur3_128();
 
     /** Consistent hashing cluster topology.
@@ -37,7 +38,7 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
         this.topology.forEach(node -> addNode(node, virtualNodeCount));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
+    @SuppressWarnings(BETA)
     @NotNull
     @Override
     public T primaryFor(@NotNull final ByteBuffer key) {
@@ -48,7 +49,7 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
                 : nodeEntry.getValue().physicalNode;
     }
 
-    @SuppressWarnings("UnstableApiUsage")
+    @SuppressWarnings(BETA)
     @NotNull
     @Override
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
@@ -84,7 +85,7 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
      * @param node - current node
      * @param virtualNodeCount - virtual nodes for hash ring
      */
-    @SuppressWarnings("UnstableApiUsage")
+    @SuppressWarnings(BETA)
     public void addNode(@NotNull final T node,
                         final int virtualNodeCount) {
         for (var i = 0; i < virtualNodeCount; i++) {

@@ -7,7 +7,8 @@ import java.nio.ByteBuffer;
 
 public final class ByteUtils {
 
-    private ByteUtils(){}
+    private ByteUtils() {
+    }
 
     public static ByteBuffer fromInt(final int value) {
         return ByteBuffer.allocate(Integer.BYTES).rewind().putInt(value).rewind();

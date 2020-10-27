@@ -34,7 +34,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 public class DAOImpl implements DAO {
-
     private static final String SUFFIX = ".dat";
     private static final String TEMP = ".tmp";
 
@@ -89,7 +88,8 @@ public class DAOImpl implements DAO {
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
         return Iterators.transform(cellIterator(from),
-                cell -> Record.of(Objects.requireNonNull(cell).getKey(), Objects.requireNonNull(cell.getValue().getData())));
+                cell -> Record.of(Objects.requireNonNull(cell).getKey(),
+                        Objects.requireNonNull(cell.getValue().getData())));
     }
 
     /**
@@ -132,7 +132,6 @@ public class DAOImpl implements DAO {
                 throw new UncheckedIOException(ex);
             }
         });
-
         final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
         return Iters.collapseEquals(merged, Cell::getKey);
     }
@@ -140,7 +139,6 @@ public class DAOImpl implements DAO {
     @SuppressWarnings("UnstableApiUsage")
     public Iterator<Cell> entryIterators(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(tableSet.ssTables.size() + 1);
-
         tableSet.ssTables.descendingMap().values().forEach(v -> {
             try {
                 fileIterators.add(v.iterator(from));
@@ -149,7 +147,6 @@ public class DAOImpl implements DAO {
             }
         });
         fileIterators.add(tableSet.memTable.iterator(from));
-
         final Iterator<Cell> mergedCells = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
         return Iters.collapseEquals(mergedCells, Cell::getKey);
     }
@@ -227,7 +224,6 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-
         executor.execute(() -> {
             try {
                 final File file = serialize(snapshot.generation, snapshot.memTable.iterator(ByteBuffer.allocate(0)));
@@ -253,11 +249,9 @@ public class DAOImpl implements DAO {
         } finally {
             lock.readLock().unlock();
         }
-
         final ByteBuffer from = ByteBuffer.allocate(0);
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size());
         final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
-
         if (!fresh.hasNext()) {
             return;
         }
@@ -268,7 +262,6 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-
         final File file = serialize(snapshot.generation, fresh);
         lock.writeLock().lock();
         try {
@@ -278,12 +271,10 @@ public class DAOImpl implements DAO {
         } finally {
             lock.writeLock().unlock();
         }
-
         for (final long generation : snapshot.ssTables.keySet()) {
             final File deleted = new File(storage, generation + SUFFIX);
             Files.delete(deleted.toPath());
         }
-
     }
 
     private File serialize(final long generation,

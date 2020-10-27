@@ -59,7 +59,6 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        //final var nodes = new BasicTopology<>(topology, "http://localhost:" + port);
         final var nodes = new ConsistentHashingTopology<>(topology, "http://localhost:" + port, VNODE_COUNT);
         return ServiceImpl.create(port, nodes, dao, WORKERS);
     }

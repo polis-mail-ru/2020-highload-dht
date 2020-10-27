@@ -18,7 +18,8 @@ public final class ResponseUtils {
     public static final String TIMESTAMP = "Timestamp: ";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
 
-    private ResponseUtils(){}
+    private ResponseUtils() {
+    }
 
     public static void sendResponse(@NotNull final HttpSession session,
                                     @NotNull final Response response) {

@@ -16,7 +16,7 @@ import java.util.Objects;
 
 public final class Entry implements Comparable<Entry> {
 
-    public enum State{
+    public enum State {
         PRESENT,
         REMOVED,
         ABSENT
@@ -53,15 +53,15 @@ public final class Entry implements Comparable<Entry> {
     }
 
     public static Entry present(final long timestamp,
-                                @NotNull final byte[] data){
+                                @NotNull final byte[] data) {
         return new Entry(timestamp, data, State.PRESENT);
     }
 
-    public static Entry removed(final long timestamp){
+    public static Entry removed(final long timestamp) {
         return new Entry(timestamp, null, State.REMOVED);
     }
 
-    public static Entry absent(){
+    public static Entry absent() {
         return new Entry(-1, null, State.ABSENT);
     }
 
