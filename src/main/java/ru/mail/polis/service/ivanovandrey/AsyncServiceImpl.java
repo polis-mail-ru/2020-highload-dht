@@ -44,13 +44,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private static final String ERROR_MESSAGE = "Can't send response. Session {}";
 
-    @NotNull
-    private final DAO dao;
+    @NotNull private final DAO dao;
     private final ExecutorService service;
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private final SimpleTopology simpleTopology;
-    @NotNull
-    private final Map<String, HttpClient> clients;
+    @NotNull private final Map<String, HttpClient> clients;
 
     /**
      * Constructor.
@@ -58,8 +56,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param dao - dao implementation.
      * @param simpleTopology - topology
      */
-    public AsyncServiceImpl(final int port,
-                            @NotNull final DAO dao,
+    public AsyncServiceImpl(final int port, @NotNull final DAO dao,
                             @NotNull final SimpleTopology simpleTopology) throws IOException {
         super(createConfig(port));
         this.dao = dao;
@@ -94,8 +91,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-    private Future<Response> forwardRequestFuture(@NotNull final String cluster,
-                                    final Request request) {
+    private Future<Response> forwardRequestFuture(@NotNull final String cluster, final Request request) {
         try {
             return service.submit(() -> forwardRequest(cluster, request));
         } catch (RejectedExecutionException ex) {
@@ -123,8 +119,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
-    public void entity(@NotNull @Param(value = "id", required = true) final String id,
-                       @NotNull final Request request,
+    public void entity(@NotNull @Param(value = "id", required = true) final String id, @NotNull final Request request,
                        final @Param(value = "special") String special,
                        final @Param(value = "replicas") String replicasParam,
                        final HttpSession session) {
@@ -286,8 +281,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(@NotNull final Request request,
-                              @NotNull final HttpSession session) throws IOException {
+    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
