@@ -294,7 +294,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 service.shutdownNow();
             }
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             service.shutdownNow();
         }
         for (final var client : clients.entrySet()) {
