@@ -83,7 +83,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
-        httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
         httpServerConfig.queueTime = 10;
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
