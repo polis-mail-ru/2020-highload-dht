@@ -23,14 +23,12 @@ import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
@@ -57,8 +55,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                              @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
         super(config);
         this.dao = dao;
-        this.executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder().setNameFormat("worker").build());
+        final int maxWorkers = Runtime.getRuntime().availableProcessors();
+        this.executor = new ThreadPoolExecutor(
+                maxWorkers, maxWorkers,
+                0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(1024),
+                new ThreadFactoryBuilder()
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
+                        .setNameFormat("worker_%d")
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
         this.nodes = nodes;
         this.clusterClients = clusterClients;
     }
@@ -73,12 +80,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final var config = new HttpServerConfig();
         acceptor.port = port;
         config.acceptors = new AcceptorConfig[]{acceptor};
-        config.maxWorkers = Runtime.getRuntime().availableProcessors();
-        config.queueTime = 10;
         final Map<String, HttpClient> clusterClients = new HashMap<>();
         for (final String it : nodes.getNodes()) {
             if (!nodes.getId().equals(it) && !clusterClients.containsKey(it)) {
-                clusterClients.put(it, new HttpClient(new ConnectionString(it + "?timeout=100")));
+                final String timeout = "?timeout=100";
+                clusterClients.put(it, new HttpClient(new ConnectionString(it + timeout)));
             }
         }
         return new AsyncServiceImpl(config, dao, nodes, clusterClients);
@@ -91,25 +97,37 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private void executeAsync(@NotNull final HttpSession session,
                               @NotNull final Action action) {
-        executor.execute(() -> {
-            try {
-                session.sendResponse(action.act());
-            } catch (IOException e) {
+        try {
+            executor.execute(() -> {
+                Response response = null;
                 try {
-                    session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-                } catch (IOException ex) {
-                    log.info("something has gone terribly wrong", ex);
+                    response = action.act();
+                } catch (IOException e) {
+                    try {
+                        session.sendError(Response.INTERNAL_ERROR, e.getMessage());
+                    } catch (IOException ex) {
+                        log.error("something has gone terribly wrong", e);
+                        e.printStackTrace();
+                    }
                 }
-            }
-        });
+
+                try {
+                    session.sendResponse(response);
+                } catch (IOException e) {
+                    log.warn("send response fail", e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("task cannot be accepted for execution", e);
+        }
     }
 
-    private Response forwardRequestTo(@NotNull final String cluster,
+    private Response forwardRequestTo(@NotNull final String node,
                                       final Request request) throws IOException {
         try {
-            return clusterClients.get(cluster).invoke(request);
+            return clusterClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("fail", e);
+            throw new IOException("Failed to forward request to " + node);
         }
     }
 
@@ -144,16 +162,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - HttpSession
      */
     @Path("/v0/entity")
-    public void entity(@Param("id") final String id,
+    public void entity(@NotNull @Param("id") final String id,
                        @NotNull final Request request,
-                       final HttpSession session) throws IOException {
-        if (id == null || id.isEmpty()) {
+                       @NotNull final HttpSession session) throws IOException {
+        if (id.isEmpty()) {
             try {
-                log.info("id is null or empty");
+                log.info("id is empty");
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
                 log.error("something has gone terribly wrong", e);
-                throw new UncheckedIOException(e);
             }
             return;
         }
@@ -183,7 +200,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
         } catch (IOException e) {
             log.error("Internal error", e);
-            session.sendError(Response.INTERNAL_ERROR, e.getMessage());
         }
     }
 
@@ -229,8 +245,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final var body = new byte[duplicate.remaining()];
             duplicate.get(body);
             return new Response(Response.OK, body);
-        } catch (NoSuchElementLiteException | IOException ex) {
+        } catch (NoSuchElementLiteException e) {
+            log.error("element not found", e);
             return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("internal error", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
