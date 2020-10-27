@@ -35,13 +35,13 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     static final String GATEWAY_TIMEOUT_ERROR_LOG = "Your request failed due to timeout";
     private static final int CONNECTION_TIMEOUT = 1000;
 
-    private enum ERROR {
+    private enum ErrorNames {
         IO_ERROR, NOT_ALLOWED_METHOD_ERROR
     }
 
-    private static final Map<ERROR, String> MESSAGE_MAP = Map.ofEntries(
-            entry(ERROR.IO_ERROR, "IO exception raised"),
-            entry(ERROR.NOT_ALLOWED_METHOD_ERROR, "Method not allowed")
+    private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
+            entry(ErrorNames.IO_ERROR, "IO exception raised"),
+            entry(ErrorNames.NOT_ALLOWED_METHOD_ERROR, "Method not allowed")
     );
 
     private final ExecutorService exec;
@@ -153,7 +153,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 runExecutor(session, () -> handler.singleDelete(key, request));
                 break;
             default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ERROR.NOT_ALLOWED_METHOD_ERROR));
+                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR));
                 break;
         }
     }
@@ -193,7 +193,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 );
                 break;
             default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ERROR.NOT_ALLOWED_METHOD_ERROR));
+                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR));
                 break;
         }
     }
@@ -208,7 +208,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             try {
                 session.sendResponse(runner.execute());
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ERROR.IO_ERROR));
+                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
             }
         });
     }

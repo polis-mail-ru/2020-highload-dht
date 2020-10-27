@@ -37,7 +37,11 @@ public class DaoEngine implements DAO {
             this.db = db;
     }
 
-    public DaoEngine(@NotNull final File data) {
+    /**
+     * DaoEngine constructor.
+     * @param data - database local directory
+     */
+    DaoEngine(@NotNull final File data) {
         final BuiltinComparator comparator = BuiltinComparator.BYTEWISE_COMPARATOR;
         final Options options = new Options()
                 .setCreateIfMissing(true)

@@ -66,7 +66,7 @@ public final class Value {
     }
 
     /**
-     * Creates new Value from bytes
+     * Creates new Value from bytes.
      * @param bytes - from what to create Value
      * @return Value
      */
