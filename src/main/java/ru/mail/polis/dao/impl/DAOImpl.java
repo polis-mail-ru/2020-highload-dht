@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -173,6 +174,22 @@ public final class DAOImpl implements DAO {
             }
         } finally {
             lock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    @NotNull
+    public Cell getCell(@NotNull final ByteBuffer key) throws NoSuchElementException, IOException {
+        final Iterator<Cell> iterator = compactIterator(key);
+        if (!iterator.hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        final Cell next = iterator.next();
+        if (next.getKey().equals(key)) {
+            return next;
+        } else {
+            throw new NoSuchElementException();
         }
     }
 

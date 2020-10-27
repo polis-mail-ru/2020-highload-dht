@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 public interface Topology<T> {
     @NotNull
-    T getNodeByKey(@NotNull String key);
+    T[] getNodeByKey(@NotNull String key, final int length);
 
     @NotNull
     boolean equalsUrl(@NotNull T node);

@@ -9,7 +9,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
@@ -19,13 +18,14 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Topology;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.ivlev.util.ConflictUtils;
+import ru.mail.polis.service.ivlev.util.SendResponsesUtils;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -41,9 +41,12 @@ public class ThreadController extends HttpServer implements Service {
     private final Topology<String> topology;
     @NotNull
     private final Map<String, HttpClient> clients;
+    private final int confirmDefault;
+    private final int fromDefault;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ThreadController.class);
     private static final String RESPONSE_ERROR_LOG_MESSAGE = "Fail send response: ";
+    private static final String IS_PROXY_FLAG = "isProxy";
 
     /**
      * Implementation {@link Service}.
@@ -64,6 +67,8 @@ public class ThreadController extends HttpServer implements Service {
         assert queueSize > 0;
         this.dao = dao;
         this.topology = topology;
+        this.fromDefault = topology.getSize();
+        this.confirmDefault = fromDefault / 2 + 1;
         this.clients = new HashMap<>();
         for (final String node : topology.getAllNodes()) {
             LOGGER.debug(node);
@@ -103,93 +108,32 @@ public class ThreadController extends HttpServer implements Service {
     }
 
     /**
-     * End-point get.
+     * Абстрактный контроллер на get/put/delete.
      *
-     * @param id      - id
-     * @param session - http session
+     * @param id       - id
+     * @param replicas - replicas
+     * @param session  - session
+     * @param request  - request
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public void get(
+    public void sendResponse(
             @Param(value = "id", required = true) final String id,
+            @Param("replicas") final String replicas,
             final HttpSession session,
             final Request request) {
         executor.execute(() -> {
-            if (equalsUrlNode(id)) {
+            if (id.isEmpty()) {
                 try {
-                    if (id.isEmpty()) {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    } else {
-                        session.sendResponse(new Response(Response.OK, toByteArray(dao.get(toByteBuffer(id)))));
-                    }
-                } catch (NoSuchElementException e) {
-                    sendNotFound(session, e);
-                } catch (IOException e) {
-                    sendInternalServerError(session, e);
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException ex) {
+                    LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE);
                 }
-            } else {
-                sendResponseProxy(session, request, id);
+                return;
             }
-        });
-    }
-
-    /**
-     * End-point put.
-     *
-     * @param id      - id
-     * @param session - http session
-     * @param request - http request
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void put(
-            @Param(value = "id", required = true) final String id,
-            final HttpSession session,
-            final Request request) {
-        executor.execute(() -> {
-            if (equalsUrlNode(id)) {
-                try {
-                    if (id.isEmpty()) {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    } else {
-                        dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
-                        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                    }
-                } catch (IOException e) {
-                    sendInternalServerError(session, e);
-                }
+            if (request.getHeader(IS_PROXY_FLAG) == null) {
+                sendReplicationResponse(id, replicas, session, request);
             } else {
-                sendResponseProxy(session, request, id);
-            }
-        });
-    }
-
-    /**
-     * End-point delete.
-     *
-     * @param id      - id
-     * @param session - http session
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void delete(
-            @Param(value = "id", required = true) final String id,
-            final HttpSession session,
-            final Request request) {
-        executor.execute(() -> {
-            if (equalsUrlNode(id)) {
-                try {
-                    if (id.isEmpty()) {
-                        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    } else {
-                        dao.remove(toByteBuffer(id));
-                        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                    }
-                } catch (IOException e) {
-                    sendInternalServerError(session, e);
-                }
-            } else {
-                sendResponseProxy(session, request, id);
+                SendResponsesUtils.sendProxyResponse(id, session, request, dao);
             }
         });
     }
@@ -217,60 +161,86 @@ public class ThreadController extends HttpServer implements Service {
         }
     }
 
-    private static ByteBuffer toByteBuffer(@NotNull final String id) {
-        return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static byte[] toByteArray(@NotNull final ByteBuffer byteBuffer) {
-        if (!byteBuffer.hasRemaining()) {
-            return Response.EMPTY;
-        }
-        final byte[] result = new byte[byteBuffer.remaining()];
-        byteBuffer.get(result);
-        return result;
-    }
-
     @NotNull
     private Response proxy(
             @NotNull final String node,
             @NotNull final Request request) {
         try {
             return clients.get(node).invoke(request);
-        } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            LOGGER.error("Proxy unavailable: ", e);
+        } catch (IOException | InterruptedException | PoolException | HttpException ex) {
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ex);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
-    private boolean equalsUrlNode(@NotNull final String id) {
-        final String node = topology.getNodeByKey(id);
-        return topology.equalsUrl(node);
-    }
-
-    private void sendResponseProxy(final HttpSession session, final Request request, final String id) {
+    /**
+     * Send the resulting response after polling all nodes.
+     *
+     * @param id       - key
+     * @param replicas - ack/from
+     * @param session  - session
+     * @param request  - request
+     */
+    public void sendReplicationResponse(
+            final String id,
+            final String replicas,
+            final HttpSession session,
+            final Request request) {
+        request.addHeader(IS_PROXY_FLAG);
+        final int confirm;
+        final int from;
+        if (replicas == null) {
+            confirm = this.confirmDefault;
+            from = this.fromDefault;
+        } else {
+            final ReplicaService replica = ReplicaService.of(replicas);
+            confirm = replica.getConfirm();
+            from = replica.getFrom();
+            if (confirm > from || confirm <= 0) {
+                try {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException ex) {
+                    LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ex);
+                }
+                return;
+            }
+        }
+        final String[] nodes = topology.getNodeByKey(id, from);
         try {
-            final String node = topology.getNodeByKey(id);
-            session.sendResponse(proxy(node, request));
-        } catch (IOException ioException) {
-            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+            final List<Response> responses;
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    responses = createResponses(nodes, SendResponsesUtils.get(id, dao), request);
+                    session.sendResponse(ConflictUtils.get(responses, confirm));
+                    break;
+                case Request.METHOD_PUT:
+                    responses = createResponses(nodes, SendResponsesUtils.put(id, request, dao), request);
+                    session.sendResponse(ConflictUtils.put(responses, confirm));
+                    break;
+                case Request.METHOD_DELETE:
+                    responses = createResponses(nodes, SendResponsesUtils.delete(id, dao), request);
+                    session.sendResponse(ConflictUtils.delete(responses, confirm));
+                    break;
+                default:
+                    break;
+            }
+        } catch (IOException ex) {
+            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ex);
         }
     }
 
-    private void sendInternalServerError(final HttpSession session, final Exception e) {
-        try {
-            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        } catch (IOException ioException) {
-            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
+    private List<Response> createResponses(
+            final String[] nodes,
+            final Response nodeResponse,
+            final Request request) {
+        final List<Response> responses = new ArrayList<>();
+        for (final String node : nodes) {
+            if (topology.equalsUrl(node)) {
+                responses.add(nodeResponse);
+            } else {
+                responses.add(proxy(node, request));
+            }
         }
-    }
-
-    private void sendNotFound(final HttpSession session, final Exception e) {
-        try {
-            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, e);
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException ioException) {
-            LOGGER.error(RESPONSE_ERROR_LOG_MESSAGE, ioException);
-        }
+        return responses;
     }
 }
