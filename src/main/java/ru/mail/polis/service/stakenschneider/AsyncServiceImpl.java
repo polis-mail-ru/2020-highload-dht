@@ -103,15 +103,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                               @NotNull final Action action) {
         try {
             executor.execute(() -> {
-                Response response = responseAct(session, action);
-                try {
-                    session.sendResponse(response);
-                } catch (IOException e) {
-                    log.warn("send response fail", e);
-                }
+                final Response response = responseAct(session, action);
+                separateMethodForCodeClimate(session, response);
             });
         } catch (RejectedExecutionException e) {
             log.error("task cannot be accepted for execution", e);
+        }
+    }
+
+    private void separateMethodForCodeClimate(@NotNull final HttpSession session,
+                                              @NotNull final Response response){
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            log.warn("send response fail", e);
         }
     }
 
@@ -135,7 +140,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             return clusterClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("Failed to forward request to " + node + e);
+            final String ex = "Failed to forward request to " + node + e;
+            throw new IOException(ex);
         }
     }
 
