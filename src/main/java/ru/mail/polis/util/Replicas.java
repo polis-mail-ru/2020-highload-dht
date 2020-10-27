@@ -18,7 +18,7 @@ import static one.nio.http.Request.METHOD_PUT;
 public class Replicas {
     private final int ask;
     private final int from;
-    private int answers = 0;
+    private int answers;
     private byte[] freshData = Response.EMPTY;
     private Long freshTimestamp = 0L;
     private Byte freshState = Timestamp.STATE_UNKNOWN;
@@ -47,7 +47,7 @@ public class Replicas {
      * @param from number of cluster nodes
      */
     public Replicas(@NotNull final int from) {
-        this.ask = from/2 + 1;
+        this.ask = from / 2 + 1;
         this.from = from;
     }
 
@@ -66,9 +66,9 @@ public class Replicas {
      * @param method - request method
      */
     public void analyseResponse(final Response response, final int method) {
-        if ((response.getStatus() == STATUS_OK) ||
-                (response.getStatus() == STATUS_CREATED) ||
-                (response.getStatus() == STATUS_ACCEPTED)) {
+        if (response.getStatus() == STATUS_OK
+                || response.getStatus() == STATUS_CREATED
+                || response.getStatus() == STATUS_ACCEPTED) {
             answers++;
             if (method == METHOD_GET) {
                 rememberFreshData(response.getBody());
@@ -79,11 +79,11 @@ public class Replicas {
         }
     }
 
-    private void rememberFreshData (final byte[] data) {
+    private void rememberFreshData(final byte[] data) {
         final Timestamp timestamp;
         timestamp = Timestamp.getTimestampByData(ByteBuffer.wrap(data));
-        if (timestamp.getTimestamp() > freshTimestamp) {
-            freshTimestamp = timestamp.getTimestamp();
+        if (timestamp.getTimestampValue() > freshTimestamp) {
+            freshTimestamp = timestamp.getTimestampValue();
             freshData = timestamp.getData();
             freshState = timestamp.getState();
         }
@@ -102,9 +102,9 @@ public class Replicas {
     }
 
     private Response formGetResponse() {
-        if ((freshData.length == 0) &&
-                (freshState.equals(Timestamp.STATE_DELETED) ||
-                        freshState.equals(Timestamp.STATE_UNKNOWN))) {
+        if (freshData.length == 0
+                && (freshState.equals(Timestamp.STATE_DELETED)
+                || freshState.equals(Timestamp.STATE_UNKNOWN))) {
             log.error("No data founded in replicas to sent to client");
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }

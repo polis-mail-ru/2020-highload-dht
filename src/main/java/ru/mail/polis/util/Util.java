@@ -74,7 +74,7 @@ public final class Util {
         }
         final Object[] keys = hash.keySet().toArray();
         Arrays.sort(keys);
-        for (int i=keys.length - replicasNumber; i<keys.length; i++) {
+        for (int i = keys.length - replicasNumber; i < keys.length; i++) {
             resultNodes.add(hash.get(keys[i]));
         }
         return resultNodes;

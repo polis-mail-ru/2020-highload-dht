@@ -153,14 +153,14 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                                               final Request request) {
         final Set<String> requestNodes;
         final Response response;
-        final Replicas replicasInfo = (replicas == null) ?
-                new Replicas(topology.size()) : new Replicas(replicas);
-        if (id.isEmpty() || (replicasInfo.getAsk() <= 0) ||
-                (replicasInfo.getAsk() > replicasInfo.getFrom())) {
+        final Replicas replicasInfo = (replicas == null)
+                ? new Replicas(topology.size()) : new Replicas(replicas);
+        if (id.isEmpty() || replicasInfo.getAsk() <= 0
+                || replicasInfo.getAsk() > replicasInfo.getFrom()) {
             response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         } else {
             requestNodes = Util.getNodes(topology, id, replicasInfo.getFrom());
-            for (String requestNode : requestNodes) {
+            for (final String requestNode : requestNodes) {
                 if (isCurrentNode(requestNode)) {
                     replicasInfo.analyseResponse(
                             getResponseFromCurrent(request, id),
@@ -176,7 +176,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
         return response;
     }
 
-    private Response getResponseFromCurrent (final Request request, final String id) {
+    private Response getResponseFromCurrent(final Request request, final String id) {
         final Response response;
         switch (request.getMethod()) {
             case METHOD_GET:
