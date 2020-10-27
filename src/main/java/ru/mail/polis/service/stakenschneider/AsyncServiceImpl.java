@@ -28,7 +28,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
@@ -99,18 +103,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                               @NotNull final Action action) {
         try {
             executor.execute(() -> {
-                Response response = null;
-                try {
-                    response = action.act();
-                } catch (IOException e) {
-                    try {
-                        session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-                    } catch (IOException ex) {
-                        log.error("something has gone terribly wrong", e);
-                        e.printStackTrace();
-                    }
-                }
-
+                Response response = responseAct(session, action);
                 try {
                     session.sendResponse(response);
                 } catch (IOException e) {
@@ -122,12 +115,27 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private Response responseAct(@NotNull final HttpSession session,
+                                 @NotNull final Action action) {
+        try {
+            return action.act();
+        } catch (IOException e) {
+            try {
+                session.sendError(Response.INTERNAL_ERROR, e.getMessage());
+            } catch (IOException ex) {
+                log.error("something has gone terribly wrong", e);
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+
     private Response forwardRequestTo(@NotNull final String node,
                                       final Request request) throws IOException {
         try {
             return clusterClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("Failed to forward request to " + node);
+            throw new IOException("Failed to forward request to " + node + e);
         }
     }
 
@@ -164,7 +172,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(@NotNull @Param("id") final String id,
                        @NotNull final Request request,
-                       @NotNull final HttpSession session) throws IOException {
+                       @NotNull final HttpSession session) {
         if (id.isEmpty()) {
             try {
                 log.info("id is empty");
