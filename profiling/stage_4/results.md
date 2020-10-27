@@ -32,11 +32,20 @@
 Результаты с async profiler-а (CPU):
 ![Flame graph from async profiler](put-cpu-16-30-32000.svg?raw=true "Flame graph from async profiler")
 
+Результаты с async profiler-а (CPU без -t):
+![Flame graph from async profiler](put-cpu-4-16-30-60000.svg?raw=true "Flame graph from async profiler")
+
 Результаты с async profiler-а (ALLOC):
 ![Flame graph from async profiler](put-alloc-16-30-32000.svg?raw=true "Flame graph from async profiler")
 
+Результаты с async profiler-а (ALLOC без -t):
+![Flame graph from async profiler](put-alloc-4-16-30-60000.svg?raw=true "Flame graph from async profiler")
+
 Результаты с async profiler-а (LOCK):
 ![Flame graph from async profiler](put-lock-16-30-32000.svg?raw=true "Flame graph from async profiler")
+
+Результаты с async profiler-а (LOCK без -t):
+![Flame graph from async profiler](put-lock-4-16-30-60000.svg?raw=true "Flame graph from async profiler")
 
 На первый взгляд, по сравнению с предыдущей версией, изменилось только количество "башенок". Всего в три раза больше.
 
@@ -184,12 +193,21 @@ Transfer/sec:      2.53MB
 Результаты с async profiler-а (CPU):
 ![Flame graph from async profiler](get-cpu-16-30-32000.svg?raw=true "Flame graph from async profiler")
 
+Результаты с async profiler-а (CPU без -t):
+![Flame graph from async profiler](get-lock-4-16-30-60000.svg?raw=true "Flame graph from async profiler")
+
 Результаты с async profiler-а (ALLOC):
 ![Flame graph from async profiler](get-alloc-16-30-32000.svg?raw=true "Flame graph from async profiler")
+
+Результаты с async profiler-а (ALLOC без -t):
+![Flame graph from async profiler](get-lock-4-16-30-60000.svg?raw=true "Flame graph from async profiler")
 
 Результаты с async profiler-а (LOCK):
 ![Flame graph from async profiler](get-lock-16-30-32000.svg?raw=true "Flame graph from async profiler")
 Картина та же самая, всего по три комплекта, но сам стек одинаковый для всех.
+
+Результаты с async profiler-а (LOCK без -t):
+![Flame graph from async profiler](get-lock-4-16-30-60000.svg?raw=true "Flame graph from async profiler")
 
 Результаты wrk2:
 ```
@@ -319,3 +337,6 @@ Transfer/sec:      2.54MB
 * прочитали 76.32MB данных 
 * сервер обрабатывал 31847.82 запросов в секунду 
 
+## Вывод.
+Результаты особо не изменились с прошлой реализации,возможно потому что, по сути, мы хоть 
+и шарим, но работаем на одной машине.
