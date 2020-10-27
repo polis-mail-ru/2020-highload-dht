@@ -140,7 +140,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             return clusterClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("Failed to forward request" + e);
+            log.info("failed to forward req", e);
+            throw new IOException("Failed to forward request");
         }
     }
 
