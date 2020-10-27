@@ -100,12 +100,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private Response forwardRequest(@NotNull final String cluster,
-                                      final Request request) throws HttpException, PoolException, InterruptedException {
-
+    private Response forwardRequest(@NotNull final String cluster, final Request request){
         try {
             return clients.get(cluster).invoke(SimpleTopology.getSpecialRequest(request));
-        } catch (IOException e) {
+        } catch (Exception e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
