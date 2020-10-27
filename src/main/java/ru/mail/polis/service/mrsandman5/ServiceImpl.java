@@ -57,12 +57,12 @@ public final class ServiceImpl extends HttpServer implements Service {
                                  @NotNull final Topology<String> topology,
                                  @NotNull final DAO dao,
                                  final int workersCount) throws IOException {
-        final var acceptor = new AcceptorConfig();
+        final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
         acceptor.reusePort = true;
 
-        final var config = new HttpServerConfig();
+        final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
         config.selectors = workersCount;
 
@@ -93,7 +93,7 @@ public final class ServiceImpl extends HttpServer implements Service {
      * */
     @Path("/v0/entity")
     public void response(@Param(value = "id", required = true) final String id,
-                         @Param(value = "replicas", required = true) final String replicas,
+                         @Param(value = "replicas") final String replicas,
                          @NotNull final Request request,
                          @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
@@ -103,14 +103,14 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
 
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        final ReplicasFactor replicasFactor = replicas == null ? quorum : ReplicasFactor.parser(replicas);
+        final ReplicasFactor replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
         if (replicasFactor.getAck() < 1
                 || replicasFactor.getFrom() < replicasFactor.getAck()
                 || replicasFactor.getFrom() > this.topology.all().size()){
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
-        final var key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 replicasGet(session, request, key, proxied, replicasFactor);
@@ -125,25 +125,6 @@ public final class ServiceImpl extends HttpServer implements Service {
                 log.error("Non-supported request : {}", id);
                 ResponseUtils.sendEmptyResponse(session, Response.METHOD_NOT_ALLOWED);
                 break;
-        }
-    }
-
-    @NotNull
-    private Response formEntryResponse(@NotNull final Entry entry) {
-        final Response result;
-        switch (entry.getState()) {
-            case PRESENT:
-                result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
-                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
-                return result;
-            case REMOVED:
-                result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
-                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
-                return result;
-            case ABSENT:
-                return ResponseUtils.emptyResponse(Response.NOT_FOUND);
-            default:
-                throw new IllegalArgumentException("Wrong input data");
         }
     }
 
@@ -166,12 +147,14 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
     }
 
-    private Response get(@NotNull final ByteBuffer key) throws IOException {
+    private Response get(@NotNull final ByteBuffer key) {
         try {
-            final Entry value = Entry.getEntry(key, dao);
-            return formEntryResponse(value);
+            final Entry value = Entry.entryFromBytes(key, dao);
+            return Entry.entryToResponse(value);
         } catch (NoSuchElementException e) {
             return ResponseUtils.emptyResponse(Response.NOT_FOUND);
+        } catch (IOException e) {
+            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
         }
     }
 
@@ -190,14 +173,14 @@ public final class ServiceImpl extends HttpServer implements Service {
                 for (Response response : replication(() -> get(key), request, key, replicasFactor)) {
                     if (ResponseUtils.getStatus(response).equals(Response.OK)
                             || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
-                        final Entry resp = Entry.fromEntry(response);
+                        final Entry resp = Entry.responseToEntry(response);
                         result.add(resp);
                     }
                 }
                 if (result.size() < replicasFactor.getAck()) {
                     ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
                 } else {
-                    ResponseUtils.sendResponse(session, formEntryResponse(Entry.mergeValues(result)));
+                    ResponseUtils.sendResponse(session, Entry.entryToResponse(Entry.mergeEntries(result)));
                 }
             } catch (IOException e) {
                log.error("Replication error: ", e);
@@ -207,10 +190,14 @@ public final class ServiceImpl extends HttpServer implements Service {
     }
 
     private Response put(@NotNull final ByteBuffer key,
-                         @NotNull final byte[] bytes) throws IOException {
-        final var body = ByteBuffer.wrap(bytes);
-        dao.upsert(key, body);
-        return ResponseUtils.emptyResponse(Response.CREATED);
+                         @NotNull final byte[] bytes) {
+        try {
+            final ByteBuffer body = ByteBuffer.wrap(bytes);
+            dao.upsert(key, body);
+            return ResponseUtils.emptyResponse(Response.CREATED);
+        } catch (IOException e) {
+            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
+        }
     }
 
     private void replicasPut(@NotNull final HttpSession session,
@@ -235,9 +222,13 @@ public final class ServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private Response delete(@NotNull final ByteBuffer key) throws IOException {
-        dao.remove(key);
-        return ResponseUtils.emptyResponse(Response.ACCEPTED);
+    private Response delete(@NotNull final ByteBuffer key) {
+        try {
+            dao.remove(key);
+            return ResponseUtils.emptyResponse(Response.ACCEPTED);
+        } catch (IOException e) {
+            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
+        }
     }
 
     private void replicasDelete(@NotNull final HttpSession session,
@@ -273,7 +264,7 @@ public final class ServiceImpl extends HttpServer implements Service {
     private Response proxy(@NotNull final String node,
                            @NotNull final Request request) {
         try {
-            request.addHeader(ResponseUtils.PROXY);
+            request.addHeader(ResponseUtils.PROXY + node);
             return httpClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
             log.error("Unable to proxy request", e);

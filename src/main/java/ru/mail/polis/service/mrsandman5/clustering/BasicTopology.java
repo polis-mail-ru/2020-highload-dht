@@ -37,7 +37,7 @@ public final class BasicTopology<T> implements Topology<T> {
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
                               @NotNull final ReplicasFactor replicasFactor) {
         if (replicasFactor.getFrom() > nodes.size()) {
-            throw new IllegalArgumentException("Number of required nodes is too big!");
+            throw new IllegalArgumentException("Number of nodes is bigger than from!");
         }
 
         final Set<T> result = new HashSet<>();

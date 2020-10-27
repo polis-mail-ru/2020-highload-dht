@@ -41,7 +41,7 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public T primaryFor(@NotNull final ByteBuffer key) {
-        final var hash = hashFunction.hashBytes(key.duplicate()).asLong();
+        final long hash = hashFunction.hashBytes(key.duplicate()).asLong();
         final var nodeEntry = ring.ceilingEntry(hash);
         return nodeEntry == null
                 ? ring.firstEntry().getValue().physicalNode
@@ -54,10 +54,10 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
                               @NotNull final ReplicasFactor replicasFactor) {
         if (replicasFactor.getFrom() > topology.size()) {
-            throw new IllegalArgumentException("Number of required nodes is too big!");
+            throw new IllegalArgumentException("Number of nodes is bigger than from!");
         }
 
-        final var hash = hashFunction.hashBytes(key.duplicate()).asLong();
+        final long hash = hashFunction.hashBytes(key.duplicate()).asLong();
         final Set<T> result = new HashSet<>();
         Iterator<VirtualNode<T>> it = ring.tailMap(hash).values().iterator();
         while (result.size() < replicasFactor.getFrom()) {
@@ -88,9 +88,9 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     public void addNode(@NotNull final T node,
                         final int virtualNodeCount) {
         for (var i = 0; i < virtualNodeCount; i++) {
-            final var vnode = new VirtualNode<>(node, i);
-            final var vnodeBytes = vnode.getName().getBytes(Charsets.UTF_8);
-            final var hash = hashFunction.hashBytes(vnodeBytes).asLong();
+            final VirtualNode<T> vnode = new VirtualNode<>(node, i);
+            final byte[] vnodeBytes = vnode.getName().getBytes(Charsets.UTF_8);
+            final long hash = hashFunction.hashBytes(vnodeBytes).asLong();
             ring.put(hash, vnode);
         }
     }

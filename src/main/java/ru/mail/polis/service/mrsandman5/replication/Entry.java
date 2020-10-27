@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.Objects;
 
 public final class Entry implements Comparable<Entry> {
 
@@ -64,7 +65,7 @@ public final class Entry implements Comparable<Entry> {
     }
 
     @NotNull
-    public static Entry mergeValues(@NotNull final Collection<Entry> values) {
+    public static Entry mergeEntries(@NotNull final Collection<Entry> values) {
         return values.stream()
                 .filter(value -> value.getState() != State.ABSENT)
                 .max(Comparator.comparingLong(Entry::getTimestamp))
@@ -72,9 +73,9 @@ public final class Entry implements Comparable<Entry> {
     }
 
     @NotNull
-    public static Entry fromEntry(@NotNull final Response response) throws IOException {
+    public static Entry responseToEntry(@NotNull final Response response) throws IOException {
         final String timestamp = response.getHeader(ResponseUtils.TIMESTAMP);
-        int status = response.getStatus();
+        final int status = response.getStatus();
         if (status == 200) {
             if (timestamp == null) {
                 throw new IllegalArgumentException("Wrong input data");
@@ -91,9 +92,28 @@ public final class Entry implements Comparable<Entry> {
         }
     }
 
-    public static Entry getEntry(@NotNull final ByteBuffer key,
-                                 @NotNull final DAOImpl dao) throws IOException {
-        final Iterator<Cell> cells = dao.cellIterator(key);
+    @NotNull
+    public static Response entryToResponse(@NotNull final Entry entry) {
+        final Response result;
+        switch (entry.getState()) {
+            case PRESENT:
+                result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
+                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
+                return result;
+            case REMOVED:
+                result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
+                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
+                return result;
+            case ABSENT:
+                return ResponseUtils.emptyResponse(Response.NOT_FOUND);
+            default:
+                throw new IllegalArgumentException("Wrong input data");
+        }
+    }
+
+    public static Entry entryFromBytes(@NotNull final ByteBuffer key,
+                                       @NotNull final DAOImpl dao) throws IOException {
+        final Iterator<Cell> cells = dao.entryIterators(key);
         if (!cells.hasNext()) {
             return Entry.absent();
         }
@@ -103,11 +123,11 @@ public final class Entry implements Comparable<Entry> {
             return Entry.absent();
         }
 
-        if (cell.getValue().getData() == null) {
+        if (cell.getValue().isTombstone()) {
             return Entry.removed(cell.getValue().getTimestamp());
         } else {
             final ByteBuffer value = cell.getValue().getData();
-            final byte[] buf = new byte[value.remaining()];
+            final byte[] buf = new byte[Objects.requireNonNull(value).remaining()];
             value.duplicate().get(buf);
             return Entry.present(cell.getValue().getTimestamp(), buf);
         }

@@ -137,6 +137,23 @@ public class DAOImpl implements DAO {
         return Iters.collapseEquals(merged, Cell::getKey);
     }
 
+    @SuppressWarnings("UnstableApiUsage")
+    public Iterator<Cell> entryIterators(@NotNull final ByteBuffer from) throws IOException {
+        final List<Iterator<Cell>> fileIterators = new ArrayList<>(tableSet.ssTables.size() + 1);
+
+        tableSet.ssTables.descendingMap().values().forEach(v -> {
+            try {
+                fileIterators.add(v.iterator(from));
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        });
+        fileIterators.add(tableSet.memTable.iterator(from));
+
+        final Iterator<Cell> mergedCells = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
+        return Iters.collapseEquals(mergedCells, Cell::getKey);
+    }
+
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value) throws IOException {
