@@ -53,9 +53,8 @@ public class NewDAO implements DAO {
      * @param maxHeapThreshold порог, согласно которому судим когда сбросить таблицу на диск
      * @throws IOException обработка получения на вход не того base
      */
-    public NewDAO(
-            @NotNull final File base,
-            final long maxHeapThreshold) throws IOException {
+    public NewDAO(@NotNull final File base,
+                  final long maxHeapThreshold) throws IOException {
         this.base = base;
         assert maxHeapThreshold >= 0L;
         this.maxHeapThreshold = maxHeapThreshold;
@@ -194,9 +193,8 @@ public class NewDAO implements DAO {
     }
 
     @Override
-    public void upsert(
-            @NotNull final ByteBuffer key,
-            @NotNull final ByteBuffer val) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key,
+                       @NotNull final ByteBuffer val) throws IOException {
         final boolean flushPending;
         readWriteLock.readLock().lock();
         try {
@@ -327,16 +325,14 @@ public class NewDAO implements DAO {
         }
     }
 
-    private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(
-            final TableSet snapshot,
-            final ByteBuffer point,
-            final List<Iterator<TableCell>> iteratorList) throws IOException {
+    private Iterator<TableCell> returnIteratorOverMergedCollapsedFiltered(final TableSet snapshot,
+                                                                          final ByteBuffer point,
+                                                                          final List<Iterator<TableCell>> iteratorList) throws IOException {
         for (final Table table : snapshot.ssTableCollection.descendingMap().values()) {
             iteratorList.add(table.iterator(point));
         }
         final Iterator<TableCell> merged =
                 Iterators.mergeSorted(iteratorList, Comparator.naturalOrder());
-
         return Iters.collapseEquals(merged, TableCell::getKey);
     }
 }

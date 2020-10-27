@@ -138,10 +138,8 @@ final class Value implements Comparable<Value> {
 
     @Nullable
     byte[] getData() {
-        if (data == null) {
-            return null;
-        }
-        return Arrays.copyOf(data, data.length);
+        return data == null
+                ? null : Arrays.copyOf(data, data.length);
     }
 
     long getTimeStamp() {

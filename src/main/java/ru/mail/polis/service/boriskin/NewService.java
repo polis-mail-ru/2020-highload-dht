@@ -182,29 +182,26 @@ public class NewService extends HttpServer implements Service {
             @NotNull final Request request,
             @NotNull final ReplicaFactor replicationFactor) {
         final boolean alreadyProxied = request.getHeader(PROXY_HEADER) != null;
-//        switch (request.getMethod()) {
-//            case Request.METHOD_GET:
-//                resp(httpSession,
-//                        replicaWorker.getting(
-//                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
-//                break;
-//            case Request.METHOD_PUT:
-//                resp(httpSession,
-//                        replicaWorker.upserting(
-//                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
-//                break;
-//            case Request.METHOD_DELETE:
-//                resp(httpSession,
-//                        replicaWorker.removing(
-//                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
-//                break;
-//            default:
-//                resp(httpSession, Response.METHOD_NOT_ALLOWED);
-//                break;
-//        }
-        resp(httpSession, replicaWorker.entity(
-                new MetaInfoRequest(request, replicationFactor, alreadyProxied),
-                request));
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                resp(httpSession,
+                        replicaWorker.getting(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            case Request.METHOD_PUT:
+                resp(httpSession,
+                        replicaWorker.upserting(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            case Request.METHOD_DELETE:
+                resp(httpSession,
+                        replicaWorker.removing(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            default:
+                resp(httpSession, Response.METHOD_NOT_ALLOWED);
+                break;
+        }
     }
 
     private void resp(
