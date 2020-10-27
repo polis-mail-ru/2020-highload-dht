@@ -133,17 +133,12 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private boolean sendErrorIfWrongParameters(
+    private boolean areParametersWrong(
             final String id,
             final int ack,
-            final int from,
-            final HttpSession sessionToSendError
+            final int from
     ) {
-        final boolean wrongParameters = id.isEmpty() || ack <= 0 || ack > from || from > topology.size();
-        if (wrongParameters) {
-            sendAnswerOrError(sessionToSendError, new Response(Response.BAD_REQUEST, Response.EMPTY));
-        }
-        return wrongParameters;
+        return id.isEmpty() || ack <= 0 || ack > from || from > topology.size();
     }
 
     private static int[] unpackReplicasParameter(final String replicas) throws NumberFormatException {
@@ -254,40 +249,23 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    final int[] replicasParameters;
+                    final ValidatedParameters validatedParameters;
                     try {
-                        replicasParameters = unpackReplicasParameter(replicas);
-                    } catch (final NumberFormatException e) {
-                        log.error("Invalid replicas parameter format");
+                        validatedParameters = validateParameters(id, replicas);
+                    } catch (final IllegalArgumentException e) {
                         sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-
-                    final int ack;
-                    final int from;
-                    if (replicasParameters.length == 0) {
-                        ack = defaultAck;
-                        from = defaultFrom;
-                    } else {
-                        ack = replicasParameters[0];
-                        from = replicasParameters[1];
-                    }
-
-                    if (sendErrorIfWrongParameters(id, ack, from, httpSession)) {
-                        return;
-                    }
-
-                    final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                    final ByteBuffer key = ByteBuffer.wrap(bytes);
-
                     final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
+
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_GET))) {
-                        sendAnswerOrError(httpSession, executeLocalRowGet(key));
+                        sendAnswerOrError(httpSession, executeLocalRowGet(validatedParameters.key));
                         return;
                     }
 
-                    final String[] primaries = topology.primariesFor(key, from);
-                    final ResponseAnalyzerGet valueAnalyzer = new ResponseAnalyzerGet(ack, from);
+                    final String[] primaries = topology.primariesFor(validatedParameters.key, validatedParameters.from);
+                    final ResponseAnalyzerGet valueAnalyzer =
+                            new ResponseAnalyzerGet(validatedParameters.ack, validatedParameters.from);
 
                     request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_GET);
                     for (final String primary : primaries) {
@@ -296,7 +274,7 @@ public class ServiceImpl extends HttpServer implements Service {
                             executorService.execute(() -> {
                                 Value value = null;
                                 try {
-                                    value = this.dao.rowGet(key);
+                                    value = this.dao.rowGet(validatedParameters.key);
                                 } catch (final NoSuchElementException | IOException e) {
                                     log.debug("Key not found", e);
                                 }
@@ -350,43 +328,27 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    final int[] replicasParameters;
+                    final ValidatedParameters validatedParameters;
                     try {
-                        replicasParameters = unpackReplicasParameter(replicas);
-                    } catch (final NumberFormatException e) {
+                        validatedParameters = validateParameters(id, replicas);
+                    } catch (final IllegalArgumentException e) {
                         sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
 
-                    final int ack;
-                    final int from;
-                    if (replicasParameters.length == 0) {
-                        ack = defaultAck;
-                        from = defaultFrom;
-                    } else {
-                        ack = replicasParameters[0];
-                        from = replicasParameters[1];
-                    }
-
-                    if (sendErrorIfWrongParameters(id, ack, from, httpSession)) {
-                        return;
-                    }
-
-                    final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                    final ByteBuffer key = ByteBuffer.wrap(bytes);
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
 
                     final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_PUT))) {
-                        sendAnswerOrError(httpSession, executeLocalPut(key, value));
+                        sendAnswerOrError(httpSession, executeLocalPut(validatedParameters.key, value));
                         return;
                     }
 
-                    final String[] primaries = topology.primariesFor(key, from);
+                    final String[] primaries = topology.primariesFor(validatedParameters.key, validatedParameters.from);
                     final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
-                            ack,
-                            from,
+                            validatedParameters.ack,
+                            validatedParameters.from,
                             201,
                             Response.CREATED
                     );
@@ -395,7 +357,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
                             executorService.execute(() -> {
-                                final Response response = executeLocalPut(key, value);
+                                final Response response = executeLocalPut(validatedParameters.key, value);
                                 responseAnalyzer.accept(response);
                             });
                         } else {
@@ -423,6 +385,50 @@ public class ServiceImpl extends HttpServer implements Service {
         );
     }
 
+    private static class ValidatedParameters {
+        final int ack;
+        final int from;
+        final ByteBuffer key;
+
+        public ValidatedParameters(final int ack, final int from, final ByteBuffer key) {
+            this.ack = ack;
+            this.from = from;
+            this.key = key;
+        }
+    }
+
+    /**
+     * Validates parameters and throws exceptions if parameters are invalid.
+     * @param id - id parameter.
+     * @param replicas - replicas parameter, has ack/from format.
+     * @throws IllegalArgumentException if any parameter has invalid value.
+     * @return validated parameters.
+     */
+    private ValidatedParameters validateParameters(
+            final String id,
+            final String replicas
+    ) throws IllegalArgumentException {
+        final int[] replicasParameters = unpackReplicasParameter(replicas);
+        final int ack;
+        final int from;
+        if (replicasParameters.length == 0) {
+            ack = defaultAck;
+            from = defaultFrom;
+        } else {
+            ack = replicasParameters[0];
+            from = replicasParameters[1];
+        }
+
+        if (areParametersWrong(id, ack, from)) {
+            throw new IllegalArgumentException("Invalid arguments");
+        }
+
+        final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
+        final ByteBuffer key = ByteBuffer.wrap(bytes);
+
+        return new ValidatedParameters(ack, from, key);
+    }
+
     /**
      * HTTP method handler for removing a value by the key from the DAO storage.
      *
@@ -443,40 +449,24 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    final int[] replicasParameters;
+                    final ValidatedParameters validatedParameters;
                     try {
-                        replicasParameters = unpackReplicasParameter(replicas);
-                    } catch (final NumberFormatException e) {
+                        validatedParameters = validateParameters(id, replicas);
+                    } catch (final IllegalArgumentException e) {
                         sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    final int ack;
-                    final int from;
-                    if (replicasParameters.length == 0) {
-                        ack = defaultAck;
-                        from = defaultFrom;
-                    } else {
-                        ack = replicasParameters[0];
-                        from = replicasParameters[1];
-                    }
-
-                    if (sendErrorIfWrongParameters(id, ack, from, httpSession)) {
-                        return;
-                    }
-
-                    final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
-                    final ByteBuffer key = ByteBuffer.wrap(bytes);
 
                     final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_DELETE))) {
-                        sendAnswerOrError(httpSession, executeLocalDelete(key));
+                        sendAnswerOrError(httpSession, executeLocalDelete(validatedParameters.key));
                         return;
                     }
 
-                    final String[] primaries = topology.primariesFor(key, from);
+                    final String[] primaries = topology.primariesFor(validatedParameters.key, validatedParameters.from);
                     final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
-                            ack,
-                            from,
+                            validatedParameters.ack,
+                            validatedParameters.from,
                             202,
                             Response.ACCEPTED
                     );
@@ -485,7 +475,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
                             executorService.execute(() -> {
-                                final Response response = executeLocalDelete(key);
+                                final Response response = executeLocalDelete(validatedParameters.key);
                                 responseAnalyzer.accept(response);
                             });
                         } else {

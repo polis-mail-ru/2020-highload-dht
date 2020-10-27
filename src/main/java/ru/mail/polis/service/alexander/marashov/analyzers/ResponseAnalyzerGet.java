@@ -89,13 +89,15 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
             final Value value = answerEntry.getKey();
             final int count = answerEntry.getValue();
 
-            if (
-                    correctValue == null
-                            || count > maxCount
-                            || (count == maxCount && value.compareTo(correctValue) > 0)
-            ) {
+            if (correctValue == null) {
                 maxCount = count;
                 correctValue = value;
+            } else {
+                final boolean flag = count == maxCount && value.compareTo(correctValue) > 0;
+                if (count > maxCount || flag) {
+                    correctValue = value;
+                    maxCount = count;
+                }
             }
         }
         assert correctValue != null;

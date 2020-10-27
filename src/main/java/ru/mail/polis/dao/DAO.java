@@ -107,7 +107,8 @@ public interface DAO extends Closeable {
         }
 
         final Cell next = iter.next();
-        if (next.getKey().equals(key)) {
+        final ByteBuffer foundKey = next.getKey();
+        if (foundKey.equals(key)) {
             return next.getValue();
         } else {
             throw new NoSuchElementException("Row value not found");
