@@ -21,6 +21,10 @@ public final class ResponseUtils {
     private ResponseUtils() {
     }
 
+    /** Send seesion response to service.
+     * @param session - current HTTP session.
+     * @param response - response to request.
+     * */
     public static void sendResponse(@NotNull final HttpSession session,
                                     @NotNull final Response response) {
         try {

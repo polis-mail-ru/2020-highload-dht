@@ -86,11 +86,14 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .collect(toMap(identity(), ServiceImpl::createHttpClient));
     }
 
-    /** Request method for HTTP server.
-     * @param id - id request.
-     * @param request - type of request.
-     * @param session - current HTTP session.
-     * */
+    /** Interact with service.
+     * {@code 200, value} (value is found).
+     * {@code 404} (value is not found).
+     * {@code 201} (new value created).
+     * {@code 202} (value deleted).
+     * {@code 400} (invalid request).
+     * {@code 405} (unexpected method).
+     */
     @Path("/v0/entity")
     public void response(@Param(value = "id", required = true) final String id,
                          @Param(value = "replicas") final String replicas,
@@ -146,6 +149,12 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get value.
+     * {@code 200, value} (data is found).
+     * {@code 404} (data is not found).
+     * {@code 500} (internal server error occurred).
+     */
     private Response get(@NotNull final ByteBuffer key) {
         try {
             final Entry value = Entry.entryFromBytes(key, dao);
@@ -188,6 +197,11 @@ public final class ServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /**
+     * Put value.
+     * {@code 201} (new value created).
+     * {@code 500} (internal server error occurred).
+     */
     private Response put(@NotNull final ByteBuffer key,
                          @NotNull final byte[] bytes) {
         try {
@@ -221,6 +235,11 @@ public final class ServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /**
+     * Delete value by the key.
+     * {@code 202} (value deleted).
+     * {@code 500} (internal server error occurred).
+     */
     private Response delete(@NotNull final ByteBuffer key) {
         try {
             dao.remove(key);

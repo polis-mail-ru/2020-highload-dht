@@ -136,6 +136,12 @@ public class DAOImpl implements DAO {
         return Iters.collapseEquals(merged, Cell::getKey);
     }
 
+    /**
+     * Create an iterator over entries {@link Cell} (replication case).
+     *
+     * @param from data on which iterator is created
+     * @return an iterator over alive cells
+     */
     @SuppressWarnings("UnstableApiUsage")
     public Iterator<Cell> entryIterators(@NotNull final ByteBuffer from) throws IOException {
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(tableSet.ssTables.size() + 1);

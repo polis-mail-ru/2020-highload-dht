@@ -18,6 +18,10 @@ public final class ByteUtils {
         return ByteBuffer.allocate(Long.BYTES).rewind().putLong(value).rewind();
     }
 
+    /** Transform ByteBuffer to byte array.
+     * @param buffer - source ByteBuffer.
+     * @return target byte array.
+     * */
     @NotNull
     public static byte[] toByteArray(@NotNull final ByteBuffer buffer) {
         if (!buffer.hasRemaining()) {

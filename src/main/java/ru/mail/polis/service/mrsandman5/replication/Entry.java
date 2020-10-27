@@ -69,6 +69,10 @@ public final class Entry implements Comparable<Entry> {
         return new Entry(-1, null, State.ABSENT);
     }
 
+    /** Merge all Entries from nodes to single result node.
+     * @param values - collection of nodes' Entries.
+     * @return target Entry.
+     * */
     @NotNull
     public static Entry mergeEntries(@NotNull final Collection<Entry> values) {
         return values.stream()
@@ -77,6 +81,10 @@ public final class Entry implements Comparable<Entry> {
                 .orElseGet(Entry::absent);
     }
 
+    /** Convert service Response to Entry.
+     * @param response - source Response.
+     * @return target Entry.
+     * */
     @NotNull
     public static Entry responseToEntry(@NotNull final Response response) throws IOException {
         final String timestamp = response.getHeader(ResponseUtils.TIMESTAMP);
@@ -97,6 +105,10 @@ public final class Entry implements Comparable<Entry> {
         }
     }
 
+    /** Convert Entry to service Response.
+     * @param entry - source Entry.
+     * @return target Response.
+     * */
     @NotNull
     public static Response entryToResponse(@NotNull final Entry entry) {
         final Response result;
@@ -116,6 +128,11 @@ public final class Entry implements Comparable<Entry> {
         }
     }
 
+    /** Get Entry data from ByteBuffer.
+     * @param key - source ByteBuffer.
+     * @param dao - LSM-database
+     * @return target Entry.
+     * */
     public static Entry entryFromBytes(@NotNull final ByteBuffer key,
                                        @NotNull final DAOImpl dao) throws IOException {
         final Iterator<Cell> cells = dao.entryIterators(key);
