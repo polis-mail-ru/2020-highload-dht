@@ -11,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.net.Session;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -191,7 +190,11 @@ public class ServiceImpl extends HttpServer implements Service {
                         || response.getStatus() == ResponseCode.NOT_FOUND)
                 .collect(Collectors.toList());
 
-        httpHelper.calculateResponse(session, notFailedResponses.size(), ackFrom, daoHelper.resolveGet(notFailedResponses));
+        httpHelper.calculateResponse(
+                session,
+                notFailedResponses.size(),
+                ackFrom,
+                daoHelper.resolveGet(notFailedResponses));
     }
 
     private void deleteEntityExecutor(final String id,
@@ -214,7 +217,11 @@ public class ServiceImpl extends HttpServer implements Service {
                 .filter(response -> response.getStatus() == ResponseCode.ACCEPTED)
                 .collect(Collectors.toList());
 
-        httpHelper.calculateResponse(session, notFailedResponses.size(), ackFrom, new Response(Response.ACCEPTED, Response.EMPTY));
+        httpHelper.calculateResponse(
+                session,
+                notFailedResponses.size(),
+                ackFrom,
+                new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
     private void putEntityExecutor(final String id,
@@ -238,7 +245,11 @@ public class ServiceImpl extends HttpServer implements Service {
                 .filter(response -> response.getStatus() == ResponseCode.CREATED)
                 .collect(Collectors.toList());
 
-        httpHelper.calculateResponse(session, notFailedResponses.size(), ackFrom, new Response(Response.CREATED, Response.EMPTY));
+        httpHelper.calculateResponse(
+                session,
+                notFailedResponses.size(),
+                ackFrom,
+                new Response(Response.CREATED, Response.EMPTY));
     }
 
     @Override

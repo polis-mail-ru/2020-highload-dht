@@ -23,7 +23,7 @@ public class DaoHelper {
     private final DAO dao;
 
     public DaoHelper(@NotNull final DAO dao) {
-         this.dao = dao;
+        this.dao = dao;
     }
 
     /**
@@ -105,7 +105,7 @@ public class DaoHelper {
     /**
      * Try create or update key-value.
      *
-     * @param key - key for key-value storage
+     * @param key   - key for key-value storage
      * @param value - value
      * @return - response of request
      */
