@@ -45,13 +45,7 @@ public final class AsyncServiceUtility {
             if (header != null) {
                 final var time = Long.parseLong(header.value);
                 service.es.execute(
-                        () -> {
-                            try {
-                                upsertWithTimeStamp(key, value, session, time, service.dao);
-                            } catch (IOException ioException) {
-                                AsyncService.logger.error("Error in sending put request", ioException);
-                            }
-                        }
+                        () -> handlingUpsertWithTimeStamp(session, service, key, value, time)
                 );
                 return;
             }
@@ -69,14 +63,7 @@ public final class AsyncServiceUtility {
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
             
             if (homeInReplicas) {
-                try {
-                    service.dao.upsertWithTimeStamp(key, value, currTime);
-                    ++createdCounter;
-                } catch (IOException ioException) {
-                    AsyncService.logger.error(
-                            "IOException in putting key(size: {}), value(size: {}) from dao on node {}",
-                            key.capacity(), value.capacity(), service.policy.homeNode(), ioException);
-                }
+                createdCounter = getCreatedCounter(service, key, value, currTime, createdCounter);
             }
             
             sendAckFromResp(parsed, createdCounter,
@@ -85,6 +72,34 @@ public final class AsyncServiceUtility {
         } catch (IOException e) {
             AsyncService.logger.error("Error", e);
             e.printStackTrace();
+        }
+    }
+    
+    private static int getCreatedCounter(@NotNull final AsyncService service,
+                                         @NotNull final ByteBuffer key,
+                                         @NotNull final ByteBuffer value,
+                                         final long currTime,
+                                         final int createdCounter) {
+        try {
+            service.dao.upsertWithTimeStamp(key, value, currTime);
+            return createdCounter + 1;
+        } catch (IOException ioException) {
+            AsyncService.logger.error(
+                    "IOException in putting key(size: {}), value(size: {}) from dao on node {}",
+                    key.capacity(), value.capacity(), service.policy.homeNode(), ioException);
+            return createdCounter;
+        }
+    }
+    
+    private static void handlingUpsertWithTimeStamp(@NotNull final HttpSession session,
+                                                    @NotNull final AsyncService service,
+                                                    @NotNull final ByteBuffer key,
+                                                    @NotNull final ByteBuffer value,
+                                                    final long time) {
+        try {
+            upsertWithTimeStamp(key, value, session, time, service.dao);
+        } catch (IOException ioException) {
+            AsyncService.logger.error("Error in sending put request", ioException);
         }
     }
     
@@ -242,17 +257,15 @@ public final class AsyncServiceUtility {
                 /* OK */
                 if (response == null
                             ||
-                            (response.getStatus() != 202 /* ACCEPTED */
-                                     && response.getStatus() != 201 /* CREATED */
-                                     && response.getStatus() != 200)) {
+                            response.getStatus() != 202 /* ACCEPTED */
+                                    && response.getStatus() != 201 /* CREATED */
+                                    && response.getStatus() != 200) {
                     continue;
                 }
                 futureResponses.add(response);
-                ++counter;
                 
-            } else {
-                ++counter;
             }
+            ++counter;
             
             if (counter >= configuration.ack) {
                 break;
