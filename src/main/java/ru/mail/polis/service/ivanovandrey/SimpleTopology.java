@@ -1,8 +1,8 @@
 package ru.mail.polis.service.ivanovandrey;
 
+import one.nio.http.Request;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +34,7 @@ public class SimpleTopology {
     String[] getNodes() {
         return nodes.clone();
     }
+
     List<String> responsibleNodes(@NotNull final String key,
                                   @NotNull final Replica replicas) {
        final int startIndex = (key.hashCode() & Integer.MAX_VALUE) % nodesList.size();
@@ -43,5 +44,18 @@ public class SimpleTopology {
            res.add(nodesList.get(current));
        }
        return res;
+    }
+
+    public static Request getSpecialRequest(final Request request) {
+        if (request.getParameter("special") != null) {
+            return request;
+        }
+        final var newURI = request.getURI() + "&special=";
+        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
+        for (int i = 0; i < request.getHeaderCount(); i++) {
+            res.addHeader(request.getHeaders()[i]);
+        }
+        res.setBody(request.getBody());
+        return res;
     }
 }

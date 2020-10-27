@@ -1,7 +1,5 @@
 package ru.mail.polis.service.ivanovandrey;
 
-import java.io.IOException;
-
 public class Replica {
     private int ackCount;
     private int totalNodes;

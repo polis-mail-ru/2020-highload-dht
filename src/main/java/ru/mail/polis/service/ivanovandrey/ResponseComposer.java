@@ -2,8 +2,6 @@ package ru.mail.polis.service.ivanovandrey;
 
 import one.nio.http.Response;
 
-import java.io.IOException;
-import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 

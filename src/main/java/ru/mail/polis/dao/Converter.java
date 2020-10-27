@@ -3,6 +3,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 public final class Converter {
@@ -45,5 +46,9 @@ public final class Converter {
             cpy[i] = (byte) (Byte.toUnsignedInt(cpy[i]) + Byte.MIN_VALUE);
         }
         return ByteBuffer.wrap(cpy);
+    }
+
+    public static ByteBuffer strToByteBuffer(final String msg, final Charset charset) {
+        return ByteBuffer.wrap(msg.getBytes(charset));
     }
 }

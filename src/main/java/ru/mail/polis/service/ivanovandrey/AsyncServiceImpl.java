@@ -91,7 +91,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-    private Future<Response> forwardRequestFuture (@NotNull final String cluster,
+    private Future<Response> forwardRequestFuture(@NotNull final String cluster,
                                     final Request request) {
         try {
             return service.submit(() -> forwardRequest(cluster, request));
@@ -104,23 +104,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private Response forwardRequest(@NotNull final String cluster,
                                       final Request request) {
         try {
-            return clients.get(cluster).invoke(getSpecialRequest(request));
+            return clients.get(cluster).invoke(SimpleTopology.getSpecialRequest(request));
         } catch (Exception e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-    }
-
-    private static Request getSpecialRequest(final Request request) {
-        if (request.getParameter("special") != null) {
-            return request;
-        }
-        final var newURI = request.getURI() + "&special=";
-        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
-        for (int i = 0; i < request.getHeaderCount(); i++) {
-            res.addHeader(request.getHeaders()[i]);
-        }
-        res.setBody(request.getBody());
-        return res;
     }
 
     /**
@@ -197,7 +184,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private Future<Response> processRequest(final @Param(value = "id", required = true) String id,
                                             final @Param("request") Request request) {
         try {
-            final ByteBuffer key = strToByteBuffer(id, UTF_8);
+            final ByteBuffer key = Converter.strToByteBuffer(id, UTF_8);
             return service.submit(() -> {
                 switch (request.getMethod()) {
                     case METHOD_GET:
@@ -275,7 +262,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     public Response delete(@NotNull @Param(value = "id", required = true) final ByteBuffer id) {
             try {
-                dao.upsert(id, ByteBuffer.wrap("deleted".getBytes(StandardCharsets.UTF_8)));
+                dao.upsert(id, ByteBuffer.wrap("deleted".getBytes(UTF_8)));
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             } catch (NoSuchElementException e) {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -298,10 +285,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    public static ByteBuffer strToByteBuffer(final String msg, final Charset charset) {
-        return ByteBuffer.wrap(msg.getBytes(charset));
     }
 
     @Override
