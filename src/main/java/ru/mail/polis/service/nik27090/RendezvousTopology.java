@@ -1,17 +1,22 @@
 package ru.mail.polis.service.nik27090;
 
+import one.nio.http.HttpClient;
 import one.nio.http.Request;
+import one.nio.http.Response;
 import org.apache.commons.codec.digest.MurmurHash3;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static ru.mail.polis.service.nik27090.HttpHelper.proxy;
 
 public class RendezvousTopology implements Topology<String> {
     @NotNull
@@ -34,14 +39,30 @@ public class RendezvousTopology implements Topology<String> {
         nodes.toArray(this.nodes);
     }
 
+    @Override
+    public List<Response> getResponseFromNodes(List<String> nodes,
+                                               Request request,
+                                               Response localResponse,
+                                               Map<String, HttpClient> nodeToClient) {
+        final List<Response> responses = new ArrayList<>(nodes.size());
+        for (String node : nodes) {
+            if (isCurrentNode(node)) {
+                responses.add(localResponse);
+            } else {
+                responses.add(proxy(node, request, nodeToClient));
+            }
+        }
+        return responses;
+    }
+
     @NotNull
     @Override
-    public String[] getReplicas(@NotNull ByteBuffer key, int countReplicas) {
+    public String[] getReplicas(@NotNull final ByteBuffer key, final int countReplicas) {
         if (countReplicas == nodes.length) {
             return nodes;
         }
 
-        Map<Integer, String> replicasHash = new HashMap<>();
+        final Map<Integer, String> replicasHash = new HashMap<>();
         final String[] currentReplicas = new String[countReplicas];
 
         for (final String node : nodes) {
@@ -75,7 +96,7 @@ public class RendezvousTopology implements Topology<String> {
 
     @Override
     @SuppressWarnings("StringSplitter")
-    public AckFrom parseAckFrom(String ackFrom) {
+    public AckFrom parseAckFrom(final String ackFrom) {
         final int ack;
         final int from;
         if (ackFrom == null) {
@@ -90,7 +111,7 @@ public class RendezvousTopology implements Topology<String> {
     }
 
     @Override
-    public boolean isProxyReq(Request request) {
+    public boolean isProxyReq(final Request request) {
         return request.getHeader("X-Proxy-For:") != null;
     }
 

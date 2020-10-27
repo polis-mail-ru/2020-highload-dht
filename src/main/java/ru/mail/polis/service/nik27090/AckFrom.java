@@ -12,7 +12,7 @@ public class AckFrom {
         return from;
     }
 
-    public AckFrom(int ack, int from) {
+    public AckFrom(final int ack, final int from) {
         this.ack = ack;
         this.from = from;
     }
