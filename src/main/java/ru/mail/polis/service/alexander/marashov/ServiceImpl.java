@@ -121,7 +121,6 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             executorService.execute(runnable);
         } catch (final RejectedExecutionException e) {
-            log.error("Request rejected", e);
             sendAnswerOrError(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
@@ -154,7 +153,6 @@ public class ServiceImpl extends HttpServer implements Service {
                 final Response response = nodeToClient.get(node).invoke(request);
                 sendAnswerOrError(session, response);
             } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                log.error("Can't proxy request", e);
                 sendAnswerOrError(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
         }
@@ -321,7 +319,7 @@ public class ServiceImpl extends HttpServer implements Service {
         }
         try {
             dao.close();
-        } catch (IOException e) {
+        } catch (final IOException e) {
             log.error("Error closing DAO");
         }
     }
