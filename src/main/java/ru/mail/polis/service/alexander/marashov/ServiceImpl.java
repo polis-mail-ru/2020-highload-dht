@@ -21,6 +21,10 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.alexander.marashov.Value;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzer;
+import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerDelete;
+import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerGet;
+import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerPut;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
@@ -36,10 +40,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class ServiceImpl extends HttpServer implements Service {
 
@@ -78,7 +78,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> log.error("uncaught exception", t, e))
+                        .setUncaughtExceptionHandler((t, e) -> log.error("{}: uncaught exception", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
@@ -115,22 +115,6 @@ public class ServiceImpl extends HttpServer implements Service {
         return config;
     }
 
-//    /**
-//     * Static function for converting {@link ByteBuffer} object to simple byte[] array.
-//     *
-//     * @param buffer {@link ByteBuffer} instance that needs to be converted.
-//     * @return byte[] array with buffer's data or empty array if buffer is empty.
-//     */
-//    @NotNull
-//    private static byte[] getBytes(@NotNull final ByteBuffer buffer) {
-//        if (!buffer.hasRemaining()) {
-//            return Response.EMPTY;
-//        }
-//        final byte[] result = new byte[buffer.remaining()];
-//        buffer.get(result);
-//        return result;
-//    }
-
     private void executeOrSendError(final HttpSession httpSession, final Runnable runnable) {
         try {
             executorService.execute(runnable);
@@ -148,7 +132,7 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private boolean sendErrorOnWrongParameters(
+    private boolean sendErrorIfWrongParameters(
             final String id,
             final int ack,
             final int from,
@@ -161,24 +145,19 @@ public class ServiceImpl extends HttpServer implements Service {
         return wrongParameters;
     }
 
-//    private boolean proxyIfNotLocal(
-//            final ByteBuffer key,
-//            final HttpSession session,
-//            final Request request
-//    ) {
-//        final String node = topology.primaryFor(key);
-//        final boolean notLocal = !topology.isLocal(node);
-//        if (notLocal) {
-//            try {
-//                final Response response = nodeToClient.get(node).invoke(request);
-//                sendAnswerOrError(session, response);
-//            } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-//                log.error("Can't proxy request", e);
-//                sendAnswerOrError(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-//            }
-//        }
-//        return notLocal;
-//    }
+    private static int[] unpackReplicasParameter(final String replicas) throws NumberFormatException {
+        if (replicas == null) {
+            return null;
+        }
+        final List<String> parameters = Splitter.on('/').splitToList(replicas);
+        if (parameters.size() != 2) {
+            return null;
+        }
+
+        final int ack = Integer.parseInt(parameters.get(0));
+        final int from = Integer.parseInt(parameters.get(1));
+        return new int[]{ack, from};
+    }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
@@ -186,49 +165,32 @@ public class ServiceImpl extends HttpServer implements Service {
         session.sendResponse(response);
     }
 
-    /**
-     * Http method handler for checking server's reachability.
-     *
-     * @return {@link Response} with status {@code 200} if the server is available.
-     */
-    @Path("/v0/status")
-    public Response handleStatus() {
-        return new Response(Response.OK, Response.EMPTY);
-    }
-
-    public void handlePut(
+    public void executeLocalPut(
             final HttpSession httpSession,
             final ByteBuffer key,
             final ByteBuffer value
     ) {
-        log.debug("Handle local put");
         try {
             this.dao.upsert(key, value);
-            log.debug("Local put OK");
             sendAnswerOrError(httpSession, new Response(Response.CREATED, Response.EMPTY));
         } catch (final IOException e) {
-            log.error("Dao upsert error", e);
             sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
-    public void handleDelete(
+    public void executeLocalDelete(
             final HttpSession httpSession,
             final ByteBuffer key
     ) {
-        log.debug("Handle local delete");
         try {
             this.dao.remove(key);
-            log.debug("Local delete OK");
+            sendAnswerOrError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
         } catch (final IOException e) {
-            log.error("Delete entity method: key = '{}' error", key, e);
             sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            return;
         }
-        sendAnswerOrError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
-    public void handleRowGet(
+    public void executeLocalRowGet(
             final HttpSession httpSession,
             final ByteBuffer key
     ) {
@@ -238,7 +200,7 @@ public class ServiceImpl extends HttpServer implements Service {
             value = this.dao.rowGet(key);
             log.debug("Local get without errors");
         } catch (final IOException e) {
-            log.debug("Key {} not found", key, e);
+            log.debug("Key not found", e);
         }
 
         Response response;
@@ -257,7 +219,16 @@ public class ServiceImpl extends HttpServer implements Service {
             }
         }
         sendAnswerOrError(httpSession, response);
+    }
 
+    /**
+     * Http method handler for checking server's reachability.
+     *
+     * @return {@link Response} with status {@code 200} if the server is available.
+     */
+    @Path("/v0/status")
+    public Response handleStatus() {
+        return new Response(Response.OK, Response.EMPTY);
     }
 
     /**
@@ -291,35 +262,43 @@ public class ServiceImpl extends HttpServer implements Service {
                         sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    final int ack = replicasParameters == null ? defaultAck : replicasParameters[0];
-                    final int from = replicasParameters == null ? defaultFrom : replicasParameters[1];
-                    if (sendErrorOnWrongParameters(id, ack, from, httpSession)) {
+
+                    final int ack;
+                    final int from;
+                    if (replicasParameters == null) {
+                        ack = defaultAck;
+                        from = defaultFrom;
+                    } else {
+                        ack = replicasParameters[0];
+                        from = replicasParameters[1];
+                    }
+
+                    if (sendErrorIfWrongParameters(id, ack, from, httpSession)) {
                         return;
                     }
+
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
 
                     final String rowAccessHeader = request.getHeader("Row-Access");
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_GET))) {
-                        log.debug("get is proxied to me!");
-                        handleRowGet(httpSession, key);
+                        log.debug("get was proxied");
+                        executeLocalRowGet(httpSession, key);
                         return;
                     }
-                    log.debug("get was not proxied");
+                    log.debug("get was NOT proxied");
 
                     final String[] primaries = topology.primariesFor(key, from);
+                    final ResponseAnalyzerGet valueAnalyzer = new ResponseAnalyzerGet(ack, from);
 
                     log.debug("GET needs ack = {}, from = {}, primaries = {}",
-                             ack, from, Arrays.toString(primaries));
+                            ack, from, Arrays.toString(primaries));
 
-                    final ResponseAnalyzer valueAnalyzer = new ResponseAnalyzer(ack);
-                    final Lock lock = new ReentrantLock();
-                    final Condition condition = lock.newCondition();
                     request.addHeader("Row-Access" + Request.METHOD_GET);
-
                     for (final String primary : primaries) {
+
                         if (topology.isLocal(primary)) {
-                            log.debug("get, primary = {} is local", primary);
+
                             executorService.execute(() -> {
                                 log.debug("get, local execution");
                                 Value value = null;
@@ -327,20 +306,11 @@ public class ServiceImpl extends HttpServer implements Service {
                                     value = this.dao.rowGet(key);
                                     log.debug("get, local execution, rowGet successful");
                                 } catch (final NoSuchElementException | IOException e) {
-                                    log.debug("get, lcl execution, Key {} not found", key, e);
+                                    log.debug("Key not found", e);
                                 }
-                                if (valueAnalyzer.accept(value)) {
-                                    log.debug("get, lcl exe, has enough answers");
-                                    lock.lock();
-                                    try {
-                                        log.debug("get, lcl exe, locked");
-                                        condition.signalAll();
-                                    } finally {
-                                        log.debug("get, lcl exe, unlocked");
-                                        lock.unlock();
-                                    }
-                                }
+                                valueAnalyzer.accept(value);
                             });
+
                         } else {
                             log.debug("get, primary = {} is NOT local", primary);
                             executorService.execute(() -> {
@@ -349,79 +319,27 @@ public class ServiceImpl extends HttpServer implements Service {
                                 try {
                                     log.debug("get, proxy to another node");
                                     response = nodeToClient.get(primary).invoke(request);
+                                    log.debug("get, proxy success");
                                 } catch (final InterruptedException | PoolException | IOException | HttpException e) {
                                     response = null;
-                                    log.error("get, Invoke response error", e);
+                                    log.error("Get: Error sending request to node {}", primary, e);
                                 }
-                                if (valueAnalyzer.accept(response)) {
-                                    log.debug("get, from proxy exe, has enough answers");
-                                    lock.lock();
-                                    try {
-                                        log.debug("get, from proxy exe, locked");
-                                        condition.signalAll();
-                                    } finally {
-                                        log.debug("get, from proxy exe, unlocked");
-                                        lock.unlock();
-                                    }
-                                }
+                                valueAnalyzer.accept(response);
                             });
                         }
                     }
 
-                    log.debug("get, after cycle");
-                    lock.lock();
                     try {
-                        log.debug("get, after cycle, locked");
-                        while (!valueAnalyzer.hasEnoughAnswers()) {
-                            log.debug("get, after cycle, locked, awaiting condition");
-                            final boolean timeIsOut = !condition.await(1000, TimeUnit.MILLISECONDS);
-                            if (timeIsOut) {
-                                log.debug("get, after cycle, locked, time is OUT");
-                                break;
-                            }
-                        }
+                        valueAnalyzer.await(1000L, TimeUnit.MILLISECONDS);
                     } catch (final InterruptedException e) {
-                        log.error("Responses waiting was interrupted");
-                    } finally {
-                        log.debug("get, after cycle, UNlocked");
-                        lock.unlock();
+                        log.error("Responses waiting was interrupted", e);
                     }
 
-                    log.debug("get, answers = {}, need = {}, hasEnough = {}",
-
-                            valueAnalyzer.answeredCount,
-                            ack,
-                            valueAnalyzer.hasEnoughAnswers());
-
-                    final Value correctValue = valueAnalyzer.getCorrectValue();
-                    Response response;
-                    if (correctValue == null) {
-                        log.debug("get, no enough answers, GATEWAY_TIMEOUT");
-                        response = new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-                    } else if (correctValue.isTombstone()) {
-                        log.debug("get, no enough answers, NOT FOUND");
-                        response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                    } else {
-                        log.debug("get, no enough answers, OK");
-                        response = new Response(Response.OK, correctValue.getData().array());
-                    }
+                    final Response response = valueAnalyzer.getResult();
+                    log.debug("Get: response status = {}", response.getStatus());
                     sendAnswerOrError(httpSession, response);
                 }
         );
-    }
-
-    private static int[] unpackReplicasParameter(final String replicas) throws NumberFormatException {
-        if (replicas == null) {
-            return null;
-        }
-        final List<String> parameters = Splitter.on('/').splitToList(replicas);
-        if (parameters.size() != 2) {
-            return null;
-        }
-
-        final int ack = Integer.parseInt(parameters.get(0));
-        final int from = Integer.parseInt(parameters.get(1));
-        return new int[]{ack, from};
     }
 
     /**
@@ -444,23 +362,28 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-
                     final int[] replicasParameters;
                     try {
                         replicasParameters = unpackReplicasParameter(replicas);
                     } catch (final NumberFormatException e) {
-                        log.error("Invalid replicas parameter format");
                         sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    final int ack = replicasParameters == null ? defaultAck : replicasParameters[0];
-                    final int from = replicasParameters == null ? defaultFrom : replicasParameters[1];
 
-                    log.debug("put");
+                    final int ack;
+                    final int from;
+                    if (replicasParameters == null) {
+                        ack = defaultAck;
+                        from = defaultFrom;
+                    } else {
+                        ack = replicasParameters[0];
+                        from = replicasParameters[1];
+                    }
 
-                    if (sendErrorOnWrongParameters(id, ack, from, httpSession)) {
+                    if (sendErrorIfWrongParameters(id, ack, from, httpSession)) {
                         return;
                     }
+
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
                     final byte[] body = request.getBody();
@@ -468,25 +391,21 @@ public class ServiceImpl extends HttpServer implements Service {
 
                     final String rowAccessHeader = request.getHeader("Row-Access");
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_PUT))) {
-                        log.debug("put is proxied to me!");
-                        handlePut(httpSession, key, value);
+                        log.debug("put was proxied");
+                        executeLocalPut(httpSession, key, value);
                         return;
                     }
                     log.debug("put was not proxied");
 
 
                     final String[] primaries = topology.primariesFor(key, from);
+
                     log.debug("PUT needs ack = {}, from = {}, primaries = {}",
-                             ack, from, Arrays.toString(primaries));
+                            ack, from, Arrays.toString(primaries));
 
-                    final AtomicInteger successAnswers = new AtomicInteger(0);
-                    final AtomicInteger totalAnswers = new AtomicInteger(0);
-
-                    final Lock lock = new ReentrantLock();
-                    final Condition condition = lock.newCondition();
+                    final ResponseAnalyzer<Boolean> responseAnalyzer = new ResponseAnalyzerPut(ack, from);
 
                     request.addHeader("Row-Access" + Request.METHOD_PUT);
-
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
                             log.debug("put, primary = {} is local", primary);
@@ -494,84 +413,36 @@ public class ServiceImpl extends HttpServer implements Service {
                                 log.debug("put, local execution");
                                 try {
                                     this.dao.upsert(key, value);
-                                    log.debug("put, local execution, upsert successful");
-                                    successAnswers.incrementAndGet();
+                                    log.debug("put, local exe, OK");
+                                    responseAnalyzer.accept(true);
                                 } catch (final IOException e) {
-                                    log.error("Put entity method: key = '{}', value = '{}' error"
-                                            , id, body.length, e);
-                                }
-                                if (totalAnswers.incrementAndGet() == from || successAnswers.get() >= ack) {
-                                    log.debug("put, lcl exe, has enough answers");
-                                    lock.lock();
-                                    try {
-                                        log.debug("put, lcl exe, locked");
-                                        condition.signalAll();
-                                    } finally {
-                                        log.debug("put, lcl exe, unlocked");
-                                        lock.unlock();
-                                    }
+                                    log.error("Upsert method error", e);
+                                    responseAnalyzer.accept(false);
                                 }
                             });
                         } else {
                             log.debug("put, primary = {} is NOT local", primary);
                             executorService.execute(() -> {
-                                log.debug("put, proxy to another node");
-                                Response response;
+                                Response response = null;
                                 try {
                                     response = nodeToClient.get(primary).invoke(request);
-                                    if (response.getStatus() == 201) {
-                                        log.debug("put, proxy answer has successful result");
-                                        successAnswers.incrementAndGet();
-                                    }
+                                    log.debug("put, proxy answer has successful result");
                                 } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                                    log.error("put, Invoke response error", e);
+                                    log.error("Upsert: Error sending request to node {}", primary, e);
                                 }
-                                if (totalAnswers.incrementAndGet() == from || successAnswers.get() >= ack) {
-                                    log.debug("put, from proxy exe, has enough answers");
-                                    lock.lock();
-                                    try {
-                                        log.debug("put, from proxy exe, locked");
-                                        condition.signalAll();
-                                    } finally {
-                                        log.debug("put, from proxy exe, UNlocked");
-                                        lock.unlock();
-                                    }
-                                }
+                                responseAnalyzer.accept(response);
                             });
                         }
                     }
 
-                    log.debug("put, after cycle");
-                    lock.lock();
                     try {
-                        log.debug("put, after cycle, locked");
-                        while (successAnswers.get() < ack) {
-                            log.debug("put, after cycle, locked, awaiting condition");
-                            final boolean timeIsOut = !condition.await(1000, TimeUnit.MILLISECONDS);
-                            if (timeIsOut) {
-                                log.debug("put, after cycle, locked, time is OUT");
-                                break;
-                            }
-                        }
+                        responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
                     } catch (final InterruptedException e) {
                         log.error("Responses waiting was interrupted");
-                    } finally {
-                        log.debug("put, after cycle, UNLocked");
-                        lock.unlock();
                     }
-
-                    log.debug("put, success answers = {}, answers = {}, need = {}",
-                            successAnswers,
-                            totalAnswers,
-                            ack);
-
-                    if (successAnswers.get() >= ack) {
-                        log.debug("put, has enough answers, CREATED");
-                        sendAnswerOrError(httpSession, new Response(Response.CREATED, Response.EMPTY));
-                    } else {
-                        log.debug("put, has not enough answers, GATEWAY_TIMEOUT");
-                        sendAnswerOrError(httpSession, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                    }
+                    final Response response = responseAnalyzer.getResult();
+                    log.debug("put, response ready, status = {}", response.getStatus());
+                    sendAnswerOrError(httpSession, response);
                 }
         );
     }
@@ -596,130 +467,73 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    log.debug("delete");
-
                     final int[] replicasParameters;
                     try {
                         replicasParameters = unpackReplicasParameter(replicas);
                     } catch (final NumberFormatException e) {
-                        log.error("Invalid replicas parameter format");
                         sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    final int ack = replicasParameters == null ? defaultAck : replicasParameters[0];
-                    final int from = replicasParameters == null ? defaultFrom : replicasParameters[1];
-                    if (sendErrorOnWrongParameters(id, ack, from, httpSession)) {
+                    final int ack;
+                    final int from;
+                    if (replicasParameters == null) {
+                        ack = defaultAck;
+                        from = defaultFrom;
+                    } else {
+                        ack = replicasParameters[0];
+                        from = replicasParameters[1];
+                    }
+
+                    if (sendErrorIfWrongParameters(id, ack, from, httpSession)) {
                         return;
                     }
 
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
 
-
                     final String rowAccessHeader = request.getHeader("Row-Access");
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_DELETE))) {
-                        log.debug("delete is proxied to me!");
-                        handleDelete(httpSession, key);
+                        executeLocalDelete(httpSession, key);
                         return;
                     }
-                    log.debug("delete was not proxied");
 
                     final String[] primaries = topology.primariesFor(key, from);
-
-                    log.debug("DELETE needs ack = {}, from = {}, primaries = {}",
-                            ack, from, Arrays.toString(primaries));
-
-                    final AtomicInteger successAnswers = new AtomicInteger(0);
-                    final AtomicInteger totalAnswers = new AtomicInteger(0);
-                    final Lock lock = new ReentrantLock();
-                    final Condition condition = lock.newCondition();
+                    final ResponseAnalyzer<Boolean> responseAnalyzer = new ResponseAnalyzerDelete(ack, from);
 
                     request.addHeader("Row-Access" + Request.METHOD_DELETE);
-
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
-                            log.debug("delete, primary = {} is local", primary);
                             executorService.execute(() -> {
-                                log.debug("delete, local execution");
                                 try {
                                     this.dao.remove(key);
-                                    successAnswers.incrementAndGet();
-                                    log.debug("delete, local execution, delete successful");
+                                    responseAnalyzer.accept(true);
                                 } catch (final IOException e) {
-                                    log.error("Delete entity method: key = '{}' error", id, e);
-                                }
-                                if (totalAnswers.incrementAndGet() == from || successAnswers.get() >= ack) {
-                                    log.debug("Delete, lcl exe, has enough answers");
-                                    lock.lock();
-                                    try {
-                                        log.debug("Delete, lcl exe, locked");
-                                        condition.signalAll();
-                                    } finally {
-                                        log.debug("Delete, lcl exe, UNLocked");
-                                        lock.unlock();
-                                    }
+                                    log.error("Delete entity method error", e);
+                                    responseAnalyzer.accept(false);
                                 }
                             });
                         } else {
-                            log.debug("delete, primary = {} is NOT local", primary);
                             executorService.execute(() -> {
-                                log.debug("DELETE, proxy to another node");
-                                Response response;
+                                Response response = null;
                                 try {
                                     response = nodeToClient.get(primary).invoke(request);
-                                    if (response.getStatus() == 202) {
-                                        log.debug("delete, proxy answer has successful result");
-                                        successAnswers.incrementAndGet();
-                                    }
                                 } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                                    log.error("delete, Node invoke error", e);
+                                    log.error("Delete: Error sending request to node {}", primary, e);
                                 }
-                                if (totalAnswers.incrementAndGet() == from || successAnswers.get() >= ack) {
-                                    log.debug("delete, from proxy exe, has enough answers");
-                                    lock.lock();
-                                    try {
-                                        log.debug("delete, from proxy exe, locked");
-                                        condition.signalAll();
-                                    } finally {
-                                        log.debug("delete, from proxy exe, UNLocked");
-                                        lock.unlock();
-                                    }
-                                }
+                                responseAnalyzer.accept(response);
                             });
                         }
                     }
 
-                    log.debug("delete, after cycle");
-                    lock.lock();
+
                     try {
-                        log.debug("delete, after cycle, locked");
-                        while (successAnswers.get() < ack) {
-                            log.debug("delete, after cycle, locked, awaiting condition");
-                            final boolean timeIsOut = !condition.await(1000, TimeUnit.MILLISECONDS);
-                            if (timeIsOut) {
-                                log.debug("delete, after cycle, locked, time is OUT");
-                                break;
-                            }
-                        }
+                        responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
                     } catch (final InterruptedException e) {
                         log.error("Responses waiting was interrupted");
-                    } finally {
-                        log.debug("delete, after cycle, UNLocked");
-                        lock.unlock();
                     }
 
-                    log.debug("delete, success answers = {}, answers = {}, need = {}",
-                            successAnswers,
-                            totalAnswers,
-                            ack);
-
-                    if (successAnswers.get() >= ack) {
-                        log.debug("delete, has enough answers, ACCEPTED");
-                        sendAnswerOrError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
-                    } else {
-                        log.debug("delete, has not enough answers, GATEWAY_TIMEOUT");
-                        sendAnswerOrError(httpSession, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                    }
+                    final Response response = responseAnalyzer.getResult();
+                    sendAnswerOrError(httpSession, response);
                 }
         );
     }

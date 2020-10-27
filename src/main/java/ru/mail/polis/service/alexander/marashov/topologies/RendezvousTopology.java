@@ -3,7 +3,10 @@ package ru.mail.polis.service.alexander.marashov.topologies;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.Arrays;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Set;
 
 public class RendezvousTopology implements Topology<String> {
@@ -42,23 +45,30 @@ public class RendezvousTopology implements Topology<String> {
         return primariesFor(key, 1)[0];
     }
 
-    @NotNull
     @Override
-    public String[] primariesFor(@NotNull final ByteBuffer key, final int count) {
-
-        assert count <= nodes.length;
-        assert count > 0;
+    public String[] primariesFor(final ByteBuffer key, final int nodesCount) {
+        final int size = this.size();
+        assert 0 < nodesCount;
+        assert nodesCount <= size;
 
         final int keyHashCode = key.hashCode();
-        final NodeKeyPair[] pairs = new NodeKeyPair[nodes.length];
-        for (int i = 0; i < nodes.length; i++) {
-            pairs[i] = new NodeKeyPair(nodes[i], keyHashCode);
+        final Queue<NodeKeyPair> minQueue = new PriorityQueue<>(nodesCount);
+        for (int i = 0; i < nodesCount; ++i) {
+            minQueue.add(new NodeKeyPair(nodes[i], keyHashCode));
         }
-        Arrays.sort(pairs);
+        for (int i = nodesCount; i < size; ++i) {
+            final NodeKeyPair next = new NodeKeyPair(nodes[i], keyHashCode);
+            final NodeKeyPair minElement = minQueue.peek();
+            assert minElement != null;
 
-        final String[] primaries = new String[count];
-        for (int i = 0; i < count; ++i) {
-            primaries[i] = pairs[i].getNode();
+            if (next.compareTo(minElement) < 0) {
+                minQueue.poll();
+                minQueue.add(next);
+            }
+        }
+        final String[] primaries = new String[nodesCount];
+        for (int j = nodesCount - 1; j >= 0; --j) {
+            primaries[j] = Objects.requireNonNull(minQueue.poll()).getNode();
         }
         return primaries;
     }
@@ -105,8 +115,11 @@ public class RendezvousTopology implements Topology<String> {
         }
 
         @Override
+        /*
+          The more the less (reverse order)
+         */
         public int compareTo(@NotNull final NodeKeyPair another) {
-            return Integer.compare(this.hashCode, another.hashCode);
+            return -Integer.compare(this.hashCode, another.hashCode);
         }
     }
 }
