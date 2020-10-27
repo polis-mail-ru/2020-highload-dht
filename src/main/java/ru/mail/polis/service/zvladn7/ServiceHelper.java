@@ -130,7 +130,6 @@ class ServiceHelper {
 
     private List<Response> proxy(@NotNull final Set<String> nodesForResponse,
                                  @NotNull final Request request) {
-        log.info("Start proxy");
         log.debug("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodesForResponse);
         final List<Response> responses = new ArrayList<>();
         nodesForResponse.forEach(node -> {
