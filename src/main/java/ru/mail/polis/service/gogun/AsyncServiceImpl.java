@@ -239,6 +239,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
+    private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
+        try {
+            dao.upsert(key, getBuffer(request.getBody()));
+        } catch (IOException e) {
+            log.error("Internal server error put", e);
+            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+
+        } catch (NoSuchElementException e) {
+            return (new Response(Response.NOT_FOUND, Response.EMPTY));
+        }
+
+        return (new Response(Response.CREATED, Response.EMPTY));
+    }
+
     private void handleGet(@NotNull final ByteBuffer key,
                            @NotNull final HttpSession session) throws IOException {
         final ByteBuffer buffer;
@@ -254,6 +268,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         session.sendResponse(Response.ok(getArray(buffer)));
+    }
+
+    private Response handleGet(@NotNull final ByteBuffer key) {
+        final ByteBuffer buffer;
+        try {
+            buffer = dao.get(key);
+        } catch (IOException e) {
+            log.error("Internal server error get", e);
+            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+
+        } catch (NoSuchElementException e) {
+            return (new Response(Response.NOT_FOUND, Response.EMPTY));
+        }
+
+        return (Response.ok(getArray(buffer)));
     }
 
     private void handleDel(@NotNull final ByteBuffer key,
@@ -272,11 +301,42 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
+    private Response handleDel(@NotNull final ByteBuffer key) {
+        try {
+            dao.remove(key);
+        } catch (IOException e) {
+            log.error("Internal server error del", e);
+            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+
+        } catch (NoSuchElementException e) {
+            return (new Response(Response.NOT_FOUND, Response.EMPTY));
+
+        }
+
+        return (new Response(Response.ACCEPTED, Response.EMPTY));
+    }
+
     private List<Response> proxy(final List<String> nodes, final Request request) {
         ArrayList<Response> responses = new ArrayList<>();
-
+        ByteBuffer key = getBuffer(request.getParameter("id").getBytes(UTF_8));
         for (String node : nodes) {
             try {
+                if (topology.isMe(node)) {
+                    switch (request.getMethod()) {
+                        case Request.METHOD_PUT:
+                            responses.add(handlePut(key, request));
+                            break;
+                        case Request.METHOD_GET:
+                            responses.add(handleGet(key));
+                            break;
+                        case Request.METHOD_DELETE:
+                            responses.add(handleDel(key));
+                            break;
+                        default:
+                            break;
+                    }
+                    continue;
+                }
                 request.addHeader("Replica-request-to-node: " + node);
                 responses.add(nodeClients.get(node).invoke(request));
             } catch (IOException | InterruptedException | PoolException | HttpException e) {
