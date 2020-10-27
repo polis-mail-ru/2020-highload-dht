@@ -27,15 +27,13 @@ public class Replicas {
      * */
     public static Replicas parser(final String replicas) {
         final List<String> params = Arrays.asList(replicas.replace("=", "").split("/"));
-        final int confirmation;
-        final int from;
 
         if (params.size() != 2) {
             throw new IllegalArgumentException("Wrong Replica factor: " + replicas);
         }
 
-        confirmation = Integer.parseInt(params.get(0));
-        from = Integer.parseInt(params.get(1));
+        final int confirmation = Integer.parseInt(params.get(0));
+        final int from = Integer.parseInt(params.get(1));
 
         return new Replicas(confirmation, from);
     }

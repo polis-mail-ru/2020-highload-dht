@@ -101,7 +101,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void entity(@Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session,
-                       @Param(value="replicas") final String replicas) {
+                       @Param(value = "replicas") final String replicas) {
 
         try {
             if (id.isEmpty()) {

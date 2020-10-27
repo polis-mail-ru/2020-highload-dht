@@ -3,9 +3,9 @@ package ru.mail.polis.service.manikhin;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
-import one.nio.pool.PoolException;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,10 +16,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 public class ReplicasRequests {
     private final DAO dao;
@@ -35,6 +35,12 @@ public class ReplicasRequests {
         this.nodes = nodes;
     }
 
+    /**
+     * get record with timestamp by input key.
+     *
+     * @param key - input ByteBuffer key
+     * @return Response
+     */
     public Response getTimestamp(@NotNull final ByteBuffer key) {
         try {
             final byte[] res = timestampFromByteBuffer(key);
@@ -44,6 +50,11 @@ public class ReplicasRequests {
         }
     }
 
+    /**
+     * put record with timestamp with input key.
+     *
+     * @param key - input ByteBuffer key
+     */
     public void putTimestamp(@NotNull final ByteBuffer key,
                               @NotNull final Request request) throws IOException {
         dao.upsertTimestampRecord(key, ByteBuffer.wrap(request.getBody()));
@@ -53,6 +64,11 @@ public class ReplicasRequests {
         dao.removeTimestampRecord(key);
     }
 
+    /**
+     * Timestamp records convertor to bytes.
+     *
+     * @param key - input ByteBuffer key
+     */
     public byte[] timestampFromByteBuffer(@NotNull final ByteBuffer key)
             throws IOException {
         final TimestampRecord res = dao.getTimestampRecord(key);
@@ -224,6 +240,14 @@ public class ReplicasRequests {
         }
     }
 
+    /**
+     * Joiner input set responses for one.
+     *
+     * @param session - http-session
+     * @param replicaNodes - replica nodes
+     * @param responses - input set with responses
+     * @param isForwardedRequest - check result request on forwarding
+     */
     public void processResponses(@NotNull final HttpSession session,
                                   @NotNull final Set<String> replicaNodes,
                                   @NotNull final List<TimestampRecord> responses,
