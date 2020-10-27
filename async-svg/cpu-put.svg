@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" width="1200" height="406" onload="init(evt)" viewBox="0 0 1200 406" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg version="1.1" width="1200" height="518" onload="init(evt)" viewBox="0 0 1200 518" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <style type="text/css">
 	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
 	#search { opacity:0.1; cursor:pointer; }
@@ -328,974 +328,854 @@
 </script>
 <rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
 <text id="title" x="600" y="24">Flame Graph</text>
-<text id="details" x="10" y="389"> </text>
+<text id="details" x="10" y="501"> </text>
 <text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
 <text id="search" x="1090" y="24">Search</text>
-<text id="matched" x="1090" y="389"> </text>
+<text id="matched" x="1090" y="501"> </text>
 <g id="frames">
 <g>
-<title>all (134 samples, 100.00%)</title><rect x="10.0" y="355.0" width="1180.0" height="15" fill="#fa7b7b" rx="2" ry="2"/>
-<text x="13.0" y="366.0">all</text>
+<title>all (72 samples, 100.00%)</title><rect x="10.0" y="467.0" width="1180.0" height="15" fill="#e15a5a" rx="2" ry="2"/>
+<text x="13.0" y="478.0">all</text>
 </g>
 <g>
-<title>[unknown_Java] (3 samples, 2.24%)</title><rect x="10.0" y="339.0" width="26.4" height="15" fill="#ec6969" rx="2" ry="2"/>
-<text x="13.0" y="350.0">[..</text>
+<title>[unknown_Java] (1 samples, 1.39%)</title><rect x="10.0" y="451.0" width="16.4" height="15" fill="#e76262" rx="2" ry="2"/>
+<text x="13.0" y="462.0"></text>
 </g>
 <g>
-<title>__clock_gettime (3 samples, 2.24%)</title><rect x="10.0" y="323.0" width="26.4" height="15" fill="#f87979" rx="2" ry="2"/>
-<text x="13.0" y="334.0">_..</text>
+<title>__clock_gettime (1 samples, 1.39%)</title><rect x="10.0" y="435.0" width="16.4" height="15" fill="#fa7b7b" rx="2" ry="2"/>
+<text x="13.0" y="446.0"></text>
 </g>
 <g>
-<title>[vdso] (3 samples, 2.24%)</title><rect x="10.0" y="307.0" width="26.4" height="15" fill="#f87979" rx="2" ry="2"/>
-<text x="13.0" y="318.0">[..</text>
+<title>[vdso] (1 samples, 1.39%)</title><rect x="10.0" y="419.0" width="16.4" height="15" fill="#e55f5f" rx="2" ry="2"/>
+<text x="13.0" y="430.0"></text>
 </g>
 <g>
-<title>java/lang/Thread.run (75 samples, 55.97%)</title><rect x="36.4" y="339.0" width="660.5" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="39.4" y="350.0">java/lang/Thread.run</text>
+<title>java/lang/Thread.run (50 samples, 69.44%)</title><rect x="26.4" y="451.0" width="819.4" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="29.4" y="462.0">java/lang/Thread.run</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (75 samples, 55.97%)</title><rect x="36.4" y="323.0" width="660.5" height="15" fill="#55e655" rx="2" ry="2"/>
-<text x="39.4" y="334.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (50 samples, 69.44%)</title><rect x="26.4" y="435.0" width="819.4" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="29.4" y="446.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor.runWorker (75 samples, 55.97%)</title><rect x="36.4" y="307.0" width="660.5" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="39.4" y="318.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (50 samples, 69.44%)</title><rect x="26.4" y="419.0" width="819.4" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="29.4" y="430.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor$Worker.lock (1 samples, 0.75%)</title><rect x="36.4" y="291.0" width="8.8" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="39.4" y="302.0"></text>
+<title>java/lang/Thread.interrupted (2 samples, 2.78%)</title><rect x="26.4" y="403.0" width="32.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="29.4" y="414.0">ja..</text>
 </g>
 <g>
-<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquire (1 samples, 0.75%)</title><rect x="36.4" y="275.0" width="8.8" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="39.4" y="286.0"></text>
+<title>java/lang/Thread.isInterrupted (2 samples, 2.78%)</title><rect x="26.4" y="387.0" width="32.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="29.4" y="398.0">ja..</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor$Worker.tryAcquire (1 samples, 0.75%)</title><rect x="36.4" y="259.0" width="8.8" height="15" fill="#60f160" rx="2" ry="2"/>
-<text x="39.4" y="270.0"></text>
+<title>JVM_IsInterrupted (1 samples, 1.39%)</title><rect x="26.4" y="371.0" width="16.4" height="15" fill="#ec6969" rx="2" ry="2"/>
+<text x="29.4" y="382.0"></text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor$Worker.unlock (1 samples, 0.75%)</title><rect x="45.2" y="291.0" width="8.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="48.2" y="302.0"></text>
+<title>ThreadsListHandle::ThreadsListHandle(Thread*) (1 samples, 1.39%)</title><rect x="26.4" y="355.0" width="16.4" height="15" fill="#d9d941" rx="2" ry="2"/>
+<text x="29.4" y="366.0"></text>
 </g>
 <g>
-<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.release (1 samples, 0.75%)</title><rect x="45.2" y="275.0" width="8.8" height="15" fill="#62f362" rx="2" ry="2"/>
-<text x="48.2" y="286.0"></text>
+<title>ThreadsListHandle::ThreadsListHandle(Thread*) (1 samples, 1.39%)</title><rect x="42.8" y="371.0" width="16.4" height="15" fill="#dfdf43" rx="2" ry="2"/>
+<text x="45.8" y="382.0"></text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor.getTask (22 samples, 16.42%)</title><rect x="54.0" y="291.0" width="193.8" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="57.0" y="302.0">java/util/concurrent/Thre..</text>
+<title>java/util/concurrent/ThreadPoolExecutor.getTask (13 samples, 18.06%)</title><rect x="59.2" y="403.0" width="213.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="62.2" y="414.0">java/util/concurrent/ThreadP..</text>
 </g>
 <g>
-<title>java/util/concurrent/SynchronousQueue.poll (22 samples, 16.42%)</title><rect x="54.0" y="275.0" width="193.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="57.0" y="286.0">java/util/concurrent/Sync..</text>
+<title>java/util/concurrent/SynchronousQueue.poll (13 samples, 18.06%)</title><rect x="59.2" y="387.0" width="213.0" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="62.2" y="398.0">java/util/concurrent/Synchro..</text>
 </g>
 <g>
-<title>java/util/concurrent/SynchronousQueue$TransferStack.transfer (22 samples, 16.42%)</title><rect x="54.0" y="259.0" width="193.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
-<text x="57.0" y="270.0">java/util/concurrent/Sync..</text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack.transfer (13 samples, 18.06%)</title><rect x="59.2" y="371.0" width="213.0" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="62.2" y="382.0">java/util/concurrent/Synchro..</text>
 </g>
 <g>
-<title>java/util/concurrent/SynchronousQueue$TransferStack.awaitFulfill (22 samples, 16.42%)</title><rect x="54.0" y="243.0" width="193.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="57.0" y="254.0">java/util/concurrent/Sync..</text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack.awaitFulfill (7 samples, 9.72%)</title><rect x="75.6" y="355.0" width="114.7" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="78.6" y="366.0">java/util/conc..</text>
 </g>
 <g>
-<title>__clock_gettime (1 samples, 0.75%)</title><rect x="62.8" y="227.0" width="8.8" height="15" fill="#f47373" rx="2" ry="2"/>
-<text x="65.8" y="238.0"></text>
+<title>java/util/concurrent/locks/LockSupport.parkNanos (7 samples, 9.72%)</title><rect x="75.6" y="339.0" width="114.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="78.6" y="350.0">java/util/conc..</text>
 </g>
 <g>
-<title>java/util/concurrent/locks/LockSupport.parkNanos (20 samples, 14.93%)</title><rect x="71.6" y="227.0" width="176.2" height="15" fill="#65f665" rx="2" ry="2"/>
-<text x="74.6" y="238.0">java/util/concurrent/lo..</text>
+<title>jdk/internal/misc/Unsafe.park (7 samples, 9.72%)</title><rect x="75.6" y="323.0" width="114.7" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="78.6" y="334.0">jdk/internal/m..</text>
 </g>
 <g>
-<title>jdk/internal/misc/Unsafe.park (14 samples, 10.45%)</title><rect x="115.7" y="211.0" width="123.3" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="118.7" y="222.0">jdk/internal/mi..</text>
+<title>Unsafe_Park (4 samples, 5.56%)</title><rect x="91.9" y="307.0" width="65.6" height="15" fill="#fd7f7f" rx="2" ry="2"/>
+<text x="94.9" y="318.0">Unsafe_..</text>
 </g>
 <g>
-<title>Unsafe_Park (5 samples, 3.73%)</title><rect x="124.5" y="195.0" width="44.0" height="15" fill="#f37272" rx="2" ry="2"/>
-<text x="127.5" y="206.0">Unsa..</text>
+<title>Parker::park(bool, long) (2 samples, 2.78%)</title><rect x="91.9" y="291.0" width="32.8" height="15" fill="#e1e144" rx="2" ry="2"/>
+<text x="94.9" y="302.0">Pa..</text>
 </g>
 <g>
-<title>HandleMarkCleaner::~HandleMarkCleaner() (2 samples, 1.49%)</title><rect x="124.5" y="179.0" width="17.6" height="15" fill="#c8c83c" rx="2" ry="2"/>
-<text x="127.5" y="190.0"></text>
+<title>ThreadStateTransition::trans_and_fence(JavaThreadState, JavaThreadState) (1 samples, 1.39%)</title><rect x="124.7" y="291.0" width="16.4" height="15" fill="#e4e445" rx="2" ry="2"/>
+<text x="127.7" y="302.0"></text>
 </g>
 <g>
-<title>Parker::park(bool, long) (1 samples, 0.75%)</title><rect x="142.1" y="179.0" width="8.8" height="15" fill="#cfcf3e" rx="2" ry="2"/>
-<text x="145.1" y="190.0"></text>
+<title>__pthread_mutex_unlock (1 samples, 1.39%)</title><rect x="141.1" y="291.0" width="16.4" height="15" fill="#f67676" rx="2" ry="2"/>
+<text x="144.1" y="302.0"></text>
 </g>
 <g>
-<title>__tls_get_addr (1 samples, 0.75%)</title><rect x="142.1" y="163.0" width="8.8" height="15" fill="#e55f5f" rx="2" ry="2"/>
-<text x="145.1" y="174.0"></text>
+<title>[unknown] (2 samples, 2.78%)</title><rect x="157.5" y="307.0" width="32.8" height="15" fill="#fd7f7f" rx="2" ry="2"/>
+<text x="160.5" y="318.0">[u..</text>
 </g>
 <g>
-<title>__tls_get_addr (1 samples, 0.75%)</title><rect x="150.9" y="179.0" width="8.8" height="15" fill="#f97a7a" rx="2" ry="2"/>
-<text x="153.9" y="190.0"></text>
+<title>pthread_cond_timedwait@@GLIBC_2.3.2 (2 samples, 2.78%)</title><rect x="157.5" y="291.0" width="32.8" height="15" fill="#e15a5a" rx="2" ry="2"/>
+<text x="160.5" y="302.0">pt..</text>
 </g>
 <g>
-<title>java_lang_Thread::set_thread_status(oopDesc*, java_lang_Thread::ThreadStatus) (1 samples, 0.75%)</title><rect x="159.7" y="179.0" width="8.8" height="15" fill="#cccc3d" rx="2" ry="2"/>
-<text x="162.7" y="190.0"></text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack.casHead (3 samples, 4.17%)</title><rect x="190.3" y="355.0" width="49.1" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="193.3" y="366.0">java/..</text>
 </g>
 <g>
-<title>[unknown] (6 samples, 4.48%)</title><rect x="168.5" y="195.0" width="52.8" height="15" fill="#ed6a6a" rx="2" ry="2"/>
-<text x="171.5" y="206.0">[unkn..</text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack.snode (2 samples, 2.78%)</title><rect x="239.4" y="355.0" width="32.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="242.4" y="366.0">ja..</text>
 </g>
 <g>
-<title>__pthread_mutex_cond_lock (1 samples, 0.75%)</title><rect x="168.5" y="179.0" width="8.8" height="15" fill="#e45f5f" rx="2" ry="2"/>
-<text x="171.5" y="190.0"></text>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.release (1 samples, 1.39%)</title><rect x="272.2" y="403.0" width="16.4" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="275.2" y="414.0"></text>
 </g>
 <g>
-<title>pthread_cond_timedwait@@GLIBC_2.3.2 (5 samples, 3.73%)</title><rect x="177.3" y="179.0" width="44.0" height="15" fill="#e45e5e" rx="2" ry="2"/>
-<text x="180.3" y="190.0">pthr..</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$71/911420605.run (26 samples, 36.11%)</title><rect x="288.6" y="403.0" width="426.1" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="291.6" y="414.0">ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$71/91..</text>
 </g>
 <g>
-<title>__clock_gettime (1 samples, 0.75%)</title><rect x="221.3" y="195.0" width="8.8" height="15" fill="#fe8181" rx="2" ry="2"/>
-<text x="224.3" y="206.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$replicasPut$7 (26 samples, 36.11%)</title><rect x="288.6" y="387.0" width="426.1" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="291.6" y="398.0">ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$replic..</text>
 </g>
 <g>
-<title>[vdso] (1 samples, 0.75%)</title><rect x="221.3" y="179.0" width="8.8" height="15" fill="#e76262" rx="2" ry="2"/>
-<text x="224.3" y="190.0"></text>
+<title>java/util/stream/ReferencePipeline.collect (1 samples, 1.39%)</title><rect x="288.6" y="371.0" width="16.4" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="291.6" y="382.0"></text>
 </g>
 <g>
-<title>java_lang_Thread::set_thread_status(oopDesc*, java_lang_Thread::ThreadStatus) (1 samples, 0.75%)</title><rect x="230.1" y="195.0" width="8.9" height="15" fill="#d7d741" rx="2" ry="2"/>
-<text x="233.1" y="206.0"></text>
+<title>java/util/stream/AbstractPipeline.evaluate (1 samples, 1.39%)</title><rect x="288.6" y="355.0" width="16.4" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="291.6" y="366.0"></text>
 </g>
 <g>
-<title>os::javaTimeNanos() (1 samples, 0.75%)</title><rect x="239.0" y="211.0" width="8.8" height="15" fill="#e1e144" rx="2" ry="2"/>
-<text x="242.0" y="222.0"></text>
+<title>java/util/stream/ReduceOps$ReduceOp.evaluateSequential (1 samples, 1.39%)</title><rect x="288.6" y="339.0" width="16.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="291.6" y="350.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$79/576483919.run (51 samples, 38.06%)</title><rect x="247.8" y="291.0" width="449.1" height="15" fill="#62f362" rx="2" ry="2"/>
-<text x="250.8" y="302.0">ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$79/576483..</text>
+<title>java/util/stream/AbstractPipeline.wrapAndCopyInto (1 samples, 1.39%)</title><rect x="288.6" y="323.0" width="16.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="291.6" y="334.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecute$4 (51 samples, 38.06%)</title><rect x="247.8" y="275.0" width="449.1" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="250.8" y="286.0">ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecu..</text>
+<title>java/util/stream/AbstractPipeline.copyInto (1 samples, 1.39%)</title><rect x="288.6" y="307.0" width="16.4" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="291.6" y="318.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$75/1954861215.supply (22 samples, 16.42%)</title><rect x="256.6" y="259.0" width="193.7" height="15" fill="#63f463" rx="2" ry="2"/>
-<text x="259.6" y="270.0">ru/mail/polis/service/mrs..</text>
+<title>java/util/ArrayList$ArrayListSpliterator.forEachRemaining (1 samples, 1.39%)</title><rect x="288.6" y="291.0" width="16.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="291.6" y="302.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$response$0 (22 samples, 16.42%)</title><rect x="256.6" y="243.0" width="193.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="259.6" y="254.0">ru/mail/polis/service/mrs..</text>
+<title>java/util/stream/ReferencePipeline$2$1.accept (1 samples, 1.39%)</title><rect x="288.6" y="275.0" width="16.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="291.6" y="286.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.proxy (22 samples, 16.42%)</title><rect x="256.6" y="227.0" width="193.7" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="259.6" y="238.0">ru/mail/polis/service/mrs..</text>
+<title>java/util/stream/ReduceOps$3ReducingSink.accept (1 samples, 1.39%)</title><rect x="288.6" y="259.0" width="16.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="291.6" y="270.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpClient.invoke (22 samples, 16.42%)</title><rect x="256.6" y="211.0" width="193.7" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="259.6" y="222.0">one/nio/http/HttpClient.i..</text>
+<title>java/util/stream/Collectors$$Lambda$82/356018038.accept (1 samples, 1.39%)</title><rect x="288.6" y="243.0" width="16.4" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="291.6" y="254.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpClient.invoke (22 samples, 16.42%)</title><rect x="256.6" y="195.0" width="193.7" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="259.6" y="206.0">one/nio/http/HttpClient.i..</text>
+<title>java/util/ArrayList.add (1 samples, 1.39%)</title><rect x="288.6" y="227.0" width="16.4" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="291.6" y="238.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpClient$ResponseReader.&lt;init&gt; (7 samples, 5.22%)</title><rect x="256.6" y="179.0" width="61.6" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="259.6" y="190.0">one/ni..</text>
+<title>java/util/ArrayList.add (1 samples, 1.39%)</title><rect x="288.6" y="211.0" width="16.4" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="291.6" y="222.0"></text>
 </g>
 <g>
-<title>OptoRuntime::new_array_C(Klass*, int, JavaThread*) (1 samples, 0.75%)</title><rect x="265.4" y="163.0" width="8.8" height="15" fill="#d7d741" rx="2" ry="2"/>
-<text x="268.4" y="174.0"></text>
+<title>java/util/ArrayList.grow (1 samples, 1.39%)</title><rect x="288.6" y="195.0" width="16.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="291.6" y="206.0"></text>
 </g>
 <g>
-<title>TypeArrayKlass::allocate_common(int, bool, Thread*) (1 samples, 0.75%)</title><rect x="265.4" y="147.0" width="8.8" height="15" fill="#dfdf43" rx="2" ry="2"/>
-<text x="268.4" y="158.0"></text>
+<title>java/util/ArrayList.grow (1 samples, 1.39%)</title><rect x="288.6" y="179.0" width="16.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="291.6" y="190.0"></text>
 </g>
 <g>
-<title>CollectedHeap::array_allocate(Klass*, int, int, bool, Thread*) (1 samples, 0.75%)</title><rect x="265.4" y="131.0" width="8.8" height="15" fill="#d4d440" rx="2" ry="2"/>
-<text x="268.4" y="142.0"></text>
+<title>java/util/ArrayList.newCapacity (1 samples, 1.39%)</title><rect x="288.6" y="163.0" width="16.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="291.6" y="174.0"></text>
 </g>
 <g>
-<title>MemAllocator::allocate() const (1 samples, 0.75%)</title><rect x="265.4" y="115.0" width="8.8" height="15" fill="#e2e244" rx="2" ry="2"/>
-<text x="268.4" y="126.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.replication (24 samples, 33.33%)</title><rect x="305.0" y="371.0" width="393.3" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="308.0" y="382.0">ru/mail/polis/service/mrsandman5/ServiceImpl.replication</text>
 </g>
 <g>
-<title>ObjArrayAllocator::initialize(HeapWord*) const (1 samples, 0.75%)</title><rect x="265.4" y="99.0" width="8.8" height="15" fill="#d0d03e" rx="2" ry="2"/>
-<text x="268.4" y="110.0"></text>
+<title>java/util/stream/ReferencePipeline.collect (19 samples, 26.39%)</title><rect x="305.0" y="355.0" width="311.4" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="308.0" y="366.0">java/util/stream/ReferencePipeline.collect</text>
 </g>
 <g>
-<title>one/nio/net/NativeSocket.read (5 samples, 3.73%)</title><rect x="274.2" y="163.0" width="44.0" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="277.2" y="174.0">one/..</text>
+<title>java/util/stream/AbstractPipeline.evaluate (17 samples, 23.61%)</title><rect x="337.8" y="339.0" width="278.6" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="340.8" y="350.0">java/util/stream/AbstractPipeline.eva..</text>
 </g>
 <g>
-<title>Java_one_nio_net_NativeSocket_read (3 samples, 2.24%)</title><rect x="283.0" y="147.0" width="26.4" height="15" fill="#f97a7a" rx="2" ry="2"/>
-<text x="286.0" y="158.0">J..</text>
+<title>java/util/stream/ReduceOps$ReduceOp.evaluateSequential (17 samples, 23.61%)</title><rect x="337.8" y="323.0" width="278.6" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="340.8" y="334.0">java/util/stream/ReduceOps$ReduceOp.e..</text>
 </g>
 <g>
-<title>__memmove_avx_unaligned_erms (1 samples, 0.75%)</title><rect x="283.0" y="131.0" width="8.8" height="15" fill="#fc7e7e" rx="2" ry="2"/>
-<text x="286.0" y="142.0"></text>
+<title>java/util/stream/AbstractPipeline.wrapAndCopyInto (17 samples, 23.61%)</title><rect x="337.8" y="307.0" width="278.6" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="340.8" y="318.0">java/util/stream/AbstractPipeline.wra..</text>
 </g>
 <g>
-<title>jni_SetByteArrayRegion (2 samples, 1.49%)</title><rect x="291.8" y="131.0" width="17.6" height="15" fill="#e35c5c" rx="2" ry="2"/>
-<text x="294.8" y="142.0"></text>
+<title>java/util/stream/AbstractPipeline.copyInto (17 samples, 23.61%)</title><rect x="337.8" y="291.0" width="278.6" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="340.8" y="302.0">java/util/stream/AbstractPipeline.cop..</text>
 </g>
 <g>
-<title>ThreadInVMfromNative::~ThreadInVMfromNative() (1 samples, 0.75%)</title><rect x="291.8" y="115.0" width="8.8" height="15" fill="#e4e445" rx="2" ry="2"/>
-<text x="294.8" y="126.0"></text>
+<title>java/util/HashMap$KeySpliterator.forEachRemaining (17 samples, 23.61%)</title><rect x="337.8" y="275.0" width="278.6" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="340.8" y="286.0">java/util/HashMap$KeySpliterator.forE..</text>
 </g>
 <g>
-<title>check_bounds(int, int, int, Thread*) (1 samples, 0.75%)</title><rect x="300.6" y="115.0" width="8.8" height="15" fill="#f06f6f" rx="2" ry="2"/>
-<text x="303.6" y="126.0"></text>
+<title>java/util/stream/ReferencePipeline$3$1.accept (17 samples, 23.61%)</title><rect x="337.8" y="259.0" width="278.6" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="340.8" y="270.0">java/util/stream/ReferencePipeline$3$..</text>
 </g>
 <g>
-<title>ResourceMark::~ResourceMark() (1 samples, 0.75%)</title><rect x="300.6" y="99.0" width="8.8" height="15" fill="#caca3c" rx="2" ry="2"/>
-<text x="303.6" y="110.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$79/751199668.apply (17 samples, 23.61%)</title><rect x="337.8" y="243.0" width="278.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="340.8" y="254.0">ru/mail/polis/service/mrsandman5/Serv..</text>
 </g>
 <g>
-<title>__recv (1 samples, 0.75%)</title><rect x="309.4" y="147.0" width="8.8" height="15" fill="#e66161" rx="2" ry="2"/>
-<text x="312.4" y="158.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$replication$0 (17 samples, 23.61%)</title><rect x="337.8" y="227.0" width="278.6" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="340.8" y="238.0">ru/mail/polis/service/mrsandman5/Serv..</text>
 </g>
 <g>
-<title>one/nio/http/HttpClient$ResponseReader.readResponse (3 samples, 2.24%)</title><rect x="318.2" y="179.0" width="26.4" height="15" fill="#63f463" rx="2" ry="2"/>
-<text x="321.2" y="190.0">o..</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$77/1326017910.act (4 samples, 5.56%)</title><rect x="337.8" y="211.0" width="65.5" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="340.8" y="222.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/http/HttpClient$ResponseReader.readLine (2 samples, 1.49%)</title><rect x="318.2" y="163.0" width="17.6" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="321.2" y="174.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$replicasPut$5 (4 samples, 5.56%)</title><rect x="337.8" y="195.0" width="65.5" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="340.8" y="206.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.read (2 samples, 1.49%)</title><rect x="318.2" y="147.0" width="17.6" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="321.2" y="158.0"></text>
+<title>ru/mail/polis/service/mrsandman5/replication/SimpleRequests.put (4 samples, 5.56%)</title><rect x="337.8" y="179.0" width="65.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="340.8" y="190.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.read (1 samples, 0.75%)</title><rect x="327.0" y="131.0" width="8.8" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="330.0" y="142.0"></text>
+<title>java/nio/ByteBuffer.wrap (1 samples, 1.39%)</title><rect x="337.8" y="163.0" width="16.4" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="340.8" y="174.0"></text>
 </g>
 <g>
-<title>one/nio/http/Response.getHeader (1 samples, 0.75%)</title><rect x="335.8" y="163.0" width="8.8" height="15" fill="#50e150" rx="2" ry="2"/>
-<text x="338.8" y="174.0"></text>
+<title>java/nio/ByteBuffer.wrap (1 samples, 1.39%)</title><rect x="337.8" y="147.0" width="16.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="340.8" y="158.0"></text>
 </g>
 <g>
-<title>java/lang/String.regionMatches (1 samples, 0.75%)</title><rect x="335.8" y="147.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="338.8" y="158.0"></text>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 1.39%)</title><rect x="337.8" y="131.0" width="16.4" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="340.8" y="142.0"></text>
 </g>
 <g>
-<title>java/lang/StringLatin1.regionMatchesCI (1 samples, 0.75%)</title><rect x="335.8" y="131.0" width="8.8" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="338.8" y="142.0"></text>
+<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 1.39%)</title><rect x="337.8" y="115.0" width="16.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="340.8" y="126.0"></text>
 </g>
 <g>
-<title>jbyte_disjoint_arraycopy (1 samples, 0.75%)</title><rect x="335.8" y="115.0" width="8.8" height="15" fill="#e86363" rx="2" ry="2"/>
-<text x="338.8" y="126.0"></text>
+<title>ru/mail/polis/dao/impl/DAOImpl.upsert (3 samples, 4.17%)</title><rect x="354.2" y="163.0" width="49.1" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="357.2" y="174.0">ru/ma..</text>
 </g>
 <g>
-<title>one/nio/http/Request.toBytes (9 samples, 6.72%)</title><rect x="344.6" y="179.0" width="79.3" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="347.6" y="190.0">one/nio/h..</text>
+<title>ru/mail/polis/dao/impl/tables/MemTable.upsert (3 samples, 4.17%)</title><rect x="354.2" y="147.0" width="49.1" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="357.2" y="158.0">ru/ma..</text>
 </g>
 <g>
-<title>one/nio/util/ByteArrayBuilder.append (7 samples, 5.22%)</title><rect x="344.6" y="163.0" width="61.7" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="347.6" y="174.0">one/ni..</text>
+<title>java/util/concurrent/ConcurrentSkipListMap.put (3 samples, 4.17%)</title><rect x="354.2" y="131.0" width="49.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="357.2" y="142.0">java/..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.length (3 samples, 2.24%)</title><rect x="344.6" y="147.0" width="26.4" height="15" fill="#69fa69" rx="2" ry="2"/>
-<text x="347.6" y="158.0">o..</text>
+<title>java/util/concurrent/ConcurrentSkipListMap.doPut (3 samples, 4.17%)</title><rect x="354.2" y="115.0" width="49.1" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="357.2" y="126.0">java/..</text>
 </g>
 <g>
-<title>java/lang/String.charAt (1 samples, 0.75%)</title><rect x="344.6" y="131.0" width="8.8" height="15" fill="#57e857" rx="2" ry="2"/>
-<text x="347.6" y="142.0"></text>
+<title>java/util/concurrent/ConcurrentSkipListMap.cpr (3 samples, 4.17%)</title><rect x="354.2" y="99.0" width="49.1" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="357.2" y="110.0">java/..</text>
 </g>
 <g>
-<title>java/lang/String.isLatin1 (1 samples, 0.75%)</title><rect x="344.6" y="115.0" width="8.8" height="15" fill="#60f160" rx="2" ry="2"/>
-<text x="347.6" y="126.0"></text>
+<title>java/nio/ByteBuffer.compareTo (3 samples, 4.17%)</title><rect x="354.2" y="83.0" width="49.1" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="357.2" y="94.0">java/..</text>
 </g>
 <g>
-<title>java/lang/String.length (2 samples, 1.49%)</title><rect x="353.4" y="131.0" width="17.6" height="15" fill="#5bec5b" rx="2" ry="2"/>
-<text x="356.4" y="142.0"></text>
+<title>java/nio/ByteBuffer.compareTo (3 samples, 4.17%)</title><rect x="354.2" y="67.0" width="49.1" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="357.2" y="78.0">java/..</text>
 </g>
 <g>
-<title>java/lang/String.coder (1 samples, 0.75%)</title><rect x="362.2" y="115.0" width="8.8" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="365.2" y="126.0"></text>
+<title>java/nio/BufferMismatch.mismatch (2 samples, 2.78%)</title><rect x="354.2" y="51.0" width="32.7" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="357.2" y="62.0">ja..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.write (4 samples, 2.99%)</title><rect x="371.0" y="147.0" width="35.3" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="374.0" y="158.0">one..</text>
+<title>java/nio/HeapByteBuffer.get (2 samples, 2.78%)</title><rect x="354.2" y="35.0" width="32.7" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="357.2" y="46.0">ja..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.write (4 samples, 2.99%)</title><rect x="371.0" y="131.0" width="35.3" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="374.0" y="142.0">one..</text>
+<title>java/nio/ByteBuffer.compare (1 samples, 1.39%)</title><rect x="386.9" y="51.0" width="16.4" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="389.9" y="62.0"></text>
 </g>
 <g>
-<title>java/lang/StringLatin1.charAt (2 samples, 1.49%)</title><rect x="379.9" y="115.0" width="17.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="382.9" y="126.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.proxy (13 samples, 18.06%)</title><rect x="403.3" y="211.0" width="213.1" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="406.3" y="222.0">ru/mail/polis/service/mrsand..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.write (1 samples, 0.75%)</title><rect x="397.5" y="115.0" width="8.8" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="400.5" y="126.0"></text>
+<title>java/util/HashMap.get (1 samples, 1.39%)</title><rect x="403.3" y="195.0" width="16.4" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="406.3" y="206.0"></text>
 </g>
 <g>
-<title>java/lang/String.charAt (1 samples, 0.75%)</title><rect x="397.5" y="99.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="400.5" y="110.0"></text>
+<title>java/util/HashMap.hash (1 samples, 1.39%)</title><rect x="403.3" y="179.0" width="16.4" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="406.3" y="190.0"></text>
 </g>
 <g>
-<title>one/nio/util/Utf8.write (1 samples, 0.75%)</title><rect x="406.3" y="163.0" width="8.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="409.3" y="174.0"></text>
+<title>java/lang/String.hashCode (1 samples, 1.39%)</title><rect x="403.3" y="163.0" width="16.4" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="406.3" y="174.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.sendResponse (1 samples, 0.75%)</title><rect x="415.1" y="163.0" width="8.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="418.1" y="174.0"></text>
+<title>java/lang/StringLatin1.hashCode (1 samples, 1.39%)</title><rect x="403.3" y="147.0" width="16.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="406.3" y="158.0"></text>
 </g>
 <g>
-<title>one/nio/net/NativeSocket.writeFully (3 samples, 2.24%)</title><rect x="423.9" y="179.0" width="26.4" height="15" fill="#65f665" rx="2" ry="2"/>
-<text x="426.9" y="190.0">o..</text>
+<title>one/nio/http/HttpClient.invoke (12 samples, 16.67%)</title><rect x="419.7" y="195.0" width="196.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="422.7" y="206.0">one/nio/http/HttpClient.in..</text>
 </g>
 <g>
-<title>Java_one_nio_net_NativeSocket_writeFully (1 samples, 0.75%)</title><rect x="423.9" y="163.0" width="8.8" height="15" fill="#e96565" rx="2" ry="2"/>
-<text x="426.9" y="174.0"></text>
+<title>one/nio/http/HttpClient.invoke (12 samples, 16.67%)</title><rect x="419.7" y="179.0" width="196.7" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="422.7" y="190.0">one/nio/http/HttpClient.in..</text>
 </g>
 <g>
-<title>__memmove_avx_unaligned_erms (1 samples, 0.75%)</title><rect x="423.9" y="147.0" width="8.8" height="15" fill="#f77777" rx="2" ry="2"/>
-<text x="426.9" y="158.0"></text>
+<title>one/nio/http/HttpClient$ResponseReader.&lt;init&gt; (4 samples, 5.56%)</title><rect x="419.7" y="163.0" width="65.6" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="422.7" y="174.0">one/nio..</text>
 </g>
 <g>
-<title>__libc_send (2 samples, 1.49%)</title><rect x="432.7" y="163.0" width="17.6" height="15" fill="#f47373" rx="2" ry="2"/>
-<text x="435.7" y="174.0"></text>
+<title>one/nio/net/NativeSocket.read (4 samples, 5.56%)</title><rect x="419.7" y="147.0" width="65.6" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="422.7" y="158.0">one/nio..</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$77/817463992.supply (17 samples, 12.69%)</title><rect x="450.3" y="259.0" width="149.7" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="453.3" y="270.0">ru/mail/polis/servi..</text>
+<title>Java_one_nio_net_NativeSocket_read (2 samples, 2.78%)</title><rect x="419.7" y="131.0" width="32.8" height="15" fill="#fa7b7b" rx="2" ry="2"/>
+<text x="422.7" y="142.0">Ja..</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$response$2 (17 samples, 12.69%)</title><rect x="450.3" y="243.0" width="149.7" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="453.3" y="254.0">ru/mail/polis/servi..</text>
+<title>__memmove_avx_unaligned_erms (2 samples, 2.78%)</title><rect x="419.7" y="115.0" width="32.8" height="15" fill="#f27070" rx="2" ry="2"/>
+<text x="422.7" y="126.0">__..</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.put (17 samples, 12.69%)</title><rect x="450.3" y="227.0" width="149.7" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="453.3" y="238.0">ru/mail/polis/servi..</text>
+<title>__recv (2 samples, 2.78%)</title><rect x="452.5" y="131.0" width="32.8" height="15" fill="#f37272" rx="2" ry="2"/>
+<text x="455.5" y="142.0">__..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.wrap (1 samples, 0.75%)</title><rect x="450.3" y="211.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="453.3" y="222.0"></text>
+<title>one/nio/http/HttpClient$ResponseReader.readResponse (2 samples, 2.78%)</title><rect x="485.3" y="163.0" width="32.8" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="488.3" y="174.0">on..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.wrap (1 samples, 0.75%)</title><rect x="450.3" y="195.0" width="8.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="453.3" y="206.0"></text>
+<title>one/nio/http/HttpClient$ResponseReader.readLine (1 samples, 1.39%)</title><rect x="501.7" y="147.0" width="16.4" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="504.7" y="158.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="450.3" y="179.0" width="8.8" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="453.3" y="190.0"></text>
+<title>one/nio/http/Request.toBytes (3 samples, 4.17%)</title><rect x="518.1" y="163.0" width="49.1" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="521.1" y="174.0">one/n..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="450.3" y="163.0" width="8.8" height="15" fill="#59ea59" rx="2" ry="2"/>
-<text x="453.3" y="174.0"></text>
+<title>one/nio/util/ByteArrayBuilder.append (3 samples, 4.17%)</title><rect x="518.1" y="147.0" width="49.1" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="521.1" y="158.0">one/n..</text>
 </g>
 <g>
-<title>java/nio/Buffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="450.3" y="147.0" width="8.8" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="453.3" y="158.0"></text>
+<title>one/nio/util/Utf8.length (2 samples, 2.78%)</title><rect x="518.1" y="131.0" width="32.7" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="521.1" y="142.0">on..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.limit (1 samples, 0.75%)</title><rect x="450.3" y="131.0" width="8.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="453.3" y="142.0"></text>
+<title>java/lang/String.charAt (2 samples, 2.78%)</title><rect x="518.1" y="115.0" width="32.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="521.1" y="126.0">ja..</text>
 </g>
 <g>
-<title>ru/mail/polis/dao/impl/DAOImpl.upsert (15 samples, 11.19%)</title><rect x="459.1" y="211.0" width="132.1" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="462.1" y="222.0">ru/mail/polis/da..</text>
+<title>java/lang/String.isLatin1 (1 samples, 1.39%)</title><rect x="534.4" y="99.0" width="16.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="537.4" y="110.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.asReadOnlyBuffer (1 samples, 0.75%)</title><rect x="459.1" y="195.0" width="8.8" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="462.1" y="206.0"></text>
+<title>one/nio/util/Utf8.write (1 samples, 1.39%)</title><rect x="550.8" y="131.0" width="16.4" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="553.8" y="142.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBufferR.&lt;init&gt; (1 samples, 0.75%)</title><rect x="459.1" y="179.0" width="8.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
-<text x="462.1" y="190.0"></text>
+<title>one/nio/util/Utf8.write (1 samples, 1.39%)</title><rect x="550.8" y="115.0" width="16.4" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="553.8" y="126.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="459.1" y="163.0" width="8.8" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="462.1" y="174.0"></text>
+<title>java/lang/String.length (1 samples, 1.39%)</title><rect x="550.8" y="99.0" width="16.4" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="553.8" y="110.0"></text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="459.1" y="147.0" width="8.8" height="15" fill="#63f463" rx="2" ry="2"/>
-<text x="462.1" y="158.0"></text>
+<title>one/nio/http/Response.getHeader (1 samples, 1.39%)</title><rect x="567.2" y="163.0" width="16.4" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="570.2" y="174.0"></text>
 </g>
 <g>
-<title>java/nio/Buffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="459.1" y="131.0" width="8.8" height="15" fill="#69fa69" rx="2" ry="2"/>
-<text x="462.1" y="142.0"></text>
+<title>java/lang/String.regionMatches (1 samples, 1.39%)</title><rect x="567.2" y="147.0" width="16.4" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="570.2" y="158.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.duplicate (1 samples, 0.75%)</title><rect x="467.9" y="195.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="470.9" y="206.0"></text>
+<title>java/lang/StringLatin1.regionMatchesCI (1 samples, 1.39%)</title><rect x="567.2" y="131.0" width="16.4" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="570.2" y="142.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="467.9" y="179.0" width="8.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="470.9" y="190.0"></text>
+<title>one/nio/net/NativeSocket.setTimeout (2 samples, 2.78%)</title><rect x="583.6" y="163.0" width="32.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="586.6" y="174.0">on..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="467.9" y="163.0" width="8.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
-<text x="470.9" y="174.0"></text>
+<title>__setsockopt (2 samples, 2.78%)</title><rect x="583.6" y="147.0" width="32.8" height="15" fill="#ed6b6b" rx="2" ry="2"/>
+<text x="586.6" y="158.0">__..</text>
 </g>
 <g>
-<title>java/nio/Buffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="467.9" y="147.0" width="8.8" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="470.9" y="158.0"></text>
+<title>ru/mail/polis/service/mrsandman5/clustering/ConsistentHashingTopology.replicasFor (5 samples, 6.94%)</title><rect x="616.4" y="355.0" width="81.9" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="619.4" y="366.0">ru/mail/p..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.limit (1 samples, 0.75%)</title><rect x="467.9" y="131.0" width="8.8" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="470.9" y="142.0"></text>
+<title>com/google/common/hash/AbstractHashFunction.hashBytes (1 samples, 1.39%)</title><rect x="616.4" y="339.0" width="16.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="619.4" y="350.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/dao/impl/tables/MemTable.upsert (13 samples, 9.70%)</title><rect x="476.7" y="195.0" width="114.5" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="479.7" y="206.0">ru/mail/polis/..</text>
+<title>com/google/common/hash/AbstractStreamingHasher.hash (1 samples, 1.39%)</title><rect x="616.4" y="323.0" width="16.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="619.4" y="334.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBufferR.asReadOnlyBuffer (1 samples, 0.75%)</title><rect x="476.7" y="179.0" width="8.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="479.7" y="190.0"></text>
+<title>com/google/common/hash/Murmur3_128HashFunction$Murmur3_128Hasher.makeHash (1 samples, 1.39%)</title><rect x="616.4" y="307.0" width="16.4" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="619.4" y="318.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBufferR.duplicate (1 samples, 0.75%)</title><rect x="476.7" y="163.0" width="8.8" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="479.7" y="174.0"></text>
+<title>java/nio/ByteBuffer.wrap (1 samples, 1.39%)</title><rect x="616.4" y="291.0" width="16.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="619.4" y="302.0"></text>
 </g>
 <g>
-<title>OptoRuntime::new_instance_C(Klass*, JavaThread*) (1 samples, 0.75%)</title><rect x="476.7" y="147.0" width="8.8" height="15" fill="#e4e445" rx="2" ry="2"/>
-<text x="479.7" y="158.0"></text>
+<title>java/nio/ByteBuffer.wrap (1 samples, 1.39%)</title><rect x="616.4" y="275.0" width="16.4" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="619.4" y="286.0"></text>
 </g>
 <g>
-<title>InstanceKlass::allocate_instance(Thread*) (1 samples, 0.75%)</title><rect x="476.7" y="131.0" width="8.8" height="15" fill="#e3e345" rx="2" ry="2"/>
-<text x="479.7" y="142.0"></text>
+<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 1.39%)</title><rect x="616.4" y="259.0" width="16.4" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="619.4" y="270.0"></text>
 </g>
 <g>
-<title>CollectedHeap::obj_allocate(Klass*, int, Thread*) (1 samples, 0.75%)</title><rect x="476.7" y="115.0" width="8.8" height="15" fill="#cccc3d" rx="2" ry="2"/>
-<text x="479.7" y="126.0"></text>
+<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 1.39%)</title><rect x="616.4" y="243.0" width="16.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="619.4" y="254.0"></text>
 </g>
 <g>
-<title>MemAllocator::allocate() const (1 samples, 0.75%)</title><rect x="476.7" y="99.0" width="8.8" height="15" fill="#e2e244" rx="2" ry="2"/>
-<text x="479.7" y="110.0"></text>
+<title>java/nio/Buffer.&lt;init&gt; (1 samples, 1.39%)</title><rect x="616.4" y="227.0" width="16.4" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="619.4" y="238.0"></text>
 </g>
 <g>
-<title>MemAllocator::Allocation::check_out_of_memory() (1 samples, 0.75%)</title><rect x="476.7" y="83.0" width="8.8" height="15" fill="#dbdb42" rx="2" ry="2"/>
-<text x="479.7" y="94.0"></text>
+<title>java/util/AbstractMap$2.iterator (3 samples, 4.17%)</title><rect x="632.8" y="339.0" width="49.1" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="635.8" y="350.0">java/..</text>
 </g>
 <g>
-<title>java/nio/HeapByteBufferR.duplicate (1 samples, 0.75%)</title><rect x="485.5" y="179.0" width="8.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
-<text x="488.5" y="190.0"></text>
+<title>java/util/AbstractMap$2$1.&lt;init&gt; (3 samples, 4.17%)</title><rect x="632.8" y="323.0" width="49.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="635.8" y="334.0">java/..</text>
 </g>
 <g>
-<title>java/nio/HeapByteBufferR.&lt;init&gt; (1 samples, 0.75%)</title><rect x="485.5" y="163.0" width="8.8" height="15" fill="#62f362" rx="2" ry="2"/>
-<text x="488.5" y="174.0"></text>
+<title>java/util/TreeMap$AscendingSubMap$AscendingEntrySetView.iterator (2 samples, 2.78%)</title><rect x="632.8" y="307.0" width="32.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="635.8" y="318.0">ja..</text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="485.5" y="147.0" width="8.8" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="488.5" y="158.0"></text>
+<title>java/util/TreeMap$NavigableSubMap.absLowest (2 samples, 2.78%)</title><rect x="632.8" y="291.0" width="32.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="635.8" y="302.0">ja..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="485.5" y="131.0" width="8.8" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="488.5" y="142.0"></text>
+<title>java/util/TreeMap.getCeilingEntry (2 samples, 2.78%)</title><rect x="632.8" y="275.0" width="32.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="635.8" y="286.0">ja..</text>
 </g>
 <g>
-<title>java/nio/Buffer.&lt;init&gt; (1 samples, 0.75%)</title><rect x="485.5" y="115.0" width="8.8" height="15" fill="#59ea59" rx="2" ry="2"/>
-<text x="488.5" y="126.0"></text>
+<title>java/util/TreeMap.compare (1 samples, 1.39%)</title><rect x="649.2" y="259.0" width="16.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="652.2" y="270.0"></text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.limit (1 samples, 0.75%)</title><rect x="485.5" y="99.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="488.5" y="110.0"></text>
+<title>java/util/TreeMap$AscendingSubMap.entrySet (1 samples, 1.39%)</title><rect x="665.6" y="307.0" width="16.3" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="668.6" y="318.0"></text>
 </g>
 <g>
-<title>java/util/concurrent/ConcurrentSkipListMap.put (11 samples, 8.21%)</title><rect x="494.3" y="179.0" width="96.9" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="497.3" y="190.0">java/util/c..</text>
+<title>java/util/TreeMap$AscendingSubMap$AscendingEntrySetView.&lt;init&gt; (1 samples, 1.39%)</title><rect x="665.6" y="291.0" width="16.3" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="668.6" y="302.0"></text>
 </g>
 <g>
-<title>java/util/concurrent/ConcurrentSkipListMap.doPut (11 samples, 8.21%)</title><rect x="494.3" y="163.0" width="96.9" height="15" fill="#55e655" rx="2" ry="2"/>
-<text x="497.3" y="174.0">java/util/c..</text>
+<title>java/util/TreeMap$NavigableSubMap$EntrySetView.&lt;init&gt; (1 samples, 1.39%)</title><rect x="665.6" y="275.0" width="16.3" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="668.6" y="286.0"></text>
 </g>
 <g>
-<title>java/util/concurrent/ConcurrentSkipListMap.cpr (11 samples, 8.21%)</title><rect x="494.3" y="147.0" width="96.9" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="497.3" y="158.0">java/util/c..</text>
+<title>java/util/AbstractSet.&lt;init&gt; (1 samples, 1.39%)</title><rect x="665.6" y="259.0" width="16.3" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="668.6" y="270.0"></text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.compareTo (4 samples, 2.99%)</title><rect x="556.0" y="131.0" width="35.2" height="15" fill="#60f160" rx="2" ry="2"/>
-<text x="559.0" y="142.0">jav..</text>
+<title>java/util/AbstractCollection.&lt;init&gt; (1 samples, 1.39%)</title><rect x="665.6" y="243.0" width="16.3" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="668.6" y="254.0"></text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.compareTo (4 samples, 2.99%)</title><rect x="556.0" y="115.0" width="35.2" height="15" fill="#5ced5c" rx="2" ry="2"/>
-<text x="559.0" y="126.0">jav..</text>
+<title>java/util/HashSet.add (1 samples, 1.39%)</title><rect x="681.9" y="339.0" width="16.4" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="684.9" y="350.0"></text>
 </g>
 <g>
-<title>java/nio/BufferMismatch.mismatch (4 samples, 2.99%)</title><rect x="556.0" y="99.0" width="35.2" height="15" fill="#55e655" rx="2" ry="2"/>
-<text x="559.0" y="110.0">jav..</text>
+<title>java/util/HashMap.put (1 samples, 1.39%)</title><rect x="681.9" y="323.0" width="16.4" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="684.9" y="334.0"></text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.get (1 samples, 0.75%)</title><rect x="582.4" y="83.0" width="8.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="585.4" y="94.0"></text>
+<title>java/util/HashMap.hash (1 samples, 1.39%)</title><rect x="681.9" y="307.0" width="16.4" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="684.9" y="318.0"></text>
 </g>
 <g>
-<title>java/nio/Buffer.checkIndex (1 samples, 0.75%)</title><rect x="582.4" y="67.0" width="8.8" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="585.4" y="78.0"></text>
+<title>java/lang/String.hashCode (1 samples, 1.39%)</title><rect x="681.9" y="291.0" width="16.4" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="684.9" y="302.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.emptyResponse (1 samples, 0.75%)</title><rect x="591.2" y="211.0" width="8.8" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="594.2" y="222.0"></text>
+<title>java/lang/StringLatin1.hashCode (1 samples, 1.39%)</title><rect x="681.9" y="275.0" width="16.4" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="684.9" y="286.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.sendResponse (11 samples, 8.21%)</title><rect x="600.0" y="259.0" width="96.9" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="603.0" y="270.0">ru/mail/pol..</text>
+<title>ru/mail/polis/utils/ResponseUtils.sendEmptyResponse (1 samples, 1.39%)</title><rect x="698.3" y="371.0" width="16.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="701.3" y="382.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.sendResponse (11 samples, 8.21%)</title><rect x="600.0" y="243.0" width="96.9" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="603.0" y="254.0">one/nio/htt..</text>
+<title>ru/mail/polis/utils/ResponseUtils.sendResponse (1 samples, 1.39%)</title><rect x="698.3" y="355.0" width="16.4" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="701.3" y="366.0"></text>
 </g>
 <g>
-<title>SharedRuntime::complete_monitor_locking_C(oopDesc*, BasicLock*, JavaThread*) (1 samples, 0.75%)</title><rect x="608.8" y="227.0" width="8.8" height="15" fill="#e5e545" rx="2" ry="2"/>
-<text x="611.8" y="238.0"></text>
+<title>one/nio/http/HttpSession.sendResponse (1 samples, 1.39%)</title><rect x="698.3" y="339.0" width="16.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="701.3" y="350.0"></text>
 </g>
 <g>
-<title>ObjectMonitor::enter(Thread*) (1 samples, 0.75%)</title><rect x="608.8" y="211.0" width="8.8" height="15" fill="#e4e445" rx="2" ry="2"/>
-<text x="611.8" y="222.0"></text>
+<title>one/nio/http/HttpSession.writeResponse (1 samples, 1.39%)</title><rect x="698.3" y="323.0" width="16.4" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="701.3" y="334.0"></text>
 </g>
 <g>
-<title>ObjectMonitor::TrySpin(Thread*) (1 samples, 0.75%)</title><rect x="608.8" y="195.0" width="8.8" height="15" fill="#dcdc42" rx="2" ry="2"/>
-<text x="611.8" y="206.0"></text>
+<title>one/nio/net/Session.write (1 samples, 1.39%)</title><rect x="698.3" y="307.0" width="16.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="701.3" y="318.0"></text>
 </g>
 <g>
-<title>java/lang/String.equalsIgnoreCase (1 samples, 0.75%)</title><rect x="617.6" y="227.0" width="8.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
-<text x="620.6" y="238.0"></text>
+<title>one/nio/net/Session.write (1 samples, 1.39%)</title><rect x="698.3" y="291.0" width="16.4" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="701.3" y="302.0"></text>
 </g>
 <g>
-<title>java/lang/String.regionMatches (1 samples, 0.75%)</title><rect x="617.6" y="211.0" width="8.8" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="620.6" y="222.0"></text>
+<title>one/nio/net/Session$ArrayQueueItem.write (1 samples, 1.39%)</title><rect x="698.3" y="275.0" width="16.4" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="701.3" y="286.0"></text>
 </g>
 <g>
-<title>java/lang/StringLatin1.regionMatchesCI (1 samples, 0.75%)</title><rect x="617.6" y="195.0" width="8.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
-<text x="620.6" y="206.0"></text>
+<title>one/nio/net/NativeSocket.write (1 samples, 1.39%)</title><rect x="698.3" y="259.0" width="16.4" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="701.3" y="270.0"></text>
 </g>
 <g>
-<title>one/nio/http/Request.getHeader (1 samples, 0.75%)</title><rect x="617.6" y="179.0" width="8.8" height="15" fill="#58e958" rx="2" ry="2"/>
-<text x="620.6" y="190.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$86/336669398.run (8 samples, 11.11%)</title><rect x="714.7" y="403.0" width="131.1" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="717.7" y="414.0">ru/mail/polis/se..</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.writeResponse (6 samples, 4.48%)</title><rect x="626.4" y="227.0" width="52.9" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="629.4" y="238.0">one/n..</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$asyncExecute$12 (8 samples, 11.11%)</title><rect x="714.7" y="387.0" width="131.1" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="717.7" y="398.0">ru/mail/polis/se..</text>
 </g>
 <g>
-<title>one/nio/http/Response.toBytes (1 samples, 0.75%)</title><rect x="626.4" y="211.0" width="8.8" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="629.4" y="222.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl$$Lambda$85/450287612.act (4 samples, 5.56%)</title><rect x="714.7" y="371.0" width="65.6" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="717.7" y="382.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/util/ByteArrayBuilder.append (1 samples, 0.75%)</title><rect x="626.4" y="195.0" width="8.8" height="15" fill="#57e857" rx="2" ry="2"/>
-<text x="629.4" y="206.0"></text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.lambda$replicasPut$4 (4 samples, 5.56%)</title><rect x="714.7" y="355.0" width="65.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="717.7" y="366.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.length (1 samples, 0.75%)</title><rect x="626.4" y="179.0" width="8.8" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="629.4" y="190.0"></text>
+<title>ru/mail/polis/service/mrsandman5/replication/SimpleRequests.put (4 samples, 5.56%)</title><rect x="714.7" y="339.0" width="65.6" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="717.7" y="350.0">ru/mail..</text>
 </g>
 <g>
-<title>java/lang/String.charAt (1 samples, 0.75%)</title><rect x="626.4" y="163.0" width="8.8" height="15" fill="#65f665" rx="2" ry="2"/>
-<text x="629.4" y="174.0"></text>
+<title>ru/mail/polis/dao/impl/DAOImpl.upsert (4 samples, 5.56%)</title><rect x="714.7" y="323.0" width="65.6" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="717.7" y="334.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/net/Session.write (5 samples, 3.73%)</title><rect x="635.2" y="211.0" width="44.1" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="638.2" y="222.0">one/..</text>
+<title>ru/mail/polis/dao/impl/tables/MemTable.upsert (4 samples, 5.56%)</title><rect x="714.7" y="307.0" width="65.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="717.7" y="318.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/net/Session.write (5 samples, 3.73%)</title><rect x="635.2" y="195.0" width="44.1" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="638.2" y="206.0">one/..</text>
+<title>java/util/concurrent/ConcurrentSkipListMap.put (4 samples, 5.56%)</title><rect x="714.7" y="291.0" width="65.6" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="717.7" y="302.0">java/ut..</text>
 </g>
 <g>
-<title>one/nio/net/Session$ArrayQueueItem.write (5 samples, 3.73%)</title><rect x="635.2" y="179.0" width="44.1" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="638.2" y="190.0">one/..</text>
+<title>java/util/concurrent/ConcurrentSkipListMap.doPut (3 samples, 4.17%)</title><rect x="731.1" y="275.0" width="49.2" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="734.1" y="286.0">java/..</text>
 </g>
 <g>
-<title>one/nio/net/NativeSocket.write (5 samples, 3.73%)</title><rect x="635.2" y="163.0" width="44.1" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="638.2" y="174.0">one/..</text>
+<title>java/util/concurrent/ConcurrentSkipListMap$Node.&lt;init&gt; (1 samples, 1.39%)</title><rect x="731.1" y="259.0" width="16.4" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="734.1" y="270.0"></text>
 </g>
 <g>
-<title>Java_one_nio_net_NativeSocket_write (4 samples, 2.99%)</title><rect x="635.2" y="147.0" width="35.2" height="15" fill="#e35c5c" rx="2" ry="2"/>
-<text x="638.2" y="158.0">Jav..</text>
+<title>java/util/concurrent/ConcurrentSkipListMap.cpr (2 samples, 2.78%)</title><rect x="747.5" y="259.0" width="32.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="750.5" y="270.0">ja..</text>
 </g>
 <g>
-<title>__memmove_avx_unaligned_erms (1 samples, 0.75%)</title><rect x="644.0" y="131.0" width="8.8" height="15" fill="#fd8080" rx="2" ry="2"/>
-<text x="647.0" y="142.0"></text>
+<title>java/nio/ByteBuffer.compareTo (2 samples, 2.78%)</title><rect x="747.5" y="243.0" width="32.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="750.5" y="254.0">ja..</text>
 </g>
 <g>
-<title>jni_GetByteArrayRegion (2 samples, 1.49%)</title><rect x="652.8" y="131.0" width="17.6" height="15" fill="#e25c5c" rx="2" ry="2"/>
-<text x="655.8" y="142.0"></text>
+<title>java/nio/ByteBuffer.compareTo (2 samples, 2.78%)</title><rect x="747.5" y="227.0" width="32.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="750.5" y="238.0">ja..</text>
 </g>
 <g>
-<title>__libc_send (1 samples, 0.75%)</title><rect x="670.4" y="147.0" width="8.9" height="15" fill="#f06e6e" rx="2" ry="2"/>
-<text x="673.4" y="158.0"></text>
+<title>java/nio/BufferMismatch.mismatch (1 samples, 1.39%)</title><rect x="747.5" y="211.0" width="16.4" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="750.5" y="222.0"></text>
 </g>
 <g>
-<title>one/nio/http/Request.getHeader (2 samples, 1.49%)</title><rect x="679.3" y="227.0" width="17.6" height="15" fill="#55e655" rx="2" ry="2"/>
-<text x="682.3" y="238.0"></text>
+<title>java/nio/HeapByteBuffer.get (1 samples, 1.39%)</title><rect x="747.5" y="195.0" width="16.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="750.5" y="206.0"></text>
 </g>
 <g>
-<title>java/lang/String.regionMatches (1 samples, 0.75%)</title><rect x="688.1" y="211.0" width="8.8" height="15" fill="#57e857" rx="2" ry="2"/>
-<text x="691.1" y="222.0"></text>
+<title>java/nio/Buffer.checkIndex (1 samples, 1.39%)</title><rect x="747.5" y="179.0" width="16.4" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="750.5" y="190.0"></text>
 </g>
 <g>
-<title>java/lang/StringLatin1.regionMatchesCI (1 samples, 0.75%)</title><rect x="688.1" y="195.0" width="8.8" height="15" fill="#67f867" rx="2" ry="2"/>
-<text x="691.1" y="206.0"></text>
+<title>java/nio/HeapByteBuffer.get (1 samples, 1.39%)</title><rect x="763.9" y="211.0" width="16.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="766.9" y="222.0"></text>
 </g>
 <g>
-<title>one/nio/server/SelectorThread.run (52 samples, 38.81%)</title><rect x="696.9" y="339.0" width="457.9" height="15" fill="#65f665" rx="2" ry="2"/>
-<text x="699.9" y="350.0">one/nio/server/SelectorThread.run</text>
+<title>java/nio/Buffer.checkIndex (1 samples, 1.39%)</title><rect x="763.9" y="195.0" width="16.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="766.9" y="206.0"></text>
 </g>
 <g>
-<title>one/nio/net/NativeSelector.select (9 samples, 6.72%)</title><rect x="696.9" y="323.0" width="79.2" height="15" fill="#63f463" rx="2" ry="2"/>
-<text x="699.9" y="334.0">one/nio/n..</text>
+<title>ru/mail/polis/utils/ResponseUtils.sendResponse (4 samples, 5.56%)</title><rect x="780.3" y="371.0" width="65.5" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="783.3" y="382.0">ru/mail..</text>
 </g>
 <g>
-<title>one/nio/net/NativeSelector.epollWait (9 samples, 6.72%)</title><rect x="696.9" y="307.0" width="79.2" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="699.9" y="318.0">one/nio/n..</text>
+<title>one/nio/http/HttpSession.sendResponse (4 samples, 5.56%)</title><rect x="780.3" y="355.0" width="65.5" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="783.3" y="366.0">one/nio..</text>
 </g>
 <g>
-<title>__libc_disable_asynccancel (1 samples, 0.75%)</title><rect x="714.5" y="291.0" width="8.8" height="15" fill="#f47373" rx="2" ry="2"/>
-<text x="717.5" y="302.0"></text>
+<title>one/nio/http/HttpSession.writeResponse (3 samples, 4.17%)</title><rect x="780.3" y="339.0" width="49.1" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="783.3" y="350.0">one/n..</text>
 </g>
 <g>
-<title>epoll_wait (6 samples, 4.48%)</title><rect x="723.3" y="291.0" width="52.8" height="15" fill="#f77878" rx="2" ry="2"/>
-<text x="726.3" y="302.0">epoll..</text>
+<title>one/nio/http/Response.toBytes (1 samples, 1.39%)</title><rect x="780.3" y="323.0" width="16.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="783.3" y="334.0"></text>
 </g>
 <g>
-<title>one/nio/net/Session.process (42 samples, 31.34%)</title><rect x="776.1" y="323.0" width="369.9" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="779.1" y="334.0">one/nio/net/Session.process</text>
+<title>one/nio/net/Session.write (2 samples, 2.78%)</title><rect x="796.7" y="323.0" width="32.7" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="799.7" y="334.0">on..</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.processRead (42 samples, 31.34%)</title><rect x="776.1" y="307.0" width="369.9" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="779.1" y="318.0">one/nio/http/HttpSession.processRead</text>
+<title>one/nio/net/Session.write (2 samples, 2.78%)</title><rect x="796.7" y="307.0" width="32.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="799.7" y="318.0">on..</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.processHttpBuffer (23 samples, 17.16%)</title><rect x="776.1" y="291.0" width="202.6" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="779.1" y="302.0">one/nio/http/HttpSession.p..</text>
+<title>one/nio/net/Session$ArrayQueueItem.write (2 samples, 2.78%)</title><rect x="796.7" y="291.0" width="32.7" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="799.7" y="302.0">on..</text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.handleParsedRequest (19 samples, 14.18%)</title><rect x="776.1" y="275.0" width="167.3" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="779.1" y="286.0">one/nio/http/HttpSess..</text>
+<title>one/nio/net/NativeSocket.write (2 samples, 2.78%)</title><rect x="796.7" y="275.0" width="32.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="799.7" y="286.0">on..</text>
 </g>
 <g>
-<title>one/nio/http/HttpServer.handleRequest (19 samples, 14.18%)</title><rect x="776.1" y="259.0" width="167.3" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="779.1" y="270.0">one/nio/http/HttpServ..</text>
+<title>Java_one_nio_net_NativeSocket_write (1 samples, 1.39%)</title><rect x="813.1" y="259.0" width="16.3" height="15" fill="#f57575" rx="2" ry="2"/>
+<text x="816.1" y="270.0"></text>
 </g>
 <g>
-<title>RequestHandler1_response.handleRequest (14 samples, 10.45%)</title><rect x="776.1" y="243.0" width="123.3" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="779.1" y="254.0">RequestHandler1..</text>
+<title>jni_GetByteArrayRegion (1 samples, 1.39%)</title><rect x="813.1" y="243.0" width="16.3" height="15" fill="#e35d5d" rx="2" ry="2"/>
+<text x="816.1" y="254.0"></text>
 </g>
 <g>
-<title>one/nio/http/Request.getRequiredParameter (1 samples, 0.75%)</title><rect x="776.1" y="227.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="779.1" y="238.0"></text>
+<title>check_bounds(int, int, int, Thread*) (1 samples, 1.39%)</title><rect x="813.1" y="227.0" width="16.3" height="15" fill="#e66161" rx="2" ry="2"/>
+<text x="816.1" y="238.0"></text>
 </g>
 <g>
-<title>one/nio/http/Request.getParameter (1 samples, 0.75%)</title><rect x="776.1" y="211.0" width="8.8" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="779.1" y="222.0"></text>
+<title>one/nio/http/Request.getHeader (1 samples, 1.39%)</title><rect x="829.4" y="339.0" width="16.4" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="832.4" y="350.0"></text>
 </g>
 <g>
-<title>jbyte_disjoint_arraycopy (1 samples, 0.75%)</title><rect x="776.1" y="195.0" width="8.8" height="15" fill="#f27070" rx="2" ry="2"/>
-<text x="779.1" y="206.0"></text>
+<title>one/nio/server/SelectorThread.run (16 samples, 22.22%)</title><rect x="845.8" y="451.0" width="262.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="848.8" y="462.0">one/nio/server/SelectorThread.run</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.response (13 samples, 9.70%)</title><rect x="784.9" y="227.0" width="114.5" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="787.9" y="238.0">ru/mail/polis/..</text>
+<title>one/nio/net/NativeSelector.select (3 samples, 4.17%)</title><rect x="845.8" y="435.0" width="49.2" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="848.8" y="446.0">one/n..</text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/ServiceImpl.asyncExecute (7 samples, 5.22%)</title><rect x="784.9" y="211.0" width="61.7" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="787.9" y="222.0">ru/mai..</text>
+<title>one/nio/net/NativeSelector.epollWait (3 samples, 4.17%)</title><rect x="845.8" y="419.0" width="49.2" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="848.8" y="430.0">one/n..</text>
 </g>
 <g>
-<title>one/nio/server/Server.asyncExecute (7 samples, 5.22%)</title><rect x="784.9" y="195.0" width="61.7" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="787.9" y="206.0">one/ni..</text>
+<title>epoll_wait (2 samples, 2.78%)</title><rect x="862.2" y="403.0" width="32.8" height="15" fill="#fb7d7d" rx="2" ry="2"/>
+<text x="865.2" y="414.0">ep..</text>
 </g>
 <g>
-<title>java/util/concurrent/ThreadPoolExecutor.execute (7 samples, 5.22%)</title><rect x="784.9" y="179.0" width="61.7" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="787.9" y="190.0">java/u..</text>
+<title>one/nio/net/Session.process (13 samples, 18.06%)</title><rect x="895.0" y="435.0" width="213.1" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="898.0" y="446.0">one/nio/net/Session.process</text>
 </g>
 <g>
-<title>one/nio/server/WorkerPool$WaitingSynchronousQueue.offer (7 samples, 5.22%)</title><rect x="784.9" y="163.0" width="61.7" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="787.9" y="174.0">one/ni..</text>
+<title>one/nio/http/HttpSession.processRead (12 samples, 16.67%)</title><rect x="895.0" y="419.0" width="196.7" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="898.0" y="430.0">one/nio/http/HttpSession.p..</text>
 </g>
 <g>
-<title>one/nio/server/WorkerPool$WaitingSynchronousQueue.offer (7 samples, 5.22%)</title><rect x="784.9" y="147.0" width="61.7" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="787.9" y="158.0">one/ni..</text>
+<title>one/nio/http/HttpSession.processHttpBuffer (8 samples, 11.11%)</title><rect x="895.0" y="403.0" width="131.1" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="898.0" y="414.0">one/nio/http/Htt..</text>
 </g>
 <g>
-<title>java/util/concurrent/SynchronousQueue.offer (7 samples, 5.22%)</title><rect x="784.9" y="131.0" width="61.7" height="15" fill="#53e453" rx="2" ry="2"/>
-<text x="787.9" y="142.0">java/u..</text>
+<title>one/nio/http/HttpSession.handleParsedRequest (7 samples, 9.72%)</title><rect x="895.0" y="387.0" width="114.7" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="898.0" y="398.0">one/nio/http/H..</text>
 </g>
 <g>
-<title>java/util/concurrent/SynchronousQueue$TransferStack.transfer (5 samples, 3.73%)</title><rect x="802.5" y="115.0" width="44.1" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="805.5" y="126.0">java..</text>
+<title>one/nio/http/HttpServer.handleRequest (7 samples, 9.72%)</title><rect x="895.0" y="371.0" width="114.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="898.0" y="382.0">one/nio/http/H..</text>
 </g>
 <g>
-<title>java/util/concurrent/SynchronousQueue$TransferStack$SNode.tryMatch (5 samples, 3.73%)</title><rect x="802.5" y="99.0" width="44.1" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="805.5" y="110.0">java..</text>
+<title>RequestHandler1_response.handleRequest (6 samples, 8.33%)</title><rect x="895.0" y="355.0" width="98.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="898.0" y="366.0">RequestHandl..</text>
 </g>
 <g>
-<title>java/util/concurrent/locks/LockSupport.unpark (5 samples, 3.73%)</title><rect x="802.5" y="83.0" width="44.1" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="805.5" y="94.0">java..</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.response (6 samples, 8.33%)</title><rect x="895.0" y="339.0" width="98.3" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="898.0" y="350.0">ru/mail/poli..</text>
 </g>
 <g>
-<title>jdk/internal/misc/Unsafe.unpark (5 samples, 3.73%)</title><rect x="802.5" y="67.0" width="44.1" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="805.5" y="78.0">jdk/..</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.replicasPut (6 samples, 8.33%)</title><rect x="895.0" y="323.0" width="98.3" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="898.0" y="334.0">ru/mail/poli..</text>
 </g>
 <g>
-<title>Parker::unpark() (1 samples, 0.75%)</title><rect x="811.3" y="51.0" width="8.8" height="15" fill="#c8c83c" rx="2" ry="2"/>
-<text x="814.3" y="62.0"></text>
+<title>one/nio/server/Server.asyncExecute (1 samples, 1.39%)</title><rect x="895.0" y="307.0" width="16.4" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="898.0" y="318.0"></text>
 </g>
 <g>
-<title>Unsafe_Unpark (1 samples, 0.75%)</title><rect x="820.1" y="51.0" width="8.9" height="15" fill="#fc7e7e" rx="2" ry="2"/>
-<text x="823.1" y="62.0"></text>
+<title>java/util/concurrent/ThreadPoolExecutor.execute (1 samples, 1.39%)</title><rect x="895.0" y="291.0" width="16.4" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="898.0" y="302.0"></text>
 </g>
 <g>
-<title>pthread_mutex_lock (1 samples, 0.75%)</title><rect x="820.1" y="35.0" width="8.9" height="15" fill="#f27171" rx="2" ry="2"/>
-<text x="823.1" y="46.0"></text>
+<title>one/nio/server/WorkerPool$WaitingSynchronousQueue.offer (1 samples, 1.39%)</title><rect x="895.0" y="275.0" width="16.4" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="898.0" y="286.0"></text>
 </g>
 <g>
-<title>__pthread_cond_signal (2 samples, 1.49%)</title><rect x="829.0" y="51.0" width="17.6" height="15" fill="#e66161" rx="2" ry="2"/>
-<text x="832.0" y="62.0"></text>
+<title>one/nio/server/WorkerPool$WaitingSynchronousQueue.offer (1 samples, 1.39%)</title><rect x="895.0" y="259.0" width="16.4" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="898.0" y="270.0"></text>
 </g>
 <g>
-<title>ru/mail/polis/service/mrsandman5/clustering/ConsistentHashingTopology.primaryFor (6 samples, 4.48%)</title><rect x="846.6" y="211.0" width="52.8" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="849.6" y="222.0">ru/ma..</text>
+<title>java/util/concurrent/SynchronousQueue.offer (1 samples, 1.39%)</title><rect x="895.0" y="243.0" width="16.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="898.0" y="254.0"></text>
 </g>
 <g>
-<title>com/google/common/hash/AbstractHashFunction.hashBytes (5 samples, 3.73%)</title><rect x="846.6" y="195.0" width="44.0" height="15" fill="#5bec5b" rx="2" ry="2"/>
-<text x="849.6" y="206.0">com/..</text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack.transfer (1 samples, 1.39%)</title><rect x="895.0" y="227.0" width="16.4" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="898.0" y="238.0"></text>
 </g>
 <g>
-<title>com/google/common/hash/AbstractHashFunction.newHasher (4 samples, 2.99%)</title><rect x="846.6" y="179.0" width="35.2" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="849.6" y="190.0">com..</text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack$SNode.tryMatch (1 samples, 1.39%)</title><rect x="895.0" y="211.0" width="16.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="898.0" y="222.0"></text>
 </g>
 <g>
-<title>com/google/common/hash/Murmur3_128HashFunction.newHasher (4 samples, 2.99%)</title><rect x="846.6" y="163.0" width="35.2" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="849.6" y="174.0">com..</text>
+<title>java/util/concurrent/locks/LockSupport.unpark (1 samples, 1.39%)</title><rect x="895.0" y="195.0" width="16.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="898.0" y="206.0"></text>
 </g>
 <g>
-<title>com/google/common/hash/Murmur3_128HashFunction$Murmur3_128Hasher.&lt;init&gt; (4 samples, 2.99%)</title><rect x="846.6" y="147.0" width="35.2" height="15" fill="#5aeb5a" rx="2" ry="2"/>
-<text x="849.6" y="158.0">com..</text>
+<title>jdk/internal/misc/Unsafe.unpark (1 samples, 1.39%)</title><rect x="895.0" y="179.0" width="16.4" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="898.0" y="190.0"></text>
 </g>
 <g>
-<title>com/google/common/hash/AbstractStreamingHasher.&lt;init&gt; (4 samples, 2.99%)</title><rect x="846.6" y="131.0" width="35.2" height="15" fill="#60f160" rx="2" ry="2"/>
-<text x="849.6" y="142.0">com..</text>
+<title>Parker::unpark() (1 samples, 1.39%)</title><rect x="895.0" y="163.0" width="16.4" height="15" fill="#d7d741" rx="2" ry="2"/>
+<text x="898.0" y="174.0"></text>
 </g>
 <g>
-<title>com/google/common/hash/AbstractStreamingHasher.&lt;init&gt; (4 samples, 2.99%)</title><rect x="846.6" y="115.0" width="35.2" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="849.6" y="126.0">com..</text>
+<title>ru/mail/polis/service/mrsandman5/ServiceImpl.asyncExecute (5 samples, 6.94%)</title><rect x="911.4" y="307.0" width="81.9" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="914.4" y="318.0">ru/mail/p..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.allocate (4 samples, 2.99%)</title><rect x="846.6" y="99.0" width="35.2" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="849.6" y="110.0">jav..</text>
+<title>one/nio/server/Server.asyncExecute (5 samples, 6.94%)</title><rect x="911.4" y="291.0" width="81.9" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="914.4" y="302.0">one/nio/s..</text>
 </g>
 <g>
-<title>java/nio/HeapByteBuffer.&lt;init&gt; (4 samples, 2.99%)</title><rect x="846.6" y="83.0" width="35.2" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="849.6" y="94.0">jav..</text>
+<title>java/util/concurrent/ThreadPoolExecutor.execute (5 samples, 6.94%)</title><rect x="911.4" y="275.0" width="81.9" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="914.4" y="286.0">java/util..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.&lt;init&gt; (3 samples, 2.24%)</title><rect x="855.4" y="67.0" width="26.4" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="858.4" y="78.0">j..</text>
+<title>one/nio/server/WorkerPool$WaitingSynchronousQueue.offer (5 samples, 6.94%)</title><rect x="911.4" y="259.0" width="81.9" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="914.4" y="270.0">one/nio/s..</text>
 </g>
 <g>
-<title>java/nio/Buffer.&lt;init&gt; (3 samples, 2.24%)</title><rect x="855.4" y="51.0" width="26.4" height="15" fill="#5ff05f" rx="2" ry="2"/>
-<text x="858.4" y="62.0">j..</text>
+<title>one/nio/server/WorkerPool$WaitingSynchronousQueue.offer (5 samples, 6.94%)</title><rect x="911.4" y="243.0" width="81.9" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="914.4" y="254.0">one/nio/s..</text>
 </g>
 <g>
-<title>java/nio/ByteBuffer.limit (2 samples, 1.49%)</title><rect x="864.2" y="35.0" width="17.6" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="867.2" y="46.0"></text>
+<title>java/util/concurrent/SynchronousQueue.offer (5 samples, 6.94%)</title><rect x="911.4" y="227.0" width="81.9" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="914.4" y="238.0">java/util..</text>
 </g>
 <g>
-<title>com/google/common/hash/AbstractStreamingHasher.putBytes (1 samples, 0.75%)</title><rect x="881.8" y="179.0" width="8.8" height="15" fill="#59ea59" rx="2" ry="2"/>
-<text x="884.8" y="190.0"></text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack.transfer (5 samples, 6.94%)</title><rect x="911.4" y="211.0" width="81.9" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="914.4" y="222.0">java/util..</text>
 </g>
 <g>
-<title>com/google/common/hash/AbstractStreamingHasher.putBytesInternal (1 samples, 0.75%)</title><rect x="881.8" y="163.0" width="8.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="884.8" y="174.0"></text>
+<title>java/util/concurrent/SynchronousQueue$TransferStack$SNode.tryMatch (5 samples, 6.94%)</title><rect x="911.4" y="195.0" width="81.9" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="914.4" y="206.0">java/util..</text>
 </g>
 <g>
-<title>java/util/TreeMap.ceilingEntry (1 samples, 0.75%)</title><rect x="890.6" y="195.0" width="8.8" height="15" fill="#61f261" rx="2" ry="2"/>
-<text x="893.6" y="206.0"></text>
+<title>java/util/concurrent/locks/LockSupport.unpark (5 samples, 6.94%)</title><rect x="911.4" y="179.0" width="81.9" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="914.4" y="190.0">java/util..</text>
 </g>
 <g>
-<title>java/util/TreeMap.getCeilingEntry (1 samples, 0.75%)</title><rect x="890.6" y="179.0" width="8.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="893.6" y="190.0"></text>
+<title>jdk/internal/misc/Unsafe.unpark (4 samples, 5.56%)</title><rect x="927.8" y="163.0" width="65.5" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="930.8" y="174.0">jdk/int..</text>
 </g>
 <g>
-<title>one/nio/http/PathMapper.find (2 samples, 1.49%)</title><rect x="899.4" y="243.0" width="17.6" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="902.4" y="254.0"></text>
+<title>Unsafe_Unpark (2 samples, 2.78%)</title><rect x="927.8" y="147.0" width="32.8" height="15" fill="#e35d5d" rx="2" ry="2"/>
+<text x="930.8" y="158.0">Un..</text>
 </g>
 <g>
-<title>java/util/HashMap.get (2 samples, 1.49%)</title><rect x="899.4" y="227.0" width="17.6" height="15" fill="#62f362" rx="2" ry="2"/>
-<text x="902.4" y="238.0"></text>
+<title>ThreadsListHandle::cv_internal_thread_to_JavaThread(_jobject*, JavaThread**, oopDesc**) (1 samples, 1.39%)</title><rect x="927.8" y="131.0" width="16.4" height="15" fill="#e5e545" rx="2" ry="2"/>
+<text x="930.8" y="142.0"></text>
 </g>
 <g>
-<title>java/util/HashMap.hash (2 samples, 1.49%)</title><rect x="899.4" y="211.0" width="17.6" height="15" fill="#51e251" rx="2" ry="2"/>
-<text x="902.4" y="222.0"></text>
+<title>pthread_mutex_lock (1 samples, 1.39%)</title><rect x="944.2" y="131.0" width="16.4" height="15" fill="#f27070" rx="2" ry="2"/>
+<text x="947.2" y="142.0"></text>
 </g>
 <g>
-<title>java/lang/String.hashCode (2 samples, 1.49%)</title><rect x="899.4" y="195.0" width="17.6" height="15" fill="#66f766" rx="2" ry="2"/>
-<text x="902.4" y="206.0"></text>
+<title>__pthread_cond_signal (2 samples, 2.78%)</title><rect x="960.6" y="147.0" width="32.7" height="15" fill="#e55f5f" rx="2" ry="2"/>
+<text x="963.6" y="158.0">__..</text>
 </g>
 <g>
-<title>java/lang/StringLatin1.hashCode (2 samples, 1.49%)</title><rect x="899.4" y="179.0" width="17.6" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="902.4" y="190.0"></text>
+<title>one/nio/http/HttpServer.findHandlerByHost (1 samples, 1.39%)</title><rect x="993.3" y="355.0" width="16.4" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="996.3" y="366.0"></text>
 </g>
 <g>
-<title>one/nio/http/Request.getPath (3 samples, 2.24%)</title><rect x="917.0" y="243.0" width="26.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="920.0" y="254.0">o..</text>
+<title>one/nio/http/HttpSession.startParsingRequestBody (1 samples, 1.39%)</title><rect x="1009.7" y="387.0" width="16.4" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="1012.7" y="398.0"></text>
 </g>
 <g>
-<title>java/lang/String.substring (3 samples, 2.24%)</title><rect x="917.0" y="227.0" width="26.4" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="920.0" y="238.0">j..</text>
+<title>java/lang/Integer.parseInt (1 samples, 1.39%)</title><rect x="1009.7" y="371.0" width="16.4" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1012.7" y="382.0"></text>
 </g>
 <g>
-<title>java/lang/StringLatin1.newString (3 samples, 2.24%)</title><rect x="917.0" y="211.0" width="26.4" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="920.0" y="222.0">j..</text>
+<title>one/nio/net/Session.read (4 samples, 5.56%)</title><rect x="1026.1" y="403.0" width="65.6" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="1029.1" y="414.0">one/nio..</text>
 </g>
 <g>
-<title>RequestHandler1_response.handleRequest (1 samples, 0.75%)</title><rect x="917.0" y="195.0" width="8.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="920.0" y="206.0"></text>
+<title>one/nio/net/NativeSocket.read (3 samples, 4.17%)</title><rect x="1042.5" y="387.0" width="49.2" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="1045.5" y="398.0">one/n..</text>
 </g>
 <g>
-<title>itable stub (2 samples, 1.49%)</title><rect x="925.8" y="195.0" width="17.6" height="15" fill="#f77777" rx="2" ry="2"/>
-<text x="928.8" y="206.0"></text>
+<title>__pthread_enable_asynccancel (1 samples, 1.39%)</title><rect x="1042.5" y="371.0" width="16.4" height="15" fill="#f06e6e" rx="2" ry="2"/>
+<text x="1045.5" y="382.0"></text>
 </g>
 <g>
-<title>one/nio/http/HttpSession.parseRequest (3 samples, 2.24%)</title><rect x="943.4" y="275.0" width="26.5" height="15" fill="#6bfc6b" rx="2" ry="2"/>
-<text x="946.4" y="286.0">o..</text>
+<title>__recv (2 samples, 2.78%)</title><rect x="1058.9" y="371.0" width="32.8" height="15" fill="#f17070" rx="2" ry="2"/>
+<text x="1061.9" y="382.0">__..</text>
 </g>
 <g>
-<title>one/nio/http/Request.&lt;init&gt; (1 samples, 0.75%)</title><rect x="943.4" y="259.0" width="8.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
-<text x="946.4" y="270.0"></text>
+<title>os::javaTimeMillis() (1 samples, 1.39%)</title><rect x="1091.7" y="419.0" width="16.4" height="15" fill="#e0e044" rx="2" ry="2"/>
+<text x="1094.7" y="430.0"></text>
 </g>
 <g>
-<title>java/lang/String.indexOf (1 samples, 0.75%)</title><rect x="943.4" y="243.0" width="8.8" height="15" fill="#64f564" rx="2" ry="2"/>
-<text x="946.4" y="254.0"></text>
+<title>start_thread (5 samples, 6.94%)</title><rect x="1108.1" y="451.0" width="81.9" height="15" fill="#f77777" rx="2" ry="2"/>
+<text x="1111.1" y="462.0">start_thr..</text>
 </g>
 <g>
-<title>java/lang/String.indexOf (1 samples, 0.75%)</title><rect x="943.4" y="227.0" width="8.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
-<text x="946.4" y="238.0"></text>
+<title>thread_native_entry(Thread*) (5 samples, 6.94%)</title><rect x="1108.1" y="435.0" width="81.9" height="15" fill="#e45f5f" rx="2" ry="2"/>
+<text x="1111.1" y="446.0">thread_na..</text>
 </g>
 <g>
-<title>java/lang/StringLatin1.indexOf (1 samples, 0.75%)</title><rect x="943.4" y="211.0" width="8.8" height="15" fill="#54e554" rx="2" ry="2"/>
-<text x="946.4" y="222.0"></text>
+<title>Thread::call_run() (5 samples, 6.94%)</title><rect x="1108.1" y="419.0" width="81.9" height="15" fill="#c8c83c" rx="2" ry="2"/>
+<text x="1111.1" y="430.0">Thread::c..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.read (2 samples, 1.49%)</title><rect x="952.2" y="259.0" width="17.7" height="15" fill="#68f968" rx="2" ry="2"/>
-<text x="955.2" y="270.0"></text>
+<title>GangWorker::loop() (5 samples, 6.94%)</title><rect x="1108.1" y="403.0" width="81.9" height="15" fill="#dada42" rx="2" ry="2"/>
+<text x="1111.1" y="414.0">GangWorke..</text>
 </g>
 <g>
-<title>one/nio/util/Utf8.read (2 samples, 1.49%)</title><rect x="952.2" y="243.0" width="17.7" height="15" fill="#6afb6a" rx="2" ry="2"/>
-<text x="955.2" y="254.0"></text>
+<title>G1ParTask::work(unsigned int) (5 samples, 6.94%)</title><rect x="1108.1" y="387.0" width="81.9" height="15" fill="#e0e044" rx="2" ry="2"/>
+<text x="1111.1" y="398.0">G1ParTask..</text>
 </g>
 <g>
-<title>OptoRuntime::new_array_C(Klass*, int, JavaThread*) (2 samples, 1.49%)</title><rect x="952.2" y="227.0" width="17.7" height="15" fill="#caca3c" rx="2" ry="2"/>
-<text x="955.2" y="238.0"></text>
+<title>G1ParEvacuateFollowersClosure::do_void() (5 samples, 6.94%)</title><rect x="1108.1" y="371.0" width="81.9" height="15" fill="#cccc3d" rx="2" ry="2"/>
+<text x="1111.1" y="382.0">G1ParEvac..</text>
 </g>
 <g>
-<title>TypeArrayKlass::allocate_common(int, bool, Thread*) (2 samples, 1.49%)</title><rect x="952.2" y="211.0" width="17.7" height="15" fill="#dbdb42" rx="2" ry="2"/>
-<text x="955.2" y="222.0"></text>
-</g>
-<g>
-<title>CollectedHeap::array_allocate(Klass*, int, int, bool, Thread*) (2 samples, 1.49%)</title><rect x="952.2" y="195.0" width="17.7" height="15" fill="#cfcf3e" rx="2" ry="2"/>
-<text x="955.2" y="206.0"></text>
-</g>
-<g>
-<title>MemAllocator::allocate() const (2 samples, 1.49%)</title><rect x="952.2" y="179.0" width="17.7" height="15" fill="#dada42" rx="2" ry="2"/>
-<text x="955.2" y="190.0"></text>
-</g>
-<g>
-<title>MemAllocator::Allocation::notify_allocation() (1 samples, 0.75%)</title><rect x="952.2" y="163.0" width="8.8" height="15" fill="#cece3e" rx="2" ry="2"/>
-<text x="955.2" y="174.0"></text>
-</g>
-<g>
-<title>MemAllocator::mem_allocate(MemAllocator::Allocation&amp;) const (1 samples, 0.75%)</title><rect x="961.0" y="163.0" width="8.9" height="15" fill="#dddd43" rx="2" ry="2"/>
-<text x="964.0" y="174.0"></text>
-</g>
-<g>
-<title>MemAllocator::allocate_inside_tlab_slow(MemAllocator::Allocation&amp;) const (1 samples, 0.75%)</title><rect x="961.0" y="147.0" width="8.9" height="15" fill="#d1d13f" rx="2" ry="2"/>
-<text x="964.0" y="158.0"></text>
-</g>
-<g>
-<title>__memset_avx2_unaligned_erms (1 samples, 0.75%)</title><rect x="961.0" y="131.0" width="8.9" height="15" fill="#ea6767" rx="2" ry="2"/>
-<text x="964.0" y="142.0"></text>
-</g>
-<g>
-<title>one/nio/http/Request.getHeader (1 samples, 0.75%)</title><rect x="969.9" y="275.0" width="8.8" height="15" fill="#56e756" rx="2" ry="2"/>
-<text x="972.9" y="286.0"></text>
-</g>
-<g>
-<title>one/nio/net/Session.read (19 samples, 14.18%)</title><rect x="978.7" y="291.0" width="167.3" height="15" fill="#52e352" rx="2" ry="2"/>
-<text x="981.7" y="302.0">one/nio/net/Session.r..</text>
-</g>
-<g>
-<title>one/nio/net/NativeSocket.read (17 samples, 12.69%)</title><rect x="987.5" y="275.0" width="149.7" height="15" fill="#62f362" rx="2" ry="2"/>
-<text x="990.5" y="286.0">one/nio/net/NativeS..</text>
-</g>
-<g>
-<title>Java_one_nio_net_NativeSocket_read (9 samples, 6.72%)</title><rect x="1013.9" y="259.0" width="79.2" height="15" fill="#e76262" rx="2" ry="2"/>
-<text x="1016.9" y="270.0">Java_one_..</text>
-</g>
-<g>
-<title>AccessInternal::PostRuntimeDispatch&lt;G1BarrierSet::AccessBarrier&lt;1097844ul, G1BarrierSet&gt;, (AccessInternal::BarrierType)2, 1097844ul&gt;::oop_access_barrier(void*) (1 samples, 0.75%)</title><rect x="1013.9" y="243.0" width="8.8" height="15" fill="#dbdb42" rx="2" ry="2"/>
-<text x="1016.9" y="254.0"></text>
-</g>
-<g>
-<title>jni_SetByteArrayRegion (7 samples, 5.22%)</title><rect x="1022.7" y="243.0" width="61.6" height="15" fill="#f06e6e" rx="2" ry="2"/>
-<text x="1025.7" y="254.0">jni_Se..</text>
-</g>
-<g>
-<title>ThreadInVMfromNative::~ThreadInVMfromNative() (1 samples, 0.75%)</title><rect x="1049.1" y="227.0" width="8.8" height="15" fill="#e5e545" rx="2" ry="2"/>
-<text x="1052.1" y="238.0"></text>
-</g>
-<g>
-<title>check_bounds(int, int, int, Thread*) (3 samples, 2.24%)</title><rect x="1057.9" y="227.0" width="26.4" height="15" fill="#e96565" rx="2" ry="2"/>
-<text x="1060.9" y="238.0">c..</text>
-</g>
-<g>
-<title>ResourceMark::~ResourceMark() (1 samples, 0.75%)</title><rect x="1075.5" y="211.0" width="8.8" height="15" fill="#d8d841" rx="2" ry="2"/>
-<text x="1078.5" y="222.0"></text>
-</g>
-<g>
-<title>oopDesc* JNIHandles::resolve_impl&lt;0ul, false&gt;(_jobject*) (1 samples, 0.75%)</title><rect x="1084.3" y="243.0" width="8.8" height="15" fill="#dddd43" rx="2" ry="2"/>
-<text x="1087.3" y="254.0"></text>
-</g>
-<g>
-<title>__pthread_enable_asynccancel (1 samples, 0.75%)</title><rect x="1093.1" y="259.0" width="8.8" height="15" fill="#e45e5e" rx="2" ry="2"/>
-<text x="1096.1" y="270.0"></text>
-</g>
-<g>
-<title>__recv (3 samples, 2.24%)</title><rect x="1101.9" y="259.0" width="26.5" height="15" fill="#ef6c6c" rx="2" ry="2"/>
-<text x="1104.9" y="270.0">_..</text>
-</g>
-<g>
-<title>jni_SetByteArrayRegion (1 samples, 0.75%)</title><rect x="1128.4" y="259.0" width="8.8" height="15" fill="#f27171" rx="2" ry="2"/>
-<text x="1131.4" y="270.0"></text>
-</g>
-<g>
-<title>one/nio/net/Session.listen (1 samples, 0.75%)</title><rect x="1137.2" y="275.0" width="8.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
-<text x="1140.2" y="286.0"></text>
-</g>
-<g>
-<title>one/nio/net/NativeSelector.epollWait (1 samples, 0.75%)</title><rect x="1137.2" y="259.0" width="8.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
-<text x="1140.2" y="270.0"></text>
-</g>
-<g>
-<title>os::javaTimeMillis() (1 samples, 0.75%)</title><rect x="1146.0" y="323.0" width="8.8" height="15" fill="#d2d23f" rx="2" ry="2"/>
-<text x="1149.0" y="334.0"></text>
-</g>
-<g>
-<title>start_thread (4 samples, 2.99%)</title><rect x="1154.8" y="339.0" width="35.2" height="15" fill="#fa7b7b" rx="2" ry="2"/>
-<text x="1157.8" y="350.0">sta..</text>
-</g>
-<g>
-<title>thread_native_entry(Thread*) (4 samples, 2.99%)</title><rect x="1154.8" y="323.0" width="35.2" height="15" fill="#ee6b6b" rx="2" ry="2"/>
-<text x="1157.8" y="334.0">thr..</text>
-</g>
-<g>
-<title>Thread::call_run() (4 samples, 2.99%)</title><rect x="1154.8" y="307.0" width="35.2" height="15" fill="#c8c83c" rx="2" ry="2"/>
-<text x="1157.8" y="318.0">Thr..</text>
-</g>
-<g>
-<title>GangWorker::loop() (4 samples, 2.99%)</title><rect x="1154.8" y="291.0" width="35.2" height="15" fill="#d2d23f" rx="2" ry="2"/>
-<text x="1157.8" y="302.0">Gan..</text>
-</g>
-<g>
-<title>G1ParTask::work(unsigned int) (4 samples, 2.99%)</title><rect x="1154.8" y="275.0" width="35.2" height="15" fill="#d9d941" rx="2" ry="2"/>
-<text x="1157.8" y="286.0">G1P..</text>
-</g>
-<g>
-<title>G1ParEvacuateFollowersClosure::do_void() (4 samples, 2.99%)</title><rect x="1154.8" y="259.0" width="35.2" height="15" fill="#e0e044" rx="2" ry="2"/>
-<text x="1157.8" y="270.0">G1P..</text>
-</g>
-<g>
-<title>ParallelTaskTerminator::offer_termination(TerminatorTerminator*) (1 samples, 0.75%)</title><rect x="1154.8" y="243.0" width="8.8" height="15" fill="#cfcf3e" rx="2" ry="2"/>
-<text x="1157.8" y="254.0"></text>
-</g>
-<g>
-<title>SpinPause (3 samples, 2.24%)</title><rect x="1163.6" y="243.0" width="26.4" height="15" fill="#f57575" rx="2" ry="2"/>
-<text x="1166.6" y="254.0">S..</text>
+<title>SpinPause (5 samples, 6.94%)</title><rect x="1108.1" y="355.0" width="81.9" height="15" fill="#f77878" rx="2" ry="2"/>
+<text x="1111.1" y="366.0">SpinPause</text>
 </g>
 </g>
 </svg>
