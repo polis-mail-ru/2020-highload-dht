@@ -4,6 +4,7 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.dao.impl.models.Cell;
+import ru.mail.polis.utils.ByteUtils;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
@@ -127,8 +128,7 @@ public final class Entry implements Comparable<Entry> {
             return Entry.removed(cell.getValue().getTimestamp());
         } else {
             final ByteBuffer value = cell.getValue().getData();
-            final byte[] buf = new byte[Objects.requireNonNull(value).remaining()];
-            value.duplicate().get(buf);
+            final byte[] buf = ByteUtils.toByteArray(Objects.requireNonNull(value));
             return Entry.present(cell.getValue().getTimestamp(), buf);
         }
     }

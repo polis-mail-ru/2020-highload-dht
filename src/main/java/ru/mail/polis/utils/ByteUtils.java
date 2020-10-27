@@ -23,7 +23,7 @@ public final class ByteUtils {
             return Response.EMPTY;
         }
         final var bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
+        buffer.duplicate().get(bytes);
         return bytes;
     }
 
