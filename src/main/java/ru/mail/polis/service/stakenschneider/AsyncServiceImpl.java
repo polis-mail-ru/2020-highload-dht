@@ -128,16 +128,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return null;
     }
 
-//    private Response forwardRequestTo(@NotNull final String node,
-//                                      final Request request) {
-//        try {
-//            return clusterClients.get(node).invoke(request);
-//        } catch (InterruptedException | PoolException | HttpException | IOException e) {
-//            log.info("fail", e);
-//        }
-//        return null;
-//    }
-
     @FunctionalInterface
     interface Action {
         Response act() throws IOException;
@@ -187,12 +177,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final String replicas = request.getParameter("replicas");
         final Replica replicaFactor =
                 Replica.calculateRF(replicas, session, defaultReplicaFactor, clusterSize);
-
-//        final String keyClusterPartition = nodes.primaryFor(key);
-//        if (!nodes.getId().equals(keyClusterPartition)) {
-//            executeAsync(session, () -> forwardRequestTo(keyClusterPartition, request));
-//            return;
-//        }
 
         if (proxied || nodes.getNodes().size() > 1) {
             final String[] replicaClusters = proxied ? new String[]{nodes.getId()}

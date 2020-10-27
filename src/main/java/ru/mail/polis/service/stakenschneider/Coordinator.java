@@ -1,10 +1,10 @@
 package ru.mail.polis.service.stakenschneider;
 
 import one.nio.http.HttpClient;
-import one.nio.http.Request;
-import one.nio.http.Response;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -16,8 +16,8 @@ import ru.mail.polis.dao.TimestampRecord;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
