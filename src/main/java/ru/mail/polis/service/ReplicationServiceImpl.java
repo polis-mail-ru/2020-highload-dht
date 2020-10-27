@@ -112,7 +112,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
+        final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
         final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final ReplicationFactor replicationFactor = ReplicationFactor
@@ -134,8 +134,8 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     private void handleSingleCase(
-            Request request,
-            HttpSession session,
+            final Request request,
+            final HttpSession session,
             final ByteBuffer key
     ) throws IOException {
         switch (request.getMethod()) {
@@ -155,10 +155,10 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     private void handleMultipleCase(
-            Request request,
-            HttpSession session,
+            final Request request,
+            final HttpSession session,
             final String id,
-            ReplicationFactor replicationFactor,
+            final ReplicationFactor replicationFactor,
             final boolean isForwardedRequest
     ) throws IOException {
         switch (request.getMethod()) {
@@ -193,7 +193,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 break;
         }
     }
-
 
     @Override
     public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {

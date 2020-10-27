@@ -19,7 +19,10 @@ class ReplicationFactor {
         this.from = from;
     }
 
-    private static ReplicationFactor createReplicationFactor(final String values, final HttpSession session) throws IOException {
+    private static ReplicationFactor createReplicationFactor(
+            final String values,
+            final HttpSession session
+    ) throws IOException {
 
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
 
@@ -44,7 +47,9 @@ class ReplicationFactor {
             final ReplicationFactor replicationFactor,
             final HttpSession session
     ) throws IOException {
-        return nodeReplicas == null ? replicationFactor : ReplicationFactor.createReplicationFactor(nodeReplicas, session);
+        return nodeReplicas == null ? replicationFactor : ReplicationFactor.createReplicationFactor(
+                nodeReplicas, session
+        );
     }
 
     int getAck() {

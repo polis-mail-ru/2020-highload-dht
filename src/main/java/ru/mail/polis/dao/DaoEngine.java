@@ -58,7 +58,6 @@ public class DaoEngine implements DAO {
         return new RecordIterator(rocksIterator);
     }
 
-
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {

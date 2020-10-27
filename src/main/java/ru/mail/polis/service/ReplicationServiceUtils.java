@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 final class ReplicationServiceUtils {
-    private ReplicationServiceUtils() { }
+    private ReplicationServiceUtils() {
+
+    }
 
     private static Value syncValues(final List<Value> values) {
 
