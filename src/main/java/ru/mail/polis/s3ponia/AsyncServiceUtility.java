@@ -16,6 +16,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.RejectedExecutionException;
 
 public final class AsyncServiceUtility {
     
@@ -69,7 +70,7 @@ public final class AsyncServiceUtility {
             sendAckFromResp(parsed, createdCounter,
                     new Response(Response.CREATED, AsyncService.EMPTY),
                     session);
-        } catch (IOException e) {
+        } catch (RejectedExecutionException | IOException e) {
             AsyncService.logger.error("Error", e);
             e.printStackTrace();
         }
@@ -249,7 +250,6 @@ public final class AsyncServiceUtility {
                                              @NotNull final AsyncService service,
                                              @NotNull final String... nodes) {
         final List<Response> futureResponses = new ArrayList<>(configuration.from);
-        int counter = 0;
         
         for (final var node :
                 nodes) {
@@ -262,16 +262,12 @@ public final class AsyncServiceUtility {
                 }
                 if (response.getStatus() != 202 /* ACCEPTED */
                             && response.getStatus() != 201 /* CREATED */
-                            && response.getStatus() != 200) {
+                            && response.getStatus() != 200
+                            && response.getStatus() != 404) {
                     continue;
                 }
                 futureResponses.add(response);
                 
-            }
-            ++counter;
-            
-            if (counter >= configuration.ack) {
-                break;
             }
         }
         return futureResponses;

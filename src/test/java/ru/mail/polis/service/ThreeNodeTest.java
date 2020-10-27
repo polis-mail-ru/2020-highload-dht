@@ -19,6 +19,7 @@ package ru.mail.polis.service;
 import one.nio.http.Response;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.Files;
 import ru.mail.polis.dao.DAO;
@@ -250,7 +251,7 @@ class ThreeNodeTest extends ClusterTestBase {
         });
     }
 
-    @Test
+    @RepeatedTest(100)
     void tolerateFailure() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
