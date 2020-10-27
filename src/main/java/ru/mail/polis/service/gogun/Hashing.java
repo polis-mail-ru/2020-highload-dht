@@ -3,6 +3,7 @@ package ru.mail.polis.service.gogun;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public interface Hashing<T> {
 
@@ -15,4 +16,7 @@ public interface Hashing<T> {
 
     @NotNull
     T[] all();
+
+    @NotNull
+    List<T> getReplNodes(@NotNull T node, int count);
 }

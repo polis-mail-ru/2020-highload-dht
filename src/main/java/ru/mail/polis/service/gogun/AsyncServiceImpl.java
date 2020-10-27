@@ -1,5 +1,6 @@
 package ru.mail.polis.service.gogun;
 
+import com.google.common.base.Splitter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
@@ -21,7 +22,9 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -68,13 +71,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
         this.nodeClients = new HashMap<>();
         for (final String node : topology.all()) {
-            if (topology.isMe(node)) {
-                continue;
-            }
+
             final HttpClient client = new HttpClient(new ConnectionString(node));
-            if (nodeClients.containsKey(node)) {
-                continue;
-            }
+
 
             nodeClients.put(node, client);
         }
@@ -161,25 +160,66 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
-        final String node = topology.get(key);
+        final String nodeForRequest = topology.get(key);
 
-        if (!topology.isMe(node)) {
-            proxy(node, request, session);
+        if (request.getHeader("Replica-request-to-node: ") != null) {
+            switch (request.getMethod()) {
+                case Request.METHOD_PUT:
+                    handlePut(key, request, session);
+                    break;
+                case Request.METHOD_GET:
+                    handleGet(key, session);
+                    break;
+                case Request.METHOD_DELETE:
+                    handleDel(key, session);
+                    break;
+                default:
+                    break;
+            }
             return;
         }
-        switch (request.getMethod()) {
-            case Request.METHOD_PUT:
-                handlePut(key, request, session);
-                break;
-            case Request.METHOD_GET:
-                handleGet(key, session);
-                break;
-            case Request.METHOD_DELETE:
-                handleDel(key, session);
-                break;
-            default:
-                break;
+
+        if (!topology.isMe(nodeForRequest)) {
+            proxy(nodeForRequest, request, session);
+            return;
         }
+
+        if (request.getParameter("replicas") != null) {
+
+            List<String> askFrom = Splitter.on('/').splitToList(request.getParameter("replicas"));
+
+            int ask = Integer.parseInt(askFrom.get(0).substring(1));
+            if (ask == 0) {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+            int from = Integer.parseInt(askFrom.get(1));
+            if (ask > from) {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+
+            int counter = 0;
+            List<Response> responses = proxy(topology.getReplNodes(nodeForRequest, from), request);
+            for (Response response : responses) {
+                if (response.getStatus() < 400) {
+                    counter++;
+                }
+                if (response.getStatus() == 404) {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
+                }
+            }
+
+            if (ask > counter) {
+                session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                return;
+            }
+
+            session.sendResponse(responses.get(0));
+        }
+
+
 
     }
 
@@ -232,6 +272,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
+    private List<Response> proxy(final List<String> nodes, final Request request) {
+        ArrayList<Response> responses = new ArrayList<>();
+
+        for (String node : nodes) {
+            try {
+                request.addHeader("Replica-request-to-node: " + node);
+                responses.add(nodeClients.get(node).invoke(request));
+            } catch (IOException | InterruptedException | PoolException | HttpException e) {
+                responses.add(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }
+
+        return responses;
+    }
+
     private void proxy(final String node, final Request request, final HttpSession session) throws IOException {
         try {
             request.addHeader("X-Proxy-For: " + node);
@@ -249,8 +304,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void handleHttpPath(@Param(value = "id", required = true) @NotNull final String id,
-                    final HttpSession session,
-                    final Request request) {
+                               @Param(value = "replicas") @NotNull final String replicas,
+                               final HttpSession session,
+                               final Request request) {
         try {
             execute(id, session, request);
         } catch (RejectedExecutionException e) {
