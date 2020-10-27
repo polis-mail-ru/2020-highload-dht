@@ -162,7 +162,8 @@ public final class ServiceImpl extends HttpServer implements Service {
         asyncExecute(() -> {
             try {
                 final List<Entry> result = new ArrayList<>();
-                for (final Response response : replication(() -> simpleRequests.get(key), request, key, replicasFactor)) {
+                for (final Response response : replication(() ->
+                        simpleRequests.get(key), request, key, replicasFactor)) {
                     if (ResponseUtils.getStatus(response).equals(Response.OK)
                             || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
                         final Entry resp = Entry.responseToEntry(response);
@@ -191,7 +192,8 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         asyncExecute(() -> {
-            final List<Response> result = replication(() -> simpleRequests.put(key, request.getBody()), request, key, replicasFactor)
+            final List<Response> result = replication(() ->
+                    simpleRequests.put(key, request.getBody()), request, key, replicasFactor)
                     .stream()
                     .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
                     .collect(Collectors.toList());
