@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.manikhin.TimestampRecord;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -103,4 +104,10 @@ public interface DAO extends Closeable {
     default void compact() throws IOException {
         // Implement me when you get to stage 3
     }
+
+    void upsertTimestampRecord(ByteBuffer key, ByteBuffer wrap) throws IOException;
+
+    void removeTimestampRecord(ByteBuffer key) throws IOException;
+
+    TimestampRecord getTimestampRecord(ByteBuffer key) throws IOException;
 }

@@ -63,6 +63,18 @@ public final class DAOImpl implements DAO {
     }
 
     @Override
+    public TimestampRecord getTimestampRecord(@NotNull final ByteBuffer key)
+            throws NoSuchElementException, IOException {
+        try {
+            final byte[] packedKey = ByteConvertor.toUnsignedArray(key);
+            final byte[] valueByteArray = db.get(packedKey);
+            return TimestampRecord.fromBytes(valueByteArray);
+        } catch (RocksDBException e) {
+            throw new IOException("getting error", e);
+        }
+    }
+
+    @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             db.put(ByteConvertor.toUnsignedArray(key), ByteConvertor.toArray(value));
@@ -72,11 +84,36 @@ public final class DAOImpl implements DAO {
     }
 
     @Override
+    public void upsertTimestampRecord(@NotNull final ByteBuffer keys,
+                                      @NotNull final ByteBuffer values) throws IOException {
+        try {
+            final TimestampRecord record = TimestampRecord.fromValue(values, System.currentTimeMillis());
+            final byte[] packedKey = ByteConvertor.toUnsignedArray(keys);
+            final byte[] arrayValue = record.toBytes();
+            db.put(packedKey, arrayValue);
+        } catch (RocksDBException e) {
+            throw new IOException("upserting error", e);
+        }
+    }
+
+    @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(ByteConvertor.toUnsignedArray(key));
         } catch (RocksDBException except) {
             throw new IOException("Remove error", except);
+        }
+    }
+
+    @Override
+    public void removeTimestampRecord(@NotNull final ByteBuffer key) throws IOException {
+        try {
+            final byte[] packedKey = ByteConvertor.toUnsignedArray(key);
+            final TimestampRecord record = TimestampRecord.tombstone(System.currentTimeMillis());
+            final byte[] arrayValue = record.toBytes();
+            db.put(packedKey, arrayValue);
+        } catch (RocksDBException e) {
+            throw new IOException("removing error",e);
         }
     }
 

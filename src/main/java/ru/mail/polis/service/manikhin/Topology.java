@@ -34,7 +34,19 @@ public class Topology {
         return new HashSet<>(this.nodes);
     }
 
-    String primaryFor(@NotNull final ByteBuffer key) {
-        return nodes.get((key.hashCode() & Integer.MAX_VALUE) % nodes.size());
+    Set<String> getReplicas(@NotNull final ByteBuffer key, @NotNull final Replicas replicas) {
+        final Set<String> result = new HashSet<>();
+        int index = key.hashCode() & Integer.MAX_VALUE % nodes.size();
+
+        while (result.size() < replicas.getFrom()) {
+            result.add(nodes.get(index));
+            index++;
+
+            if (index == nodes.size()) {
+                index = 0;
+            }
+        }
+
+        return result;
     }
 }
