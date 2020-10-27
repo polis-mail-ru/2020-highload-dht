@@ -15,6 +15,12 @@ public class ValueSerializer {
 
     }
 
+    /**
+     * Static method to serialize DAO's value to array of bytes.
+     * @param value - value to serialize.
+     * @return array of bytes with serialized data.
+     * @throws IOException if serialize error.
+     */
     public static byte[] serialize(final Value value) throws IOException {
         final SerializableValue serializableValue = new SerializableValue(value);
         final CalcSizeStream css = new CalcSizeStream();
@@ -27,6 +33,12 @@ public class ValueSerializer {
         return buf;
     }
 
+    /**
+     * Static method to deserialize array of bytes to DAO's value.
+     * @param buffer - array of bytes with serialized datae.
+     * @return value - deserialized object.
+     * @throws IOException if deserialize error.
+     */
     public static Value deserialize(final byte[] buffer) throws ClassNotFoundException, IOException {
         final DeserializeStream in = new DeserializeStream(buffer);
         final SerializableValue serializableValue = (SerializableValue) in.readObject();
@@ -44,8 +56,8 @@ public class ValueSerializer {
 
         private static final long serialVersionUID = 1L;
 
-        final public byte[] value;
-        final public long timestamp;
+        public final byte[] value;
+        public final long timestamp;
 
         public SerializableValue(final Value value) {
             this.timestamp = value.getTimestamp();

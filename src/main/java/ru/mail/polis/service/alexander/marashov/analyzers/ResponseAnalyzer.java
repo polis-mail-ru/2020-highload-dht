@@ -9,16 +9,22 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class ResponseAnalyzer<V> {
 
-    final protected Lock innerLock;
-    final protected Lock outerLock;
-    final protected Condition outerCondition;
+    protected final Lock innerLock;
+    protected final Lock outerLock;
+    protected final Condition outerCondition;
 
-    final protected int neededReplicasCount;
-    final protected int totalReplicasCount;
+    protected final int neededReplicasCount;
+    protected final int totalReplicasCount;
 
     protected int answeredCount;
     protected int failedCount;
 
+    /**
+     * Abstract response analyzer that accumulates responses from DAO's methods and analyzes them.
+     *
+     * @param neededReplicasCount - how many replicas is required.
+     * @param totalReplicasCount  - how many replicas is expected.
+     */
     public ResponseAnalyzer(final int neededReplicasCount, final int totalReplicasCount) {
         assert 0 < neededReplicasCount;
 
@@ -34,10 +40,14 @@ public abstract class ResponseAnalyzer<V> {
     }
 
     protected boolean hasEnoughAnswers() {
-        return (this.answeredCount + this.failedCount) == this.totalReplicasCount;
+        return this.answeredCount + this.failedCount == this.totalReplicasCount;
     }
 
-    final public void accept(final Response response) {
+    /**
+     * Accept the next response to analyze.
+     * @param response - the analyzed response.
+     */
+    public final void accept(final Response response) {
         innerLock.lock();
         try {
             privateAccept(response);
@@ -49,7 +59,11 @@ public abstract class ResponseAnalyzer<V> {
         }
     }
 
-    final public void accept(final V v) {
+    /**
+     * Accept the next value to analyze.
+     * @param v - the analyzed value.
+     */
+    public final void accept(final V v) {
         innerLock.lock();
         try {
             privateAccept(v);
@@ -61,7 +75,13 @@ public abstract class ResponseAnalyzer<V> {
         }
     }
 
-    final public void await(final long l, final TimeUnit timeUnit) throws InterruptedException {
+    /**
+     *
+     * @param l - number of time units.
+     * @param timeUnit - units for measuring time.
+     * @throws InterruptedException if the wait is interrupted.
+     */
+    public final void await(final long l, final TimeUnit timeUnit) throws InterruptedException {
         outerLock.lock();
         try {
             while (!hasEnoughAnswers()) {
@@ -75,7 +95,11 @@ public abstract class ResponseAnalyzer<V> {
         }
     }
 
-    final public Response getResult() {
+    /**
+     * Analyze received data and get the correct result.
+     * @return correct response to send.
+     */
+    public final Response getResult() {
         innerLock.lock();
         try {
             return privateGetResult();
@@ -84,6 +108,9 @@ public abstract class ResponseAnalyzer<V> {
         }
     }
 
+    /**
+     * Send a signal to everyone waiting for the results to be processed.
+     */
     protected void signalAll() {
         outerLock.lock();
         try {

@@ -13,9 +13,14 @@ import java.util.Map;
 public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
 
     private static final Logger log = LoggerFactory.getLogger(ResponseAnalyzerGet.class);
-    final private Map<Value, Integer> answersMap;
+    private final Map<Value, Integer> answersMap;
     private Value tombstoneValue;
 
+    /**
+     * Response analyzer that accumulates responses from DAO's GET methods and analyzes them.
+     * @param neededReplicasCount - how many replicas is required.
+     * @param totalReplicasCount - how many replicas is expected.
+     */
     public ResponseAnalyzerGet(final int neededReplicasCount, final int totalReplicasCount) {
         super(neededReplicasCount, totalReplicasCount);
         this.answersMap = new HashMap<>();
@@ -88,6 +93,7 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
                             || count > maxCount
                             || (count == maxCount && value.compareTo(correctValue) > 0)
             ) {
+                maxCount = count;
                 correctValue = value;
             }
         }

@@ -36,6 +36,8 @@ import java.util.NoSuchElementException;
  */
 public interface DAO extends Closeable {
 
+    String NOT_FOUND_STRING = "Not found";
+
     /**
      * Provides "row" iterator (possibly empty) over {@link Cell}s starting at "from" key (inclusive)
      * in <b>ascending</b> order according to {@link Cell#COMPARATOR}.
@@ -83,14 +85,14 @@ public interface DAO extends Closeable {
     default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
+            throw new NoSuchElementException(NOT_FOUND_STRING);
         }
 
         final Record next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
-            throw new NoSuchElementException("Not found");
+            throw new NoSuchElementException(NOT_FOUND_STRING);
         }
     }
 
@@ -103,14 +105,14 @@ public interface DAO extends Closeable {
     default Value rowGet(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Cell> iter = rowIterator(key);
         if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
+            throw new NoSuchElementException(NOT_FOUND_STRING);
         }
 
         final Cell next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
-            throw new NoSuchElementException("Not found");
+            throw new NoSuchElementException(NOT_FOUND_STRING);
         }
     }
 

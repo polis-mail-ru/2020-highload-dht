@@ -2,13 +2,22 @@ package ru.mail.polis.service.alexander.marashov.analyzers;
 
 import one.nio.http.Response;
 
-public class ResponseAnalyzerDelete extends ResponseAnalyzer<Boolean> {
+public class SimpleResponseAnalyzer extends ResponseAnalyzer<Boolean> {
 
     private int successCount;
+    private final int successCode;
+    private final String successResponseString;
 
-    public ResponseAnalyzerDelete(final int neededReplicasCount, final int totalReplicasCount) {
+    public SimpleResponseAnalyzer(
+            final int neededReplicasCount,
+            final int totalReplicasCount,
+            final int successCode,
+            final String successResponseString
+    ) {
         super(neededReplicasCount, totalReplicasCount);
         this.successCount = 0;
+        this.successCode = successCode;
+        this.successResponseString = successResponseString;
     }
 
     @Override
@@ -17,7 +26,7 @@ public class ResponseAnalyzerDelete extends ResponseAnalyzer<Boolean> {
             failedCount++;
         } else {
             answeredCount++;
-            privateAccept(response.getStatus() == 202);
+            privateAccept(response.getStatus() == successCode);
         }
     }
 
@@ -36,7 +45,7 @@ public class ResponseAnalyzerDelete extends ResponseAnalyzer<Boolean> {
     @Override
     protected Response privateGetResult() {
         if (successCount >= neededReplicasCount) {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
+            return new Response(successResponseString, Response.EMPTY);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }

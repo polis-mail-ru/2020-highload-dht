@@ -22,15 +22,13 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.alexander.marashov.Value;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzer;
-import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerDelete;
 import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerGet;
-import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerPut;
+import ru.mail.polis.service.alexander.marashov.analyzers.SimpleResponseAnalyzer;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +42,9 @@ import java.util.concurrent.TimeUnit;
 public class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+
     private static final String RESPONSE_ERROR_STRING = "Sending response error";
+    private static final String ROW_ACCESS_HEADER = "Row-Access";
 
     private final DAO dao;
     private final ExecutorService executorService;
@@ -84,7 +84,7 @@ public class ServiceImpl extends HttpServer implements Service {
         );
 
         this.topology = topology;
-        this.defaultAck = (this.topology.size() / 2) + 1;
+        this.defaultAck = this.topology.size() / 2 + 1;
         this.defaultFrom = this.topology.size();
 
         this.nodeToClient = new HashMap<>();
@@ -165,35 +165,41 @@ public class ServiceImpl extends HttpServer implements Service {
         session.sendResponse(response);
     }
 
-    public void executeLocalPut(
-            final HttpSession httpSession,
-            final ByteBuffer key,
-            final ByteBuffer value
-    ) {
+    /**
+     * Method that puts entity to the DAO and returns response with operation results.
+     * @param key - ByteBuffer that contains the key data.
+     * @param value - ByteBuffer that contains the value data.
+     * @return response to send.
+     */
+    public Response executeLocalPut(final ByteBuffer key, final ByteBuffer value) {
         try {
             this.dao.upsert(key, value);
-            sendAnswerOrError(httpSession, new Response(Response.CREATED, Response.EMPTY));
+            return new Response(Response.CREATED, Response.EMPTY);
         } catch (final IOException e) {
-            sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
-    public void executeLocalDelete(
-            final HttpSession httpSession,
-            final ByteBuffer key
-    ) {
+    /**
+     * Method that deletes entity from the DAO and returns response with operation results.
+     * @param key - ByteBuffer that contains the key data.
+     * @return response to send.
+     */
+    public Response executeLocalDelete(final ByteBuffer key) {
         try {
             this.dao.remove(key);
-            sendAnswerOrError(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
+            return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (final IOException e) {
-            sendAnswerOrError(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
-    public void executeLocalRowGet(
-            final HttpSession httpSession,
-            final ByteBuffer key
-    ) {
+    /**
+     * Method that gets entity from the DAO and returns response with operation results.
+     * @param key - ByteBuffer that contains key data.
+     * @return response to send.
+     */
+    public Response executeLocalRowGet(final ByteBuffer key) {
         Value value = null;
         try {
             value = this.dao.rowGet(key);
@@ -213,7 +219,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 log.error("Local get SERIALIZE ERROR");
             }
         }
-        sendAnswerOrError(httpSession, response);
+        return response;
     }
 
     /**
@@ -273,16 +279,16 @@ public class ServiceImpl extends HttpServer implements Service {
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
 
-                    final String rowAccessHeader = request.getHeader("Row-Access");
+                    final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_GET))) {
-                        executeLocalRowGet(httpSession, key);
+                        sendAnswerOrError(httpSession, executeLocalRowGet(key));
                         return;
                     }
 
                     final String[] primaries = topology.primariesFor(key, from);
                     final ResponseAnalyzerGet valueAnalyzer = new ResponseAnalyzerGet(ack, from);
 
-                    request.addHeader("Row-Access" + Request.METHOD_GET);
+                    request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_GET);
                     for (final String primary : primaries) {
 
                         if (topology.isLocal(primary)) {
@@ -369,26 +375,26 @@ public class ServiceImpl extends HttpServer implements Service {
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
 
-                    final String rowAccessHeader = request.getHeader("Row-Access");
+                    final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_PUT))) {
-                        executeLocalPut(httpSession, key, value);
+                        sendAnswerOrError(httpSession, executeLocalPut(key, value));
                         return;
                     }
 
                     final String[] primaries = topology.primariesFor(key, from);
-                    final ResponseAnalyzer<Boolean> responseAnalyzer = new ResponseAnalyzerPut(ack, from);
+                    final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
+                            ack,
+                            from,
+                            201,
+                            Response.CREATED
+                    );
 
-                    request.addHeader("Row-Access" + Request.METHOD_PUT);
+                    request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_PUT);
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
                             executorService.execute(() -> {
-                                try {
-                                    this.dao.upsert(key, value);
-                                    responseAnalyzer.accept(true);
-                                } catch (final IOException e) {
-                                    log.error("Upsert method error", e);
-                                    responseAnalyzer.accept(false);
-                                }
+                                final Response response = executeLocalPut(key, value);
+                                responseAnalyzer.accept(response);
                             });
                         } else {
                             executorService.execute(() -> {
@@ -458,16 +464,21 @@ public class ServiceImpl extends HttpServer implements Service {
                     final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
                     final ByteBuffer key = ByteBuffer.wrap(bytes);
 
-                    final String rowAccessHeader = request.getHeader("Row-Access");
+                    final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_DELETE))) {
-                        executeLocalDelete(httpSession, key);
+                        sendAnswerOrError(httpSession, executeLocalDelete(key));
                         return;
                     }
 
                     final String[] primaries = topology.primariesFor(key, from);
-                    final ResponseAnalyzer<Boolean> responseAnalyzer = new ResponseAnalyzerDelete(ack, from);
+                    final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
+                            ack,
+                            from,
+                            202,
+                            Response.ACCEPTED
+                    );
 
-                    request.addHeader("Row-Access" + Request.METHOD_DELETE);
+                    request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_DELETE);
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
                             executorService.execute(() -> {
@@ -481,17 +492,11 @@ public class ServiceImpl extends HttpServer implements Service {
                             });
                         } else {
                             executorService.execute(() -> {
-                                Response response = null;
-                                try {
-                                    response = nodeToClient.get(primary).invoke(request);
-                                } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                                    log.error("Delete: Error sending request to node {}", primary, e);
-                                }
+                                final Response response = executeLocalDelete(key);
                                 responseAnalyzer.accept(response);
                             });
                         }
                     }
-
 
                     try {
                         responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
