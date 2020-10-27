@@ -4,11 +4,11 @@ import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.Iters;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.tables.SSTable;
 import ru.mail.polis.dao.impl.tables.Table;
 import ru.mail.polis.dao.impl.tables.TableSet;
+import ru.mail.polis.utils.IteratorUtils;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
@@ -19,7 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
@@ -87,74 +86,9 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        return Iterators.transform(cellIterator(from),
+        return Iterators.transform(IteratorUtils.cellIterator(from, this),
                 cell -> Record.of(Objects.requireNonNull(cell).getKey(),
                         Objects.requireNonNull(cell.getValue().getData())));
-    }
-
-    /**
-     * Create an iterator over alive {@link Cell}.
-     *
-     * @param from data on which iterator is created
-     * @return an iterator over alive cells
-     */
-    @NotNull
-    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
-        final TableSet snapshot;
-        lock.readLock().lock();
-        try {
-            snapshot = this.tableSet;
-        } finally {
-            lock.readLock().unlock();
-        }
-        final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size() + 1);
-        fileIterators.add(snapshot.memTable.iterator(from));
-        snapshot.flushing.forEach(v -> {
-            try {
-                fileIterators.add(v.iterator(from));
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-        final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
-        return Iterators.filter(
-                fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone());
-    }
-
-    @SuppressWarnings("UnstableApiUsage")
-    private Iterator<Cell> freshCellIterators(@NotNull final TableSet snapshot,
-                                              @NotNull final ByteBuffer from,
-                                              @NotNull final List<Iterator<Cell>> fileIterators) {
-        snapshot.ssTables.descendingMap().values().forEach(v -> {
-            try {
-                fileIterators.add(v.iterator(from));
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-        final Iterator<Cell> merged = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
-        return Iters.collapseEquals(merged, Cell::getKey);
-    }
-
-    /**
-     * Create an iterator over entries {@link Cell} (replication case).
-     *
-     * @param from data on which iterator is created
-     * @return an iterator over alive cells
-     */
-    @SuppressWarnings("UnstableApiUsage")
-    public Iterator<Cell> entryIterators(@NotNull final ByteBuffer from) throws IOException {
-        final List<Iterator<Cell>> fileIterators = new ArrayList<>(tableSet.ssTables.size() + 1);
-        tableSet.ssTables.descendingMap().values().forEach(v -> {
-            try {
-                fileIterators.add(v.iterator(from));
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-        });
-        fileIterators.add(tableSet.memTable.iterator(from));
-        final Iterator<Cell> mergedCells = Iterators.mergeSorted(fileIterators, Comparator.naturalOrder());
-        return Iters.collapseEquals(mergedCells, Cell::getKey);
     }
 
     @Override
@@ -257,7 +191,7 @@ public class DAOImpl implements DAO {
         }
         final ByteBuffer from = ByteBuffer.allocate(0);
         final List<Iterator<Cell>> fileIterators = new ArrayList<>(snapshot.ssTables.size());
-        final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
+        final Iterator<Cell> fresh = IteratorUtils.freshCellIterators(snapshot, from, fileIterators);
         if (!fresh.hasNext()) {
             return;
         }
@@ -290,5 +224,14 @@ public class DAOImpl implements DAO {
         final File file = new File(storage, generation + SUFFIX);
         Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE);
         return file;
+    }
+
+    public ReadWriteLock getLock() {
+        return lock;
+    }
+
+    @NotNull
+    public TableSet getTableSet() {
+        return tableSet;
     }
 }

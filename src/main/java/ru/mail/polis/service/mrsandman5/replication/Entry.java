@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.utils.ByteUtils;
+import ru.mail.polis.utils.IteratorUtils;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
@@ -135,7 +136,7 @@ public final class Entry implements Comparable<Entry> {
      * */
     public static Entry entryFromBytes(@NotNull final ByteBuffer key,
                                        @NotNull final DAOImpl dao) throws IOException {
-        final Iterator<Cell> cells = dao.entryIterators(key);
+        final Iterator<Cell> cells = IteratorUtils.entryIterators(key, dao);
         if (!cells.hasNext()) {
             return Entry.absent();
         }

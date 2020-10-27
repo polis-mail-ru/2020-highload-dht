@@ -21,6 +21,7 @@ import ru.mail.polis.service.Service;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
+import ru.mail.polis.service.mrsandman5.replication.SimpleRequests;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
@@ -29,7 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import static java.util.function.Function.identity;
@@ -40,11 +40,11 @@ public final class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
-    private final DAOImpl dao;
-    @NotNull
     private final Topology<String> topology;
     private final ReplicasFactor quorum;
     private final Map<String, HttpClient> httpClients;
+    @NotNull
+    private final SimpleRequests simpleRequests;
 
     /** Create new ServiceImpl instance.
      * @param port - target port.
@@ -79,7 +79,8 @@ public final class ServiceImpl extends HttpServer implements Service {
                        @NotNull final DAO dao) throws IOException {
         super(config);
         this.topology = topology;
-        this.dao = (DAOImpl) dao;
+        final DAOImpl serviceDao = (DAOImpl) dao;
+        this.simpleRequests = new SimpleRequests(serviceDao);
         this.quorum = ReplicasFactor.quorum(topology.all().size());
         this.httpClients = topology.others()
                 .stream()
@@ -149,36 +150,19 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get value.
-     * {@code 200, value} (data is found).
-     * {@code 404} (data is not found).
-     * {@code 500} (internal server error occurred).
-     */
-    private Response get(@NotNull final ByteBuffer key) {
-        try {
-            final Entry value = Entry.entryFromBytes(key, dao);
-            return Entry.entryToResponse(value);
-        } catch (NoSuchElementException e) {
-            return ResponseUtils.emptyResponse(Response.NOT_FOUND);
-        } catch (IOException e) {
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
-        }
-    }
-
     private void replicasGet(@NotNull final HttpSession session,
                              @NotNull final Request request,
                              @NotNull final ByteBuffer key,
                              final boolean proxied,
                              @NotNull final ReplicasFactor replicasFactor) {
         if (proxied) {
-            asyncExecute(session, () -> get(key));
+            asyncExecute(session, () -> simpleRequests.get(key));
             return;
         }
         asyncExecute(() -> {
             try {
                 final List<Entry> result = new ArrayList<>();
-                for (final Response response : replication(() -> get(key), request, key, replicasFactor)) {
+                for (final Response response : replication(() -> simpleRequests.get(key), request, key, replicasFactor)) {
                     if (ResponseUtils.getStatus(response).equals(Response.OK)
                             || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
                         final Entry resp = Entry.responseToEntry(response);
@@ -197,33 +181,17 @@ public final class ServiceImpl extends HttpServer implements Service {
         });
     }
 
-    /**
-     * Put value.
-     * {@code 201} (new value created).
-     * {@code 500} (internal server error occurred).
-     */
-    private Response put(@NotNull final ByteBuffer key,
-                         @NotNull final byte[] bytes) {
-        try {
-            final ByteBuffer body = ByteBuffer.wrap(bytes);
-            dao.upsert(key, body);
-            return ResponseUtils.emptyResponse(Response.CREATED);
-        } catch (IOException e) {
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
-        }
-    }
-
     private void replicasPut(@NotNull final HttpSession session,
                              @NotNull final Request request,
                              @NotNull final ByteBuffer key,
                              final boolean proxied,
                              @NotNull final ReplicasFactor replicasFactor) {
         if (proxied) {
-            asyncExecute(session, () -> put(key, request.getBody()));
+            asyncExecute(session, () -> simpleRequests.put(key, request.getBody()));
             return;
         }
         asyncExecute(() -> {
-            final List<Response> result = replication(() -> put(key, request.getBody()), request, key, replicasFactor)
+            final List<Response> result = replication(() -> simpleRequests.put(key, request.getBody()), request, key, replicasFactor)
                     .stream()
                     .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
                     .collect(Collectors.toList());
@@ -235,31 +203,17 @@ public final class ServiceImpl extends HttpServer implements Service {
         });
     }
 
-    /**
-     * Delete value by the key.
-     * {@code 202} (value deleted).
-     * {@code 500} (internal server error occurred).
-     */
-    private Response delete(@NotNull final ByteBuffer key) {
-        try {
-            dao.remove(key);
-            return ResponseUtils.emptyResponse(Response.ACCEPTED);
-        } catch (IOException e) {
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
-        }
-    }
-
     private void replicasDelete(@NotNull final HttpSession session,
                                 @NotNull final Request request,
                                 @NotNull final ByteBuffer key,
                                 final boolean proxied,
                                 @NotNull final ReplicasFactor replicasFactor) {
         if (proxied) {
-            asyncExecute(session, () -> delete(key));
+            asyncExecute(session, () -> simpleRequests.delete(key));
             return;
         }
         asyncExecute(() -> {
-            final List<Response> result = replication(() -> delete(key), request, key, replicasFactor)
+            final List<Response> result = replication(() -> simpleRequests.delete(key), request, key, replicasFactor)
                     .stream()
                     .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
                     .collect(Collectors.toList());
