@@ -237,8 +237,3 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         return config;
     }
 }
-
-@FunctionalInterface
-interface Runner {
-    Response execute() throws IOException;
-}
