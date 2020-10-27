@@ -7,7 +7,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -126,6 +125,7 @@ public class NewService extends HttpServer implements Service {
                     default:
                         logger.error("Неверный запрос");
                         resp(httpSession, Response.METHOD_NOT_ALLOWED);
+                        break;
                 }
             });
         } catch (RejectedExecutionException rejectedExecutionException) {
