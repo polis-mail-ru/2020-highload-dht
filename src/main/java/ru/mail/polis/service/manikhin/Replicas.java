@@ -27,7 +27,8 @@ public class Replicas {
      * */
     public static Replicas parser(final String replicas) {
         final List<String> params = Arrays.asList(replicas.replace("=", "").split("/"));
-        final int confirmation, from;
+        final int confirmation;
+        final int from;
 
         if (params.size() != 2) {
             throw new IllegalArgumentException("Wrong Replica factor: " + replicas);
@@ -39,7 +40,16 @@ public class Replicas {
         return new Replicas(confirmation, from);
     }
 
-    public static Replicas ReplicaFactor(final String replicas,
+    /**
+     * Calculate replica factor value.
+     *
+     * @param replicas - input replicas
+     * @param session - input http-session
+     * @param defaultReplicaFactor - default replica factor
+     * @param clusterSize - input nodes cluster size
+     * @return ReplicaFactor value
+     */
+    public static Replicas replicaFactor(final String replicas,
                                          @NotNull final HttpSession session,
                                          final Replicas defaultReplicaFactor,
                                          final int clusterSize) throws IOException {
