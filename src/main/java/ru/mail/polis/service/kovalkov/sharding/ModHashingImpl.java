@@ -14,7 +14,7 @@ public class ModHashingImpl implements Topology<String> {
     private final String currentNode;
 
     /**
-     * Constructor for modular topology implementation.
+     * Constructor for module topology implementation.
      *
      * @param allNodes - sets with all nodes.
      * @param currentNode - this node.
@@ -22,7 +22,7 @@ public class ModHashingImpl implements Topology<String> {
     public ModHashingImpl(final String currentNode, final Set<String> allNodes) {
         if (!allNodes.contains(currentNode)) {
             log.error("This node - {} is not a part of cluster {}", currentNode, allNodes);
-            throw new RuntimeException("Current not is invalid.");
+            throw new IllegalArgumentException("Current not is invalid.");
         }
         this.currentNode = currentNode;
         this.allNodes = new String[allNodes.size()];

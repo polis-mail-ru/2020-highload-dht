@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -40,8 +40,8 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class SharedAsyncServiceImpl extends HttpServer implements Service {
     private static final String IO_EX = "IO exception. Internal error response";
-    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
-    private final Map<String,HttpClient> nodesClient = new HashMap<>();
+    private static final Logger log = LoggerFactory.getLogger(SharedAsyncServiceImpl.class);
+    private final Map<String, HttpClient> nodesClient = new HashMap<>();
     private final Topology<String> topology;
     private final ExecutorService service;
     private final DAO dao;
@@ -62,7 +62,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         service = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(1024),
                 new ThreadFactoryBuilder()
-                        .setUncaughtExceptionHandler((t, e) -> log.error("Error in async_worker-{}:",t,e))
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Error in async_worker-{} : ", t, e))
                         .setNameFormat("async_worker-%d")
                         .build());
         for (final String n: topology.allNodes()) {
@@ -85,6 +85,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.queueTime = 10;
+        httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -92,19 +93,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     /**
      * Check status.
      *
-     * @param session - current session
      */
     @Path("/v0/status")
     @RequestMethod(METHOD_GET)
-    public void status(final HttpSession session) {
-        final Future<?> future = service.submit(() -> {
-            try {
-                session.sendResponse(Response.ok(Response.OK));
-            } catch (IOException e) {
-                log.error("Error with send response in status",e);
-            }
-        });
-        if (future.isCancelled()) log.error("Status. Task cancelled");
+    public Response status() {
+        return Response.ok("OK");
     }
 
     /**
@@ -117,7 +110,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private Response proxy(@NotNull final String targetNode, @NotNull final Request request) {
         try {
-            request.addHeader("Forwarding");
+            request.addHeader("X-Proxy-For:" + targetNode);
             final HttpClient client = nodesClient.get(targetNode);
             return client.invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
@@ -140,11 +133,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 session.sendResponse(response);
             } catch (IOException e) {
                 log.error("IO exception. Proxy", e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(IO_EX, ex);
-                }
             }
         });
     }
@@ -157,6 +145,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param request - request from client or other node
      */
     @Path("/v0/entity")
+    @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void entity(@Param(value = "id",required = true) @NotNull final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
@@ -176,16 +165,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                         break;
                     default:
                         session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                        log.error("Unsupported method");
+                        log.info("Unsupported method");
                         break;
                 }
             } catch (IOException e) {
-                log.error("IO exception. Entyties", e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(IO_EX, ex);
-                }
+                exceptionIOHandler(session, "IO exception. Entyties", e);
             }
             return;
         } else {
@@ -194,19 +178,30 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
+        log.error(message, e);
+        try {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        } catch (IOException ex) {
+            log.error(IO_EX, ex);
+        }
+    }
+
     private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {
                 getInternal(id, session);
             } catch (IOException e) {
-                log.error("Method get. IO exception. ", e);
+                exceptionIOHandler(session, "Method get. IO exception. ", e);
+            } catch (RejectedExecutionException e) {
+                log.error("Rejected  exception: ", e);
                 try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(IO_EX, ex);
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException e1) {
+                    log.error("IO exception when send 503 response: ", e1);
                 }
             } catch (NoSuchElementException e) {
-                log.error("Method get. Can't find value by this key ", e);
+                log.info("Method get. Can't find value by this key ", e);
                 try {
                     session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
                 } catch (IOException ioException) {
@@ -229,12 +224,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             try {
                 putInternal(id, request, session);
             } catch (IOException e) {
-                log.error("IO exception. Put", e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(IO_EX, ex);
-                }
+                exceptionIOHandler(session, "IO exception. Put ", e);
             }
         });
     }
@@ -252,12 +242,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             try {
                 deleteInternal(id, session);
             } catch (IOException e) {
-                log.error("Method delete. IO exception. ", e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(IO_EX, ex);
-                }
+                exceptionIOHandler(session, "Method delete. IO exception. ", e);
             }
         });
     }
@@ -275,8 +260,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param session - current session
      * @return - data owner
      */
-    private String checkIdAndReturnTargetNode(@Param(value = "id", required = true) final String id,
-                                              @NotNull final HttpSession session) {
+    private String checkIdAndReturnTargetNode(final String id, @NotNull final HttpSession session) {
         if (id.isEmpty()) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -297,10 +281,10 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         super.stop();
         service.shutdown();
         try {
-            dao.close();
-        } catch (IOException e) {
-            log.error("Dao IO exception when try close: ", e);
-            throw new RuntimeException(e);
+            this.service.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("AwaitTerminations has been interrupted : ", e);
+            Thread.currentThread().interrupt();
         }
     }
 }

@@ -13,6 +13,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -35,47 +36,47 @@ public final class DAOImpl implements DAO {
 
     @NotNull
     @Override
-    public ByteBuffer get(@NotNull final ByteBuffer key) throws NoSuchElementException {
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws NoSuchElementException, IOException {
         try {
             final byte[] valueByteArray = db.get(BufferConverter.convertBytes(key));
             if (valueByteArray == null) {
-                log.error("No such value key {}.", key);
+                log.info("No such value key {}.", key);
                 throw new NoSuchElementException("Not such value by this key");
             }
             return ByteBuffer.wrap(valueByteArray);
         } catch (RocksDBException e) {
             log.error("Getting error: ",e);
-            throw new RuntimeException(e);
+            throw new IOException(e);
         }
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             db.put(BufferConverter.convertBytes(key), unfoldToBytes(value));
         } catch (RocksDBException e) {
             log.error("Rocks upsert error: ", e);
-            throw new RuntimeException("Rocks upsert error: ", e);
+            throw new IOException("Rocks upsert error: ", e);
         }
     }
 
     @Override
-    public void remove(@NotNull final ByteBuffer key) {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(BufferConverter.convertBytes(key));
         } catch (RocksDBException e) {
             log.error("Remove error: ", e);
-            throw new RuntimeException("Remove error: ", e);
+            throw new IOException("Remove error: ", e);
         }
     }
 
     @Override
-    public void compact() {
+    public void compact() throws IOException {
         try {
             db.compactRange();
         } catch (RocksDBException e) {
             log.error("Compact error: ",e);
-            throw new RuntimeException("Compact error: ", e);
+            throw new IOException("Compact error: ", e);
         }
     }
 
@@ -97,7 +98,7 @@ public final class DAOImpl implements DAO {
      * @param data - store data.
      * @return - new DAO.
      */
-    public static DAO createDAO(final File data) {
+    public static DAO createDAO(final File data) throws IOException {
         try {
             final var options = new Options()
                     .setCreateIfMissing(true)
@@ -105,7 +106,7 @@ public final class DAOImpl implements DAO {
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {
-            throw new RuntimeException("RocksDB instantiation failed!", e);
+            throw new IOException("RocksDB instantiation failed!", e);
         }
     }
 }

@@ -26,7 +26,7 @@ public class RendezvousHashingImpl implements Topology<String> {
     public RendezvousHashingImpl(final String currentNode, final Set<String> allNodes) {
         if (!allNodes.contains(currentNode)) {
             log.error("This node - {} is not a part of cluster", currentNode);
-            throw new RuntimeException("Current not is invalid.");
+            throw new IllegalArgumentException("Current not is invalid.");
         }
         this.currentNode = currentNode;
         this.allNodes = new String[allNodes.size()];
@@ -40,18 +40,16 @@ public class RendezvousHashingImpl implements Topology<String> {
         final byte[] keyBytes = new byte[key.remaining()];
         key.duplicate().get(keyBytes).clear();
         final Map<Integer,String> nodesAndHashes = new TreeMap<>();
-        final int[] nodeIdentifier = new int[allNodes.length];
-        final int[] hashes = new int[allNodes.length];
-        for (int i = 0; i < allNodes.length; i++) {
-            nodeIdentifier[i] = allNodes[i].chars().sum();
-            hashes[i] = murmur3_32().newHasher().putInt(nodeIdentifier[i]).putBytes(keyBytes).hash().hashCode();
-            nodesAndHashes.put(hashes[i],allNodes[i]);
+        for (final String allNode : allNodes) {
+            nodesAndHashes.put(
+                    murmur3_32().newHasher().putInt(allNode
+                            .chars().sum()).putBytes(keyBytes).hash().hashCode(), allNode);
         }
         final String ownerNode = nodesAndHashes.get(nodesAndHashes.keySet()
                 .stream().findFirst().orElse(null));
         if (ownerNode == null) {
             log.error("Hash is null");
-            throw new RuntimeException("Hash code can't be equals null");
+            throw new IllegalStateException("Hash code can't be equals null");
         }
         return ownerNode;
     }
