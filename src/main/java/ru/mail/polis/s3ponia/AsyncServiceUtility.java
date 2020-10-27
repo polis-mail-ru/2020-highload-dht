@@ -205,8 +205,10 @@ public final class AsyncServiceUtility {
                 futureResponses) {
             final Response response;
             response = resp;
-            if (response == null
-                        || response.getStatus() != 202 /* ACCEPTED */ && response.getStatus() != 201 /* CREATED */) {
+            if (response == null) {
+                continue;
+            }
+            if (response.getStatus() != 202 /* ACCEPTED */ && response.getStatus() != 201 /* CREATED */) {
                 continue;
             }
             ++acceptedCounter;
@@ -255,11 +257,12 @@ public final class AsyncServiceUtility {
             if (!node.equals(service.policy.homeNode())) {
                 final var response = proxy(node, request, service);
                 /* OK */
-                if (response == null
-                            ||
-                            response.getStatus() != 202 /* ACCEPTED */
-                                    && response.getStatus() != 201 /* CREATED */
-                                    && response.getStatus() != 200) {
+                if (response == null) {
+                    continue;
+                }
+                if (response.getStatus() != 202 /* ACCEPTED */
+                            && response.getStatus() != 201 /* CREATED */
+                            && response.getStatus() != 200) {
                     continue;
                 }
                 futureResponses.add(response);
