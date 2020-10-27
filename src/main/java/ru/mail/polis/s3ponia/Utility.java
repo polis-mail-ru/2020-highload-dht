@@ -120,7 +120,8 @@ public final class Utility {
     
     /**
      * Checks is homeNode in nodeReplicas.
-     * @param homeNode homeNode
+     *
+     * @param homeNode     homeNode
      * @param nodeReplicas array of replicas
      * @return is home in replicas
      */
@@ -140,6 +141,7 @@ public final class Utility {
     
     /**
      * Getting DeadFlagTimeStamp from Table.Value.
+     *
      * @param response response
      * @return DeadFlagTimeStamp
      */
@@ -151,22 +153,19 @@ public final class Utility {
     
     /**
      * Get Future values and store to list.
-     * @param configuration replication configuration
+     *
+     * @param configuration   replication configuration
      * @param futureResponses list of future responses
      * @return list of Table.Value
      */
     @NotNull
     public static List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration configuration,
-                                                         @NotNull final List<Future<Response>> futureResponses) {
+                                                         @NotNull final List<Response> futureResponses) {
         final List<Table.Value> values = new ArrayList<>(configuration.from);
         for (final var resp :
                 futureResponses) {
             final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                continue;
-            }
+            response = resp;
             if (response != null && response.getStatus() == 200 /* OK */) {
                 final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
                         getDeadFlagTimeStamp(response), -1);
@@ -178,26 +177,28 @@ public final class Utility {
     
     /**
      * Response's value validation.
+     *
      * @return comparator
      */
     @NotNull
     public static Comparator<Table.Value> valueResponseComparator() {
         return Comparator.comparing(Table.Value::getTimeStamp)
-                .reversed()
-                .thenComparing((a, b) -> {
-                    if (a.isDead()) {
-                        return -1;
-                    }
-                    if (b.isDead()) {
-                        return 1;
-                    }
-    
-                    return 0;
-                });
+                       .reversed()
+                       .thenComparing((a, b) -> {
+                           if (a.isDead()) {
+                               return -1;
+                           }
+                           if (b.isDead()) {
+                               return 1;
+                           }
+                    
+                           return 0;
+                       });
     }
     
     /**
      * Configuring http server from port.
+     *
      * @param port http server's port
      * @return HttpServerConfig
      */
@@ -214,8 +215,9 @@ public final class Utility {
     
     /**
      * Make map String to HttpClient from nodes list.
+     *
      * @param homeNode node ignored in nodes
-     * @param nodes list of nodes
+     * @param nodes    list of nodes
      * @return map string to httpclient
      */
     public static Map<String, HttpClient> urltoClientFromSet(@NotNull final String homeNode,
@@ -234,6 +236,7 @@ public final class Utility {
     
     /**
      * Make byte array from ByteBuffer.
+     *
      * @param b ByteBuffer
      * @return byte array
      */

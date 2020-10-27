@@ -62,7 +62,7 @@ public final class ServiceFactory {
                 port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),
-                16,
+                150,
                 new ModularPolicy(topology, ByteBuffer::hashCode, "http://localhost:" + port));
     }
 }

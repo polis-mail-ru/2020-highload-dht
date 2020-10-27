@@ -16,9 +16,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 public final class AsyncServiceUtility {
     
@@ -31,7 +29,7 @@ public final class AsyncServiceUtility {
      * @param key     key for upserting
      * @param value   value for upserting
      * @param session HttpSession for response
-     * @param dao dao to upsert
+     * @param dao     dao to upsert
      * @throws IOException rethrow from sendResponse
      */
     public static void upsertWithTimeStamp(@NotNull final ByteBuffer key,
@@ -51,6 +49,7 @@ public final class AsyncServiceUtility {
     
     /**
      * Handling error in status.
+     *
      * @param session session for response
      */
     public static void handleStatusError(@NotNull final HttpSession session) {
@@ -63,9 +62,10 @@ public final class AsyncServiceUtility {
     
     /**
      * Getting raw value.
-     * @param key key
+     *
+     * @param key     key
      * @param session session for response
-     * @param dao dao for getting
+     * @param dao     dao for getting
      * @throws IOException rethrow from session
      */
     public static void getRaw(@NotNull final ByteBuffer key,
@@ -86,7 +86,8 @@ public final class AsyncServiceUtility {
     
     /**
      * Get proxy response.
-     * @param node destination node
+     *
+     * @param node    destination node
      * @param request proxying request
      * @param service proxying service
      * @return Response from node
@@ -105,28 +106,25 @@ public final class AsyncServiceUtility {
     
     /**
      * Getting successful responses.
-     * @param request request for proxying
+     *
+     * @param request       request for proxying
      * @param configuration replication configuration
-     * @param service AsyncService for proxying
-     * @param nodes destination nodes
+     * @param service       AsyncService for proxying
+     * @param nodes         destination nodes
      * @return count of successful responses
      */
     public static int getCounter(@NotNull final Request request,
                                  @NotNull final Utility.ReplicationConfiguration configuration,
                                  @NotNull final AsyncService service,
                                  @NotNull final String... nodes) {
-        final List<Future<Response>> futureResponses = getFutures(request, configuration, service, nodes);
-        
+        final List<Response> futureResponses = getFutures(request, configuration, service, nodes);
+
         int acceptedCounter = 0;
-        
+
         for (final var resp :
                 futureResponses) {
             final Response response;
-            try {
-                response = resp.get();
-            } catch (InterruptedException | ExecutionException e) {
-                continue;
-            }
+            response = resp;
             if (response != null
                         && (response.getStatus() == 202 /* ACCEPTED */ || response.getStatus() == 201 /* CREATED */)) {
                 ++acceptedCounter;
@@ -137,9 +135,10 @@ public final class AsyncServiceUtility {
     
     /**
      * GetFutures and GetValuesFromFutures in one step.
-     * @param request request for GetFutures and GetValuesFromFutures
-     * @param parsed parsed for GetFutures and GetValuesFromFutures
-     * @param service service for GetFutures and GetValuesFromFutures
+     *
+     * @param request      request for GetFutures and GetValuesFromFutures
+     * @param parsed       parsed for GetFutures and GetValuesFromFutures
+     * @param service      service for GetFutures and GetValuesFromFutures
      * @param nodeReplicas nodeReplicas for GetFutures and GetValuesFromFutures
      * @return list of Table.Value
      */
@@ -148,30 +147,46 @@ public final class AsyncServiceUtility {
                                               @NotNull final Utility.ReplicationConfiguration parsed,
                                               @NotNull final AsyncService service,
                                               @NotNull final String... nodeReplicas) {
-        final List<Future<Response>> futureResponses = getFutures(request, parsed, service, nodeReplicas);
+        final List<Response> futureResponses = getFutures(request, parsed, service, nodeReplicas);
         return Utility.getValuesFromFutures(parsed, futureResponses);
     }
     
     /**
      * Produce list of responses over proxy(node, request, service).
-     * @param request request for proxy
+     *
+     * @param request       request for proxy
      * @param configuration replication configuration
-     * @param service AsyncService for proxying
-     * @param nodes dest nodes
+     * @param service       AsyncService for proxying
+     * @param nodes         dest nodes
      * @return list of responses
      */
     @NotNull
-    public static List<Future<Response>> getFutures(@NotNull final Request request,
-                                                    @NotNull final Utility.ReplicationConfiguration configuration,
-                                                    @NotNull final AsyncService service,
-                                                    @NotNull final String... nodes) {
-        final List<Future<Response>> futureResponses = new ArrayList<>(configuration.from);
+    private static List<Response> getFutures(@NotNull final Request request,
+                                             @NotNull final Utility.ReplicationConfiguration configuration,
+                                             @NotNull final AsyncService service,
+                                             @NotNull final String... nodes) {
+        final List<Response> futureResponses = new ArrayList<>(configuration.from);
+        int counter = 0;
         
         for (final var node :
                 nodes) {
             
             if (!node.equals(service.policy.homeNode())) {
-                futureResponses.add(service.es.submit(() -> proxy(node, request, service)));
+                final var response = proxy(node, request, service);
+                if (response != null
+                            &&
+                            (response.getStatus() == 202 /* ACCEPTED */
+                                     || response.getStatus() == 201 /* CREATED */
+                                     || response.getStatus() == 200 /* OK */)) {
+                    futureResponses.add(response);
+                    ++counter;
+                }
+            } else {
+                ++counter;
+            }
+            
+            if (counter >= configuration.ack) {
+                break;
             }
         }
         return futureResponses;
@@ -179,37 +194,22 @@ public final class AsyncServiceUtility {
     
     /**
      * Execute sending response depend on accepted counter.
-     * @param es ExecutorService for executing
+     *
+     * @param es            ExecutorService for executing
      * @param configuration replication configuration
-     * @param ackCounter counter of ack responses
-     * @param resp response to send if ackCounter >= configuration.ack
-     * @param session session for sending responses
+     * @param ackCounter    counter of ack responses
+     * @param resp          response to send if ackCounter >= configuration.ack
+     * @param session       session for sending responses
      */
     public static void sendAckFromResp(@NotNull final ExecutorService es,
                                        @NotNull final Utility.ReplicationConfiguration configuration,
                                        final int ackCounter,
                                        final Response resp,
-                                       @NotNull final HttpSession session) {
+                                       @NotNull final HttpSession session) throws IOException {
         if (ackCounter >= configuration.ack) {
-            es.execute(
-                    () -> {
-                        try {
-                            session.sendResponse(resp);
-                        } catch (IOException ioException) {
-                            AsyncService.logger.error("Error in sending resp", ioException);
-                        }
-                    }
-            );
+            session.sendResponse(resp);
         } else {
-            es.execute(
-                    () -> {
-                        try {
-                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, AsyncService.EMPTY));
-                        } catch (IOException ioException) {
-                            AsyncService.logger.error("Error in sending error", ioException);
-                        }
-                    }
-            );
+            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, AsyncService.EMPTY));
         }
     }
     
