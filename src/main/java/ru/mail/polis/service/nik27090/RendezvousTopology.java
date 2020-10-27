@@ -16,13 +16,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static ru.mail.polis.service.nik27090.HttpHelper.proxy;
-
 public class RendezvousTopology implements Topology<String> {
     @NotNull
     private final String[] nodes;
     @NotNull
     private final String currentNode;
+    @NotNull
+    private final HttpHelper httpHelper;
 
     /**
      * Rendezvous topology.
@@ -35,21 +35,22 @@ public class RendezvousTopology implements Topology<String> {
         this.currentNode = currentNode;
         assert nodes.contains(currentNode);
 
+        this.httpHelper = new HttpHelper();
         this.nodes = new String[nodes.size()];
         nodes.toArray(this.nodes);
     }
 
     @Override
-    public List<Response> getResponseFromNodes(List<String> nodes,
-                                               Request request,
-                                               Response localResponse,
-                                               Map<String, HttpClient> nodeToClient) {
+    public List<Response> getResponseFromNodes(final List<String> nodes,
+                                               final Request request,
+                                               final Response localResponse,
+                                               final Map<String, HttpClient> nodeToClient) {
         final List<Response> responses = new ArrayList<>(nodes.size());
-        for (String node : nodes) {
+        for (final String node : nodes) {
             if (isCurrentNode(node)) {
                 responses.add(localResponse);
             } else {
-                responses.add(proxy(node, request, nodeToClient));
+                responses.add(httpHelper.proxy(node, request, nodeToClient));
             }
         }
         return responses;

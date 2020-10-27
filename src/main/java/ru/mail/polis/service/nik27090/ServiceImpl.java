@@ -35,12 +35,12 @@ import java.util.stream.Collectors;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
-import static ru.mail.polis.service.nik27090.HttpHelper.sendResponse;
 
 public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
     private static final String REJECTED_EXECUTION_EXCEPTION = "Executor has been shut down or"
             + "executor uses finite bounds for both maximum threads and work queue capacity";
+    private static final String NOT_ENOUGH_REPLICAS = "Not enough replicas error with ack: {}, from: {}";
 
     @NotNull
     private final ExecutorService executorService;
@@ -50,7 +50,8 @@ public class ServiceImpl extends HttpServer implements Service {
     private final Map<String, HttpClient> nodeToClient;
     @NotNull
     private final DaoHelper daoHelper;
-    private final String NOT_ENOUGH_REPLICAS = "Not enough replicas error with ack: {}, from: {}";
+    @NotNull
+    private final HttpHelper httpHelper;
 
     /**
      * Service constructor.
@@ -72,6 +73,7 @@ public class ServiceImpl extends HttpServer implements Service {
         this.topology = topology;
         this.nodeToClient = new HashMap<>();
         this.daoHelper = new DaoHelper(dao);
+        this.httpHelper = new HttpHelper();
 
         for (final String node : topology.all()) {
             if (topology.isCurrentNode(node)) {
@@ -115,7 +117,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public void status(final HttpSession session) {
         log.debug("Request status.");
 
-        sendResponse(session, Response.ok("OK"));
+        httpHelper.sendResponse(session, Response.ok("OK"));
     }
 
     /**
@@ -136,12 +138,12 @@ public class ServiceImpl extends HttpServer implements Service {
             executorService.execute(() -> {
                 AckFrom ackFrom = topology.parseAckFrom(af);
                 if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
 
                 if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
 
@@ -164,15 +166,18 @@ public class ServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException e) {
             log.error(REJECTED_EXECUTION_EXCEPTION, e);
-            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+            httpHelper.sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
         }
     }
 
-    private void getEntityExecutor(String id, HttpSession session, Request request, AckFrom ackFrom) {
+    private void getEntityExecutor(final String id,
+                                   final HttpSession session,
+                                   final Request request,
+                                   final AckFrom ackFrom) {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
         if (topology.isProxyReq(request)) {
-            sendResponse(session, daoHelper.getEntity(key));
+            httpHelper.sendResponse(session, daoHelper.getEntity(key));
             return;
         }
 
@@ -187,17 +192,20 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
         if (notFailedResponses.size() < ackFrom.getAck()) {
             log.error(NOT_ENOUGH_REPLICAS, ackFrom.getAck(), ackFrom.getFrom());
-            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            httpHelper.sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         } else {
-            sendResponse(session, daoHelper.resolveGet(notFailedResponses));
+            httpHelper.sendResponse(session, daoHelper.resolveGet(notFailedResponses));
         }
     }
 
-    private void deleteEntityExecutor(String id, HttpSession session, Request request, AckFrom ackFrom) {
+    private void deleteEntityExecutor(final String id,
+                                      final HttpSession session,
+                                      final Request request,
+                                      final AckFrom ackFrom) {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
         if (topology.isProxyReq(request)) {
-            sendResponse(session, daoHelper.delEntity(key));
+            httpHelper.sendResponse(session, daoHelper.delEntity(key));
             return;
         }
 
@@ -212,21 +220,21 @@ public class ServiceImpl extends HttpServer implements Service {
 
         if (notFailedResponses.size() < ackFrom.getAck()) {
             log.error(NOT_ENOUGH_REPLICAS, ackFrom.getAck(), ackFrom.getFrom());
-            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            httpHelper.sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         } else {
-            sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
+            httpHelper.sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
         }
     }
 
     private void putEntityExecutor(final String id,
                                    final HttpSession session,
                                    final Request request,
-                                   @NotNull AckFrom ackFrom) {
+                                   final @NotNull AckFrom ackFrom) {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
         if (topology.isProxyReq(request)) {
-            sendResponse(session, daoHelper.putEntity(key, value));
+            httpHelper.sendResponse(session, daoHelper.putEntity(key, value));
             return;
         }
 
@@ -240,9 +248,9 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
         if (notFailedResponses.size() < ackFrom.getAck()) {
             log.error(NOT_ENOUGH_REPLICAS, ackFrom.getAck(), ackFrom.getFrom());
-            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            httpHelper.sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         } else {
-            sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
+            httpHelper.sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
         }
     }
 
@@ -250,7 +258,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public void handleDefault(final Request request, final HttpSession session) {
         log.debug("Can't understand request: {}", request);
 
-        sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+        httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override

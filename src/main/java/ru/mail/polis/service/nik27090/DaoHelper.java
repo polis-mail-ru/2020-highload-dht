@@ -54,7 +54,7 @@ public class DaoHelper {
         final Cell cell;
         try {
             cell = dao.getCell(key);
-            Value cellValue = cell.getValue();
+            final Value cellValue = cell.getValue();
             if (cellValue.isTombstone()) {
                 final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
                 response.addHeader(PROXY_HEADER + cellValue.getTimestamp());

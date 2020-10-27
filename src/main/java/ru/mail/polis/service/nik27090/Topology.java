@@ -10,22 +10,22 @@ import java.util.List;
 import java.util.Map;
 
 public interface Topology<N> {
-    List<Response> getResponseFromNodes(List<String> nodes,
-                                        Request request,
-                                        Response localResponse,
-                                        Map<String, HttpClient> nodeToClient);
+    List<Response> getResponseFromNodes(final List<String> nodes,
+                                        final Request request,
+                                        final Response localResponse,
+                                        final Map<String, HttpClient> nodeToClient);
 
     @NotNull
-    N[] getReplicas(@NotNull ByteBuffer key, int countReplicas);
+    N[] getReplicas(@NotNull final ByteBuffer key, final int countReplicas);
 
-    boolean isCurrentNode(@NotNull N node);
+    boolean isCurrentNode(@NotNull final N node);
 
     @NotNull
     N[] all();
 
-    AckFrom parseAckFrom(String askFrom);
+    AckFrom parseAckFrom(final String askFrom);
 
-    boolean isProxyReq(Request request);
+    boolean isProxyReq(final Request request);
 
     int size();
 }

@@ -16,7 +16,7 @@ import java.util.Map;
 public class HttpHelper {
     private static final Logger log = LoggerFactory.getLogger(HttpHelper.class);
 
-    public static void sendResponse(@NotNull final HttpSession session, @NotNull final Response response) {
+    public void sendResponse(@NotNull final HttpSession session, @NotNull final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
@@ -25,7 +25,7 @@ public class HttpHelper {
     }
 
     @NotNull
-    public static Response proxy(
+    public Response proxy(
             @NotNull final String node,
             @NotNull final Request request,
             @NotNull final Map<String, HttpClient> nodeToClient) {
