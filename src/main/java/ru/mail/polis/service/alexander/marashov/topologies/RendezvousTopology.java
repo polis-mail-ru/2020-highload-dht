@@ -42,7 +42,18 @@ public class RendezvousTopology implements Topology<String> {
     @NotNull
     @Override
     public String primaryFor(@NotNull final ByteBuffer key) {
-        return primariesFor(key, 1)[0];
+        final int keyHashCode = key.hashCode();
+        String maxNode = null;
+        int maxHashCode = -1;
+        for (final String node : nodes) {
+            final int hashCode = NodeKeyPair.hashCodeOf(node, keyHashCode);
+            if (maxNode == null || hashCode > maxHashCode) {
+                maxHashCode = hashCode;
+                maxNode = node;
+            }
+        }
+        assert maxNode != null;
+        return maxNode;
     }
 
     @Override
@@ -97,11 +108,15 @@ public class RendezvousTopology implements Topology<String> {
          */
         public NodeKeyPair(@NotNull final String node, final int keyHashCode) {
             this.node = node;
+            this.hashCode = hashCodeOf(node, keyHashCode);
+        }
+
+        public static int hashCodeOf(@NotNull final String node, final int keyHashCode) {
             int tmpHashCode = keyHashCode;
             for (int i = node.length() - 1; i >= 0; --i) {
                 tmpHashCode = 31 * tmpHashCode + node.charAt(i);
             }
-            this.hashCode = tmpHashCode;
+            return tmpHashCode;
         }
 
         @NotNull
