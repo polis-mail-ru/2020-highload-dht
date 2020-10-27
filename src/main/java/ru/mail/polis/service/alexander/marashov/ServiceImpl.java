@@ -194,25 +194,20 @@ public class ServiceImpl extends HttpServer implements Service {
             final HttpSession httpSession,
             final ByteBuffer key
     ) {
-        log.debug("Handle local row get");
         Value value = null;
         try {
             value = this.dao.rowGet(key);
-            log.debug("Local get without errors");
         } catch (final IOException e) {
             log.debug("Key not found", e);
         }
 
         Response response;
         if (value == null) {
-            log.debug("Local get NOT FOUND");
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
         } else {
             try {
-                log.debug("Local get FOUND");
                 final byte[] serializedData = ValueSerializer.serialize(value);
                 response = new Response(Response.OK, serializedData);
-                log.debug("Local get OK");
             } catch (IOException e) {
                 response = new Response(Response.INTERNAL_ERROR, Response.EMPTY);
                 log.error("Local get SERIALIZE ERROR");
@@ -252,8 +247,6 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    log.debug("get");
-
                     final int[] replicasParameters;
                     try {
                         replicasParameters = unpackReplicasParameter(replicas);
@@ -282,29 +275,21 @@ public class ServiceImpl extends HttpServer implements Service {
 
                     final String rowAccessHeader = request.getHeader("Row-Access");
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_GET))) {
-                        log.debug("get was proxied");
                         executeLocalRowGet(httpSession, key);
                         return;
                     }
-                    log.debug("get was NOT proxied");
 
                     final String[] primaries = topology.primariesFor(key, from);
                     final ResponseAnalyzerGet valueAnalyzer = new ResponseAnalyzerGet(ack, from);
-
-                    log.debug("GET needs ack = {}, from = {}, primaries = {}",
-                            ack, from, Arrays.toString(primaries));
 
                     request.addHeader("Row-Access" + Request.METHOD_GET);
                     for (final String primary : primaries) {
 
                         if (topology.isLocal(primary)) {
-
                             executorService.execute(() -> {
-                                log.debug("get, local execution");
                                 Value value = null;
                                 try {
                                     value = this.dao.rowGet(key);
-                                    log.debug("get, local execution, rowGet successful");
                                 } catch (final NoSuchElementException | IOException e) {
                                     log.debug("Key not found", e);
                                 }
@@ -312,14 +297,10 @@ public class ServiceImpl extends HttpServer implements Service {
                             });
 
                         } else {
-                            log.debug("get, primary = {} is NOT local", primary);
                             executorService.execute(() -> {
-
                                 Response response;
                                 try {
-                                    log.debug("get, proxy to another node");
                                     response = nodeToClient.get(primary).invoke(request);
-                                    log.debug("get, proxy success");
                                 } catch (final InterruptedException | PoolException | IOException | HttpException e) {
                                     response = null;
                                     log.error("Get: Error sending request to node {}", primary, e);
@@ -336,7 +317,6 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
 
                     final Response response = valueAnalyzer.getResult();
-                    log.debug("Get: response status = {}", response.getStatus());
                     sendAnswerOrError(httpSession, response);
                 }
         );
@@ -391,29 +371,19 @@ public class ServiceImpl extends HttpServer implements Service {
 
                     final String rowAccessHeader = request.getHeader("Row-Access");
                     if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_PUT))) {
-                        log.debug("put was proxied");
                         executeLocalPut(httpSession, key, value);
                         return;
                     }
-                    log.debug("put was not proxied");
-
 
                     final String[] primaries = topology.primariesFor(key, from);
-
-                    log.debug("PUT needs ack = {}, from = {}, primaries = {}",
-                            ack, from, Arrays.toString(primaries));
-
                     final ResponseAnalyzer<Boolean> responseAnalyzer = new ResponseAnalyzerPut(ack, from);
 
                     request.addHeader("Row-Access" + Request.METHOD_PUT);
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
-                            log.debug("put, primary = {} is local", primary);
                             executorService.execute(() -> {
-                                log.debug("put, local execution");
                                 try {
                                     this.dao.upsert(key, value);
-                                    log.debug("put, local exe, OK");
                                     responseAnalyzer.accept(true);
                                 } catch (final IOException e) {
                                     log.error("Upsert method error", e);
@@ -421,12 +391,10 @@ public class ServiceImpl extends HttpServer implements Service {
                                 }
                             });
                         } else {
-                            log.debug("put, primary = {} is NOT local", primary);
                             executorService.execute(() -> {
                                 Response response = null;
                                 try {
                                     response = nodeToClient.get(primary).invoke(request);
-                                    log.debug("put, proxy answer has successful result");
                                 } catch (final InterruptedException | PoolException | IOException | HttpException e) {
                                     log.error("Upsert: Error sending request to node {}", primary, e);
                                 }
@@ -441,7 +409,6 @@ public class ServiceImpl extends HttpServer implements Service {
                         log.error("Responses waiting was interrupted");
                     }
                     final Response response = responseAnalyzer.getResult();
-                    log.debug("put, response ready, status = {}", response.getStatus());
                     sendAnswerOrError(httpSession, response);
                 }
         );
