@@ -101,7 +101,6 @@ public final class ServiceImpl extends HttpServer implements Service {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
-
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
         final ReplicasFactor replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
         if (replicasFactor.getAck() < 1
@@ -136,7 +135,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .stream()
                 .map(node -> {
                     try {
-                        return !topology.isNotMe(node)
+                        return topology.isMe(node)
                                 ? action.act()
                                 : proxy(node, request);
                     } catch (IOException e) {

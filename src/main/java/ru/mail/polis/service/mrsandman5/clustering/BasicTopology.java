@@ -53,8 +53,8 @@ public final class BasicTopology<T> implements Topology<T> {
     }
 
     @Override
-    public boolean isNotMe(@NotNull final T node) {
-        return !me.equals(node);
+    public boolean isMe(@NotNull final T node) {
+        return me.equals(node);
     }
 
     @NotNull

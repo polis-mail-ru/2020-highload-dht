@@ -17,7 +17,7 @@ import java.util.TreeMap;
  * */
 public final class ConsistentHashingTopology<T> implements Topology<T> {
 
-    private final static String BETA = "UnstableApiUsage";
+    private static final String BETA = "UnstableApiUsage";
     private final T me;
     @NotNull
     private final Set<T> topology;
@@ -71,8 +71,8 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     }
 
     @Override
-    public boolean isNotMe(@NotNull final T node) {
-        return !me.equals(node);
+    public boolean isMe(@NotNull final T node) {
+        return me.equals(node);
     }
 
     @NotNull

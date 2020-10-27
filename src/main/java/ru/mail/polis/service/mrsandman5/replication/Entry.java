@@ -2,6 +2,7 @@ package ru.mail.polis.service.mrsandman5.replication;
 
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.utils.ByteUtils;
@@ -23,11 +24,12 @@ public final class Entry implements Comparable<Entry> {
     }
 
     private final long timestamp;
+    @Nullable
     private final byte[] data;
     private final State state;
 
     private Entry(final long timestamp,
-                 final byte[] data,
+                 @Nullable final byte[] data,
                  @NotNull final State state) {
         this.timestamp = timestamp;
         this.data = data;
@@ -38,6 +40,7 @@ public final class Entry implements Comparable<Entry> {
         return timestamp;
     }
 
+    @Nullable
     public byte[] getData() {
         return data;
     }

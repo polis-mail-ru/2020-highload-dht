@@ -16,10 +16,14 @@ public interface Topology<T> {
     Set<T> replicasFor(@NotNull final ByteBuffer key,
                        @NotNull final ReplicasFactor replicasFactor);
 
-    boolean isNotMe(@NotNull final T node);
+    boolean isMe(@NotNull final T node);
 
     @NotNull
     Set<T> all();
+
+    default boolean isNotMe(@NotNull final T node) {
+        return !isMe(node);
+    }
 
     /** Find all nodes, which doesn't belong to topology.
      */
