@@ -3,6 +3,9 @@ package ru.mail.polis.service.ivanovandrey;
 import one.nio.http.Response;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public class ResponseComposer {
     private Response requiredResponse;
@@ -29,7 +32,7 @@ public class ResponseComposer {
         if (response.getStatus() == 404) {
             notFoundAnswers++;
         }
-        if (response.getStatus() == 310) {
+        if (Arrays.equals(response.getBody(), "deleted".getBytes(StandardCharsets.UTF_8))) {
             wasRemoved = true;
         }
     }
@@ -43,11 +46,11 @@ public class ResponseComposer {
         var res = requiredResponse;
         final int ackCountRetrieved = goodAnswers + notFoundAnswers;
         if (wasRemoved) {
-            res = new Response(Response.NOT_FOUND);
+            res = new Response(Response.NOT_FOUND, Response.EMPTY);
         } else if (ackCountRetrieved < this.ackCount) {
-            res = new Response(NOT_ENOUGH_REPLICAS);
+            res = new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY);
         } else if (goodAnswers == 0 && notFoundAnswers > 0) {
-            res = new Response(Response.NOT_FOUND);
+            res = new Response(Response.NOT_FOUND, Response.EMPTY);
         }
         return res;
     }

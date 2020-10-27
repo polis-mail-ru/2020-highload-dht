@@ -2,7 +2,6 @@ package ru.mail.polis.service.ivanovandrey;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -12,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -24,6 +22,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,13 +37,6 @@ import static one.nio.http.Request.METHOD_PUT;
 public class AsyncServiceImpl extends HttpServer implements Service {
 
     private static final String ERROR_MESSAGE = "Can't send response. Session {}";
-    private static final String RESP_ERR = "Response can't be sent: ";
-    private static final String SERV_UN = "Service unavailable: ";
-    private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
-   // private static final String MYSELF_PARAMETER = "myself";
-   // private static final String REMOVED_PERMANENTLY = "310 Removed Permanently";
-    //private static final String DELETED_SPECIAL_VALUE = "P**J$#RFh7e3j89ri(((8873uj33*&&*&&";
-
 
     @NotNull
     private final DAO dao;
@@ -76,7 +68,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final Map<String, HttpClient> clientsQueue = new HashMap<>();
         for (final String it : simpleTopology.getNodes()) {
             if (!simpleTopology.getMe().equals(it) && !clientsQueue.containsKey(it)) {
-                clientsQueue.put(it, new HttpClient(new ConnectionString(it + "?timeout=100")));
+                final var client = new HttpClient(new ConnectionString(it + "?timeout=1000"));
+                client.setConnectTimeout(100);
+                client.setTimeout(100);
+                client.setReadTimeout(100);
+                clientsQueue.put(it, client);
             }
         }
         this.clients = clientsQueue;
@@ -96,22 +92,35 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private Future<Response> forwardRequestFuture (@NotNull final String cluster,
-                                    final Request request) throws IOException {
+                                    final Request request) {
         try {
             return service.submit(() -> forwardRequest(cluster, request));
         } catch (RejectedExecutionException ex) {
-            log.error(SERV_UN, ex);
+            log.error("Service unavailable: ", ex);
             return null;
         }
     }
 
     private Response forwardRequest(@NotNull final String cluster,
-                                      final Request request) throws IOException {
+                                      final Request request) {
         try {
-            return clients.get(cluster).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("fail", e);
+            return clients.get(cluster).invoke(getSpecialRequest(request));
+        } catch (Exception e) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
+    }
+
+    private static Request getSpecialRequest(final Request request) {
+        if (request.getParameter("special") != null) {
+            return request;
+        }
+        final var newURI = request.getURI() + "&special=";
+        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
+        for (int i = 0; i < request.getHeaderCount(); i++) {
+            res.addHeader(request.getHeaders()[i]);
+        }
+        res.setBody(request.getBody());
+        return res;
     }
 
     /**
@@ -125,37 +134,32 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void entity(@NotNull @Param(value = "id", required = true) final String id,
                        @NotNull final Request request,
+                       final @Param(value = "special") String special,
                        final @Param(value = "replicas") String replicasParam,
-                       final HttpSession session) throws IOException {
+                       final HttpSession session) {
         if (id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-
-        final ByteBuffer key = strToByteBuffer(id, UTF_8);
-        final String keyCluster = simpleTopology.primaryFor(key);
-
-         if (!simpleTopology.getMe().equals(keyCluster)) {
-            service.execute(() -> {
-                try {
-                    final var resp = forwardRequest(keyCluster, request);
-                    session.sendResponse(resp);
-                } catch (IOException e) {
-                    try {
-                        session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-                    } catch (IOException ex) {
-                        log.error(ERROR_MESSAGE, session, ex);
-                    }
+        if (special != null) {
+            final var resp = processRequest(id, request);
+            try {
+                if (resp == null) {
+                    trySendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } else {
+                    trySendResponse(session, resp.get());
                 }
-            });
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("Service unavailable: ", e);
+            }
             return;
         }
         final Replica replicas;
         try {
             replicas = new Replica(replicasParam, simpleTopology.getNodes().length);
         } catch (ReplicasParamParseException ex) {
-            log.error(BAD_REPL_PARAM, ex);
-            trySendResponse(session, new Response(Response.BAD_REQUEST));
+            log.error("Bad replicas-param: ", ex);
+            trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
         sendToReplicas(id, replicas, session, request);
@@ -164,7 +168,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private void sendToReplicas(final @Param(value = "id", required = true) String key,
                                 @NotNull final Replica replicas,
                                 @NotNull final HttpSession session,
-                                final @Param("request") Request request) throws IOException {
+                                final @Param("request") Request request) {
         final var responsibleNodes = simpleTopology.responsibleNodes(key, replicas);
         final var answers = new ArrayList<Future<Response>>(responsibleNodes.size());
         for (final var node : responsibleNodes) {
@@ -234,17 +238,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param id      - key.
      */
     public Response get(@NotNull @Param(value = "id", required = true) final ByteBuffer id) {
-            try {
-                final ByteBuffer val;
-                val = dao.get(id);
-                return Response.ok(Converter.fromByteBufferToByteArray(val));
-            } catch (NoSuchElementException e) {
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (IOException e) {
-                log.error("Error in get request", e);
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-
+        try {
+            final ByteBuffer val;
+            val = dao.get(id);
+            return Response.ok(Converter.fromByteBufferToByteArray(val));
+        } catch (NoSuchElementException e) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException e) {
+            log.error("Error in get request", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
     }
 
     /**
@@ -255,15 +258,15 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     public Response put(@NotNull @Param(value = "id", required = true) final ByteBuffer id,
                     @NotNull @Param(value = "request", required = true) final Request request) {
-            try {
-                final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                dao.upsert(id, value);
-                return new Response(Response.CREATED, Response.EMPTY);
-                } catch (IOException ex) {
-                    log.error(ERROR_MESSAGE, ex);
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                }
-            }
+        try {
+            final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+            dao.upsert(id, value);
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (IOException ex) {
+            log.error(ERROR_MESSAGE, ex);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
 
     /**
      * Delete data by key.
@@ -272,7 +275,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     public Response delete(@NotNull @Param(value = "id", required = true) final ByteBuffer id) {
             try {
-                dao.remove(id);
+                dao.upsert(id, ByteBuffer.wrap("deleted".getBytes(StandardCharsets.UTF_8)));
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             } catch (NoSuchElementException e) {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -287,22 +290,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             session.sendResponse(response);
         } catch (IOException ex) {
-            log.error(RESP_ERR, session, ex);
+            log.error("Response can't be sent:", session, ex);
         }
     }
-
-    /*private static Request addMyselfParamToRequest(final Request request) {
-        if (request.getParameter(MYSELF_PARAMETER) != null) {
-            return request;
-        }
-        final var newURI = request.getURI() + "&" + MYSELF_PARAMETER + "=";
-        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
-        for (int i = 0; i < request.getHeaderCount(); i++) {
-            res.addHeader(request.getHeaders()[i]);
-        }
-        res.setBody(request.getBody());
-        return res;
-    }*/
 
     @Override
     public void handleDefault(@NotNull final Request request,
@@ -312,5 +302,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     public static ByteBuffer strToByteBuffer(final String msg, final Charset charset) {
         return ByteBuffer.wrap(msg.getBytes(charset));
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        service.shutdown();
+        try {
+            if (!service.awaitTermination(1, TimeUnit.SECONDS)) {
+                service.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            service.shutdownNow();
+        }
+        for (final var client : clients.entrySet()) {
+            client.getValue().close();
+        }
+        clients.clear();
     }
 }

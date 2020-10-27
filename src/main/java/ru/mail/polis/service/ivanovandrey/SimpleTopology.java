@@ -31,10 +31,6 @@ public class SimpleTopology {
         return this.me;
     }
 
-    
-    String primaryFor(@NotNull final ByteBuffer key){
-        return nodes[(key.hashCode() & Integer.MAX_VALUE) % nodes.length];
-    }
     String[] getNodes() {
         return nodes.clone();
     }
