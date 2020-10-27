@@ -112,7 +112,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private void separateMethodForCodeClimate(@NotNull final HttpSession session,
-                                              @NotNull final Response response){
+                                              @NotNull final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
@@ -140,8 +140,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             return clusterClients.get(node).invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            final String ex = "Failed to forward request to " + node + e;
-            throw new IOException(ex);
+            throw new IOException("Failed to forward request" + e);
         }
     }
 
