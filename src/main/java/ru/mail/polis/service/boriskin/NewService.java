@@ -1,6 +1,8 @@
 package ru.mail.polis.service.boriskin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -9,6 +11,8 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -19,9 +23,12 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -41,9 +48,16 @@ public class NewService extends HttpServer implements Service {
 
     @NotNull
     private final ExecutorService executorService;
-
     @NotNull
     private final DAO dao;
+    @NotNull
+    private final Topology<String> topology;
+    @NotNull
+    private final Map<String, HttpClient> nodeToClientMap;
+
+    private enum Operations {
+        GETTING, UPSERTING, REMOVING
+    }
 
     /**
      * Конструктор {@link NewService}.
@@ -54,28 +68,34 @@ public class NewService extends HttpServer implements Service {
      * @param queueSize размер очереди
      * @throws IOException возможна ошибка при неправильных параметрах
      */
-    public NewService(
-            final int port,
-            @NotNull final DAO dao,
-            final int workers,
-            final int queueSize) throws IOException {
+    public NewService(final int port,
+                      @NotNull final DAO dao,
+                      final int workers,
+                      final int queueSize,
+                      @NotNull final Topology<String> topology) throws IOException {
         super(getConfigFrom(port));
-
         assert 0 < workers;
         assert 0 < queueSize;
-
         this.dao = dao;
         this.executorService = new ThreadPoolExecutor(
                 workers,
                 workers,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) ->
-                                logger.error("Ошибка в {}, возникла при обработке запроса", t, e))
-                        .build(),
+                new ThreadFactoryBuilder().setNameFormat("worker-%d").setUncaughtExceptionHandler((t, e) ->
+                        logger.error("Ошибка в {}, возникла при обработке запроса", t, e)).build(),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.topology = topology;
+        this.nodeToClientMap = new HashMap<>();
+        for (final String node : topology.all()) {
+            if (topology.isMyNode(node)) {
+                continue;
+            }
+            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (nodeToClientMap.put(node, httpClient) != null) {
+                throw new IllegalStateException("Duplicate Node!");
+            }
+        }
     }
 
     @NotNull
@@ -84,7 +104,6 @@ public class NewService extends HttpServer implements Service {
         acceptorConfig.port = port;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
-
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
@@ -95,7 +114,6 @@ public class NewService extends HttpServer implements Service {
         if (!byteBuffer.hasRemaining()) {
             return Response.EMPTY;
         }
-
         final byte[] result = new byte[byteBuffer.remaining()];
         byteBuffer.get(result);
         assert !byteBuffer.hasRemaining();
@@ -109,15 +127,12 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession) {
+    public void get(@Param(value = "id", required = true) final String id,
+                    @NotNull final HttpSession httpSession,
+                    @NotNull final Request request) throws IOException {
         idValidation(id, httpSession);
-
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        getting(
-                key,
-                httpSession);
+        runExecutorService(key, httpSession, request, Operations.GETTING);
     }
 
     /**
@@ -128,18 +143,12 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(
-            @Param(value = "id", required = true) final String id,
-            final Request request,
-            @NotNull final HttpSession httpSession
-    ) {
+    public void put(@Param(value = "id", required = true) final String id,
+                    final Request request,
+                    @NotNull final HttpSession httpSession) throws IOException {
         idValidation(id, httpSession);
-
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        upserting(
-                key,
-                request,
-                httpSession);
+        runExecutorService(key, httpSession, request, Operations.UPSERTING);
     }
 
     /**
@@ -149,113 +158,108 @@ public class NewService extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession
-    ) {
+    public void delete(@Param(value = "id", required = true) final String id,
+                       @NotNull final HttpSession httpSession,
+                       @NotNull final Request request) throws IOException {
         idValidation(id, httpSession);
-
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        removing(
-                key,
-                httpSession);
+        runExecutorService(key, httpSession, request, Operations.REMOVING);
     }
 
-    private void idValidation(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final HttpSession httpSession) {
+    private void idValidation(@Param(value = "id", required = true) final String id,
+                              @NotNull final HttpSession httpSession) {
         if (id.isEmpty()) {
-            try {
-                httpSession.sendResponse(resp(Response.BAD_REQUEST));
-            } catch (IOException ioException) {
-                logger.error("Не плучается отправить запрос", ioException);
-            }
+            resp(httpSession, Response.BAD_REQUEST);
         }
     }
 
-    private void getting(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                doGet(key, httpSession);
-            } catch (IOException ioException) {
-                logger.error("Ошибка в getting ", ioException);
-            }
-        });
+    private void runExecutorService(@NotNull final ByteBuffer key,
+                                    @NotNull final HttpSession httpSession,
+                                    @NotNull final Request request,
+                                    @NotNull final Operations operation) throws IOException {
+        final String node = topology.primaryFor(key);
+        try {
+            executorService.execute(() -> {
+                if (topology.isMyNode(node)) { // локальный ли запрос?
+                    operation(key, httpSession, request, operation);
+                } else {
+                    proxy(node, httpSession, request);
+                }
+            });
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            logger.error("Ошибка при выполнении операции {} ", operation, rejectedExecutionException);
+            resp(httpSession, Response.SERVICE_UNAVAILABLE);
+        }
     }
 
-    private void doGet(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) throws IOException {
+    private void operation(@NotNull final ByteBuffer key,
+                           @NotNull final HttpSession httpSession,
+                           @NotNull final Request request,
+                           @NotNull final Operations operation) {
         try {
-            httpSession.sendResponse(
-                    Response.ok(
-                            toByteArray(dao.get(key)))
-            );
-        } catch (NoSuchElementException e) {
-            httpSession.sendResponse(resp(Response.NOT_FOUND));
+            switch (operation) {
+                case GETTING:
+                    doGet(key, httpSession);
+                    break;
+                case UPSERTING:
+                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                    doUpsert(key, httpSession, value);
+                    break;
+                case REMOVING:
+                    doRemove(key, httpSession);
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + operation);
+            }
+        } catch (IOException ioException) {
+            logger.error("Ошибка в {}: ", operation, ioException);
+        }
+    }
+
+    private void doGet(@NotNull final ByteBuffer key,
+                       @NotNull final HttpSession httpSession) throws IOException {
+        try {
+            httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
+        } catch (NoSuchElementException noSuchElementException) {
+            resp(httpSession, Response.NOT_FOUND);
         } catch (IOException ioException) {
             logger.error("Ошибка в GET: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
-    private void upserting(
-            @NotNull final ByteBuffer key,
-            final Request request,
-            @NotNull final HttpSession httpSession) {
-        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-        executorService.execute(() -> {
-            try {
-                doUpsert(
-                        key,
-                        httpSession,
-                        value);
-            } catch (IOException ioException) {
-                logger.error("Ошибка в upserting ", ioException);
-            }
-        });
-    }
-
-    private void doUpsert(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession,
+    private void doUpsert(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession httpSession,
             final ByteBuffer value) throws IOException {
         try {
             dao.upsert(key, value);
-            httpSession.sendResponse(resp(Response.CREATED));
+            resp(httpSession, Response.CREATED);
         } catch (IOException ioException) {
-            logger.error("Ошибка в PUT: {}, значение: {}",toByteArray(key), toByteArray(value));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            logger.error("Ошибка в PUT: {}, значение: {}", toByteArray(key), toByteArray(value));
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
-    private void removing(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                doRemove(
-                        key,
-                        httpSession);
-            } catch (IOException ioException) {
-                logger.error("Ошибка в removing ", ioException);
-            }
-        });
-    }
-
-    private void doRemove(
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession httpSession) throws IOException {
+    private void doRemove(@NotNull final ByteBuffer key,
+                          @NotNull final HttpSession httpSession) throws IOException {
         try {
             dao.remove(key);
-            httpSession.sendResponse(
-                    resp(Response.ACCEPTED)
-            );
+            resp(httpSession, Response.ACCEPTED);
         } catch (IOException ioException) {
             logger.error("Ошибка в DELETE: {}", toByteArray(key));
-            httpSession.sendResponse(resp(Response.INTERNAL_ERROR));
+            resp(httpSession, Response.INTERNAL_ERROR);
+        }
+    }
+
+    private void proxy(@NotNull final String node,
+                       @NotNull final HttpSession httpSession,
+                       @NotNull final Request request) {
+        try {
+            request.addHeader("X-Proxy-For: " + node);
+            httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
+        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
+            logger.error("Не получилось проксировать запрос ", exception);
+            resp(httpSession, Response.INTERNAL_ERROR);
         }
     }
 
@@ -265,14 +269,8 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession сессия
      */
     @Path("/v0/status")
-    public void status(final HttpSession httpSession) {
-        executorService.execute(() -> {
-            try {
-                httpSession.sendResponse(Response.ok("OK"));
-            } catch (IOException ioException) {
-                logger.error("Ошибка при ответе", ioException);
-            }
-        });
+    public Response status(final HttpSession httpSession) {
+        return Response.ok("OK");
     }
 
     /**
@@ -280,19 +278,21 @@ public class NewService extends HttpServer implements Service {
      *
      * @param request Запрос
      * @param httpSession Диалоговое состояние
-     * @throws IOException Возможна проблема ввода-вывода
      */
     @Override
-    public void handleDefault(
-            final Request request,
-            final HttpSession httpSession
-    ) throws IOException {
+    public void handleDefault(final Request request,
+                              final HttpSession httpSession) {
         logger.error("Непонятный запрос: {}", request);
-        httpSession.sendResponse(resp(Response.BAD_REQUEST));
+        resp(httpSession, Response.BAD_REQUEST);
     }
 
-    private Response resp(final String response) {
-        return new Response(response, Response.EMPTY);
+    private void resp(@NotNull final HttpSession httpSession,
+                      @NotNull final String response) {
+        try {
+            httpSession.sendResponse(new Response(response, Response.EMPTY));
+        } catch (IOException ioException) {
+            logger.error("Ошибка при отправке ответа ({}) ", response, ioException);
+        }
     }
 
     @Override
@@ -304,6 +304,9 @@ public class NewService extends HttpServer implements Service {
         } catch (InterruptedException interruptedException) {
             logger.error("Не получилось завершить Executor Service", interruptedException);
             Thread.currentThread().interrupt();
+        }
+        for (final HttpClient httpClient : nodeToClientMap.values()) {
+            httpClient.clear();
         }
     }
 }
