@@ -139,10 +139,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - HttpSession
      */
     @Path("/v0/entity")
-    public void entity(@NotNull @Param("id") final String id,
+    public void entity(@Param("id") final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
+        if (id == null || id.isEmpty()) {
             try {
                 log.info("id is empty");
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
