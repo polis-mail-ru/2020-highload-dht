@@ -91,12 +91,13 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
             if (
                     correctValue == null
                             || count > maxCount
-                            || (count == maxCount && value.compareTo(correctValue) > 0)
+                            || count == maxCount && value.compareTo(correctValue) > 0
             ) {
                 maxCount = count;
                 correctValue = value;
             }
         }
+        assert correctValue != null;
         return new Response(Response.OK, correctValue.getData().array());
     }
 }

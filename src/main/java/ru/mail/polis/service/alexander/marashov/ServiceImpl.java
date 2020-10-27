@@ -45,6 +45,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private static final String RESPONSE_ERROR_STRING = "Sending response error";
     private static final String ROW_ACCESS_HEADER = "Row-Access";
+    private static final String WAITING_INTERRUPTED = "Responses waiting was interrupted";
 
     private final DAO dao;
     private final ExecutorService executorService;
@@ -147,11 +148,11 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private static int[] unpackReplicasParameter(final String replicas) throws NumberFormatException {
         if (replicas == null) {
-            return null;
+            return new int[0];
         }
         final List<String> parameters = Splitter.on('/').splitToList(replicas);
         if (parameters.size() != 2) {
-            return null;
+            return new int[0];
         }
 
         final int ack = Integer.parseInt(parameters.get(0));
@@ -264,7 +265,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
                     final int ack;
                     final int from;
-                    if (replicasParameters == null) {
+                    if (replicasParameters.length == 0) {
                         ack = defaultAck;
                         from = defaultFrom;
                     } else {
@@ -319,7 +320,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         valueAnalyzer.await(1000L, TimeUnit.MILLISECONDS);
                     } catch (final InterruptedException e) {
-                        log.error("Responses waiting was interrupted", e);
+                        log.error(WAITING_INTERRUPTED, e);
+                        Thread.currentThread().interrupt();
                     }
 
                     final Response response = valueAnalyzer.getResult();
@@ -358,7 +360,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
                     final int ack;
                     final int from;
-                    if (replicasParameters == null) {
+                    if (replicasParameters.length == 0) {
                         ack = defaultAck;
                         from = defaultFrom;
                     } else {
@@ -412,7 +414,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
                     } catch (final InterruptedException e) {
-                        log.error("Responses waiting was interrupted");
+                        log.error(WAITING_INTERRUPTED);
+                        Thread.currentThread().interrupt();
                     }
                     final Response response = responseAnalyzer.getResult();
                     sendAnswerOrError(httpSession, response);
@@ -449,7 +452,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
                     final int ack;
                     final int from;
-                    if (replicasParameters == null) {
+                    if (replicasParameters.length == 0) {
                         ack = defaultAck;
                         from = defaultFrom;
                     } else {
@@ -482,17 +485,17 @@ public class ServiceImpl extends HttpServer implements Service {
                     for (final String primary : primaries) {
                         if (topology.isLocal(primary)) {
                             executorService.execute(() -> {
-                                try {
-                                    this.dao.remove(key);
-                                    responseAnalyzer.accept(true);
-                                } catch (final IOException e) {
-                                    log.error("Delete entity method error", e);
-                                    responseAnalyzer.accept(false);
-                                }
+                                final Response response = executeLocalDelete(key);
+                                responseAnalyzer.accept(response);
                             });
                         } else {
                             executorService.execute(() -> {
-                                final Response response = executeLocalDelete(key);
+                                Response response = null;
+                                try {
+                                    response = nodeToClient.get(primary).invoke(request);
+                                } catch (final InterruptedException | PoolException | IOException | HttpException e) {
+                                    log.error("Delete: Error sending request to node {}", primary, e);
+                                }
                                 responseAnalyzer.accept(response);
                             });
                         }
@@ -501,7 +504,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
                     } catch (final InterruptedException e) {
-                        log.error("Responses waiting was interrupted");
+                        log.error(WAITING_INTERRUPTED);
+                        Thread.currentThread().interrupt();
                     }
 
                     final Response response = responseAnalyzer.getResult();
