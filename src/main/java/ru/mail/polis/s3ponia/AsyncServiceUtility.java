@@ -39,7 +39,7 @@ public final class AsyncServiceUtility {
                 service.es.execute(
                         () -> {
                             try {
-                                AsyncServiceUtility.upsertWithTimeStamp(key, value, session, time, service.dao);
+                                upsertWithTimeStamp(key, value, session, time, service.dao);
                             } catch (IOException ioException) {
                                 AsyncService.logger.error("Error in sending put request", ioException);
                             }
@@ -49,14 +49,14 @@ public final class AsyncServiceUtility {
             }
             
             final Utility.ReplicationConfiguration parsed =
-                    AsyncServiceUtility.getReplicationConfiguration(replicas, session, service);
+                    getReplicationConfiguration(replicas, session, service);
             if (parsed == null) return;
             
             final var currTime = System.currentTimeMillis();
             request.addHeader(Utility.TIME_HEADER + ": " + currTime);
             
             final var nodes = service.policy.getNodeReplicas(key, parsed.from);
-            int createdCounter = AsyncServiceUtility.getCounter(request, parsed, service, nodes);
+            int createdCounter = getCounter(request, parsed, service, nodes);
             
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
             
@@ -70,7 +70,7 @@ public final class AsyncServiceUtility {
                 }
             }
             
-            AsyncServiceUtility.sendAckFromResp(service.es, parsed, createdCounter,
+            sendAckFromResp(service.es, parsed, createdCounter,
                     new Response(Response.CREATED, AsyncService.EMPTY),
                     session);
         } catch (Exception e) {
