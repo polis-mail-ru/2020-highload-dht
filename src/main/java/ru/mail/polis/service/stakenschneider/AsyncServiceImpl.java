@@ -29,7 +29,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
@@ -95,40 +94,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return new StorageSession(socket, this);
     }
 
-    private void executeAsync(@NotNull final HttpSession session,
-                              @NotNull final Action action) {
-        try {
-            executor.execute(() -> {
-                final Response response = responseAct(session, action);
-                separateMethodForCodeClimate(session, response);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("task cannot be accepted for execution", e);
-        }
-    }
-
-    private void separateMethodForCodeClimate(@NotNull final HttpSession session,
-                                              @NotNull final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            log.warn("send response fail", e);
-        }
-    }
-
-    private Response responseAct(@NotNull final HttpSession session,
-                                 @NotNull final Action action) {
-        try {
-            return action.act();
-        } catch (IOException e) {
+    private void executeAsync(@NotNull final HttpSession session, @NotNull final Action action) {
+        executor.execute(() -> {
             try {
-                session.sendError(Response.INTERNAL_ERROR, e.getMessage());
-            } catch (IOException ex) {
-                log.error("something has gone terribly wrong", e);
-                e.printStackTrace();
+                session.sendResponse(action.act());
+            } catch (IOException e) {
+                try {
+                    session.sendError(Response.INTERNAL_ERROR, e.getMessage());
+                } catch (IOException ex) {
+                    log.error("something has gone terribly wrong " + e);
+                }
             }
-        }
-        return null;
+        });
     }
 
     @FunctionalInterface
