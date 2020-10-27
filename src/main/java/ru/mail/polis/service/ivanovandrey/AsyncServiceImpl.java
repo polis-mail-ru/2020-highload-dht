@@ -2,6 +2,7 @@ package ru.mail.polis.service.ivanovandrey;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -11,6 +12,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,13 +23,17 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
@@ -59,11 +65,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         this.dao = dao;
         final int countOfWorkers = Runtime.getRuntime().availableProcessors();
         service = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
-                TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(1024),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("async_worker-%d")
-                        .build());
+                TimeUnit.SECONDS, new ArrayBlockingQueue<>(1024),
+                new ThreadFactoryBuilder().setNameFormat("async_worker-%d").build());
         this.simpleTopology = simpleTopology;
         final Map<String, HttpClient> clientsQueue = new HashMap<>();
         for (final String it : simpleTopology.getNodes()) {
@@ -102,10 +105,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private Response forwardRequest(@NotNull final String cluster,
-                                      final Request request) {
+                                      final Request request) throws HttpException, PoolException, InterruptedException {
+
         try {
             return clients.get(cluster).invoke(SimpleTopology.getSpecialRequest(request));
-        } catch (Exception e) {
+        } catch (IOException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
@@ -153,8 +157,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private void sendToReplicas(final @Param(value = "id", required = true) String key,
-                                @NotNull final Replica replicas,
-                                @NotNull final HttpSession session,
+                                @NotNull final Replica replicas, @NotNull final HttpSession session,
                                 final @Param("request") Request request) {
         final var responsibleNodes = simpleTopology.responsibleNodes(key, replicas);
         final var answers = new ArrayList<Future<Response>>(responsibleNodes.size());
@@ -181,6 +184,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final var requiredResponse = composer.getComposedResponse();
         trySendResponse(session, requiredResponse);
     }
+
     private Future<Response> processRequest(final @Param(value = "id", required = true) String id,
                                             final @Param("request") Request request) {
         try {
@@ -296,6 +300,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 service.shutdownNow();
             }
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             service.shutdownNow();
         }
         for (final var client : clients.entrySet()) {

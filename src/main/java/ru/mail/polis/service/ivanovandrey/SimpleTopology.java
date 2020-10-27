@@ -46,6 +46,11 @@ public class SimpleTopology {
        return res;
     }
 
+    /**
+     * Convert request to special request.
+     *
+     * @param request - topology.
+     */
     public static Request getSpecialRequest(final Request request) {
         if (request.getParameter("special") != null) {
             return request;
