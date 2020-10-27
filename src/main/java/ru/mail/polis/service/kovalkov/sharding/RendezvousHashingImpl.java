@@ -67,6 +67,7 @@ public class RendezvousHashingImpl implements Topology<String> {
         return allNodes.length;
     }
 
+    @NotNull
     @Override
     public String[] allNodes() {
         return allNodes.clone();
