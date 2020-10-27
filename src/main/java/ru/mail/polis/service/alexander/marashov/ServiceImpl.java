@@ -319,5 +319,10 @@ public class ServiceImpl extends HttpServer implements Service {
         for (final HttpClient client: nodeToClient.values()) {
             client.clear();
         }
+        try {
+            dao.close();
+        } catch (IOException e) {
+            log.error("Error closing DAO");
+        }
     }
 }

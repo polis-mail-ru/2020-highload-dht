@@ -7,7 +7,9 @@ public interface Topology<N> {
 
     N primaryFor(final ByteBuffer key);
 
-    String[] all();
+    N[] primariesFor(final ByteBuffer key, final int nodesCount);
+
+    N[] all();
 
     int size();
 }
