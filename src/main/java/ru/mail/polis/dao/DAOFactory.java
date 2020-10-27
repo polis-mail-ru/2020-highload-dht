@@ -1,3 +1,4 @@
+package ru.mail.polis.dao;
 /* Copyright 2020 (c) OK
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.suhova.TurboDAO;
