@@ -16,13 +16,21 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutorService;
 
 public final class AsyncServiceUtility {
     
     private AsyncServiceUtility() {
     }
     
+    /**
+     * Put implementation for AsyncService.
+     *
+     * @param id       id parameter in uri
+     * @param replicas replicas parameter in uri
+     * @param request  user request
+     * @param session  user session
+     * @param service  handling service
+     */
     public static void putImpl(
             @NotNull final String id,
             @NotNull final String replicas,
@@ -65,15 +73,16 @@ public final class AsyncServiceUtility {
                     service.dao.upsertWithTimeStamp(key, value, currTime);
                     ++createdCounter;
                 } catch (IOException ioException) {
-                    AsyncService.logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
+                    AsyncService.logger.error(
+                            "IOException in putting key(size: {}), value(size: {}) from dao on node {}",
                             key.capacity(), value.capacity(), service.policy.homeNode(), ioException);
                 }
             }
             
-            sendAckFromResp(service.es, parsed, createdCounter,
+            sendAckFromResp(parsed, createdCounter,
                     new Response(Response.CREATED, AsyncService.EMPTY),
                     session);
-        } catch (Exception e) {
+        } catch (IOException e) {
             AsyncService.logger.error("Error", e);
             e.printStackTrace();
         }
@@ -182,7 +191,7 @@ public final class AsyncServiceUtility {
             final Response response;
             response = resp;
             if (response == null
-                        || (response.getStatus() != 202 /* ACCEPTED */ && response.getStatus() != 201 /* CREATED */)) {
+                        || response.getStatus() != 202 /* ACCEPTED */ && response.getStatus() != 201 /* CREATED */) {
                 continue;
             }
             ++acceptedCounter;
@@ -230,14 +239,17 @@ public final class AsyncServiceUtility {
             
             if (!node.equals(service.policy.homeNode())) {
                 final var response = proxy(node, request, service);
-                if (response != null
-                            &&
-                            (response.getStatus() == 202 /* ACCEPTED */
-                                     || response.getStatus() == 201 /* CREATED */
-                                     || response.getStatus() == 200 /* OK */)) {
-                    futureResponses.add(response);
-                    ++counter;
+                /* OK */
+                if (response == null
+                            ||
+                            (response.getStatus() != 202 /* ACCEPTED */
+                                     && response.getStatus() != 201 /* CREATED */
+                                     && response.getStatus() != 200)) {
+                    continue;
                 }
+                futureResponses.add(response);
+                ++counter;
+                
             } else {
                 ++counter;
             }
@@ -252,14 +264,12 @@ public final class AsyncServiceUtility {
     /**
      * Execute sending response depend on accepted counter.
      *
-     * @param es            ExecutorService for executing
      * @param configuration replication configuration
      * @param ackCounter    counter of ack responses
      * @param resp          response to send if ackCounter >= configuration.ack
      * @param session       session for sending responses
      */
-    public static void sendAckFromResp(@NotNull final ExecutorService es,
-                                       @NotNull final Utility.ReplicationConfiguration configuration,
+    public static void sendAckFromResp(@NotNull final Utility.ReplicationConfiguration configuration,
                                        final int ackCounter,
                                        final Response resp,
                                        @NotNull final HttpSession session) throws IOException {

@@ -252,7 +252,7 @@ public final class AsyncService extends HttpServer implements Service {
             }
         }
         
-        AsyncServiceUtility.sendAckFromResp(this.es, parsed, acceptedCounter,
+        AsyncServiceUtility.sendAckFromResp(parsed, acceptedCounter,
                 new Response(Response.ACCEPTED, EMPTY), session);
     }
     
