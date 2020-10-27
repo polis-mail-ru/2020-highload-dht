@@ -11,6 +11,12 @@ public class ValidatedParameters {
     final int from;
     final ByteBuffer key;
 
+    /**
+     * Object to store validated parameters.
+     * @param ack - ack parameter.
+     * @param from - from parameter.
+     * @param key - key parameter.
+     */
     public ValidatedParameters(final int ack, final int from, final ByteBuffer key) {
         this.ack = ack;
         this.from = from;

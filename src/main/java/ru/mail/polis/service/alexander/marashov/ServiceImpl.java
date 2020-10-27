@@ -1,6 +1,5 @@
 package ru.mail.polis.service.alexander.marashov;
 
-import com.google.common.base.Splitter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
@@ -28,9 +27,7 @@ import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -38,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static ru.mail.polis.service.alexander.marashov.ValidatedParameters.validateParameters;
 
@@ -143,7 +141,8 @@ public class ServiceImpl extends HttpServer implements Service {
 
     /**
      * Method that puts entity to the DAO and returns response with operation results.
-     * @param key - ByteBuffer that contains the key data.
+     *
+     * @param key   - ByteBuffer that contains the key data.
      * @param value - ByteBuffer that contains the value data.
      * @return response to send.
      */
@@ -158,6 +157,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     /**
      * Method that deletes entity from the DAO and returns response with operation results.
+     *
      * @param key - ByteBuffer that contains the key data.
      * @return response to send.
      */
@@ -170,8 +170,19 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private void iterateOverNodes(final String[] nodes, final Runnable localTask, final Consumer<String> proxyTask) {
+        for (final String node : nodes) {
+            if (topology.isLocal(node)) {
+                executorService.execute(localTask);
+            } else {
+                executorService.execute(() -> proxyTask.accept(node));
+            }
+        }
+    }
+
     /**
      * Method that gets entity from the DAO and returns response with operation results.
+     *
      * @param key - ByteBuffer that contains key data.
      * @return response to send.
      */
@@ -213,10 +224,10 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @param id is the key for searching for a value in the DAO.
      *           Sends {@link Response} instance with value as body, if the key exists. Response status is
-     * {@code 200} if data is found
-     * {@code 400} if id is empty
-     * {@code 404} if not found,
-     * {@code 500} if an internal server error occurred.
+     *           {@code 200} if data is found
+     *           {@code 400} if id is empty
+     *           {@code 404} if not found,
+     *           {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -248,10 +259,9 @@ public class ServiceImpl extends HttpServer implements Service {
                             new ResponseAnalyzerGet(validParams.ack, validParams.from);
 
                     request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_GET);
-                    for (final String primary : primaries) {
-
-                        if (topology.isLocal(primary)) {
-                            executorService.execute(() -> {
+                    iterateOverNodes(
+                            primaries,
+                            () -> {
                                 Value value = null;
                                 try {
                                     value = this.dao.rowGet(validParams.key);
@@ -259,10 +269,8 @@ public class ServiceImpl extends HttpServer implements Service {
                                     log.debug("Key not found", e);
                                 }
                                 valueAnalyzer.accept(value);
-                            });
-
-                        } else {
-                            executorService.execute(() -> {
+                            },
+                            (String primary) -> {
                                 Response response;
                                 try {
                                     response = nodeToClient.get(primary).invoke(request);
@@ -271,9 +279,8 @@ public class ServiceImpl extends HttpServer implements Service {
                                     log.error("Get: Error sending request to node {}", primary, e);
                                 }
                                 valueAnalyzer.accept(response);
-                            });
-                        }
-                    }
+                            }
+                    );
 
                     try {
                         valueAnalyzer.await(1000L, TimeUnit.MILLISECONDS);
@@ -293,9 +300,9 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @param id is the key that the data will be associated with.
      *           Sends {@link Response} instance with
-     * {@code 201} if data saved
-     * {@code 400} if id is empty,
-     * {@code 500} if an internal server error occurred.
+     *           {@code 201} if data saved
+     *           {@code 400} if id is empty,
+     *           {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -334,14 +341,13 @@ public class ServiceImpl extends HttpServer implements Service {
                     );
 
                     request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_PUT);
-                    for (final String primary : primaries) {
-                        if (topology.isLocal(primary)) {
-                            executorService.execute(() -> {
+                    iterateOverNodes(
+                            primaries,
+                            () -> {
                                 final Response response = executeLocalPut(validParams.key, value);
                                 responseAnalyzer.accept(response);
-                            });
-                        } else {
-                            executorService.execute(() -> {
+                            },
+                            (primary) -> {
                                 Response response = null;
                                 try {
                                     response = nodeToClient.get(primary).invoke(request);
@@ -349,9 +355,8 @@ public class ServiceImpl extends HttpServer implements Service {
                                     log.error("Upsert: Error sending request to node {}", primary, e);
                                 }
                                 responseAnalyzer.accept(response);
-                            });
-                        }
-                    }
+                            }
+                    );
 
                     try {
                         responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
@@ -370,9 +375,9 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @param id is the key that the data associated with.
      *           Sends {@link Response} instance with
-     * {@code 202} if the key deleted,
-     * {@code 400} if id is empty,
-     * {@code 500} if an internal server error occurred.
+     *           {@code 202} if the key deleted,
+     *           {@code 400} if id is empty,
+     *           {@code 500} if an internal server error occurred.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
@@ -408,14 +413,13 @@ public class ServiceImpl extends HttpServer implements Service {
                     );
 
                     request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_DELETE);
-                    for (final String primary : primaries) {
-                        if (topology.isLocal(primary)) {
-                            executorService.execute(() -> {
+                    iterateOverNodes(
+                            primaries,
+                            () -> {
                                 final Response response = executeLocalDelete(validParams.key);
                                 responseAnalyzer.accept(response);
-                            });
-                        } else {
-                            executorService.execute(() -> {
+                            },
+                            (primary) -> {
                                 Response response = null;
                                 try {
                                     response = nodeToClient.get(primary).invoke(request);
@@ -423,9 +427,8 @@ public class ServiceImpl extends HttpServer implements Service {
                                     log.error("Delete: Error sending request to node {}", primary, e);
                                 }
                                 responseAnalyzer.accept(response);
-                            });
-                        }
-                    }
+                            }
+                    );
 
                     try {
                         responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
@@ -450,7 +453,7 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Waiting for a stop is interrupted");
             Thread.currentThread().interrupt();
         }
-        for (final HttpClient client: nodeToClient.values()) {
+        for (final HttpClient client : nodeToClient.values()) {
             client.clear();
         }
         try {
