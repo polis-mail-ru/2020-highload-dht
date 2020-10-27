@@ -22,6 +22,7 @@ import ru.mail.polis.service.nik27090.RendezvousTopology;
 import ru.mail.polis.service.nik27090.ServiceImpl;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Set;
 
 /**
@@ -31,6 +32,7 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    private static final Duration TIMEOUT = Duration.ofMinutes(1);
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -61,7 +63,7 @@ public final class ServiceFactory {
                 dao,
                 Runtime.getRuntime().availableProcessors(),
                 1024,
-                "?timeout=1000",
+                TIMEOUT,
                 new RendezvousTopology(topology, "http://localhost:" + port));
     }
 }
