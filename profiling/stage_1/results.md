@@ -1,4 +1,4 @@
-# Анализ результатов
+# HTTP + storage
 
 ## VisualVM
 Вкладка Monitor:

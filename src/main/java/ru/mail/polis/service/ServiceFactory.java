@@ -16,10 +16,10 @@
 
 package ru.mail.polis.service;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stakenschneider.AsyncServiceImpl;
+import ru.mail.polis.service.stakenschneider.Nodes;
 
 import java.io.IOException;
 import java.util.Set;
@@ -57,9 +57,8 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final Executor executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder().setNameFormat("worker").build());
+        final Nodes nodes = new Nodes(topology, "http://localhost:" + port);
 
-        return new AsyncServiceImpl(port,dao,executor);
+        return AsyncServiceImpl.create(port, dao, nodes);
     }
 }
