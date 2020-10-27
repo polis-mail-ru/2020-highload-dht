@@ -119,6 +119,10 @@ Running 1m test @ http://localhost:8080
 Requests/sec:   1995.17
 Transfer/sec:    130.54KB
 
+Отправка ответа 13.46%
+replication 27.11%
+DAO.upsert 4.32%
+
 **Alloc**
 ![allocPut2000_c64_t1_60s.svg](allocPut2000_c64_t1_60s.svg)
 
@@ -234,6 +238,9 @@ Running 1m test @ http://localhost:8080
   119713 requests in 1.00m, 7.65MB read
 Requests/sec:   1995.16
 Transfer/sec:    130.54KB
+
+Отправка ответа 8.21%
+DAO.upsert 4.23%
 
 **Lock**
 ![lockPut2000_c64_t1_60s.svg](lockPut2000_c64_t1_60s.svg)
@@ -470,6 +477,10 @@ Running 1m test @ http://localhost:8080
 Requests/sec:   1995.16
 Transfer/sec:    204.56KB
 
+DAO.get 4.82%
+replication 27.47%
+Отправка ответа 20.99%
+
 **Alloc**
 ![allocGet2000_c64_t1_60s.svg](allocGet2000_c64_t1_60s.svg)
 
@@ -585,6 +596,10 @@ Running 1m test @ http://localhost:8080
   119712 requests in 1.00m, 11.99MB read
 Requests/sec:   1995.18
 Transfer/sec:    204.56KB
+
+DAO.get 19.61% был 26.12% в прошлой реализации.
+replication 21.86%
+Отправка ответа 1.75%
 
 **Lock**
 
@@ -702,3 +717,8 @@ Running 1m test @ http://localhost:8080
   119716 requests in 1.00m, 11.99MB read
 Requests/sec:   1995.22
 Transfer/sec:    204.57KB
+
+Ухудшения по количеству обработанных заявок, по сравнению с предыдущем этапом, нет.
+
+Максимальное время ответов возросло примерно в 1.58 раза, тк теперь проксирование идет на несколько нод и нужно от каждой дождаться ответа.
+Stdev тоже оставляет желать лучшего.
