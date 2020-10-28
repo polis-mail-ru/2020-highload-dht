@@ -32,9 +32,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for a two node replicated {@link Service} cluster.
