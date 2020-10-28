@@ -85,6 +85,38 @@ public final class DAOImpl implements DAO {
         db.close();
     }
 
+    @NotNull
+    public TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key) throws  IOException {
+        try {
+            final byte[] packedKey = BufferConverter.convertBytes(key);
+            final byte[] valueByteArray = db.get(packedKey);
+            return TimestampRecord.fromBytes(valueByteArray);
+        } catch (RocksDBException e) {
+            throw new IOException("getting error", e);
+        }
+    }
+    public void removeWithTimestamp(@NotNull final ByteBuffer key) throws IOException {
+        try {
+            final byte[] packedKey = BufferConverter.convertBytes(key);
+            final TimestampDataWrapper record = TimestampDataWrapper.tombstone(System.currentTimeMillis());
+            final byte[] arrayValue = record.toBytes();
+            db.put(packedKey, arrayValue);
+        } catch (RocksDBException e) {
+            throw new IOException("removing error",e);
+        }
+    }
+
+    public void upsertWithTime(@NotNull final ByteBuffer key, @NotNull final ByteBuffer values) throws IOException {
+        try {
+            final TimestampDataWrapper record = TimestampDataWrapper.fromValue(values, System.currentTimeMillis());
+            final byte[] packedKey = BufferConverter.convertBytes(key);
+            final byte[] arrayValue = record.toBytes();
+            db.put(packedKey, arrayValue);
+        } catch (RocksDBException e) {
+            throw new IOException("upserting error", e);
+        }
+    }
+
     private static byte[] unfoldToBytes(@NotNull final ByteBuffer buffer) {
         final ByteBuffer copy = buffer.duplicate();
         final byte[] array = new byte[copy.remaining()];
