@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
-final class Value implements Comparable<Value> {
+public final class Value implements Comparable<Value> {
 
     private final long timestamp;
     @NotNull
@@ -21,12 +21,12 @@ final class Value implements Comparable<Value> {
         this.data = Optional.empty();
     }
 
-    boolean isTombstone() {
+    public boolean isTombstone() {
         return data.isEmpty();
     }
 
     @NotNull
-    ByteBuffer getData() {
+    public ByteBuffer getData() {
         return data.orElseThrow().asReadOnlyBuffer();
     }
 

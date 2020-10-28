@@ -84,14 +84,37 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        final Iterator<Row> fresh = rowIterator(from);
+        final Iterator<Row> fresh = freshRowIterator(from);
         final Iterator<Row> alive = Iterators.filter(fresh, e -> !e.getValue().isTombstone());
 
         return Iterators.transform(alive, e -> Record.of(e.getKey(), e.getValue().getData()));
     }
 
     @NotNull
-    private Iterator<Row> rowIterator(@NotNull final ByteBuffer from) throws IOException {
+    @Override
+    public Iterator<Row> rowIterator(@NotNull ByteBuffer from) throws IOException {
+        final TableSet snapshot;
+        lock.readLock().lock();
+        try {
+            snapshot = this.tables;
+            final List<Iterator<Row>> iters = new ArrayList<>(snapshot.ssTables.size() + snapshot.flushing.size() + 1);
+            iters.add(snapshot.memTable.iterator(from));
+            snapshot.ssTables.descendingMap().values().forEach(table -> {
+                try {
+                    iters.add(table.iterator(from));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            final Iterator<Row> merged = Iterators.mergeSorted(iters, Row.COMPARATOR);
+            return Iters.collapseEquals(merged, Row::getKey);
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    @NotNull
+    public Iterator<Row> freshRowIterator(@NotNull final ByteBuffer from) throws IOException {
         final TableSet snapshot;
         lock.readLock().lock();
         try {

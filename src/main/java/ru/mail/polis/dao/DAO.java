@@ -16,9 +16,12 @@
 
 package ru.mail.polis.dao;
 
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.gogun.Row;
+import ru.mail.polis.dao.gogun.Value;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -64,6 +67,20 @@ public interface DAO extends Closeable {
         final Record bound = Record.of(to, ByteBuffer.allocate(0));
         return Iters.until(iterator(from), bound);
     }
+
+    @NotNull
+    default Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Row> iter = rowIterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        return iter.next().getValue();
+    }
+
+
+    @NotNull
+    Iterator<Row> rowIterator(@NotNull ByteBuffer from) throws IOException;
 
     /**
      * Obtains {@link Record} corresponding to given key.

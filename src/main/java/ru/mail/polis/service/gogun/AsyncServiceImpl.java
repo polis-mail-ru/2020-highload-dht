@@ -18,6 +18,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.gogun.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -158,20 +159,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-
+        List<Response> responses = new ArrayList<>();
         final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
         final String nodeForRequest = topology.get(key);
 
-        if (request.getHeader("Replica-request-to-node: ") != null) {
+        if (request.getHeader("X-Proxy-For: ") != null) {
             switch (request.getMethod()) {
                 case Request.METHOD_PUT:
-                    handlePut(key, request, session);
+                    session.sendResponse(handlePut(key, request));
                     break;
                 case Request.METHOD_GET:
-                    handleGet(key, session);
+                    session.sendResponse(handleGet(key));
                     break;
                 case Request.METHOD_DELETE:
-                    handleDel(key, session);
+                    session.sendResponse(handleDel(key));
                     break;
                 default:
                     break;
@@ -179,64 +180,41 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        if (!topology.isMe(nodeForRequest)) {
-            proxy(nodeForRequest, request, session);
-            return;
-        }
+        int ask;
+        int from;
 
-        if (request.getParameter("replicas") != null) {
-
+        if (request.getParameter("replicas") == null) {
+            from = topology.all().length;
+            ask = from / 2 + 1;
+        } else {
             List<String> askFrom = Splitter.on('/').splitToList(request.getParameter("replicas"));
-
-            int ask = Integer.parseInt(askFrom.get(0).substring(1));
-            if (ask == 0) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                return;
-            }
-            int from = Integer.parseInt(askFrom.get(1));
-            if (ask > from) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                return;
-            }
-
-            int counter = 0;
-            List<Response> responses = proxy(topology.getReplNodes(nodeForRequest, from), request);
-            for (Response response : responses) {
-                if (response.getStatus() < 400) {
-                    counter++;
-                }
-                if (response.getStatus() == 404) {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                }
-            }
-
-            if (ask > counter) {
-                session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                return;
-            }
-
-            session.sendResponse(responses.get(0));
+            ask = Integer.parseInt(askFrom.get(0).substring(1));
+            from = Integer.parseInt(askFrom.get(1));
         }
 
-
-
-    }
-
-    private void handlePut(@NotNull final ByteBuffer key, @NotNull final Request request,
-                           @NotNull final HttpSession session) throws IOException {
-        try {
-            dao.upsert(key, getBuffer(request.getBody()));
-        } catch (IOException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            log.error("Internal server error put", e);
-            return;
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+        if (ask == 0 || ask > from) {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
 
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+        for (String node : topology.getReplNodes(nodeForRequest, from)) {
+            responses.add(proxy(node, request));
+        }
+        responses.removeIf((e) -> e.getStatus() == 500);
+        switch (request.getMethod()) {
+            case Request.METHOD_PUT:
+                session.sendResponse(MergeResponses.mergePutResponses(responses, ask));
+                break;
+            case Request.METHOD_GET:
+                session.sendResponse(MergeResponses.mergeGetResponses(responses, ask));
+                break;
+            case Request.METHOD_DELETE:
+                session.sendResponse(MergeResponses.mergeDeleteResponses(responses, ask));
+                break;
+            default:
+                break;
+        }
+
     }
 
     private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
@@ -253,52 +231,25 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return (new Response(Response.CREATED, Response.EMPTY));
     }
 
-    private void handleGet(@NotNull final ByteBuffer key,
-                           @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer buffer;
-        try {
-            buffer = dao.get(key);
-        } catch (IOException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            log.error("Internal server error get", e);
-            return;
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            return;
-        }
-
-        session.sendResponse(Response.ok(getArray(buffer)));
-    }
-
     private Response handleGet(@NotNull final ByteBuffer key) {
-        final ByteBuffer buffer;
+        final Value value;
         try {
-            buffer = dao.get(key);
+            value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
             return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-
         } catch (NoSuchElementException e) {
             return (new Response(Response.NOT_FOUND, Response.EMPTY));
         }
-
-        return (Response.ok(getArray(buffer)));
-    }
-
-    private void handleDel(@NotNull final ByteBuffer key,
-                           @NotNull final HttpSession session) throws IOException {
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            log.error("Internal server error del", e);
-            return;
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            return;
+        Response response;
+        if (value.isTombstone()) {
+            response = Response.ok(Response.EMPTY);
+        } else {
+            response = Response.ok(getArray(value.getData()));
         }
 
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        response.addHeader("timestamp: " + value.getTimestamp());
+        return (response);
     }
 
     private Response handleDel(@NotNull final ByteBuffer key) {
@@ -316,43 +267,25 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return (new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
-    private List<Response> proxy(final List<String> nodes, final Request request) {
-        ArrayList<Response> responses = new ArrayList<>();
+    private Response proxy(final String node, final Request request) {
         ByteBuffer key = getBuffer(request.getParameter("id").getBytes(UTF_8));
-        for (String node : nodes) {
-            try {
-                if (topology.isMe(node)) {
-                    switch (request.getMethod()) {
-                        case Request.METHOD_PUT:
-                            responses.add(handlePut(key, request));
-                            break;
-                        case Request.METHOD_GET:
-                            responses.add(handleGet(key));
-                            break;
-                        case Request.METHOD_DELETE:
-                            responses.add(handleDel(key));
-                            break;
-                        default:
-                            break;
-                    }
-                    continue;
-                }
-                request.addHeader("Replica-request-to-node: " + node);
-                responses.add(nodeClients.get(node).invoke(request));
-            } catch (IOException | InterruptedException | PoolException | HttpException e) {
-                responses.add(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            }
-        }
-
-        return responses;
-    }
-
-    private void proxy(final String node, final Request request, final HttpSession session) throws IOException {
         try {
+            if (topology.isMe(node)) {
+                switch (request.getMethod()) {
+                    case Request.METHOD_PUT:
+                        return (handlePut(key, request));
+                    case Request.METHOD_GET:
+                        return (handleGet(key));
+                    case Request.METHOD_DELETE:
+                        return (handleDel(key));
+                    default:
+                        break;
+                }
+            }
             request.addHeader("X-Proxy-For: " + node);
-            session.sendResponse(nodeClients.get(node).invoke(request));
+            return (nodeClients.get(node).invoke(request));
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
