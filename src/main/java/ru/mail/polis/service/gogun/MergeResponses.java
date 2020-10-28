@@ -5,9 +5,12 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public abstract class MergeResponses {
+public class MergeResponses {
 
-    static Response mergeGetResponses(@NotNull final List<Response> responses, final int ask) {
+    public MergeResponses() {
+    }
+
+    Response mergeGetResponses(@NotNull final List<Response> responses, final int aсk) {
         int numNotFoundResponses = 0;
         boolean hasTombstone = false;
         long lastGeneration = 0;
@@ -26,7 +29,7 @@ public abstract class MergeResponses {
                 }
             }
         }
-        if (responses.size() < ask) {
+        if (responses.size() < aсk) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
         if (hasTombstone || responses.size() == numNotFoundResponses) {
@@ -36,19 +39,19 @@ public abstract class MergeResponses {
 
     }
 
-    static Response mergePutResponses(@NotNull final List<Response> responses, final int ask) {
-        if (responses.size() < ask) {
+    Response mergePutResponses(@NotNull final List<Response> responses, final int aсk) {
+        if (responses.size() < aсk) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
 
-        return (new Response(Response.CREATED, Response.EMPTY));
+        return new Response(Response.CREATED, Response.EMPTY);
     }
 
-    static Response mergeDeleteResponses(@NotNull final List<Response> responses, final int ask) {
-        if (responses.size() < ask) {
+    Response mergeDeleteResponses(@NotNull final List<Response> responses, final int ack) {
+        if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
 
-        return (new Response(Response.ACCEPTED, Response.EMPTY));
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 }

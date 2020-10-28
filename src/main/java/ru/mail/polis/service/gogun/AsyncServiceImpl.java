@@ -106,7 +106,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public Response status() {
-            return (Response.ok("OK"));
+            return Response.ok("OK");
     }
 
     private void execute(final String id, final HttpSession session,
@@ -171,25 +171,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        int ask;
+        int ack;
         int from;
 
         if (request.getParameter("replicas") == null) {
             from = topology.all().length;
-            ask = from / 2 + 1;
+            ack = from / 2 + 1;
         } else {
             final List<String> askFrom = Splitter.on('/').splitToList(request.getParameter("replicas"));
-            ask = Integer.parseInt(askFrom.get(0).substring(1));
+            ack = Integer.parseInt(askFrom.get(0).substring(1));
             from = Integer.parseInt(askFrom.get(1));
         }
 
-        if (ask == 0 || ask > from) {
+        if (ack == 0 || ack > from) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
 
         final List<Response> responses = new ArrayList<>();
         final String nodeForRequest = topology.get(key);
+        final MergeResponses mergeResponses = new MergeResponses();
 
         final List<String> replNodes = topology.getReplNodes(nodeForRequest, from);
         for (final String node : replNodes) {
@@ -198,13 +199,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         responses.removeIf((e) -> e.getStatus() == 500);
         switch (request.getMethod()) {
             case Request.METHOD_PUT:
-                session.sendResponse(MergeResponses.mergePutResponses(responses, ask));
+                session.sendResponse(mergeResponses.mergePutResponses(responses, ack));
                 break;
             case Request.METHOD_GET:
-                session.sendResponse(MergeResponses.mergeGetResponses(responses, ask));
+                session.sendResponse(mergeResponses.mergeGetResponses(responses, ack));
                 break;
             case Request.METHOD_DELETE:
-                session.sendResponse(MergeResponses.mergeDeleteResponses(responses, ask));
+                session.sendResponse(mergeResponses.mergeDeleteResponses(responses, ack));
                 break;
             default:
                 break;
@@ -271,11 +272,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 switch (request.getMethod()) {
                     case Request.METHOD_PUT:
-                        return (handlePut(key, request));
+                        return handlePut(key, request);
                     case Request.METHOD_GET:
-                        return (handleGet(key));
+                        return handleGet(key);
                     case Request.METHOD_DELETE:
-                        return (handleDel(key));
+                        return handleDel(key);
                     default:
                         break;
                 }
