@@ -16,7 +16,6 @@
 
 package ru.mail.polis.dao;
 
-
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
@@ -68,6 +67,14 @@ public interface DAO extends Closeable {
         return Iters.until(iterator(from), bound);
     }
 
+    /**
+     * Find value in dao.
+     *
+     * @param key - key in dao
+     * @return - Value from dao
+     * @throws IOException            - ioexception while reading
+     * @throws NoSuchElementException - if nothing found
+     */
     @NotNull
     default Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Row> iter = rowIterator(key);
@@ -77,7 +84,6 @@ public interface DAO extends Closeable {
 
         return iter.next().getValue();
     }
-
 
     @NotNull
     Iterator<Row> rowIterator(@NotNull ByteBuffer from) throws IOException;

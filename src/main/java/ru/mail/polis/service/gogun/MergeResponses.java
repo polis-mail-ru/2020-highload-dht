@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public class MergeResponses {
+public abstract class MergeResponses {
 
     static Response mergeGetResponses(@NotNull final List<Response> responses, final int ask) {
         int numNotFoundResponses = 0;

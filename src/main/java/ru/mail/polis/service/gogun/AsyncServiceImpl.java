@@ -72,10 +72,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
         this.nodeClients = new HashMap<>();
         for (final String node : topology.all()) {
-
             final HttpClient client = new HttpClient(new ConnectionString(node));
-
-
             nodeClients.put(node, client);
         }
     }
@@ -106,15 +103,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /**
      * provide checking api is alive.
      *
-     * @param session - session
      */
     @Path("/v0/status")
-    public void status(final HttpSession session) {
-        try {
-            session.sendResponse(Response.ok("OK"));
-        } catch (IOException e) {
-            log.error("Error sending response", e);
-        }
+    public Response status() {
+            return (Response.ok("OK"));
     }
 
     private void execute(final String id, final HttpSession session,
@@ -159,9 +151,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-        List<Response> responses = new ArrayList<>();
+
         final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
-        final String nodeForRequest = topology.get(key);
 
         if (request.getHeader("X-Proxy-For: ") != null) {
             switch (request.getMethod()) {
@@ -187,7 +178,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             from = topology.all().length;
             ask = from / 2 + 1;
         } else {
-            List<String> askFrom = Splitter.on('/').splitToList(request.getParameter("replicas"));
+            final List<String> askFrom = Splitter.on('/').splitToList(request.getParameter("replicas"));
             ask = Integer.parseInt(askFrom.get(0).substring(1));
             from = Integer.parseInt(askFrom.get(1));
         }
@@ -196,8 +187,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-        List<String> replNodes = topology.getReplNodes(nodeForRequest, from);
-        for (String node : replNodes) {
+
+        final List<Response> responses = new ArrayList<>();
+        final String nodeForRequest = topology.get(key);
+
+        final List<String> replNodes = topology.getReplNodes(nodeForRequest, from);
+        for (final String node : replNodes) {
             responses.add(proxy(node, request));
         }
         responses.removeIf((e) -> e.getStatus() == 500);
@@ -222,13 +217,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             dao.upsert(key, getBuffer(request.getBody()));
         } catch (IOException e) {
             log.error("Internal server error put", e);
-            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
 
         } catch (NoSuchElementException e) {
-            return (new Response(Response.NOT_FOUND, Response.EMPTY));
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
-        return (new Response(Response.CREATED, Response.EMPTY));
+        return new Response(Response.CREATED, Response.EMPTY);
     }
 
     private Response handleGet(@NotNull final ByteBuffer key) {
@@ -237,9 +232,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
-            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
-            return (new Response(Response.NOT_FOUND, Response.EMPTY));
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
         Response response;
         if (value.isTombstone()) {
@@ -251,7 +246,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         response.addHeader("timestamp: " + value.getTimestamp());
         response.addHeader("tombstone: " + false);
-        return (response);
+        return response;
     }
 
     private Response handleDel(@NotNull final ByteBuffer key) {
@@ -259,19 +254,19 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             dao.remove(key);
         } catch (IOException e) {
             log.error("Internal server error del", e);
-            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
 
         } catch (NoSuchElementException e) {
-            return (new Response(Response.NOT_FOUND, Response.EMPTY));
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
 
         }
 
-        return (new Response(Response.ACCEPTED, Response.EMPTY));
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
     private Response proxy(final String node, final Request request) {
-        String id = request.getParameter("id=");
-        ByteBuffer key = getBuffer(id.getBytes(UTF_8));
+        final String id = request.getParameter("id=");
+        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
         try {
             if (topology.isMe(node)) {
                 switch (request.getMethod()) {
@@ -286,9 +281,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 }
             }
             request.addHeader("X-Proxy-For: " + node);
-            return (nodeClients.get(node).invoke(request));
+            return nodeClients.get(node).invoke(request);
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            return (new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 

@@ -63,13 +63,13 @@ public class ConsistentHashing implements Hashing<String> {
     }
 
     @Override
-    public ArrayList<String> getReplNodes(@NotNull final String node, int count) {
-        ArrayList<String> nodes = new ArrayList<>();
-        List<String> list = Arrays.asList(all());
+    public ArrayList<String> getReplNodes(@NotNull final String node, final int count) {
+        final ArrayList<String> nodes = new ArrayList<>();
+        final List<String> list = Arrays.asList(all());
         for (int i = list.indexOf(node); i < count; i++) {
             nodes.add(list.get(i));
         }
-        for (String tmp : list) {
+        for (final String tmp : list) {
             if (nodes.size() == count) {
                 break;
             }
