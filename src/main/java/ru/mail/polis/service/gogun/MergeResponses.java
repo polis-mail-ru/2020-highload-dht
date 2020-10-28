@@ -8,41 +8,31 @@ import java.util.List;
 public class MergeResponses {
 
     static Response mergeGetResponses(@NotNull final List<Response> responses, final int ask) {
+        int numNotFoundResponses = 0;
+        boolean hasTombstone = false;
+        long lastGeneration = 0;
+        Response last = new Response(Response.NOT_FOUND, Response.EMPTY);
+        for (final Response response : responses) {
+            if (response.getStatus() == 404) {
+                numNotFoundResponses++;
+            } else if (response.getStatus() == 200) {
+                final long generation = Long.parseLong(response.getHeader("timestamp: "));
+                if (lastGeneration > generation || lastGeneration == 0) {
+                    lastGeneration = generation;
+                    last = response;
+                }
+                if (response.getHeader("tombstone: ").equals("true")) {
+                    hasTombstone = true;
+                }
+            }
+        }
         if (responses.size() < ask) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
-
-        Response theMostFreshedResponse = responses.get(0);
-        long theMostFreshedTimestamp;
-        if (theMostFreshedResponse.getHeader("timestamp: ") == null) {
-            theMostFreshedTimestamp = -1;
-        } else {
-            theMostFreshedTimestamp = Long.parseLong(theMostFreshedResponse.getHeader("timestamp: "));
+        if (hasTombstone || responses.size() == numNotFoundResponses) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
-        boolean first = true;
-        for (final Response next : responses) {
-            if (first) {
-                first = false;
-                continue;
-            }
-            long responseTimestamp;
-            if (next.getHeader("timestamp: ") == null) {
-                responseTimestamp = -1;
-            } else {
-                responseTimestamp = Long.parseLong(next.getHeader("timestamp: "));
-            }
-            if (responseTimestamp > theMostFreshedTimestamp) {
-                theMostFreshedTimestamp = responseTimestamp;
-                theMostFreshedResponse = next;
-            }
-        }
-
-        if (theMostFreshedResponse.getStatus() == 200) {
-            final byte[] body = (theMostFreshedResponse.getBody());
-            return (Response.ok(body));
-        } else {
-            return (new Response(Response.NOT_FOUND, Response.EMPTY));
-        }
+        return Response.ok(last.getBody());
 
     }
 

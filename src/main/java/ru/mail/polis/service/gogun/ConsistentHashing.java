@@ -6,7 +6,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -67,10 +66,14 @@ public class ConsistentHashing implements Hashing<String> {
     public ArrayList<String> getReplNodes(@NotNull final String node, int count) {
         ArrayList<String> nodes = new ArrayList<>();
         List<String> list = Arrays.asList(all());
-
-        for (Iterator<String> i = circularIterator(list, count, list.lastIndexOf(node)); i.hasNext();) {
-            String s = i.next();
-            nodes.add(s);
+        for (int i = list.indexOf(node); i < count; i++) {
+            nodes.add(list.get(i));
+        }
+        for (String tmp : list) {
+            if (nodes.size() == count) {
+                break;
+            }
+            nodes.add(tmp);
         }
 
         return nodes;
@@ -85,23 +88,5 @@ public class ConsistentHashing implements Hashing<String> {
     @Override
     public String[] all() {
         return new TreeSet<>(circle.values()).toArray(new String[0]);
-    }
-
-    static <T> Iterator<T> circularIterator(List<T> list, int count, int startPos) {
-        int size = list.size();
-        return new Iterator<T>() {
-
-            int i = startPos;
-
-            @Override
-            public boolean hasNext() {
-                return i < count;
-            }
-
-            @Override
-            public T next() {
-                return list.get(i++ % size);
-            }
-        };
     }
 }

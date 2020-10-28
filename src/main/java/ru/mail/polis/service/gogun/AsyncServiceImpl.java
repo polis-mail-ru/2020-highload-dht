@@ -196,8 +196,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-
-        for (String node : topology.getReplNodes(nodeForRequest, from)) {
+        List<String> replNodes = topology.getReplNodes(nodeForRequest, from);
+        for (String node : replNodes) {
             responses.add(proxy(node, request));
         }
         responses.removeIf((e) -> e.getStatus() == 500);
@@ -244,11 +244,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         Response response;
         if (value.isTombstone()) {
             response = Response.ok(Response.EMPTY);
+            response.addHeader("tombstone: " + true);
         } else {
             response = Response.ok(getArray(value.getData()));
         }
 
         response.addHeader("timestamp: " + value.getTimestamp());
+        response.addHeader("tombstone: " + false);
         return (response);
     }
 
@@ -268,7 +270,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private Response proxy(final String node, final Request request) {
-        ByteBuffer key = getBuffer(request.getParameter("id").getBytes(UTF_8));
+        String id = request.getParameter("id=");
+        ByteBuffer key = getBuffer(id.getBytes(UTF_8));
         try {
             if (topology.isMe(node)) {
                 switch (request.getMethod()) {
