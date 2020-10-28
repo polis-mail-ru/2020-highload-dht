@@ -7,10 +7,16 @@ import java.util.List;
 
 public class MergeResponses {
 
-    public MergeResponses() {
+    private final int ack;
+    @NotNull
+    final List<Response> responses;
+
+    public MergeResponses(@NotNull final List<Response> responses, final int ack) {
+        this.responses = responses;
+        this.ack = ack;
     }
 
-    Response mergeGetResponses(@NotNull final List<Response> responses, final int aсk) {
+    Response mergeGetResponses() {
         int numNotFoundResponses = 0;
         boolean hasTombstone = false;
         long lastGeneration = 0;
@@ -29,7 +35,7 @@ public class MergeResponses {
                 }
             }
         }
-        if (responses.size() < aсk) {
+        if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
         if (hasTombstone || responses.size() == numNotFoundResponses) {
@@ -39,15 +45,15 @@ public class MergeResponses {
 
     }
 
-    Response mergePutResponses(@NotNull final List<Response> responses, final int aсk) {
-        if (responses.size() < aсk) {
+    Response mergePutResponses() {
+        if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
 
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
-    Response mergeDeleteResponses(@NotNull final List<Response> responses, final int ack) {
+    Response mergeDeleteResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }

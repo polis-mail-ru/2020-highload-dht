@@ -176,17 +176,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         final List<Response> responses = new ArrayList<>();
         final String nodeForRequest = topology.get(key);
-        final MergeResponses mergeResponses = new MergeResponses();
 
         final List<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
         for (final String node : replNodes) {
             responses.add(proxy(node, request));
         }
 
+        final MergeResponses mergeResponses = new MergeResponses(responses, replicasFactor.getAck());
+
         responses.removeIf((e) -> e.getStatus() == 500);
-        selector(() -> mergeResponses.mergePutResponses(responses, replicasFactor.getAck()),
-                () -> mergeResponses.mergeGetResponses(responses, replicasFactor.getAck()),
-                () -> mergeResponses.mergeDeleteResponses(responses, replicasFactor.getAck()),
+        selector(mergeResponses::mergePutResponses,
+                mergeResponses::mergeGetResponses,
+                mergeResponses::mergeDeleteResponses,
                 request.getMethod(),
                 session);
 

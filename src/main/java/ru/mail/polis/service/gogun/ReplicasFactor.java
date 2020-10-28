@@ -16,7 +16,7 @@ public class ReplicasFactor {
         this.from = Integer.parseInt(askFrom.get(1));
     }
 
-    public ReplicasFactor(@NotNull final int size) {
+    public ReplicasFactor(final int size) {
         this.from = size;
         this.ack = this.from / 2 + 1;
     }
