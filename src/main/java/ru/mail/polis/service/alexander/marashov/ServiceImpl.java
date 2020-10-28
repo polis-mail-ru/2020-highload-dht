@@ -44,10 +44,12 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     private static final String RESPONSE_ERROR_STRING = "Sending response error";
-    private static final String ROW_ACCESS_HEADER = "Row-Access";
     private static final String WAITING_INTERRUPTED = "Responses waiting was interrupted";
 
-    private final DAO dao;
+    private static final String PROXY_HEADER = "Proxy-Header";
+    private static final String PROXY_HEADER_VALUE = "Proxy-Header: true";
+
+    private final DaoManager dao;
     private final ExecutorService executorService;
 
     private final Topology<String> topology;
@@ -70,7 +72,7 @@ public class ServiceImpl extends HttpServer implements Service {
             final int proxyTimeoutValue
     ) throws IOException {
         super(configFrom(port));
-        this.dao = dao;
+        this.dao = new DaoManager(dao);
         this.executorService = new ThreadPoolExecutor(
                 workersCount,
                 workersCount,
@@ -121,52 +123,15 @@ public class ServiceImpl extends HttpServer implements Service {
             executorService.execute(runnable);
         } catch (final RejectedExecutionException e) {
             log.error("Request rejected", e);
-            sendAnswerOrError(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            trySendAnswer(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 
-    private void sendAnswerOrError(final HttpSession httpSession, final Response response) {
+    private void trySendAnswer(final HttpSession httpSession, final Response response) {
         try {
             httpSession.sendResponse(response);
         } catch (final IOException ioException) {
             log.error(RESPONSE_ERROR_STRING, ioException);
-        }
-    }
-
-    @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        session.sendResponse(response);
-    }
-
-    /**
-     * Method that puts entity to the DAO and returns response with operation results.
-     *
-     * @param key   - ByteBuffer that contains the key data.
-     * @param value - ByteBuffer that contains the value data.
-     * @return response to send.
-     */
-    public Response executeLocalPut(final ByteBuffer key, final ByteBuffer value) {
-        try {
-            this.dao.upsert(key, value);
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (final IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
-    /**
-     * Method that deletes entity from the DAO and returns response with operation results.
-     *
-     * @param key - ByteBuffer that contains the key data.
-     * @return response to send.
-     */
-    public Response executeLocalDelete(final ByteBuffer key) {
-        try {
-            this.dao.remove(key);
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (final IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -180,33 +145,10 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    /**
-     * Method that gets entity from the DAO and returns response with operation results.
-     *
-     * @param key - ByteBuffer that contains key data.
-     * @return response to send.
-     */
-    public Response executeLocalRowGet(final ByteBuffer key) {
-        Value value = null;
-        try {
-            value = this.dao.rowGet(key);
-        } catch (final IOException e) {
-            log.debug("Key not found", e);
-        }
-
-        Response response;
-        if (value == null) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-        } else {
-            try {
-                final byte[] serializedData = ValueSerializer.serialize(value);
-                response = new Response(Response.OK, serializedData);
-            } catch (IOException e) {
-                response = new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                log.error("Local get SERIALIZE ERROR");
-            }
-        }
-        return response;
+    @Override
+    public void handleDefault(final Request request, final HttpSession session) throws IOException {
+        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        session.sendResponse(response);
     }
 
     /**
@@ -244,13 +186,13 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         validParams = validateParameters(id, replicas, defaultAck, defaultFrom, topology.size());
                     } catch (final IllegalArgumentException e) {
-                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
 
-                    if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_GET))) {
-                        sendAnswerOrError(httpSession, executeLocalRowGet(validParams.key));
+                    final String rowAccessHeader = request.getHeader(PROXY_HEADER);
+                    if (rowAccessHeader != null) {
+                        trySendAnswer(httpSession, dao.rowGet(validParams.key));
                         return;
                     }
 
@@ -258,17 +200,12 @@ public class ServiceImpl extends HttpServer implements Service {
                     final ResponseAnalyzerGet valueAnalyzer =
                             new ResponseAnalyzerGet(validParams.ack, validParams.from);
 
-                    request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_GET);
+                    request.addHeader(PROXY_HEADER_VALUE);
                     iterateOverNodes(
                             primaries,
                             () -> {
-                                Value value = null;
-                                try {
-                                    value = this.dao.rowGet(validParams.key);
-                                } catch (final NoSuchElementException | IOException e) {
-                                    log.debug("Key not found", e);
-                                }
-                                valueAnalyzer.accept(value);
+                                final Response response = dao.rowGet(validParams.key);
+                                valueAnalyzer.accept(response);
                             },
                             (String primary) -> {
                                 Response response;
@@ -290,7 +227,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
 
                     final Response response = valueAnalyzer.getResult();
-                    sendAnswerOrError(httpSession, response);
+                    trySendAnswer(httpSession, response);
                 }
         );
     }
@@ -319,16 +256,16 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         validParams = validateParameters(id, replicas, defaultAck, defaultFrom, topology.size());
                     } catch (final IllegalArgumentException e) {
-                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
 
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
 
-                    final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
-                    if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_PUT))) {
-                        sendAnswerOrError(httpSession, executeLocalPut(validParams.key, value));
+                    final String rowAccessHeader = request.getHeader(PROXY_HEADER);
+                    if (rowAccessHeader != null) {
+                        trySendAnswer(httpSession, dao.put(validParams.key, value));
                         return;
                     }
 
@@ -340,11 +277,11 @@ public class ServiceImpl extends HttpServer implements Service {
                             Response.CREATED
                     );
 
-                    request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_PUT);
+                    request.addHeader(PROXY_HEADER_VALUE);
                     iterateOverNodes(
                             primaries,
                             () -> {
-                                final Response response = executeLocalPut(validParams.key, value);
+                                final Response response = dao.put(validParams.key, value);
                                 responseAnalyzer.accept(response);
                             },
                             (primary) -> {
@@ -365,7 +302,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         Thread.currentThread().interrupt();
                     }
                     final Response response = responseAnalyzer.getResult();
-                    sendAnswerOrError(httpSession, response);
+                    trySendAnswer(httpSession, response);
                 }
         );
     }
@@ -394,13 +331,13 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         validParams = validateParameters(id, replicas, defaultAck, defaultFrom, topology.size());
                     } catch (final IllegalArgumentException e) {
-                        sendAnswerOrError(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
 
-                    final String rowAccessHeader = request.getHeader(ROW_ACCESS_HEADER);
-                    if (rowAccessHeader != null && rowAccessHeader.equals(Integer.toString(Request.METHOD_DELETE))) {
-                        sendAnswerOrError(httpSession, executeLocalDelete(validParams.key));
+                    final String rowAccessHeader = request.getHeader(PROXY_HEADER);
+                    if (rowAccessHeader != null) {
+                        trySendAnswer(httpSession, dao.delete(validParams.key));
                         return;
                     }
 
@@ -412,11 +349,11 @@ public class ServiceImpl extends HttpServer implements Service {
                             Response.ACCEPTED
                     );
 
-                    request.addHeader(ROW_ACCESS_HEADER + Request.METHOD_DELETE);
+                    request.addHeader(PROXY_HEADER_VALUE);
                     iterateOverNodes(
                             primaries,
                             () -> {
-                                final Response response = executeLocalDelete(validParams.key);
+                                final Response response = dao.delete(validParams.key);
                                 responseAnalyzer.accept(response);
                             },
                             (primary) -> {
@@ -438,7 +375,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
 
                     final Response response = responseAnalyzer.getResult();
-                    sendAnswerOrError(httpSession, response);
+                    trySendAnswer(httpSession, response);
                 }
         );
     }
@@ -456,10 +393,6 @@ public class ServiceImpl extends HttpServer implements Service {
         for (final HttpClient client : nodeToClient.values()) {
             client.clear();
         }
-        try {
-            dao.close();
-        } catch (final IOException e) {
-            log.error("Error closing dao", e);
-        }
+        dao.close();
     }
 }
