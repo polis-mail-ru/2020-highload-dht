@@ -1,6 +1,5 @@
 package ru.mail.polis.service.gogun;
 
-import com.google.common.base.Splitter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
@@ -33,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -102,11 +102,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     /**
      * provide checking api is alive.
-     *
      */
     @Path("/v0/status")
     public Response status() {
-            return Response.ok("OK");
+        return Response.ok("OK");
     }
 
     private void execute(final String id, final HttpSession session,
@@ -155,35 +154,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader("X-Proxy-For: ") != null) {
-            switch (request.getMethod()) {
-                case Request.METHOD_PUT:
-                    session.sendResponse(handlePut(key, request));
-                    break;
-                case Request.METHOD_GET:
-                    session.sendResponse(handleGet(key));
-                    break;
-                case Request.METHOD_DELETE:
-                    session.sendResponse(handleDel(key));
-                    break;
-                default:
-                    break;
-            }
+            selector(() -> handlePut(key, request),
+                    () -> handleGet(key),
+                    () -> handleGet(key),
+                    request.getMethod(),
+                    session);
             return;
         }
 
-        int ack;
-        int from;
-
+        final ReplicasFactor replicasFactor;
         if (request.getParameter("replicas") == null) {
-            from = topology.all().length;
-            ack = from / 2 + 1;
+            replicasFactor = new ReplicasFactor(topology.all().length);
         } else {
-            final List<String> askFrom = Splitter.on('/').splitToList(request.getParameter("replicas"));
-            ack = Integer.parseInt(askFrom.get(0).substring(1));
-            from = Integer.parseInt(askFrom.get(1));
+            replicasFactor = new ReplicasFactor(request.getParameter("replicas"));
         }
 
-        if (ack == 0 || ack > from) {
+        if (replicasFactor.isBad()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
@@ -192,25 +178,38 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final String nodeForRequest = topology.get(key);
         final MergeResponses mergeResponses = new MergeResponses();
 
-        final List<String> replNodes = topology.getReplNodes(nodeForRequest, from);
+        final List<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
         for (final String node : replNodes) {
             responses.add(proxy(node, request));
         }
+
         responses.removeIf((e) -> e.getStatus() == 500);
-        switch (request.getMethod()) {
+        selector(() -> mergeResponses.mergePutResponses(responses, replicasFactor.getAck()),
+                () -> mergeResponses.mergeGetResponses(responses, replicasFactor.getAck()),
+                () -> mergeResponses.mergeDeleteResponses(responses, replicasFactor.getAck()),
+                request.getMethod(),
+                session);
+
+    }
+
+    private void selector(final Supplier<Response> putRequest,
+                          final Supplier<Response> getRequest,
+                          final Supplier<Response> deleteRequest,
+                          final int method,
+                          final HttpSession session) throws IOException {
+        switch (method) {
             case Request.METHOD_PUT:
-                session.sendResponse(mergeResponses.mergePutResponses(responses, ack));
+                session.sendResponse(putRequest.get());
                 break;
             case Request.METHOD_GET:
-                session.sendResponse(mergeResponses.mergeGetResponses(responses, ack));
+                session.sendResponse(getRequest.get());
                 break;
             case Request.METHOD_DELETE:
-                session.sendResponse(mergeResponses.mergeDeleteResponses(responses, ack));
+                session.sendResponse(deleteRequest.get());
                 break;
             default:
                 break;
         }
-
     }
 
     private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
