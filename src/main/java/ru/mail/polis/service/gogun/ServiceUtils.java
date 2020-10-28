@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.function.Supplier;
 
-public class ServiceUtils {
+final class ServiceUtils {
 
     /**
      * Util class.
@@ -35,6 +35,13 @@ public class ServiceUtils {
         return body;
     }
 
+    /**
+     * Method provides config for HttpServer.
+     *
+     * @param port       port
+     * @param numWorkers threads in executor service
+     * @return built config
+     */
     @NotNull
     public static HttpServerConfig makeConfig(final int port, final int numWorkers) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
@@ -49,11 +56,21 @@ public class ServiceUtils {
         return config;
     }
 
-    static public void selector(final Supplier<Response> putRequest,
-                          final Supplier<Response> getRequest,
-                          final Supplier<Response> deleteRequest,
-                          final int method,
-                          final HttpSession session) throws IOException {
+    /**
+     * Method provides selecting action for method type.
+     *
+     * @param putRequest    action for put request
+     * @param getRequest    action for get request
+     * @param deleteRequest action for delete request
+     * @param method        request type
+     * @param session       http session
+     * @throws IOException send response exception
+     */
+    public static void selector(final Supplier<Response> putRequest,
+                                final Supplier<Response> getRequest,
+                                final Supplier<Response> deleteRequest,
+                                final int method,
+                                final HttpSession session) throws IOException {
         switch (method) {
             case Request.METHOD_PUT:
                 session.sendResponse(putRequest.get());
