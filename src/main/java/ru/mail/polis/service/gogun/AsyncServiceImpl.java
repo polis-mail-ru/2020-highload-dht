@@ -4,7 +4,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
@@ -12,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
-import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -57,7 +54,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public AsyncServiceImpl(final int port, final int numWorkers, final int queueSize,
                             @NotNull final DAO dao,
                             @NotNull final Hashing<String> topology) throws IOException {
-        super(makeConfig(port, numWorkers));
+        super(ServiceUtils.makeConfig(port, numWorkers));
         this.dao = dao;
         this.topology = topology;
         this.executorService = new ThreadPoolExecutor(numWorkers,
@@ -75,20 +72,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final HttpClient client = new HttpClient(new ConnectionString(node));
             nodeClients.put(node, client);
         }
-    }
-
-    @NotNull
-    private static HttpServerConfig makeConfig(final int port, final int numWorkers) {
-        final AcceptorConfig acceptorConfig = new AcceptorConfig();
-        acceptorConfig.port = port;
-        acceptorConfig.deferAccept = true;
-        acceptorConfig.reusePort = true;
-
-        final HttpServerConfig config = new HttpServerConfig();
-        config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        config.selectors = numWorkers;
-
-        return config;
     }
 
     @Override
@@ -119,22 +102,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private ByteBuffer getBuffer(final byte[] bytes) {
-        return ByteBuffer.wrap(bytes);
-    }
-
-    private byte[] getArray(final ByteBuffer buffer) {
-        byte[] body;
-        if (buffer.hasRemaining()) {
-            body = new byte[buffer.remaining()];
-            buffer.get(body);
-        } else {
-            body = Response.EMPTY;
-        }
-
-        return body;
-    }
-
     private void sendServiceUnavailable(final HttpSession session) {
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
@@ -151,10 +118,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
+        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader("X-Proxy-For: ") != null) {
-            selector(() -> handlePut(key, request),
+            ServiceUtils.selector(() -> handlePut(key, request),
                     () -> handleGet(key),
                     () -> handleGet(key),
                     request.getMethod(),
@@ -185,7 +152,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final MergeResponses mergeResponses = new MergeResponses(responses, replicasFactor.getAck());
 
         responses.removeIf((e) -> e.getStatus() == 500);
-        selector(mergeResponses::mergePutResponses,
+        ServiceUtils.selector(mergeResponses::mergePutResponses,
                 mergeResponses::mergeGetResponses,
                 mergeResponses::mergeDeleteResponses,
                 request.getMethod(),
@@ -193,29 +160,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     }
 
-    private void selector(final Supplier<Response> putRequest,
-                          final Supplier<Response> getRequest,
-                          final Supplier<Response> deleteRequest,
-                          final int method,
-                          final HttpSession session) throws IOException {
-        switch (method) {
-            case Request.METHOD_PUT:
-                session.sendResponse(putRequest.get());
-                break;
-            case Request.METHOD_GET:
-                session.sendResponse(getRequest.get());
-                break;
-            case Request.METHOD_DELETE:
-                session.sendResponse(deleteRequest.get());
-                break;
-            default:
-                break;
-        }
-    }
-
     private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
         try {
-            dao.upsert(key, getBuffer(request.getBody()));
+            dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
         } catch (IOException e) {
             log.error("Internal server error put", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
@@ -242,7 +189,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             response = Response.ok(Response.EMPTY);
             response.addHeader("tombstone: " + true);
         } else {
-            response = Response.ok(getArray(value.getData()));
+            response = Response.ok(ServiceUtils.getArray(value.getData()));
         }
 
         response.addHeader("timestamp: " + value.getTimestamp());
@@ -267,7 +214,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private Response proxy(final String node, final Request request) {
         final String id = request.getParameter("id=");
-        final ByteBuffer key = getBuffer(id.getBytes(UTF_8));
+        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
         try {
             if (topology.isMe(node)) {
                 switch (request.getMethod()) {
@@ -296,7 +243,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void handleHttpPath(@Param(value = "id", required = true) @NotNull final String id,
-                               @Param(value = "replicas") @NotNull final String replicas,
                                final HttpSession session,
                                final Request request) {
         try {

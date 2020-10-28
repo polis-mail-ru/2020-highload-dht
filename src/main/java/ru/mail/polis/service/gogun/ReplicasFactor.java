@@ -10,6 +10,11 @@ public class ReplicasFactor {
     private final int ack;
     private final int from;
 
+    /**
+     * Class provides replication factor.
+     *
+     * @param replicas - replication factor
+     */
     public ReplicasFactor(@NotNull final String replicas) {
         final List<String> askFrom = Splitter.on('/').splitToList(replicas);
         this.ack = Integer.parseInt(askFrom.get(0).substring(1));
