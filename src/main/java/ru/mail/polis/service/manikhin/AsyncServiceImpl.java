@@ -39,7 +39,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final ExecutorService executor;
     private final Topology nodes;
     private final Map<String, HttpClient> clusterClients = new HashMap<>();
-    private final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     /**
      * AsyncService initialization.
@@ -72,18 +72,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * Request forwarder on specified node.
      *
      * @param session - http-session
-     * @param keyCluster - input key cluster
+     * @param nodeId - input node identifier
      * @param request - input http-request
      */
     private void forwardRequest(@NotNull final HttpSession session,
-                                  @NotNull final String keyCluster,
-                                  @NotNull final Request request) {
+                                @NotNull final String nodeId,
+                                @NotNull final Request request) {
 
-        request.addHeader("X-Proxy-For: " + keyCluster);
+        request.addHeader("X-Proxy-For: " + nodeId);
 
         final Future<?> futureProxy = executor.submit(() -> {
             try {
-                sendResponse(session, clusterClients.get(keyCluster).invoke(request));
+                sendResponse(session, clusterClients.get(nodeId).invoke(request));
             } catch (IOException | InterruptedException | PoolException | HttpException error) {
                 log.error("Sending response error: ", error);
                 sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -127,10 +127,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
 
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final String keyCluster = nodes.primaryFor(key);
+            final String nodeId = nodes.primaryFor(key);
 
-            if (!nodes.getId().equals(keyCluster)) {
-               forwardRequest(session, keyCluster, request);
+            if (!nodes.getId().equals(nodeId)) {
+               forwardRequest(session, nodeId, request);
                return;
             }
 
@@ -197,8 +197,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         } catch (final IOException error) {
             log.error("IO get error: ", error);
             sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        } catch (NoSuchElementException error) {
-            log.error("NoSuchElement get error: ", error);
+        } catch (NoSuchElementException message) {
+            log.error("NoSuchElement in database: ", message);
             sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
