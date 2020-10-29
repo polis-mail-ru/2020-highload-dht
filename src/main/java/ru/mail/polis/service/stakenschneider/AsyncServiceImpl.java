@@ -1,8 +1,8 @@
 package ru.mail.polis.service.stakenschneider;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpException;
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -50,7 +50,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final int clusterSize;
     private final Map<String, HttpClient> clusterClients;
 
-
     /**
      * Simple Async HTTP server.
      *
@@ -65,7 +64,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                             @NotNull final Nodes nodes,
                             @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
         super(config);
-        this.dao =  dao;
+        this.dao = dao;
         final int maxWorkers = Runtime.getRuntime().availableProcessors();
         this.executor = new ThreadPoolExecutor(
                 maxWorkers, maxWorkers,
