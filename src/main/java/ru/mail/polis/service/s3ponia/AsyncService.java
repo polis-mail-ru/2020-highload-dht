@@ -231,10 +231,23 @@ public final class AsyncService extends HttpServer implements Service {
             @NotNull final String id) throws IOException {
         if (validateId(id, session, "Empty key")) return;
         
-        if (this.policy.homeNode().equals(node)) {
-            this.es.execute(runFunction);
-        } else {
+        try {
+            if (this.policy.homeNode().equals(node)) {
+                this.es.execute(runFunction);
+            } else {
+                this.es.execute(() -> proxyWithoutIOException(node, session, request));
+            }
+        } catch (RejectedExecutionException ex) {
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, EMPTY));
+            logger.error("RejectedExecutionException", ex);
+        }
+    }
+    
+    private void proxyWithoutIOException(@NotNull String node, @NotNull HttpSession session, @NotNull Request request) {
+        try {
             proxy(node, session, request);
+        } catch (IOException ioException) {
+            logger.error("Error in proxy");
         }
     }
     
