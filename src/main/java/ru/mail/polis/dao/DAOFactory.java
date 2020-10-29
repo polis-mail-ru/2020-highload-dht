@@ -29,11 +29,11 @@ import java.io.IOException;
  */
 public final class DAOFactory {
     static final long MAX_HEAP = 256 * 1024 * 1024;
-
+    
     private DAOFactory() {
         // Not instantiatable
     }
-
+    
     /**
      * Construct a {@link DAO} instance.
      *
@@ -45,15 +45,15 @@ public final class DAOFactory {
         if (Runtime.getRuntime().maxMemory() > MAX_HEAP) {
             throw new IllegalStateException("The heap is too big. Consider setting Xmx.");
         }
-
+        
         if (!data.exists()) {
             throw new IllegalArgumentException("Path doesn't exist: " + data);
         }
-
+        
         if (!data.isDirectory()) {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
-
+        
         return new PersistenceDAO(data, MAX_HEAP / 2);
     }
 }
