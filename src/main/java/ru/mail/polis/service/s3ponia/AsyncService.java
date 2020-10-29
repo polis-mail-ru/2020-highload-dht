@@ -230,7 +230,9 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
     
-    private void proxyWithoutIOException(@NotNull String node, @NotNull HttpSession session, @NotNull Request request) {
+    private void proxyWithoutIOException(@NotNull final String node,
+                                         @NotNull final HttpSession session,
+                                         @NotNull final Request request) {
         try {
             proxy(node, session, request);
         } catch (IOException ioException) {
