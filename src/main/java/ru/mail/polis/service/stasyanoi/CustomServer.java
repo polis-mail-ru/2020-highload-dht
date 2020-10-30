@@ -21,16 +21,16 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
-    private final Map<String, HttpClient> clients = new HashMap<>();
+    private final Map<String, HttpClient> clients = new ConcurrentHashMap<>();
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
