@@ -93,7 +93,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public synchronized void get(final @Param(value = "id",required = true) String idParam,
+    public synchronized void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
         executorService.setSessionForRejectedError(session);
@@ -110,10 +110,14 @@ public class CustomServer extends HttpServer {
                              final HttpSession session,
                              final Request request) throws IOException {
         final Response responseHttp;
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = getNode(idArray);
-        final ByteBuffer id = Mapper.fromBytes(idArray);
-        responseHttp = getThisOrProxy(request, node, id);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = getNode(idArray);
+            final ByteBuffer id = Mapper.fromBytes(idArray);
+            responseHttp = getThisOrProxy(request, node, id);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -148,7 +152,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public synchronized void put(final @Param(value = "id", required = true) String idParam,
+    public synchronized void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
         runPut(idParam, request, session);
@@ -169,7 +173,11 @@ public class CustomServer extends HttpServer {
                              final Request request,
                              final HttpSession session) throws IOException {
         final Response responseHttp;
-        responseHttp = getPutResponse(idParam, request);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+         } else {
+            responseHttp = getPutResponse(idParam, request);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -203,7 +211,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public synchronized void delete(final @Param(value = "id", required = true) String idParam,
+    public synchronized void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
         executorService.setSessionForRejectedError(session);
@@ -220,9 +228,13 @@ public class CustomServer extends HttpServer {
                                 final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = getNode(idArray);
-        responseHttp = deleteProxy(request, idArray, node);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = getNode(idArray);
+            responseHttp = deleteProxy(request, idArray, node);
+        }
         session.sendResponse(responseHttp);
     }
 
