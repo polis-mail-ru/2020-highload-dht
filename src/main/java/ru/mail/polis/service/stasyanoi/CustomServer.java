@@ -32,7 +32,6 @@ public class CustomServer extends HttpServer {
     private int nodeNum;
     private final DAO dao;
     private final CustomExecutor executorService = CustomExecutor.getExecutor();
-
     /**
      * Create custom server.
      *
