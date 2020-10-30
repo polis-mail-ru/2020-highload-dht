@@ -133,7 +133,6 @@ public class CustomServer extends HttpServer {
             final byte[] bytes = Mapper.toBytes(body);
             return Response.ok(bytes);
         } catch (NoSuchElementException e) {
-            //if not found then 404
             return Util.getResponseWithNoBody(Response.NOT_FOUND);
         }
     }
