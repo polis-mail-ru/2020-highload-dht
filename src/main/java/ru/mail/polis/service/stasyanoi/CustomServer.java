@@ -44,7 +44,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(final @Param(value = "id", required = true) String idParam,
+    public void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
         executorService.setSessionForRejectedError(session);
@@ -65,7 +65,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_GET)
-    public void getRep(final @Param(value = "id", required = true) String idParam,
+    public void getRep(final @Param("id") String idParam,
                     final HttpSession session) {
         executorService.setSessionForRejectedError(session);
         executorService.execute(() -> {
@@ -80,8 +80,12 @@ public class CustomServer extends FrameServer {
     private void getRepInternal(final String idParam,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-        final ByteBuffer id = getKey(idParam);
-        responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final ByteBuffer id = getKey(idParam);
+            responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -90,7 +94,11 @@ public class CustomServer extends FrameServer {
                              final Request request) throws IOException {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
-        responseHttp = getResponseGet(idParam, request, tempNodeMapping);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            responseHttp = getResponseGet(idParam, request, tempNodeMapping);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -129,7 +137,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(final @Param(value = "id", required = true) String idParam,
+    public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
         executorService.setSessionForRejectedError(session);
@@ -151,7 +159,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_PUT)
-    public void putRep(final @Param(value = "id", required = true) String idParam,
+    public void putRep(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
         executorService.setSessionForRejectedError(session);
@@ -168,10 +176,14 @@ public class CustomServer extends FrameServer {
                                 final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-        final ByteBuffer key = getKey(idParam);
-        final ByteBuffer value = getByteBufferValue(request);
-        dao.upsert(key, value);
-        responseHttp = Util.getResponseWithNoBody(Response.CREATED);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final ByteBuffer key = getKey(idParam);
+            final ByteBuffer value = getByteBufferValue(request);
+            dao.upsert(key, value);
+            responseHttp = Util.getResponseWithNoBody(Response.CREATED);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -181,16 +193,19 @@ public class CustomServer extends FrameServer {
 
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = Util.getNode(idArray, nodeCount);
-        final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
-        final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
-        tempNodeMapping.remove(node);
-        final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
-                new Pair<>(tempNodeMapping, nodeMapping);
-        responseHttp = PutHelper.getPutReplicaResponse(request, mappings,
-                responseHttpCurrent, super.port);
-
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = Util.getNode(idArray, nodeCount);
+            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
+            final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
+            tempNodeMapping.remove(node);
+            final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
+                    new Pair<>(tempNodeMapping, nodeMapping);
+            responseHttp = PutHelper.getPutReplicaResponse(request, mappings,
+                    responseHttpCurrent, super.port);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -216,7 +231,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(final @Param(value = "id", required = true) String idParam,
+    public void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
         executorService.setSessionForRejectedError(session);
@@ -237,7 +252,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteRep(final @Param(value = "id", required = true) String idParam,
+    public void deleteRep(final @Param("id") String idParam,
                        final HttpSession session) {
         executorService.setSessionForRejectedError(session);
         executorService.execute(() -> {
@@ -252,9 +267,13 @@ public class CustomServer extends FrameServer {
     private void deleteRepInternal(final String idParam,
                                    final HttpSession session) throws IOException {
         final Response responseHttp;
-        final ByteBuffer key = getKey(idParam);
-        dao.remove(key);
-        responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final ByteBuffer key = getKey(idParam);
+            dao.remove(key);
+            responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -263,13 +282,17 @@ public class CustomServer extends FrameServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = Util.getNode(idArray, nodeCount);
-        final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
-        final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
-        tempNodeMapping.remove(node);
-        responseHttp = DeleteHelper.getDeleteReplicaResponse(request, tempNodeMapping,
-                responseHttpCurrent, nodeMapping, super.port);
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = Util.getNode(idArray, nodeCount);
+            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
+            final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
+            tempNodeMapping.remove(node);
+            responseHttp = DeleteHelper.getDeleteReplicaResponse(request, tempNodeMapping,
+                    responseHttpCurrent, nodeMapping, super.port);
+        }
         session.sendResponse(responseHttp);
     }
 
@@ -285,16 +308,5 @@ public class CustomServer extends FrameServer {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
-    }
-
-    /**
-     * Status check.
-     *
-     * @return Response with status.
-     */
-    @Path("/v0/status")
-    @RequestMethod(Request.METHOD_GET)
-    public Response status() {
-        return Util.getResponseWithNoBody(Response.OK);
     }
 }

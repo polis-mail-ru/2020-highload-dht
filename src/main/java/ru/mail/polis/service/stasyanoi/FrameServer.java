@@ -1,10 +1,6 @@
 package ru.mail.polis.service.stasyanoi;
 
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
@@ -76,5 +72,16 @@ public class FrameServer extends HttpServer {
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
+    }
+
+    /**
+     * Status check.
+     *
+     * @return Response with status.
+     */
+    @Path("/v0/status")
+    @RequestMethod(Request.METHOD_GET)
+    public Response status() {
+        return Util.getResponseWithNoBody(Response.OK);
     }
 }
