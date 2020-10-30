@@ -69,7 +69,7 @@ public class CustomServer extends HttpServer {
 
     private Response routeRequest(final Request request, final int node) throws IOException {
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        try (final HttpClient httpClient = new HttpClient(connectionString)) {
+        try (HttpClient httpClient = new HttpClient(connectionString)) {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
