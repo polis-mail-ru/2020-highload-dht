@@ -12,8 +12,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class FrameServer extends HttpServer {
 
@@ -21,8 +20,7 @@ public class FrameServer extends HttpServer {
     protected int nodeCount;
     protected int nodeNum;
     protected DAO dao;
-    protected ExecutorService executorService =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    protected CustomExecutor executorService = CustomExecutor.getExecutor();
 
     /**
      * Server config without endpoints.
@@ -61,7 +59,8 @@ public class FrameServer extends HttpServer {
         try {
             dao.close();
             executorService.shutdown();
-        } catch (IOException e) {
+            executorService.awaitTermination(10L, TimeUnit.MILLISECONDS);
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }

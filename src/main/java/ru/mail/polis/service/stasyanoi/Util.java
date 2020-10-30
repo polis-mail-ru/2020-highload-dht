@@ -109,8 +109,8 @@ public final class Util {
      * @return - the node number.
      */
     public static int getNode(final byte[] idArray, final int nodeCount) {
-        final int hash = Math.abs(Arrays.hashCode(idArray));
-
+        int hash = Math.abs(Arrays.hashCode(idArray));
+        hash = hash < 0 ? -hash : hash;
         return hash % nodeCount;
     }
 
