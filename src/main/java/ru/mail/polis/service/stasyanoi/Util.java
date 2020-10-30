@@ -94,11 +94,8 @@ public final class Util {
             throws IOException {
 
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        final HttpClient httpClient = new HttpClient(connectionString);
-        try {
-            final Response invoke = httpClient.invoke(request);
-            httpClient.close();
-            return invoke;
+        try (HttpClient httpClient = new HttpClient(connectionString)) {
+            return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             return getResponseWithNoBody(Response.INTERNAL_ERROR);
         }
