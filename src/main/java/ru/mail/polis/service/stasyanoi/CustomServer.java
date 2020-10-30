@@ -19,7 +19,13 @@ import ru.mail.polis.service.Mapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 public class CustomServer extends HttpServer {
@@ -29,6 +35,7 @@ public class CustomServer extends HttpServer {
     private int nodeNum;
     private final DAO dao;
     private final CustomExecutor executorService = CustomExecutor.getExecutor();
+
     /**
      * Create custom server.
      *
@@ -68,10 +75,10 @@ public class CustomServer extends HttpServer {
             final ConnectionString connectionString = new ConnectionString(strUrl);
             return new HttpClient(connectionString);
         });
-    };
+    }
 
     private Response routeRequest(final Request request, final int node) throws IOException {
-        HttpClient httpClient = getClient(nodeMapping.get(node));
+        final HttpClient httpClient = getClient(nodeMapping.get(node));
         try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
