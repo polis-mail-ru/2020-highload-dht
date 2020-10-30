@@ -19,15 +19,12 @@ import ru.mail.polis.service.Mapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
+    private final Map<String, HttpClient> clients = new HashMap<>();
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
@@ -65,10 +62,17 @@ public class CustomServer extends HttpServer {
         final int hash = abs < 0 ? -abs : abs;
         return hash % nodeCount;
     }
+    
+    private HttpClient getClient(final String url) {
+        return clients.computeIfAbsent(url, strUrl -> {
+            final ConnectionString connectionString = new ConnectionString(strUrl);
+            return new HttpClient(connectionString);
+        });
+    };
 
     private Response routeRequest(final Request request, final int node) throws IOException {
-        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        try (HttpClient httpClient = new HttpClient(connectionString)) {
+        HttpClient httpClient = getClient(nodeMapping.get(node));
+        try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
@@ -265,7 +269,8 @@ public class CustomServer extends HttpServer {
         try {
             dao.close();
             executorService.shutdown();
-        } catch (IOException e) {
+            executorService.awaitTermination(10L, TimeUnit.MILLISECONDS);
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
