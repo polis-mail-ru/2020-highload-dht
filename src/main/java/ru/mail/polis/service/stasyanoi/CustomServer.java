@@ -25,16 +25,13 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
-    private final ExecutorService executorService =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final CustomExecutor executorService = CustomExecutor.getExecutor();
 
     /**
      * Create custom server.
@@ -89,9 +86,10 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(final @Param("id") String idParam,
+    public synchronized void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
+        executorService.setSessionForRejectedError(session);
         executorService.execute(() -> {
             try {
                 getInternal(idParam, session, request);
@@ -148,13 +146,14 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(final @Param("id") String idParam,
+    public synchronized void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
         runPut(idParam, request, session);
     }
 
     private void runPut(final String idParam, final Request request, final HttpSession session) {
+        executorService.setSessionForRejectedError(session);
         executorService.execute(() -> {
             try {
                 putInternal(idParam, request, session);
@@ -206,9 +205,10 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(final @Param("id") String idParam,
+    public synchronized void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
+        executorService.setSessionForRejectedError(session);
         executorService.execute(() -> {
             try {
                 deleteInternal(idParam, request, session);
