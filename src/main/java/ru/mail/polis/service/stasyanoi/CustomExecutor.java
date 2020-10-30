@@ -15,7 +15,11 @@ public class CustomExecutor extends ThreadPoolExecutor {
     
     private static final Logger logger = LoggerFactory.getLogger(CustomExecutor.class);
 
-    public CustomExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue) {
+    public CustomExecutor(final int corePoolSize,
+                          final int maximumPoolSize,
+                          final long keepAliveTime,
+                          final TimeUnit unit,
+                          final BlockingQueue<Runnable> workQueue) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
     }
 

@@ -62,7 +62,7 @@ public class CustomServer extends HttpServer {
     }
 
     private int getNode(final byte[] idArray) {
-        int abs = Math.abs(Arrays.hashCode(idArray));
+        final int abs = Math.abs(Arrays.hashCode(idArray));
         final int hash = abs < 0 ? -abs : abs;
         return hash % nodeCount;
     }
