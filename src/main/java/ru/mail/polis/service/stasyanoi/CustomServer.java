@@ -69,11 +69,8 @@ public class CustomServer extends HttpServer {
 
     private Response routeRequest(final Request request, final int node) throws IOException {
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        final HttpClient httpClient = new HttpClient(connectionString);
-        try {
-            final Response invoke = httpClient.invoke(request);
-            httpClient.close();
-            return invoke;
+        try (final HttpClient httpClient = new HttpClient(connectionString)) {
+            return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
             return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
         }
@@ -109,14 +106,14 @@ public class CustomServer extends HttpServer {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = getNode(idArray);
             final ByteBuffer id = Mapper.fromBytes(idArray);
-            responseHttp = getProxy(request, node, id);
+            responseHttp = getThisOrProxy(request, node, id);
         }
         session.sendResponse(responseHttp);
     }
 
-    private Response getProxy(final Request request,
-                              final int node,
-                              final ByteBuffer id) throws IOException {
+    private Response getThisOrProxy(final Request request,
+                                    final int node,
+                                    final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             responseHttp = getResponseIfIdNotNull(id);
