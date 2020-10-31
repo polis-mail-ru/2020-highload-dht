@@ -2,14 +2,13 @@ package ru.mail.polis.service.codearound;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public final class Value {
 
+    private static final Value SINGLE_VALUE = new Value(false, -1, ByteBuffer.allocate(0));
     private static final Logger LOGGER = LoggerFactory.getLogger(Value.class);
-
     private final boolean isValueDeleted;
     private final long timestamp;
     private final ByteBuffer buffer;
@@ -25,7 +24,6 @@ public final class Value {
     private Value(final boolean isValueDeleted,
                   final long timestamp,
                   final ByteBuffer buffer) {
-
         this.isValueDeleted = isValueDeleted;
         this.timestamp = timestamp;
         this.buffer = buffer;
@@ -58,7 +56,7 @@ public final class Value {
      * @return Value instance
      */
     static Value resolveMissingValue() {
-        return new Value(false, -1, null);
+        return SINGLE_VALUE;
     }
 
     /**
@@ -137,7 +135,6 @@ public final class Value {
     public byte[] getBytesFromValue() {
         short isDeleted;
         isDeleted = isValueDeleted ? (short) 1 : (short) -1;
-
         return ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining())
                 .putShort(isDeleted)
                 .putLong(timestamp)

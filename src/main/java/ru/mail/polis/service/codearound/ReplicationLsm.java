@@ -9,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -20,12 +19,14 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.RejectedExecutionException;
 
+/**
+ *  class to feature topology-bound implementations of project-required DAO methods (get, put, delete).
+ */
 public class ReplicationLsm {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
     private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
-    private static final String IO_ERROR_LOG = "IO exception raised";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
     private final DAO dao;
@@ -42,9 +43,9 @@ public class ReplicationLsm {
      * @param repliFactor - replication factor
      */
     ReplicationLsm(@NotNull final DAO dao,
-            @NotNull final Topology<String> topology,
-            final Map<String, HttpClient> nodesToClients,
-            @NotNull final ReplicationFactor repliFactor) {
+                   @NotNull final Topology<String> topology,
+                   final Map<String, HttpClient> nodesToClients,
+                   @NotNull final ReplicationFactor repliFactor) {
         this.dao = dao;
         this.topology = topology;
         this.nodesToClients = nodesToClients;
@@ -72,7 +73,7 @@ public class ReplicationLsm {
                 LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 return new Response(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             } catch (IOException exc) {
-                LOGGER.error(IO_ERROR_LOG);
+                LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -90,14 +91,18 @@ public class ReplicationLsm {
      * @return HTTP response
      */
     Response getWithMultipleNodes(final String id,
-            @NotNull final ReplicationFactor repliFactor,
-            final boolean isForwardedRequest) throws IOException {
+                                  @NotNull final ReplicationFactor repliFactor,
+                                  final boolean isForwardedRequest) throws IOException {
         int replCounter = 0;
-        final String[] nodes = RepliServiceUtils.getNodeReplica(
-                ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
-                repliFactor,
-                isForwardedRequest,
-                topology);
+        final String[] nodes;
+
+        if (isForwardedRequest) {
+            nodes = new String[]{ topology.getThisNode() };
+        } else {
+            nodes = topology.replicasFor(
+                    ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+                    repliFactor.getFromValue());
+        }
         final List<Value> values = new ArrayList<>();
         for (final String node : nodes) {
             try {
@@ -152,7 +157,7 @@ public class ReplicationLsm {
                 LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
             } catch (IOException exc) {
-                LOGGER.error(IO_ERROR_LOG);
+                LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -219,7 +224,7 @@ public class ReplicationLsm {
      */
     Response deleteWithOnlyNode(
             @NotNull final ByteBuffer key,
-            @NotNull final Request req) throws IOException {
+            @NotNull final Request req) {
         final String owner = topology.primaryFor(key);
         if (topology.isThisNode(owner)) {
             try {
@@ -229,7 +234,7 @@ public class ReplicationLsm {
                 LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
             } catch (IOException exc) {
-                LOGGER.error(IO_ERROR_LOG);
+                LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -285,7 +290,7 @@ public class ReplicationLsm {
         LOGGER.error(RepliServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
-
+    
     /**
      * implements request proxying in case of mismatching current receiver ID (self ID) and target one.
      *

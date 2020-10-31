@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -25,16 +24,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+/**
+ *  class to determine request handler to run, DAO exchange method consistently with topology given.
+ */
 public class RepliServiceImpl extends HttpServer implements Service {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
     private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
             + "Failed determining response";
+    public static final String IO_ERROR_LOG = "IO exception raised";
     public static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     public static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
             + "Request failed as gateway closed past timeout";
-
     private final ExecutorService exec;
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodesToClients;
@@ -57,7 +59,6 @@ public class RepliServiceImpl extends HttpServer implements Service {
                             final int queueSize,
                             @NotNull final Topology<String> topology,
                             final int timeout) throws IOException {
-
         super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
         assert queueSize > 0;
@@ -74,13 +75,10 @@ public class RepliServiceImpl extends HttpServer implements Service {
         this.nodesToClients = new HashMap<>();
         this.repliFactor = new ReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
         this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor);
-
         for (final String node : topology.getNodes()) {
-
             if (topology.isThisNode(node)) {
                 continue;
             }
-
             final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
             if (nodesToClients.put(node, client) != null) {
                 throw new IllegalStateException("Multiple nodes found by same ID");
@@ -107,44 +105,31 @@ public class RepliServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
-                        @NotNull final Request req,
-                        @NotNull final HttpSession session) throws IOException {
-
+                       @NotNull final Request req,
+                       @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request");
             return;
         }
-
         boolean isForwardedRequest = false;
         if (req.getHeader(FORWARD_REQUEST_HEADER) != null) {
             isForwardedRequest = true;
         }
-
+        boolean isForwarded = isForwardedRequest;
         final ReplicationFactor repliFactorObj = ReplicationFactor
-                .getRepliFactor(req.getParameter("replicas"), session, repliFactor);
+                .getRepliFactor(req.getParameter("replicas"), repliFactor, session);
         final ByteBuffer bufKey = DAOByteOnlyConverter.tuneArrayToBuf(id.getBytes(StandardCharsets.UTF_8));
-
         if (topology.getClusterSize() > 1) {
             try {
                 switch (req.getMethod()) {
                     case Request.METHOD_GET:
-                        session.sendResponse(lsm.getWithMultipleNodes(
-                                id,
-                                repliFactorObj,
-                                isForwardedRequest));
+                        runAsyncHandler(session, () -> lsm.getWithMultipleNodes(id, repliFactorObj, isForwarded));
                         break;
                     case Request.METHOD_PUT:
-                        session.sendResponse(lsm.upsertWithMultipleNodes(
-                                id,
-                                req.getBody(),
-                                repliFactorObj.getAckValue(),
-                                isForwardedRequest));
+                        runAsyncHandler(session, () -> lsm.upsertWithMultipleNodes(id, req.getBody(), repliFactorObj.getAckValue(), isForwarded));
                         break;
                     case Request.METHOD_DELETE:
-                        session.sendResponse(lsm.deleteWithMultipleNodes(
-                                id,
-                                repliFactorObj.getAckValue(),
-                                isForwardedRequest));
+                        runAsyncHandler(session, () -> lsm.deleteWithMultipleNodes(id, repliFactorObj.getAckValue(), isForwarded));
                         break;
                     default:
                         session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
@@ -194,6 +179,11 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 session.sendResponse(async.exec());
             } catch (IOException exc) {
                 LOGGER.error(COMMON_RESPONSE_ERROR_LOG);
+                try {
+                    session.sendError(Response.INTERNAL_ERROR, COMMON_RESPONSE_ERROR_LOG);
+                } catch (IOException e) {
+                    LOGGER.error(IO_ERROR_LOG);
+                }
             }
         });
     }

@@ -1,7 +1,6 @@
 package ru.mail.polis.service.codearound;
 
 import org.jetbrains.annotations.NotNull;
-
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
@@ -20,12 +19,9 @@ public class ModularTopology implements Topology<String> {
      * @param thisNode - node which is distinguished as a current request handler
      */
     public ModularTopology(@NotNull final Set<String> nodes, @NotNull final String thisNode) {
-
         assert nodes.contains(thisNode);
-
         nodeArray = new String[nodes.size()];
         this.thisNode = thisNode;
-
         nodes.toArray(this.nodeArray);
         Arrays.sort(this.nodeArray);
     }
@@ -44,7 +40,7 @@ public class ModularTopology implements Topology<String> {
     }
 
     /**
-     * generates array containing node replica IDs.
+     * generates array to collect replica IDs inside of.
      *
      * @param id - node ID
      * @param numOfReplicas - number of node replicas
@@ -53,22 +49,19 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     @Override
     public String[] replicasFor(@NotNull final ByteBuffer id, final int numOfReplicas) {
-
         int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % nodeArray.length;
         final String[] nodeReplicas = new String[numOfReplicas];
-
         for (int i = 0; i < numOfReplicas; i++) {
             nodeReplicas[i] = nodeArray[nodeIndex];
             nodeIndex = (nodeIndex + 1) % nodeArray.length;
         }
-
         return nodeReplicas;
     }
 
     /**
      * evaluates if current node ID matches target one.
      *
-     * @param nodeId - currently working node ID
+     * @param nodeId - node ID which REST handler enforced to execute request-specific function at the moment
      * @return true if ID match found, otherwise false
      */
     @Override
@@ -107,5 +100,4 @@ public class ModularTopology implements Topology<String> {
     public String getThisNode() {
         return thisNode;
     }
-
 }

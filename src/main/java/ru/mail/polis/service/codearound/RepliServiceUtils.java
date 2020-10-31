@@ -5,7 +5,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
@@ -20,7 +19,6 @@ public final class RepliServiceUtils {
      * class instance const.
      */
     private RepliServiceUtils() {
-
     }
 
     /**
@@ -30,7 +28,6 @@ public final class RepliServiceUtils {
      * @return Value instance
      */
     public static Value syncReplicaValues(final List<Value> values) {
-
         if (values.size() == 1) {
             return values.get(0);
         } else {
@@ -39,33 +36,6 @@ public final class RepliServiceUtils {
                     .max(Comparator.comparingLong(Value::getTimestamp))
                     .orElseGet(Value::resolveMissingValue);
         }
-    }
-
-    /**
-     * retrieves reference on array filled with same-key replicas.
-     *
-     * @param key - key searched through nodes within the cluster
-     * @param repliFactor - replication factor
-     * @param isForwardedRequest - true if incoming request header indicates
-     *                             invocation of proxy-providing method on a previous node
-     * @param topology - implementable cluster topology
-     * @return array of replicas
-     */
-    public static String[] getNodeReplica(
-            @NotNull final ByteBuffer key,
-            @NotNull final ReplicationFactor repliFactor,
-            final boolean isForwardedRequest,
-            @NotNull final Topology<String> topology) {
-
-        String[] nodeReplicas;
-
-        if (isForwardedRequest) {
-            nodeReplicas = new String[]{ topology.getThisNode() };
-        } else {
-            nodeReplicas = topology.replicasFor(key, repliFactor.getFromValue());
-        }
-
-        return nodeReplicas;
     }
 
     /**
@@ -81,9 +51,7 @@ public final class RepliServiceUtils {
             final List<Value> values,
             final String[] nodeReplicas,
             final boolean isForwardedRequest) throws IOException {
-
         final Value value = syncReplicaValues(values);
-
         if (value.isValueDeleted()) {
             return new Response(Response.NOT_FOUND, value.getBytesFromValue());
         } else {
@@ -105,7 +73,6 @@ public final class RepliServiceUtils {
     public static Response issueInternalResponse(
             @NotNull final ByteBuffer key,
             @NotNull final DAO dao) {
-
         try {
             final Value value = dao.getValue(key);
             return new Response(Response.OK, value.getBytesFromValue());
