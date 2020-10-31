@@ -146,7 +146,8 @@ public class ServiceImpl extends HttpServer implements Service {
                 httpSession,
                 () -> {
                     try {
-                        final ValidatedParameters validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
+                        final ValidatedParameters validParams =
+                                validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
                         trySendAnswer(httpSession, responseManager.get(validParams, request));
                     } catch (final IllegalArgumentException e) {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
