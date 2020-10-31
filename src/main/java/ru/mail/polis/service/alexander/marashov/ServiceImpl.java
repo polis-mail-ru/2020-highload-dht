@@ -1,8 +1,6 @@
 package ru.mail.polis.service.alexander.marashov;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -11,27 +9,21 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
-import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzer;
-import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerGet;
-import ru.mail.polis.service.alexander.marashov.analyzers.SimpleResponseAnalyzer;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import static ru.mail.polis.service.alexander.marashov.ValidatedParameters.validateParameters;
 
@@ -39,18 +31,18 @@ public class ServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
-    private static final String RESPONSE_ERROR_STRING = "Sending response error";
-    private static final String WAITING_INTERRUPTED = "Responses waiting was interrupted";
+    public static final String PROXY_HEADER = "Proxy-Header";
+    public static final String PROXY_HEADER_VALUE = "Proxy-Header: true";
 
-    private static final String PROXY_HEADER = "Proxy-Header";
-    private static final String PROXY_HEADER_VALUE = "Proxy-Header: true";
+    public static final String STATUS_PATH = "/v0/status";
+    public static final String GET_PATH = "/v0/entity";
+    public static final String PUT_PATH = "/v0/entity";
+    public static final String DELETE_PATH = "/v0/entity";
 
-    private final DaoManager dao;
     private final ExecutorService executorService;
+    private final ResponseManager responseManager;
 
-    private final Topology<String> topology;
-    private final Map<String, HttpClient> nodeToClient;
-
+    private final int nodesCount;
     private final int defaultAck;
     private final int defaultFrom;
 
@@ -68,7 +60,6 @@ public class ServiceImpl extends HttpServer implements Service {
             final int proxyTimeoutValue
     ) throws IOException {
         super(configFrom(port));
-        this.dao = new DaoManager(dao);
         this.executorService = new ThreadPoolExecutor(
                 workersCount,
                 workersCount,
@@ -81,11 +72,10 @@ public class ServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-
-        this.topology = topology;
-        this.nodeToClient = topology.clientsToOtherNodes(proxyTimeoutValue);
+        this.responseManager = new ResponseManager(dao, topology, proxyTimeoutValue, executorService);
         this.defaultAck = topology.getQuorumCount();
         this.defaultFrom = topology.size();
+        this.nodesCount = topology.size();
     }
 
     /**
@@ -117,17 +107,7 @@ public class ServiceImpl extends HttpServer implements Service {
         try {
             httpSession.sendResponse(response);
         } catch (final IOException ioException) {
-            log.error(RESPONSE_ERROR_STRING, ioException);
-        }
-    }
-
-    private void iterateOverNodes(final String[] nodes, final Runnable localTask, final Consumer<String> proxyTask) {
-        for (final String node : nodes) {
-            if (topology.isLocal(node)) {
-                executorService.execute(localTask);
-            } else {
-                executorService.execute(() -> proxyTask.accept(node));
-            }
+            log.error("Sending response error", ioException);
         }
     }
 
@@ -142,7 +122,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @return {@link Response} with status {@code 200} if the server is available.
      */
-    @Path("/v0/status")
+    @Path(STATUS_PATH)
     public Response handleStatus() {
         return new Response(Response.OK, Response.EMPTY);
     }
@@ -158,7 +138,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough replicas.
      */
-    @Path("/v0/entity")
+    @Path(GET_PATH)
     @RequestMethod(Request.METHOD_GET)
     public void handleEntityGet(
             final HttpSession httpSession,
@@ -171,49 +151,12 @@ public class ServiceImpl extends HttpServer implements Service {
                 () -> {
                     final ValidatedParameters validParams;
                     try {
-                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, topology.size());
+                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
                     } catch (final IllegalArgumentException e) {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-
-                    final String rowAccessHeader = request.getHeader(PROXY_HEADER);
-                    if (rowAccessHeader != null) {
-                        trySendAnswer(httpSession, dao.rowGet(validParams.key));
-                        return;
-                    }
-
-                    final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
-                    final ResponseAnalyzerGet valueAnalyzer =
-                            new ResponseAnalyzerGet(validParams.ack, validParams.from);
-
-                    request.addHeader(PROXY_HEADER_VALUE);
-                    iterateOverNodes(
-                            primaries,
-                            () -> {
-                                final Response response = dao.rowGet(validParams.key);
-                                valueAnalyzer.accept(response);
-                            },
-                            (String primary) -> {
-                                Response response;
-                                try {
-                                    response = nodeToClient.get(primary).invoke(request);
-                                } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                                    response = null;
-                                    log.error("Get: Error sending request to node {}", primary, e);
-                                }
-                                valueAnalyzer.accept(response);
-                            }
-                    );
-
-                    try {
-                        valueAnalyzer.await(1000L, TimeUnit.MILLISECONDS);
-                    } catch (final InterruptedException e) {
-                        log.error(WAITING_INTERRUPTED, e);
-                        Thread.currentThread().interrupt();
-                    }
-
-                    final Response response = valueAnalyzer.getResult();
+                    final Response response = responseManager.get(validParams, request);
                     trySendAnswer(httpSession, response);
                 }
         );
@@ -229,7 +172,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough replicas.
      */
-    @Path("/v0/entity")
+    @Path(PUT_PATH)
     @RequestMethod(Request.METHOD_PUT)
     public void handleEntityPut(
             final HttpSession httpSession,
@@ -242,7 +185,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 () -> {
                     final ValidatedParameters validParams;
                     try {
-                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, topology.size());
+                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
                     } catch (final IllegalArgumentException e) {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
@@ -251,45 +194,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
 
-                    final String rowAccessHeader = request.getHeader(PROXY_HEADER);
-                    if (rowAccessHeader != null) {
-                        trySendAnswer(httpSession, dao.put(validParams.key, value));
-                        return;
-                    }
-
-                    final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
-                    final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
-                            validParams.ack,
-                            validParams.from,
-                            201,
-                            Response.CREATED
-                    );
-
-                    request.addHeader(PROXY_HEADER_VALUE);
-                    iterateOverNodes(
-                            primaries,
-                            () -> {
-                                final Response response = dao.put(validParams.key, value);
-                                responseAnalyzer.accept(response);
-                            },
-                            (primary) -> {
-                                Response response = null;
-                                try {
-                                    response = nodeToClient.get(primary).invoke(request);
-                                } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                                    log.error("Upsert: Error sending request to node {}", primary, e);
-                                }
-                                responseAnalyzer.accept(response);
-                            }
-                    );
-
-                    try {
-                        responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
-                    } catch (final InterruptedException e) {
-                        log.error(WAITING_INTERRUPTED);
-                        Thread.currentThread().interrupt();
-                    }
-                    final Response response = responseAnalyzer.getResult();
+                    final Response response = responseManager.put(validParams, value, request);
                     trySendAnswer(httpSession, response);
                 }
         );
@@ -305,7 +210,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough replicas.
      */
-    @Path("/v0/entity")
+    @Path(DELETE_PATH)
     @RequestMethod(Request.METHOD_DELETE)
     public void handleEntityDelete(
             final HttpSession httpSession,
@@ -318,52 +223,13 @@ public class ServiceImpl extends HttpServer implements Service {
                 () -> {
                     final ValidatedParameters validParams;
                     try {
-                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, topology.size());
+                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
                     } catch (final IllegalArgumentException e) {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
 
-                    final String rowAccessHeader = request.getHeader(PROXY_HEADER);
-                    if (rowAccessHeader != null) {
-                        trySendAnswer(httpSession, dao.delete(validParams.key));
-                        return;
-                    }
-
-                    final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
-                    final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
-                            validParams.ack,
-                            validParams.from,
-                            202,
-                            Response.ACCEPTED
-                    );
-
-                    request.addHeader(PROXY_HEADER_VALUE);
-                    iterateOverNodes(
-                            primaries,
-                            () -> {
-                                final Response response = dao.delete(validParams.key);
-                                responseAnalyzer.accept(response);
-                            },
-                            (primary) -> {
-                                Response response = null;
-                                try {
-                                    response = nodeToClient.get(primary).invoke(request);
-                                } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                                    log.error("Delete: Error sending request to node {}", primary, e);
-                                }
-                                responseAnalyzer.accept(response);
-                            }
-                    );
-
-                    try {
-                        responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
-                    } catch (final InterruptedException e) {
-                        log.error(WAITING_INTERRUPTED);
-                        Thread.currentThread().interrupt();
-                    }
-
-                    final Response response = responseAnalyzer.getResult();
+                    final Response response = responseManager.delete(validParams, request);
                     trySendAnswer(httpSession, response);
                 }
         );
@@ -379,9 +245,6 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Waiting for a stop is interrupted");
             Thread.currentThread().interrupt();
         }
-        for (final HttpClient client : nodeToClient.values()) {
-            client.clear();
-        }
-        dao.close();
+        responseManager.clear();
     }
 }

@@ -1,8 +1,8 @@
 package ru.mail.polis.service.alexander.marashov.topologies;
 
+import one.nio.http.HttpClient;
 import one.nio.net.ConnectionString;
 
-import one.nio.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +22,11 @@ public interface Topology<N> {
         return size() / 2 + 1;
     }
 
+    /**
+     * Creates map for mapping from node to HttpClient.
+     * @param proxyTimeoutValue - proxy timeout value in milliseconds.
+     * @return mapping from node to HttpClient.
+     */
     default Map<N, HttpClient> clientsToOtherNodes(final int proxyTimeoutValue) {
         final HashMap<N, HttpClient> clientsToOtherNodes = new HashMap<>();
         for (final N node : all()) {
