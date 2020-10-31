@@ -5,7 +5,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
 
@@ -19,12 +18,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiConsumer;
 
 import static ru.mail.polis.service.s3ponia.AsyncService.EMPTY;
+import static ru.mail.polis.service.s3ponia.AsyncService.logger;
 
 public final class AsyncServiceUtility {
 
@@ -53,7 +52,11 @@ public final class AsyncServiceUtility {
             final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
             if (header != null) {
                 final var time = Long.parseLong(header.value);
-                handlingUpsertWithTimeStamp(session, service, key, value, time);
+                if (upsertWithTimeStamp(key, value, time, service)
+                        .whenCompleteAsync((c, t) -> handlingUpsertResult(session, t))
+                        .isCancelled()) {
+                    logger.error("Cancelled upserting");
+                }
                 return;
             }
 
@@ -74,7 +77,7 @@ public final class AsyncServiceUtility {
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
 
             if (homeInReplicas) {
-                responses.add(upsert(key, value, currTime, service));
+                responses.add(upsertWithTimeStamp(key, value, currTime, service));
             }
 
             if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync(validatePut(session)).isCancelled()) {
@@ -83,6 +86,18 @@ public final class AsyncServiceUtility {
         } catch (RejectedExecutionException | IOException e) {
             AsyncService.logger.error("Error", e);
             e.printStackTrace();
+        }
+    }
+
+    private static void handlingUpsertResult(@NotNull HttpSession session, Throwable t) {
+        try {
+            if (t == null) {
+                session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
+            } else {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+            }
+        } catch (IOException e) {
+            logger.error("Error in sending put response", e);
         }
     }
 
@@ -110,9 +125,9 @@ public final class AsyncServiceUtility {
      * @param service  service where to delete
      * @return CompletableFuture
      */
-    public static CompletableFuture<Void> delete(@NotNull final ByteBuffer key,
-                                                 final long currTime,
-                                                 @NotNull final AsyncService service) {
+    public static CompletableFuture<Void> deleteWithTimeStampAsync(@NotNull final ByteBuffer key,
+                                                                   final long currTime,
+                                                                   @NotNull final AsyncService service) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 service.dao.removeWithTimeStamp(key, currTime);
@@ -126,10 +141,10 @@ public final class AsyncServiceUtility {
         }, service.es);
     }
 
-    private static CompletableFuture<Void> upsert(@NotNull final ByteBuffer key,
-                                                  @NotNull final ByteBuffer value,
-                                                  final long currTime,
-                                                  @NotNull final AsyncService service) {
+    private static CompletableFuture<Void> upsertWithTimeStamp(@NotNull final ByteBuffer key,
+                                                               @NotNull final ByteBuffer value,
+                                                               final long currTime,
+                                                               @NotNull final AsyncService service) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 service.dao.upsertWithTimeStamp(key, value, currTime);
@@ -143,42 +158,6 @@ public final class AsyncServiceUtility {
         }, service.es);
     }
 
-    private static void handlingUpsertWithTimeStamp(@NotNull final HttpSession session,
-                                                    @NotNull final AsyncService service,
-                                                    @NotNull final ByteBuffer key,
-                                                    @NotNull final ByteBuffer value,
-                                                    final long time) {
-        try {
-            upsertWithTimeStamp(key, value, session, time, service.dao);
-        } catch (IOException ioException) {
-            AsyncService.logger.error("Error in sending put request", ioException);
-        }
-    }
-
-    /**
-     * Process upserting to dao.
-     *
-     * @param key     key for upserting
-     * @param value   value for upserting
-     * @param session HttpSession for response
-     * @param dao     dao to upsert
-     * @throws IOException rethrow from sendResponse
-     */
-    public static void upsertWithTimeStamp(@NotNull final ByteBuffer key,
-                                           @NotNull final ByteBuffer value,
-                                           @NotNull final HttpSession session,
-                                           final long timeStamp,
-                                           @NotNull final DAO dao) throws IOException {
-        try {
-            dao.upsertWithTimeStamp(key, value, timeStamp);
-            session.sendResponse(new Response(Response.CREATED, EMPTY));
-        } catch (IOException ioException) {
-            AsyncService.logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
-                    key.capacity(), value.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-
     /**
      * Handling error in status.
      *
@@ -189,30 +168,6 @@ public final class AsyncServiceUtility {
             session.sendResponse(Response.ok("OK"));
         } catch (IOException e) {
             AsyncService.logger.error("Error in sending status", e);
-        }
-    }
-
-    /**
-     * Getting raw value.
-     *
-     * @param key     key
-     * @param session session for response
-     * @param dao     dao for getting
-     * @throws IOException rethrow from session
-     */
-    public static void getRaw(@NotNull final ByteBuffer key,
-                              @NotNull final HttpSession session,
-                              @NotNull final DAO dao) throws IOException {
-        try {
-            final var val = dao.getRaw(key);
-            final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
-            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
-            session.sendResponse(resp);
-        } catch (NoSuchElementException noSuchElementException) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException ioException) {
-            AsyncService.logger.error("IOException in getting key(size: {}) from dao", key.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -247,26 +202,6 @@ public final class AsyncServiceUtility {
         } catch (URISyntaxException e) {
             throw new RuntimeException("Error in parsing URI", e);
         }
-    }
-
-    /**
-     * GetFutures and GetValuesFromFutures in one step.
-     *
-     * @param id           id for GetFutures and GetValuesFromFutures
-     * @param parsed       parsed for GetFutures and GetValuesFromFutures
-     * @param service      service for GetFutures and GetValuesFromFutures
-     * @param nodeReplicas nodeReplicas for GetFutures and GetValuesFromFutures
-     * @return list of Table.Value
-     */
-    @NotNull
-    public static CompletableFuture<Collection<Table.Value>> getValues(
-            @NotNull final String id,
-            @NotNull final Utility.ReplicationConfiguration parsed,
-            @NotNull final AsyncService service,
-            @NotNull final String... nodeReplicas) {
-        final Collection<CompletableFuture<Table.Value>> futureResponses =
-                getGetFutures(id, parsed, service, nodeReplicas);
-        return Utility.atLeast(parsed.ack, futureResponses);
     }
 
     /**
@@ -379,7 +314,7 @@ public final class AsyncServiceUtility {
      * @return list of responses
      */
     @NotNull
-    public static Collection<CompletableFuture<Void>> getFuturesReponsePut(
+    private static Collection<CompletableFuture<Void>> getFuturesReponsePut(
             @NotNull final String id,
             @NotNull final HttpRequest.Builder req,
             @NotNull final Utility.ReplicationConfiguration configuration,
@@ -415,8 +350,8 @@ public final class AsyncServiceUtility {
      * @param service  AsyncService with nodes
      * @return replication configuration
      */
-    public static Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas,
-                                                                            @NotNull final AsyncService service) {
+    private static Utility.ReplicationConfiguration parseAndValidateReplicas(final String replicas,
+                                                                             @NotNull final AsyncService service) {
         final Utility.ReplicationConfiguration parsedReplica;
         final var nodeCount = service.policy.all().length;
 

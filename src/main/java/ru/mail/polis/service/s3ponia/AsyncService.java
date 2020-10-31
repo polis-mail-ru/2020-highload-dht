@@ -20,6 +20,7 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,7 @@ public final class AsyncService extends HttpServer implements Service {
         );
         this.httpClient = java.net.http.HttpClient.newBuilder()
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(1))
                 .executor(executor)
                 .build();
         this.policy = policy;
@@ -134,7 +136,22 @@ public final class AsyncService extends HttpServer implements Service {
 
         final var key = Utility.byteBufferFromString(id);
         if (request.getHeader(Utility.PROXY_HEADER) != null) {
-            AsyncServiceUtility.getRaw(key, session, this.dao);
+            if (futureGet(key).whenCompleteAsync((val, t) -> {
+                try {
+                    if (t == null) {
+                        final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
+                        resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
+                        session.sendResponse(resp);
+                    } else {
+                        logger.error("Error in dao.getRAW");
+                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+                    }
+                } catch (IOException e) {
+                    logger.error("Error in sending getRAW");
+                }
+            }).isCancelled()) {
+                logger.error("Canceled task");
+            }
             return;
         }
         final Utility.ReplicationConfiguration parsed =
@@ -199,25 +216,6 @@ public final class AsyncService extends HttpServer implements Service {
     }
 
     /**
-     * Process deleting from dao.
-     *
-     * @param key     record's key to delete
-     * @param session HttpSession for response
-     * @throws IOException rethrow from sendResponse
-     */
-    private void deleteWithTimeStamp(@NotNull final ByteBuffer key,
-                                     @NotNull final HttpSession session,
-                                     final long timeStamp) throws IOException {
-        try {
-            dao.removeWithTimeStamp(key, timeStamp);
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        } catch (IOException ioException) {
-            logger.error("IOException in removing key(size: {}) from dao", key.capacity());
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
-
-    /**
      * Basic implementation of http put handling.
      *
      * @param id key in database to delete
@@ -236,15 +234,21 @@ public final class AsyncService extends HttpServer implements Service {
         final var key = Utility.byteBufferFromString(id);
         final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
         if (header != null) {
-            this.es.execute(
-                    () -> {
-                        try {
-                            deleteWithTimeStamp(key, session, Long.parseLong(header.value));
-                        } catch (IOException ioException) {
-                            logger.error("Error in sending put request", ioException);
-                        }
+            if (AsyncServiceUtility.deleteWithTimeStampAsync(key, Long.parseLong(header.value), this)
+            .whenCompleteAsync((v, t) -> {
+                try {
+                    if (t == null) {
+                        session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
+                    } else {
+                        logger.error("Error in removing from DAO");
+                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
                     }
-            );
+                } catch (IOException e) {
+                    logger.error("Error in sending delete response", e);
+                }
+            }).isCancelled()) {
+                logger.error("Canceled removing from dao");
+            }
             return;
         }
 
@@ -261,7 +265,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
         if (homeInReplicas) {
-            futures.add(AsyncServiceUtility.delete(key, currTime, this));
+            futures.add(AsyncServiceUtility.deleteWithTimeStampAsync(key, currTime, this));
         }
 
         if (Utility.atLeast(parsed.ack, futures).whenCompleteAsync((c, t) -> {
