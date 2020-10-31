@@ -46,6 +46,11 @@ public final class Util {
         }
     }
 
+    /**
+     * Send 503 error.
+     *
+     * @param errorSession - session to which to send the error.
+     */
     public static void send503Error(final HttpSession errorSession) {
         try {
             errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));

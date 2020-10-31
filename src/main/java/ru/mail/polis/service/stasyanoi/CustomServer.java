@@ -19,13 +19,18 @@ import ru.mail.polis.service.Mapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
-    private Map<String, HttpClient> clients;
+    private final Map<String, HttpClient> httpClientMap;
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
@@ -57,7 +62,7 @@ public class CustomServer extends HttpServer {
                 nodeNum = i;
             }
         }
-        this.clients = clients;
+        this.httpClientMap = clients;
         this.nodeMapping = nodeMappingTemp;
         this.dao = dao;
     }
@@ -69,7 +74,7 @@ public class CustomServer extends HttpServer {
     }
 
     private Response routeRequest(final Request request, final int node) throws IOException {
-        final HttpClient httpClient = clients.get(nodeMapping.get(node));
+        final HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
         try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
