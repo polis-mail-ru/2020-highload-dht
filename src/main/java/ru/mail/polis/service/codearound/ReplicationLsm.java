@@ -94,15 +94,13 @@ public class ReplicationLsm {
                                   @NotNull final ReplicationFactor repliFactor,
                                   final boolean isForwardedRequest) throws IOException {
         int replCounter = 0;
-        final String[] nodes;
+        final String[] nodes = RepliServiceUtils.getNodes(
+                id,
+                topology,
+                isForwardedRequest,
+                repliFactor
+        );
 
-        if (isForwardedRequest) {
-            nodes = new String[]{ topology.getThisNode() };
-        } else {
-            nodes = topology.replicasFor(
-                    ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
-                    repliFactor.getFromValue());
-        }
         final List<Value> values = new ArrayList<>();
         for (final String node : nodes) {
             try {
@@ -290,7 +288,7 @@ public class ReplicationLsm {
         LOGGER.error(RepliServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
-    
+
     /**
      * implements request proxying in case of mismatching current receiver ID (self ID) and target one.
      *

@@ -111,11 +111,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
             session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request");
             return;
         }
+
         boolean isForwardedRequest = false;
         if (req.getHeader(FORWARD_REQUEST_HEADER) != null) {
             isForwardedRequest = true;
         }
-        boolean isForwarded = isForwardedRequest;
+
+        final boolean forwardedStatus = isForwardedRequest;
         final ReplicationFactor repliFactorObj = ReplicationFactor
                 .getRepliFactor(req.getParameter("replicas"), repliFactor, session);
         final ByteBuffer bufKey = DAOByteOnlyConverter.tuneArrayToBuf(id.getBytes(StandardCharsets.UTF_8));
@@ -123,13 +125,23 @@ public class RepliServiceImpl extends HttpServer implements Service {
             try {
                 switch (req.getMethod()) {
                     case Request.METHOD_GET:
-                        runAsyncHandler(session, () -> lsm.getWithMultipleNodes(id, repliFactorObj, isForwarded));
+                        runAsyncHandler(session, () -> lsm.getWithMultipleNodes(
+                                id,
+                                repliFactorObj,
+                                forwardedStatus));
                         break;
                     case Request.METHOD_PUT:
-                        runAsyncHandler(session, () -> lsm.upsertWithMultipleNodes(id, req.getBody(), repliFactorObj.getAckValue(), isForwarded));
+                        runAsyncHandler(session, () -> lsm.upsertWithMultipleNodes(
+                                id,
+                                req.getBody(),
+                                repliFactorObj.getAckValue(),
+                                forwardedStatus));
                         break;
                     case Request.METHOD_DELETE:
-                        runAsyncHandler(session, () -> lsm.deleteWithMultipleNodes(id, repliFactorObj.getAckValue(), isForwarded));
+                        runAsyncHandler(session, () -> lsm.deleteWithMultipleNodes(
+                                id,
+                                repliFactorObj.getAckValue(),
+                                forwardedStatus));
                         break;
                     default:
                         session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);

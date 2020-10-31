@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -35,6 +36,29 @@ public final class RepliServiceUtils {
                     .filter(value -> !value.isValueMissing())
                     .max(Comparator.comparingLong(Value::getTimestamp))
                     .orElseGet(Value::resolveMissingValue);
+        }
+    }
+
+    /**
+     * retrieves array of available node IDs for processing in getWithMultipleNodes() method.
+     *
+     * @param id - String-defined node ID
+     * @param topology - topology implementation instance
+     * @param isForwardedRequest - true if incoming request header indicates
+     *                                 invocation of proxy-providing method on a previous node
+     * @param repliFactor - replication factor
+     * @return array of node IDs that belong same cluster
+     */
+    public static String[] getNodes(final String id,
+                                      @NotNull final Topology<String> topology,
+                                      final boolean isForwardedRequest,
+                                      @NotNull final ReplicationFactor repliFactor) {
+        if (isForwardedRequest) {
+            return new String[]{topology.getThisNode()};
+        } else {
+            return topology.replicasFor(
+                    ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+                    repliFactor.getFromValue());
         }
     }
 
