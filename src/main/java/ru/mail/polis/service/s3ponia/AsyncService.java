@@ -19,6 +19,7 @@ import ru.mail.polis.s3ponia.Utility;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Arrays;
@@ -136,20 +137,7 @@ public final class AsyncService extends HttpServer implements Service {
 
         final var key = Utility.byteBufferFromString(id);
         if (request.getHeader(Utility.PROXY_HEADER) != null) {
-            if (futureGet(key).whenCompleteAsync((val, t) -> {
-                try {
-                    if (t == null) {
-                        final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
-                        resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
-                        session.sendResponse(resp);
-                    } else {
-                        logger.error("Error in dao.getRAW");
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-                    }
-                } catch (IOException e) {
-                    logger.error("Error in sending getRAW");
-                }
-            }).isCancelled()) {
+            if (futureGet(key).whenCompleteAsync(Utility.getCompleteHandler(session)).isCancelled()) {
                 logger.error("Canceled task");
             }
             return;
@@ -235,18 +223,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
         if (header != null) {
             if (AsyncServiceUtility.deleteWithTimeStampAsync(key, Long.parseLong(header.value), this)
-            .whenCompleteAsync((v, t) -> {
-                try {
-                    if (t == null) {
-                        session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
-                    } else {
-                        logger.error("Error in removing from DAO");
-                        session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-                    }
-                } catch (IOException e) {
-                    logger.error("Error in sending delete response", e);
-                }
-            }).isCancelled()) {
+                    .whenCompleteAsync(Utility.deleteCompleteHandler(session)).isCancelled()) {
                 logger.error("Canceled removing from dao");
             }
             return;
@@ -261,7 +238,12 @@ public final class AsyncService extends HttpServer implements Service {
 
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
         final var futures =
-                AsyncServiceUtility.getFuturesReponseDelete(id, currTime, parsed, this, nodes);
+                AsyncServiceUtility.getFuturesResponse(id, HttpRequest.newBuilder()
+                                .header(Utility.PROXY_HEADER, this.policy.homeNode())
+                                .headers(Utility.TIME_HEADER, Long.toString(currTime))
+                                .timeout(Duration.ofMillis(100))
+                                .DELETE(),
+                        parsed, this, nodes);
         final var homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
         if (homeInReplicas) {

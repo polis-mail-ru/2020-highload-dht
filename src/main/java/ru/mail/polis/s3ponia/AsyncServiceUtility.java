@@ -44,7 +44,7 @@ public final class AsyncServiceUtility {
             @NotNull final String replicas,
             @NotNull final Request request,
             @NotNull final HttpSession session,
-            @NotNull final AsyncService service) {
+            @NotNull final AsyncService service) throws IOException {
         try {
             final var key = Utility.byteBufferFromString(id);
             final var value = ByteBuffer.wrap(request.getBody());
@@ -69,9 +69,10 @@ public final class AsyncServiceUtility {
 
             final var nodes = service.policy.getNodeReplicas(key, parsed.from);
             final var responses =
-                    getFuturesReponsePut(id, HttpRequest.newBuilder()
+                    getFuturesResponse(id, HttpRequest.newBuilder()
                                     .header(Utility.PROXY_HEADER, service.policy.homeNode())
                                     .headers(Utility.TIME_HEADER, Long.toString(currTime))
+                                    .timeout(Duration.ofMillis(100))
                                     .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())),
                             parsed, service, nodes);
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
@@ -83,13 +84,14 @@ public final class AsyncServiceUtility {
             if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync(validatePut(session)).isCancelled()) {
                 AsyncService.logger.error("Canceled task");
             }
-        } catch (RejectedExecutionException | IOException e) {
+        } catch (RejectedExecutionException e) {
             AsyncService.logger.error("Error", e);
-            e.printStackTrace();
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, EMPTY));
         }
     }
 
-    private static void handlingUpsertResult(@NotNull HttpSession session, Throwable t) {
+    private static void handlingUpsertResult(@NotNull final HttpSession session,
+                                             final Throwable t) {
         try {
             if (t == null) {
                 session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
@@ -272,49 +274,7 @@ public final class AsyncServiceUtility {
      * @return list of responses
      */
     @NotNull
-    public static Collection<CompletableFuture<Void>> getFuturesReponseDelete(
-            @NotNull final String id,
-            final long currTime,
-            @NotNull final Utility.ReplicationConfiguration configuration,
-            @NotNull final AsyncService service,
-            @NotNull final String... nodes) {
-        final List<CompletableFuture<Void>> futureResponses = new ArrayList<>(configuration.from);
-
-        for (final var node :
-                nodes) {
-
-            if (!node.equals(service.policy.homeNode())) {
-                final CompletableFuture<Void> response =
-                        AsyncServiceUtility.proxyAsync(request(node, id)
-                                        .header(Utility.PROXY_HEADER, node)
-                                        .header(Utility.TIME_HEADER, Long.toString(currTime))
-                                        .DELETE()
-                                        .build(),
-                                service,
-                                responseInfo -> {
-                                    if (responseInfo.statusCode() == 202 /* ACCEPTED */
-                                            || responseInfo.statusCode() == 201 /* CREATED */) {
-                                        return HttpResponse.BodySubscribers.discarding();
-                                    }
-                                    throw new IllegalArgumentException("Failure in putting/deleting");
-                                });
-                futureResponses.add(response);
-            }
-        }
-        return futureResponses;
-    }
-
-    /**
-     * Produce list of responses over proxy(node, request, service).
-     *
-     * @param id            id for proxy
-     * @param configuration replication configuration
-     * @param service       AsyncService for proxying
-     * @param nodes         dest nodes
-     * @return list of responses
-     */
-    @NotNull
-    private static Collection<CompletableFuture<Void>> getFuturesReponsePut(
+    public static Collection<CompletableFuture<Void>> getFuturesResponse(
             @NotNull final String id,
             @NotNull final HttpRequest.Builder req,
             @NotNull final Utility.ReplicationConfiguration configuration,
@@ -327,7 +287,8 @@ public final class AsyncServiceUtility {
 
             if (!node.equals(service.policy.homeNode())) {
                 final CompletableFuture<Void> response =
-                        AsyncServiceUtility.proxyAsync(req.uri(URI.create(node + "/v0/entity?id=" + id))
+                        AsyncServiceUtility.proxyAsync(
+                                req.uri(URI.create(node + "/v0/entity?id=" + id))
                                         .build(),
                                 service,
                                 responseInfo -> {

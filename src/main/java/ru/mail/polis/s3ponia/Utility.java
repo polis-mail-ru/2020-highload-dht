@@ -3,24 +3,26 @@ package ru.mail.polis.s3ponia;
 import com.google.common.base.Splitter;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.s3ponia.Table;
+import ru.mail.polis.service.s3ponia.AsyncService;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 
 public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
@@ -142,18 +144,6 @@ public final class Utility {
     }
 
     /**
-     * Getting DeadFlagTimeStamp from Table.Value.
-     *
-     * @param response response
-     * @return DeadFlagTimeStamp
-     */
-    public static long getDeadFlagTimeStamp(@NotNull final Response response) {
-        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
-        assert header != null;
-        return Long.parseLong(header.value);
-    }
-
-    /**
      * Get Future values and store to Collection.
      *
      * @param min             minimum results
@@ -184,28 +174,38 @@ public final class Utility {
         return future;
     }
 
-    /**
-     * Get Future values and store to list.
-     *
-     * @param configuration   replication configuration
-     * @param futureResponses list of future responses
-     * @return list of Table.Value
-     */
     @NotNull
-    public static List<Table.Value> getValuesFromFutures(@NotNull final ReplicationConfiguration configuration,
-                                                         @NotNull final List<Response> futureResponses) {
-        final List<Table.Value> values = new ArrayList<>(configuration.from);
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            response = resp;
-            if (response != null && response.getStatus() == 200 /* OK */) {
-                final var val = Table.Value.of(ByteBuffer.wrap(response.getBody()),
-                        getDeadFlagTimeStamp(response), -1);
-                values.add(val);
+    public static BiConsumer<Table.Value, Throwable> getCompleteHandler(@NotNull final HttpSession session) {
+        return (val, t) -> {
+            try {
+                if (t == null) {
+                    final var resp = Response.ok(Utility.fromByteBuffer(val.getValue()));
+                    resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + val.getDeadFlagTimeStamp());
+                    session.sendResponse(resp);
+                } else {
+                    AsyncService.logger.error("Error in dao.getRAW");
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, AsyncService.EMPTY));
+                }
+            } catch (IOException e) {
+                AsyncService.logger.error("Error in sending getRAW");
             }
-        }
-        return values;
+        };
+    }
+
+    @NotNull
+    public static BiConsumer<Void, Throwable> deleteCompleteHandler(@NotNull final HttpSession session) {
+        return (v, t) -> {
+            try {
+                if (t == null) {
+                    session.sendResponse(new Response(Response.ACCEPTED, AsyncService.EMPTY));
+                } else {
+                    AsyncService.logger.error("Error in removing from DAO");
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, AsyncService.EMPTY));
+                }
+            } catch (IOException e) {
+                AsyncService.logger.error("Error in sending delete response", e);
+            }
+        };
     }
 
     /**
