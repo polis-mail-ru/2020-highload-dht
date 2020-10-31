@@ -1,8 +1,5 @@
 package ru.mail.polis.service.zvladn7;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -13,7 +10,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
-import one.nio.util.Utf8;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +17,6 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -36,9 +29,8 @@ public class AsyncService extends HttpServer implements Service {
     private static final String ERROR_SERVICE_UNAVAILABLE = "Cannot send SERVICE_UNAVAILABLE response";
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
 
-    private final DAO dao;
-    private final Cache<String, byte[]> cache;
     private final ExecutorService es;
+    private final ServiceHelper helper;
 
     /**
      * Asynchronous server implementation.
@@ -52,9 +44,8 @@ public class AsyncService extends HttpServer implements Service {
                         @NotNull final DAO dao,
                         final int amountOfWorkers,
                         final int queueSize,
-                        final int cacheSize) throws IOException {
+                        @NotNull final Topology<String> topology) throws IOException {
         super(provideConfig(port));
-        this.dao = dao;
         this.es = new ThreadPoolExecutor(amountOfWorkers, amountOfWorkers,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
@@ -64,16 +55,7 @@ public class AsyncService extends HttpServer implements Service {
                         ).build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-        this.cache = CacheBuilder.newBuilder()
-                .initialCapacity(cacheSize)
-                .concurrencyLevel(amountOfWorkers)
-                .removalListener((RemovalListener<String, byte[]>) notification -> {
-                    log.debug("Remove from cache with key: " + notification.getKey());
-                    log.debug("Cause: " + notification.getCause().name());
-                })
-                .maximumSize(cacheSize)
-                .expireAfterAccess(1, TimeUnit.MINUTES)
-                .build();
+        this.helper = new ServiceHelper(topology, dao);
     }
 
     @Override
@@ -107,8 +89,9 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
-                    final HttpSession session) {
-        processRequest(() -> handleGet(id, session), session);
+                    final HttpSession session,
+                    final Request request) {
+        processRequest(() -> helper.handleGet(id, session, request), session);
     }
 
     /**
@@ -124,8 +107,9 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void remove(@Param(value = "id", required = true) final String id,
-                       final HttpSession session) {
-        processRequest(() -> handleDelete(id, session), session);
+                       final HttpSession session,
+                       final Request request) {
+        processRequest(() -> helper.handleDelete(id, session, request), session);
     }
 
     /**
@@ -144,7 +128,7 @@ public class AsyncService extends HttpServer implements Service {
             @Param(value = "id", required = true) final String id,
             final Request request,
             final HttpSession session) {
-        processRequest(() -> handleUpsert(id, request, session), session);
+        processRequest(() -> helper.handleUpsert(id, request, session), session);
     }
 
     @Override
@@ -159,106 +143,12 @@ public class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private void handleGet(
-            @NotNull final String id,
-            @NotNull final HttpSession session) throws IOException {
-        log.debug("GET request with mapping: /v0/entity and key={}", id);
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, "GET");
-            return;
-        }
-        byte[] body = cache.getIfPresent(id);
-        if (body == null) {
-            log.debug("Not from cache with id: {}", id);
-            final ByteBuffer key = wrapString(id);
-            final ByteBuffer value;
-            try {
-                value = dao.get(key);
-            } catch (NoSuchElementException e) {
-                log.info("Value with key: {} was not found", id, e);
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                return;
-            } catch (IOException e) {
-                sendInternalErrorResponse(session, id, e);
-                return;
-            }
-            body = toBytes(value);
-            cache.put(id, body);
-        }
-        session.sendResponse(Response.ok(body));
-    }
-
-    private void handleDelete(
-            @NotNull final String id,
-            @NotNull final HttpSession session) throws IOException {
-        log.debug("DELETE request with mapping: /v0/entity and key={}", id);
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, "DELETE");
-            return;
-        }
-        final ByteBuffer key = wrapString(id);
-        try {
-            dao.remove(key);
-            cache.invalidate(id);
-        } catch (IOException e) {
-            sendInternalErrorResponse(session, id, e);
-            return;
-        }
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-    }
-
-    private void handleUpsert(
-            @NotNull final String id,
-            @NotNull final Request request,
-            @NotNull final HttpSession session) throws IOException {
-        log.debug("PUT request with mapping: /v0/entity with: key={}, value={}",
-                id, new String(request.getBody(), StandardCharsets.UTF_8));
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, "UPSERT");
-            return;
-        }
-
-        final ByteBuffer key = wrapString(id);
-        final ByteBuffer value = wrapArray(request.getBody());
-        try {
-            dao.upsert(key, value);
-            cache.asMap().computeIfPresent(id, (k, v) -> request.getBody());
-        } catch (IOException e) {
-            sendInternalErrorResponse(session, id, e);
-            return;
-        }
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-    }
-
     private static HttpServerConfig provideConfig(final int port) {
         final AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         return config;
-    }
-
-    private static byte[] toBytes(final String str) {
-        return Utf8.toBytes(str);
-    }
-
-    private static byte[] toBytes(final ByteBuffer value) {
-        if (value.hasRemaining()) {
-            final byte[] result = new byte[value.remaining()];
-            value.get(result);
-
-            return result;
-        }
-
-        return Response.EMPTY;
-    }
-
-    private static ByteBuffer wrapString(final String str) {
-        return ByteBuffer.wrap(toBytes(str));
-    }
-
-    private static ByteBuffer wrapArray(final byte[] arr) {
-        return ByteBuffer.wrap(arr);
     }
 
     private static void sendServiceUnavailableResponse(final HttpSession session, final RejectedExecutionException e) {
@@ -268,18 +158,6 @@ public class AsyncService extends HttpServer implements Service {
         } catch (IOException ex) {
             log.error(ERROR_SERVICE_UNAVAILABLE, ex);
         }
-    }
-
-    private static void sendEmptyIdResponse(final HttpSession session, final String methodName) throws IOException {
-        log.info("Empty key was provided in {} method!", methodName);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    private static void sendInternalErrorResponse(final HttpSession session,
-                                                  final String id,
-                                                  final Exception e) throws IOException {
-        log.error("Internal error. Can't insert or update value with key: {}", id, e);
-        session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 
     private static void process(final Processor processor) {

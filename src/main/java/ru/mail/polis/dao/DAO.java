@@ -19,6 +19,8 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.zvladn7.Cell;
+import ru.mail.polis.dao.zvladn7.Value;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -44,6 +46,15 @@ public interface DAO extends Closeable {
     Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
 
     /**
+     * Provides iterator (possibly empty) over {@link Cell}s starting at "from" key (inclusive)
+     * in <b>ascending</b> order according to timestamp.
+     * N.B. The iterator should be obtained as fast as possible, e.g.
+     * one should not "seek" to start point ("from" element) in linear time ;)
+     */
+    @NotNull
+    Iterator<Cell> cellIterator(@NotNull ByteBuffer from) throws IOException;
+
+    /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
      * until given "to" key (exclusive) in <b>ascending</b> order according to {@link Record#compareTo(Record)}.
      * N.B. The iterator should be obtained as fast as possible, e.g.
@@ -63,6 +74,22 @@ public interface DAO extends Closeable {
 
         final Record bound = Record.of(to, ByteBuffer.allocate(0));
         return Iters.until(iterator(from), bound);
+    }
+
+
+    /**
+     * Obtains {@link Cell} corresponding to given key.
+     *
+     * @throws NoSuchElementException if no such cell
+     */
+    @NotNull
+    default Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+        final Iterator<Cell> iter = cellIterator(key);
+        if (!iter.hasNext()) {
+            throw new NoSuchElementException("Not found");
+        }
+
+        return iter.next().getValue();
     }
 
     /**

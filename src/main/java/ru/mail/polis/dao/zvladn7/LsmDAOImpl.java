@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
 
 import java.io.File;
@@ -16,7 +17,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
-public class LsmDAOImpl implements LsmDAO {
+public class LsmDAOImpl implements DAO {
 
     private static final Logger logger = LoggerFactory.getLogger(LsmDAOImpl.class);
 
@@ -39,7 +39,6 @@ public class LsmDAOImpl implements LsmDAO {
     @NonNull
     private final File storage;
     private final int amountOfBytesToFlush;
-    final Map<ByteBuffer, Long> lockTable = new HashMap<>();
 
     private TableSet tableSet;
 
@@ -78,7 +77,6 @@ public class LsmDAOImpl implements LsmDAO {
                         }
                     });
         }
-
         final Map.Entry<Integer, Table> genEntry = ssTables.entrySet()
                 .stream()
                 .max(Comparator.comparing(Map.Entry::getKey))
@@ -87,7 +85,6 @@ public class LsmDAOImpl implements LsmDAO {
         if (genEntry != null) {
             generation = genEntry.getKey();
         }
-
         this.tableSet = TableSet.provideTableSet(ssTables, generation + 1);
         this.service = Executors.newFixedThreadPool(flushQueueSize);
     }
@@ -95,14 +92,19 @@ public class LsmDAOImpl implements LsmDAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+        final Iterator<Cell> freshElements = cellIterator(from);
+        final Iterator<Cell> aliveElements = Iterators.filter(freshElements, el -> !el.getValue().isTombstone());
+        return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
+    }
+
+    @NotNull
+    @Override
+    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) {
         final TableSet snapshot = getSnapshot();
         final List<Iterator<Cell>> iters = new ArrayList<>(snapshot.ssTables.size() + snapshot.memToFlush.size() + 2);
         iters.add(snapshot.memTable.iterator(from));
         snapshot.memToFlush.forEach(mem -> iters.add(mem.iterator(from)));
-        final Iterator<Cell> freshElements = freshCellIterator(from, iters, snapshot);
-        final Iterator<Cell> aliveElements = Iterators.filter(freshElements, el -> !el.getValue().isTombstone());
-
-        return Iterators.transform(aliveElements, el -> Record.of(el.getKey(), el.getValue().getData()));
+        return freshCellIterator(from, iters, snapshot);
     }
 
     @Override
@@ -218,12 +220,7 @@ public class LsmDAOImpl implements LsmDAO {
         return dst;
     }
 
-    @Override
-    public TransactionalDAO beginTransaction() {
-        return new TransactionalDAOImpl(this);
-    }
-
-    List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
+    private List<Iterator<Cell>> getAllCellItersList(@NotNull final ByteBuffer from,
                                              @NotNull final List<Iterator<Cell>> iters,
                                              final TableSet snapshot) {
         snapshot.ssTables.descendingMap().values().forEach(ssTable -> {
@@ -236,7 +233,7 @@ public class LsmDAOImpl implements LsmDAO {
         return iters;
     }
 
-    TableSet getSnapshot() {
+    private TableSet getSnapshot() {
         readLock.lock();
         try {
             return tableSet;

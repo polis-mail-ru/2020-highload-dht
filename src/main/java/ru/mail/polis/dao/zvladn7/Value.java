@@ -1,9 +1,9 @@
 package ru.mail.polis.dao.zvladn7;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.zvladn7.exceptions.DeletedValueException;
 
 import java.nio.ByteBuffer;
-import java.util.NoSuchElementException;
 
 public class Value implements Comparable<Value> {
     private final long timestamp;
@@ -14,12 +14,12 @@ public class Value implements Comparable<Value> {
         this.data = data;
     }
 
-    Value(final long timestamp) {
+    private Value(final long timestamp) {
         this.timestamp = timestamp;
         this.data = null;
     }
 
-    public static Value newTombstoneValue(final long timestamp) {
+    static Value newTombstoneValue(final long timestamp) {
         return new Value(timestamp);
     }
 
@@ -27,16 +27,20 @@ public class Value implements Comparable<Value> {
         return data == null;
     }
 
+    /**
+     * Return value.
+     * @return ByteBuffer represented a value for some key.
+     * @throws DeletedValueException - if data is null, that means that it is tombstone
+     */
     @NotNull
-    ByteBuffer getData() {
+    public ByteBuffer getData() throws DeletedValueException {
         if (data == null) {
-            throw new NoSuchElementException("Value has been removed!");
+            throw new DeletedValueException("Value has been removed!");
         }
         return data.asReadOnlyBuffer();
     }
 
-    @NotNull
-    long getTimestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 
