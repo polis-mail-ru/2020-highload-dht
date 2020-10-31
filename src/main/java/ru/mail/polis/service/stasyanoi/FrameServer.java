@@ -61,7 +61,7 @@ public class FrameServer extends HttpServer {
         try {
             dao.close();
             executorService.shutdown();
-            executorService.awaitTermination(10L, TimeUnit.MILLISECONDS);
+            executorService.awaitTermination(200L, TimeUnit.MILLISECONDS);
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }

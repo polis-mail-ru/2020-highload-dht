@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.RejectedExecutionException;
 
 import static ru.mail.polis.service.stasyanoi.Util.getByteBufferValue;
 import static ru.mail.polis.service.stasyanoi.Util.getKey;
@@ -47,12 +48,14 @@ public class CustomServer extends FrameServer {
     public void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
-        executorService.setSessionForRejectedError(session);
+
         executorService.execute(() -> {
             try {
                 getInternal(idParam, session, request);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
@@ -67,12 +70,14 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_GET)
     public void getRep(final @Param("id") String idParam,
                     final HttpSession session) {
-        executorService.setSessionForRejectedError(session);
+
         executorService.execute(() -> {
             try {
                 getRepInternal(idParam, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
@@ -140,12 +145,14 @@ public class CustomServer extends FrameServer {
     public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
-        executorService.setSessionForRejectedError(session);
+
         executorService.execute(() -> {
             try {
                 putInternal(idParam, request, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
@@ -162,12 +169,14 @@ public class CustomServer extends FrameServer {
     public void putRep(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
-        executorService.setSessionForRejectedError(session);
+
         executorService.execute(() -> {
             try {
                 putRepInternal(idParam, request, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
@@ -234,7 +243,7 @@ public class CustomServer extends FrameServer {
     public void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
-        executorService.setSessionForRejectedError(session);
+
         executorService.execute(() -> {
             try {
                 deleteInternal(idParam, request, session);
@@ -254,12 +263,14 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteRep(final @Param("id") String idParam,
                        final HttpSession session) {
-        executorService.setSessionForRejectedError(session);
+
         executorService.execute(() -> {
             try {
                 deleteRepInternal(idParam, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }

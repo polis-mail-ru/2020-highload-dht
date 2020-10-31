@@ -224,4 +224,17 @@ public final class Util {
     private static synchronized long getNanosSync() {
         return System.nanoTime();
     }
+
+    /**
+     * Send 503 error.
+     *
+     * @param errorSession - session to which to send the error.
+     */
+    public static void send503Error(final HttpSession errorSession) {
+        try {
+            errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        }
+    }
 }
