@@ -194,7 +194,7 @@ public final class AsyncServiceUtility {
      * @param id   param in request
      * @return HttpRequest.Builder
      */
-    public static HttpRequest.Builder request(
+    private static HttpRequest.Builder request(
             @NotNull final String node,
             @NotNull final String id) {
         try {

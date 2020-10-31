@@ -174,6 +174,11 @@ public final class Utility {
         return future;
     }
 
+    /**
+     * Complete Handler for async task with get.
+     * @param session session for sending response
+     * @return BiConsumer
+     */
     @NotNull
     public static BiConsumer<Table.Value, Throwable> getCompleteHandler(@NotNull final HttpSession session) {
         return (val, t) -> {
@@ -187,11 +192,16 @@ public final class Utility {
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, AsyncService.EMPTY));
                 }
             } catch (IOException e) {
-                AsyncService.logger.error("Error in sending getRAW");
+                AsyncService.logger.error("Error in sending getRAW response", e);
             }
         };
     }
 
+    /**
+     * Complete Handler for async task with delete.
+     * @param session session for sending response
+     * @return BiConsumer
+     */
     @NotNull
     public static BiConsumer<Void, Throwable> deleteCompleteHandler(@NotNull final HttpSession session) {
         return (v, t) -> {
