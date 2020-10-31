@@ -204,6 +204,9 @@ public class ResponseManager {
         }
     }
 
+    /**
+     * Closes the daoManager and other node's clients.
+     */
     public void clear() {
         for (final HttpClient client : nodeToClient.values()) {
             client.clear();

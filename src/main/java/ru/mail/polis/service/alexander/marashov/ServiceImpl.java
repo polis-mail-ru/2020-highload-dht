@@ -34,11 +34,6 @@ public class ServiceImpl extends HttpServer implements Service {
     public static final String PROXY_HEADER = "Proxy-Header";
     public static final String PROXY_HEADER_VALUE = "Proxy-Header: true";
 
-    public static final String STATUS_PATH = "/v0/status";
-    public static final String GET_PATH = "/v0/entity";
-    public static final String PUT_PATH = "/v0/entity";
-    public static final String DELETE_PATH = "/v0/entity";
-
     private final ExecutorService executorService;
     private final ResponseManager responseManager;
 
@@ -122,7 +117,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *
      * @return {@link Response} with status {@code 200} if the server is available.
      */
-    @Path(STATUS_PATH)
+    @Path("/v0/status")
     public Response handleStatus() {
         return new Response(Response.OK, Response.EMPTY);
     }
@@ -138,7 +133,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough replicas.
      */
-    @Path(GET_PATH)
+    @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void handleEntityGet(
             final HttpSession httpSession,
@@ -156,8 +151,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    final Response response = responseManager.get(validParams, request);
-                    trySendAnswer(httpSession, response);
+                    trySendAnswer(httpSession, responseManager.get(validParams, request));
                 }
         );
     }
@@ -172,7 +166,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough replicas.
      */
-    @Path(PUT_PATH)
+    @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public void handleEntityPut(
             final HttpSession httpSession,
@@ -190,12 +184,9 @@ public class ServiceImpl extends HttpServer implements Service {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
-
-                    final Response response = responseManager.put(validParams, value, request);
-                    trySendAnswer(httpSession, response);
+                    trySendAnswer(httpSession, responseManager.put(validParams, value, request));
                 }
         );
     }
@@ -210,7 +201,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough replicas.
      */
-    @Path(DELETE_PATH)
+    @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void handleEntityDelete(
             final HttpSession httpSession,
@@ -228,9 +219,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-
-                    final Response response = responseManager.delete(validParams, request);
-                    trySendAnswer(httpSession, response);
+                    trySendAnswer(httpSession, responseManager.delete(validParams, request));
                 }
         );
     }
