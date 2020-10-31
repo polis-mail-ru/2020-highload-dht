@@ -3,7 +3,9 @@ package ru.mail.polis.service.stasyanoi;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
+import one.nio.http.Path;
 import one.nio.http.Request;
+import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
 
@@ -12,8 +14,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class FrameServer extends HttpServer {
 
@@ -21,8 +22,7 @@ public class FrameServer extends HttpServer {
     protected int nodeCount;
     protected int nodeNum;
     protected DAO dao;
-    protected ExecutorService executorService =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    protected CustomExecutor executorService = CustomExecutor.getExecutor();
 
     /**
      * Server config without endpoints.
@@ -61,7 +61,8 @@ public class FrameServer extends HttpServer {
         try {
             dao.close();
             executorService.shutdown();
-        } catch (IOException e) {
+            executorService.awaitTermination(200L, TimeUnit.MILLISECONDS);
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
@@ -77,5 +78,16 @@ public class FrameServer extends HttpServer {
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
+    }
+
+    /**
+     * Status check.
+     *
+     * @return Response with status.
+     */
+    @Path("/v0/status")
+    @RequestMethod(Request.METHOD_GET)
+    public Response status() {
+        return Util.getResponseWithNoBody(Response.OK);
     }
 }

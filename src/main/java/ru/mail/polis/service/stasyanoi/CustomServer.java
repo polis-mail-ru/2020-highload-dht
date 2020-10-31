@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.RejectedExecutionException;
 
 import static ru.mail.polis.service.stasyanoi.Util.getByteBufferValue;
 import static ru.mail.polis.service.stasyanoi.Util.getKey;
@@ -31,9 +32,7 @@ public class CustomServer extends FrameServer {
      * @param topology - topology of services.
      * @throws IOException - if an IO exception occurs.
      */
-    public CustomServer(final DAO dao,
-                        final HttpServerConfig config,
-                        final Set<String> topology) throws IOException {
+    public CustomServer(final DAO dao, final HttpServerConfig config, final Set<String> topology) throws IOException {
         super(dao, config, topology);
     }
 
@@ -44,14 +43,14 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(final @Param("id") String idParam,
-                    final HttpSession session,
-                    final Request request) {
+    public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         executorService.execute(() -> {
             try {
                 getInternal(idParam, session, request);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
@@ -64,19 +63,19 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_GET)
-    public void getRep(final @Param("id") String idParam,
-                    final HttpSession session) {
+    public void getRep(final @Param("id") String idParam, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 getRepInternal(idParam, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
 
-    private void getRepInternal(final String idParam,
-                                final HttpSession session) throws IOException {
+    private void getRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -87,8 +86,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private void getInternal(final String idParam,
-                             final HttpSession session,
+    private void getInternal(final String idParam, final HttpSession session,
                              final Request request) throws IOException {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
@@ -100,8 +98,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response getResponseGet(final String idParam,
-                                    final Request request,
+    private Response getResponseGet(final String idParam, final Request request,
                                     final Map<Integer, String> tempNodeMapping) throws IOException {
         final Response responseHttp;
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
@@ -115,9 +112,7 @@ public class CustomServer extends FrameServer {
         return responseHttp;
     }
 
-    private Response getProxy(final Request request,
-                              final int node,
-                              final ByteBuffer id) throws IOException {
+    private Response getProxy(final Request request, final int node, final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
@@ -135,14 +130,14 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(final @Param("id") String idParam,
-                    final Request request,
-                    final HttpSession session) {
+    public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 putInternal(idParam, request, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
@@ -156,20 +151,19 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_PUT)
-    public void putRep(final @Param("id") String idParam,
-                    final Request request,
-                    final HttpSession session) {
+    public void putRep(final @Param("id") String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 putRepInternal(idParam, request, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
 
-    private void putRepInternal(final String idParam,
-                                final Request request,
+    private void putRepInternal(final String idParam, final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
@@ -183,8 +177,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private void putInternal(final String idParam,
-                             final Request request,
+    private void putInternal(final String idParam, final Request request,
                              final HttpSession session) throws IOException {
 
         final Response responseHttp;
@@ -205,9 +198,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response putProxy(final Request request,
-                              final byte[] idArray,
-                              final int node) throws IOException {
+    private Response putProxy(final Request request, final byte[] idArray, final int node) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
@@ -227,9 +218,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(final @Param("id") String idParam,
-                       final Request request,
-                       final HttpSession session) {
+    public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 deleteInternal(idParam, request, session);
@@ -247,19 +236,19 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteRep(final @Param("id") String idParam,
-                       final HttpSession session) {
+    public void deleteRep(final @Param("id") String idParam, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 deleteRepInternal(idParam, session);
             } catch (IOException e) {
                 Util.sendErrorInternal(session, e);
+            } catch (RejectedExecutionException e) {
+                Util.send503Error(session);
             }
         });
     }
 
-    private void deleteRepInternal(final String idParam,
-                                   final HttpSession session) throws IOException {
+    private void deleteRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -271,8 +260,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private void deleteInternal(final String idParam,
-                                final Request request,
+    private void deleteInternal(final String idParam, final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
@@ -290,9 +278,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response deleteProxy(final Request request,
-                                 final byte[] idArray,
-                                 final int node) throws IOException {
+    private Response deleteProxy(final Request request, final byte[] idArray, final int node) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
@@ -302,16 +288,5 @@ public class CustomServer extends FrameServer {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
-    }
-
-    /**
-     * Status check.
-     *
-     * @return Response with status.
-     */
-    @Path("/v0/status")
-    @RequestMethod(Request.METHOD_GET)
-    public Response status() {
-        return Util.getResponseWithNoBody(Response.OK);
     }
 }
