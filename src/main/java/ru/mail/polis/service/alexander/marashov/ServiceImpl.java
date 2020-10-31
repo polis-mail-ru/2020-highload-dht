@@ -126,12 +126,13 @@ public class ServiceImpl extends HttpServer implements Service {
      * Http method handler for getting a value in the DAO by the key.
      *
      * @param id is the key for searching for a value in the DAO.
+     * @param replicas - replicas parameter, has ack/from format.
      *           Sends {@link Response} instance with value as body, if the key exists. Response status is
      *           {@code 200} if data is found
      *           {@code 400} if id is empty
      *           {@code 404} if not found,
      *           {@code 500} if an internal server error occurred.
-     *           {@code 504} if not enough replicas.
+     *           {@code 504} if not enough responses from replicas to analyze.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -144,14 +145,12 @@ public class ServiceImpl extends HttpServer implements Service {
         executeOrSendError(
                 httpSession,
                 () -> {
-                    final ValidatedParameters validParams;
                     try {
-                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
+                        final ValidatedParameters validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
+                        trySendAnswer(httpSession, responseManager.get(validParams, request));
                     } catch (final IllegalArgumentException e) {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        return;
                     }
-                    trySendAnswer(httpSession, responseManager.get(validParams, request));
                 }
         );
     }
@@ -160,11 +159,12 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for placing a value by the key in the DAO storage.
      *
      * @param id is the key that the data will be associated with.
+     * @param replicas - replicas parameter, has ack/from format.
      *           Sends {@link Response} instance with
      *           {@code 201} if data saved
      *           {@code 400} if id is empty,
      *           {@code 500} if an internal server error occurred.
-     *           {@code 504} if not enough replicas.
+     *           {@code 504} if not enough responses from replicas to analyze.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -195,11 +195,12 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for removing a value by the key from the DAO storage.
      *
      * @param id is the key that the data associated with.
+     * @param replicas - replicas parameter, has ack/from format.
      *           Sends {@link Response} instance with
      *           {@code 202} if the key deleted,
      *           {@code 400} if id is empty,
      *           {@code 500} if an internal server error occurred.
-     *           {@code 504} if not enough replicas.
+     *           {@code 504} if not enough responses from replicas to analyze.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
