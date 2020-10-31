@@ -32,7 +32,7 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-    private static final int QUEUE_SIZE = 100;
+    private static final int QUEUE_SIZE = 2000;
     private static final int WORKERS_COUNT = Runtime.getRuntime().availableProcessors();
     private static final int PROXY_TIMEOUT_VALUE = 1000;
 
