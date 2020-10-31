@@ -90,7 +90,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public  void get(final @Param("id") String idParam,
+    public void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
         executorService.execute(() -> {
@@ -150,7 +150,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public  void put(final @Param("id") String idParam,
+    public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
         runPut(idParam, request, session);
@@ -211,7 +211,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public  void delete(final @Param("id") String idParam,
+    public void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
         executorService.execute(() -> {
