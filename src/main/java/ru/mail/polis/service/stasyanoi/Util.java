@@ -46,4 +46,12 @@ public final class Util {
         }
     }
 
+    public static void send503Error(final HttpSession errorSession) {
+        try {
+            errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        }
+    }
+
 }

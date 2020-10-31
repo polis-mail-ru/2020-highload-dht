@@ -19,18 +19,13 @@ import ru.mail.polis.service.Mapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class CustomServer extends HttpServer {
     private final Map<Integer, String> nodeMapping;
-    private final Map<String, HttpClient> clients = new ConcurrentHashMap<>();
+    private Map<String, HttpClient> clients;
     private final int nodeCount;
     private int nodeNum;
     private final DAO dao;
@@ -53,13 +48,16 @@ public class CustomServer extends HttpServer {
         urls.sort(String::compareTo);
 
         final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
+        final Map<String, HttpClient> clients = new HashMap<>();
 
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
+            clients.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));
             if (urls.get(i).contains(String.valueOf(super.port))) {
                 nodeNum = i;
             }
         }
+        this.clients = clients;
         this.nodeMapping = nodeMappingTemp;
         this.dao = dao;
     }
@@ -69,16 +67,9 @@ public class CustomServer extends HttpServer {
         final int hash = abs < 0 ? -abs : abs;
         return hash % nodeCount;
     }
-    
-    private HttpClient getClient(final String url) {
-        return clients.computeIfAbsent(url, strUrl -> {
-            final ConnectionString connectionString = new ConnectionString(strUrl);
-            return new HttpClient(connectionString);
-        });
-    }
 
     private Response routeRequest(final Request request, final int node) throws IOException {
-        final HttpClient httpClient = getClient(nodeMapping.get(node));
+        final HttpClient httpClient = clients.get(nodeMapping.get(node));
         try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
@@ -288,7 +279,7 @@ public class CustomServer extends HttpServer {
         try {
             dao.close();
             executorService.shutdown();
-            executorService.awaitTermination(10L, TimeUnit.MILLISECONDS);
+            executorService.awaitTermination(200L, TimeUnit.MILLISECONDS);
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }

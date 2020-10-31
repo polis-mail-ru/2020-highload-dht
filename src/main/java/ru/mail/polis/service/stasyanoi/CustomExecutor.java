@@ -11,10 +11,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static ru.mail.polis.service.stasyanoi.Util.send503Error;
+
 public class CustomExecutor extends ThreadPoolExecutor {
     
-    private static final Logger logger = LoggerFactory.getLogger(CustomExecutor.class);
-
     public CustomExecutor(final int corePoolSize,
                           final int maximumPoolSize,
                           final long keepAliveTime,
@@ -42,13 +42,5 @@ public class CustomExecutor extends ThreadPoolExecutor {
         return new CustomExecutor(nThreads, nThreads,0, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(20));
 
-    }
-
-    private void send503Error(final HttpSession errorSession) {
-        try {
-            errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-        }
     }
 }
