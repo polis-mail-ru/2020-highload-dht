@@ -48,7 +48,6 @@ public class CustomServer extends FrameServer {
     public void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
-
         executorService.execute(() -> {
             try {
                 getInternal(idParam, session, request);
@@ -70,7 +69,6 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_GET)
     public void getRep(final @Param("id") String idParam,
                     final HttpSession session) {
-
         executorService.execute(() -> {
             try {
                 getRepInternal(idParam, session);
@@ -145,7 +143,6 @@ public class CustomServer extends FrameServer {
     public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
-
         executorService.execute(() -> {
             try {
                 putInternal(idParam, request, session);
@@ -169,7 +166,6 @@ public class CustomServer extends FrameServer {
     public void putRep(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
-
         executorService.execute(() -> {
             try {
                 putRepInternal(idParam, request, session);
@@ -243,7 +239,6 @@ public class CustomServer extends FrameServer {
     public void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
-
         executorService.execute(() -> {
             try {
                 deleteInternal(idParam, request, session);
@@ -263,7 +258,6 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteRep(final @Param("id") String idParam,
                        final HttpSession session) {
-
         executorService.execute(() -> {
             try {
                 deleteRepInternal(idParam, session);
