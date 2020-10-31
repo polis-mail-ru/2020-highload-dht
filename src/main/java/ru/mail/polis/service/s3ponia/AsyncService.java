@@ -21,10 +21,12 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -44,7 +46,8 @@ public final class AsyncService extends HttpServer implements Service {
     public final ExecutorService es;
     public final ShardingPolicy<ByteBuffer, String> policy;
     public final Map<String, HttpClient> urlToClient;
-    
+    public final java.net.http.HttpClient httpClient;
+
     /**
      * AsyncService's constructor.
      *
@@ -61,6 +64,7 @@ public final class AsyncService extends HttpServer implements Service {
         super(Utility.configFrom(port));
         assert 0 < workers;
         assert 0 < queueSize;
+        this.httpClient = AsyncServiceUtility.httpClient();
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
         this.dao = dao;
@@ -75,7 +79,7 @@ public final class AsyncService extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
     }
-    
+
     /**
      * Handling status request.
      *
@@ -92,7 +96,18 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
-    
+
+    private CompletableFuture<Table.Value> futureGet(@NotNull final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return dao.getRaw(key);
+            } catch (IOException e) {
+                logger.error("IOException in getRAW", e);
+                throw new RuntimeException("IOException in getRAW");
+            }
+        }, this.es);
+    }
+
     /**
      * Basic implementation of http get handling.
      *
@@ -108,54 +123,48 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
-        
+
         final var key = Utility.byteBufferFromString(id);
         if (request.getHeader(Utility.PROXY_HEADER) != null) {
-            this.es.execute(() -> {
-                try {
-                    AsyncServiceUtility.getRaw(key, session, this.dao);
-                } catch (IOException ioException) {
-                    logger.error("Error in raw getting.", ioException);
-                }
-            });
+            AsyncServiceUtility.getRaw(key, session, this.dao);
             return;
         }
         final Utility.ReplicationConfiguration parsed =
                 AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
-        
+
         final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final List<Table.Value> values = AsyncServiceUtility.getValues(request, parsed, this, nodeReplicas);
+        final var futureResponses =
+                AsyncServiceUtility.getGetFutures(id, parsed, this, nodeReplicas);
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodeReplicas);
-        
-        if (values.size() + (homeInReplicas ? 1 : 0) < parsed.ack) {
-            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-            return;
-        }
-        
+
         if (homeInReplicas) {
-            try {
-                values.add(dao.getRaw(key));
-            } catch (NoSuchElementException exception) {
-                logger.error("Error in getting key(size : {})", key.capacity(), exception);
-            }
+            futureResponses.add(futureGet(key));
         }
-        
-        if (values.isEmpty()) {
-            session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
-            return;
-        }
-        
-        values.sort(Utility.valueResponseComparator());
-        
-        final var bestVal = values.get(0);
-        if (bestVal.isDead()) {
-            session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
-        } else {
-            session.sendResponse(Response.ok(Utility.fromByteBuffer(bestVal.getValue())));
+
+        if (Utility.atLeast(parsed.ack, futureResponses).thenApplyAsync(c ->
+                c.stream().min(Utility.valueResponseComparator()))
+                .whenCompleteAsync((v, t) -> {
+                    try {
+                        if (t != null) {
+                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
+                            return;
+                        }
+
+                        if (v.isEmpty() || v.get().isDead()) {
+                            session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
+                            return;
+                        }
+
+                        session.sendResponse(Response.ok(Utility.fromByteBuffer(v.get().getValue())));
+                    } catch (IOException e) {
+                        logger.error("Error sending response");
+                    }
+                }).isCancelled()) {
+            logger.error("Cancelled get");
         }
     }
-    
+
     /**
      * Basic implementation of http put handling.
      *
@@ -172,15 +181,15 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
-        
+
         try {
-            this.es.execute(() -> AsyncServiceUtility.putImpl(id, replicas, request, session, this));
+            AsyncServiceUtility.putImpl(id, replicas, request, session, this);
         } catch (RejectedExecutionException e) {
             logger.error("Error in execute", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
-    
+
     /**
      * Process deleting from dao.
      *
@@ -199,7 +208,7 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-    
+
     /**
      * Basic implementation of http put handling.
      *
@@ -215,7 +224,7 @@ public final class AsyncService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return;
         }
-        
+
         final var key = Utility.byteBufferFromString(id);
         final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
         if (header != null) {
@@ -230,38 +239,45 @@ public final class AsyncService extends HttpServer implements Service {
             );
             return;
         }
-        
+
         final var currTime = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + currTime);
-        
+
         final Utility.ReplicationConfiguration parsed =
                 AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
         if (parsed == null) return;
-        
+
         final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        int acceptedCounter = AsyncServiceUtility.getCounter(request, parsed, this, nodes);
+        final var futures =
+                AsyncServiceUtility.getFuturesReponseDelete(id, currTime, parsed, this, nodes);
         final var homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
-        
+
         if (homeInReplicas) {
-            try {
-                dao.removeWithTimeStamp(key, currTime);
-                ++acceptedCounter;
-            } catch (IOException ioException) {
-                logger.error("IOException in putting key(size: {}), value(size: {}) from dao on node {}",
-                        key.capacity(), request.getBody().length, this.policy.homeNode(), ioException);
-            }
+            futures.add(AsyncServiceUtility.delete(key, currTime, this));
         }
-        
-        AsyncServiceUtility.sendAckFromResp(parsed, acceptedCounter,
-                new Response(Response.ACCEPTED, EMPTY), session);
+
+        if (Utility.atLeast(parsed.ack, futures).whenCompleteAsync((c, t) -> {
+            try {
+                if (t == null) {
+                    session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
+                } else {
+                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
+                }
+            } catch (IOException e) {
+                AsyncService.logger.error("Error in sending response in delete", e);
+            }
+        }).isCancelled()) {
+            AsyncService.logger.error("Canceled task");
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+        }
     }
-    
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         logger.error("Unhandled request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
     }
-    
+
     @Override
     public synchronized void stop() {
         super.stop();
@@ -272,7 +288,7 @@ public final class AsyncService extends HttpServer implements Service {
             logger.error("Can't shutdown executor", e);
             Thread.currentThread().interrupt();
         }
-        
+
         for (final HttpClient client : this.urlToClient.values()) {
             client.clear();
         }

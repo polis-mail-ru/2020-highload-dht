@@ -251,7 +251,7 @@ class ThreeNodeTest extends ClusterTestBase {
         });
     }
 
-    @RepeatedTest(100)
+    @Test
     void tolerateFailure() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();

@@ -52,11 +52,13 @@ public interface Table extends Closeable {
     }
     
     class Value implements Comparable<Value> {
+        public static final Value ABSENT = dead(-1, 0);
         private final ByteBuffer byteBuffer;
         private static final long DEAD_FLAG = 1L << 63;
         private final long deadFlagTimeStamp;
         private final int generation;
-        
+
+
         /**
          * Value constructor.
          *
@@ -64,7 +66,9 @@ public interface Table extends Closeable {
          * @param deadFlagTimeStamp - timestamp+dead flag
          * @param generation        - table generation
          */
-        public Value(final ByteBuffer value, final long deadFlagTimeStamp, final int generation) {
+        public Value(@NotNull final ByteBuffer value,
+                     @NotNull final long deadFlagTimeStamp,
+                     final int generation) {
             this.byteBuffer = value;
             this.deadFlagTimeStamp = deadFlagTimeStamp;
             this.generation = generation;

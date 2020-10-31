@@ -1,5 +1,7 @@
 package ru.mail.polis.s3ponia;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import jdk.jshell.execution.Util;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
@@ -12,17 +14,40 @@ import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.service.s3ponia.AsyncService;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
+import static ru.mail.polis.service.s3ponia.AsyncService.EMPTY;
+
 public final class AsyncServiceUtility {
-    
+
     private AsyncServiceUtility() {
     }
-    
+
+    public static java.net.http.HttpClient httpClient() {
+        final var executor = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("client-%d")
+                        .build()
+        );
+        return java.net.http.HttpClient.newBuilder()
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .executor(executor)
+                .build();
+    }
+
     /**
      * Put implementation for AsyncService.
      *
@@ -41,57 +66,84 @@ public final class AsyncServiceUtility {
         try {
             final var key = Utility.byteBufferFromString(id);
             final var value = ByteBuffer.wrap(request.getBody());
-            
+
             final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
             if (header != null) {
                 final var time = Long.parseLong(header.value);
-                service.es.execute(
-                        () -> handlingUpsertWithTimeStamp(session, service, key, value, time)
-                );
+                handlingUpsertWithTimeStamp(session, service, key, value, time);
                 return;
             }
-            
+
             final Utility.ReplicationConfiguration parsed =
                     getReplicationConfiguration(replicas, session, service);
             if (parsed == null) return;
-            
+
             final var currTime = System.currentTimeMillis();
             request.addHeader(Utility.TIME_HEADER + ": " + currTime);
-            
+
+
             final var nodes = service.policy.getNodeReplicas(key, parsed.from);
-            int createdCounter = getCounter(request, parsed, service, nodes);
-            
+            final var responses =
+                    getFuturesReponsePut(id, currTime, request.getBody(), parsed, service, nodes);
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
-            
+
             if (homeInReplicas) {
-                createdCounter = getCreatedCounter(service, key, value, currTime, createdCounter);
+                responses.add(upsert(key, value, currTime, service));
             }
-            
-            sendAckFromResp(parsed, createdCounter,
-                    new Response(Response.CREATED, AsyncService.EMPTY),
-                    session);
+
+            if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync((c, t) -> {
+                try {
+                    if (t == null) {
+                        session.sendResponse(new Response(Response.CREATED, EMPTY));
+                    } else {
+                        AsyncService.logger.error("Error in proxying", t);
+                        session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
+                    }
+                } catch (IOException e) {
+                    AsyncService.logger.error("Error in sending response in putting", e);
+                }
+            }).isCancelled()) {
+                AsyncService.logger.error("Canceled task");
+            }
         } catch (RejectedExecutionException | IOException e) {
             AsyncService.logger.error("Error", e);
             e.printStackTrace();
         }
     }
-    
-    private static int getCreatedCounter(@NotNull final AsyncService service,
-                                         @NotNull final ByteBuffer key,
-                                         @NotNull final ByteBuffer value,
-                                         final long currTime,
-                                         final int createdCounter) {
-        try {
-            service.dao.upsertWithTimeStamp(key, value, currTime);
-            return createdCounter + 1;
-        } catch (IOException ioException) {
-            AsyncService.logger.error(
-                    "IOException in putting key(size: {}), value(size: {}) from dao on node {}",
-                    key.capacity(), value.capacity(), service.policy.homeNode(), ioException);
-            return createdCounter;
-        }
+
+    public static CompletableFuture<Void> delete(@NotNull final ByteBuffer key,
+                                                 final long currTime,
+                                                 @NotNull final AsyncService service) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                service.dao.removeWithTimeStamp(key, currTime);
+                return null;
+            } catch (IOException e) {
+                AsyncService.logger.error(
+                        "IOException in putting key(size: {}) from dao on node {}",
+                        key.capacity(), service.policy.homeNode(), e);
+                throw new RuntimeException("IOException in putting key");
+            }
+        }, service.es);
     }
-    
+
+    private static CompletableFuture<Void> upsert(@NotNull final ByteBuffer key,
+                                                  @NotNull final ByteBuffer value,
+                                                  final long currTime,
+                                                  @NotNull final AsyncService service) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                service.dao.upsertWithTimeStamp(key, value, currTime);
+                return null;
+            } catch (IOException e) {
+                AsyncService.logger.error(
+                        "IOException in putting key(size: {}), value(size: {}) from dao on node {}",
+                        key.capacity(), value.capacity(), service.policy.homeNode(), e);
+                throw new RuntimeException("IOException in putting key");
+            }
+        }, service.es);
+    }
+
     private static void handlingUpsertWithTimeStamp(@NotNull final HttpSession session,
                                                     @NotNull final AsyncService service,
                                                     @NotNull final ByteBuffer key,
@@ -103,7 +155,7 @@ public final class AsyncServiceUtility {
             AsyncService.logger.error("Error in sending put request", ioException);
         }
     }
-    
+
     /**
      * Process upserting to dao.
      *
@@ -120,14 +172,14 @@ public final class AsyncServiceUtility {
                                            @NotNull final DAO dao) throws IOException {
         try {
             dao.upsertWithTimeStamp(key, value, timeStamp);
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
+            session.sendResponse(new Response(Response.CREATED, EMPTY));
         } catch (IOException ioException) {
             AsyncService.logger.error("IOException in putting key(size: {}), value(size: {}) from dao",
                     key.capacity(), value.capacity(), ioException);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
-    
+
     /**
      * Handling error in status.
      *
@@ -140,7 +192,7 @@ public final class AsyncServiceUtility {
             AsyncService.logger.error("Error in sending status", e);
         }
     }
-    
+
     /**
      * Getting raw value.
      *
@@ -164,7 +216,21 @@ public final class AsyncServiceUtility {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-    
+
+    /**
+     * Get proxy response.
+     *
+     * @param request proxying request
+     * @param service proxying service
+     * @return Response from node
+     */
+    public static <T> CompletableFuture<T> proxyAsync(
+            @NotNull final HttpRequest request,
+            @NotNull final AsyncService service,
+            @NotNull final HttpResponse.BodyHandler<T> handler) {
+        return service.httpClient.sendAsync(request, handler).thenApplyAsync(HttpResponse::body);
+    }
+
     /**
      * Get proxy response.
      *
@@ -184,114 +250,178 @@ public final class AsyncServiceUtility {
             return null;
         }
     }
-    
-    /**
-     * Getting successful responses.
-     *
-     * @param request       request for proxying
-     * @param configuration replication configuration
-     * @param service       AsyncService for proxying
-     * @param nodes         destination nodes
-     * @return count of successful responses
-     */
-    public static int getCounter(@NotNull final Request request,
-                                 @NotNull final Utility.ReplicationConfiguration configuration,
-                                 @NotNull final AsyncService service,
-                                 @NotNull final String... nodes) {
-        final List<Response> futureResponses = getFutures(request, configuration, service, nodes);
-        
-        int acceptedCounter = 0;
-        
-        for (final var resp :
-                futureResponses) {
-            final Response response;
-            response = resp;
-            if (response == null) {
-                continue;
-            }
-            if (response.getStatus() != 202 /* ACCEPTED */ && response.getStatus() != 201 /* CREATED */) {
-                continue;
-            }
-            ++acceptedCounter;
+
+    public static HttpRequest.Builder request(
+            @NotNull final String node,
+            @NotNull final String id) {
+        try {
+            return HttpRequest.newBuilder()
+                    .uri(new URI(node + "/v0/entity?id=" + id))
+                    .timeout(Duration.ofSeconds(1));
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Error in parsing URI");
         }
-        return acceptedCounter;
     }
-    
+
     /**
      * GetFutures and GetValuesFromFutures in one step.
      *
-     * @param request      request for GetFutures and GetValuesFromFutures
+     * @param id           id for GetFutures and GetValuesFromFutures
      * @param parsed       parsed for GetFutures and GetValuesFromFutures
      * @param service      service for GetFutures and GetValuesFromFutures
      * @param nodeReplicas nodeReplicas for GetFutures and GetValuesFromFutures
      * @return list of Table.Value
      */
     @NotNull
-    public static List<Table.Value> getValues(@NotNull final Request request,
-                                              @NotNull final Utility.ReplicationConfiguration parsed,
-                                              @NotNull final AsyncService service,
-                                              @NotNull final String... nodeReplicas) {
-        final List<Response> futureResponses = getFutures(request, parsed, service, nodeReplicas);
-        return Utility.getValuesFromFutures(parsed, futureResponses);
+    public static CompletableFuture<Collection<Table.Value>> getValues(
+            @NotNull final String id,
+            @NotNull final Utility.ReplicationConfiguration parsed,
+            @NotNull final AsyncService service,
+            @NotNull final String... nodeReplicas) {
+        final Collection<CompletableFuture<Table.Value>> futureResponses =
+                getGetFutures(id, parsed, service, nodeReplicas);
+        return Utility.atLeast(parsed.ack, futureResponses);
     }
-    
+
     /**
      * Produce list of responses over proxy(node, request, service).
      *
-     * @param request       request for proxy
+     * @param id            id for proxy
      * @param configuration replication configuration
      * @param service       AsyncService for proxying
      * @param nodes         dest nodes
      * @return list of responses
      */
     @NotNull
-    private static List<Response> getFutures(@NotNull final Request request,
-                                             @NotNull final Utility.ReplicationConfiguration configuration,
-                                             @NotNull final AsyncService service,
-                                             @NotNull final String... nodes) {
-        final List<Response> futureResponses = new ArrayList<>(configuration.from);
-        
+    public static Collection<CompletableFuture<Table.Value>> getGetFutures(
+            @NotNull final String id,
+            @NotNull final Utility.ReplicationConfiguration configuration,
+            @NotNull final AsyncService service,
+            @NotNull final String... nodes) {
+        final List<CompletableFuture<Table.Value>> futureResponses = new ArrayList<>(configuration.from);
+
         for (final var node :
                 nodes) {
-            
+
             if (!node.equals(service.policy.homeNode())) {
-                final var response = proxy(node, request, service);
-                /* OK */
-                if (response == null) {
-                    continue;
-                }
-                if (response.getStatus() != 202 /* ACCEPTED */
-                            && response.getStatus() != 201 /* CREATED */
-                            && response.getStatus() != 200
-                            && response.getStatus() != 404) {
-                    continue;
-                }
+                final var response = proxyAsync(
+                        request(node, id).header(Utility.PROXY_HEADER, node).GET().build(), service,
+                        (responseInfo) -> {
+                            if (responseInfo.statusCode() != 200 /* OK */
+                                    && responseInfo.statusCode() != 404 /* NOT FOUND */) {
+                                throw new IllegalArgumentException("Error in get request");
+                            }
+
+                            if (responseInfo.statusCode() == 404 /* NOT FOUND */) {
+                                return HttpResponse.BodySubscribers.replacing(Table.Value.ABSENT);
+                            }
+
+                            final var header = responseInfo.headers().firstValue(Utility.DEADFLAG_TIMESTAMP_HEADER);
+                            if (header.isEmpty()) {
+                                throw new IllegalArgumentException("No timestamp header");
+                            }
+                            final var deadFlagTimestamp = Long.parseLong(header.get());
+
+                            return HttpResponse.BodySubscribers.mapping(
+                                    HttpResponse.BodySubscribers.ofByteArray(),
+                                    (b) -> {
+                                        final var bBuffer = ByteBuffer.wrap(b);
+                                        return Table.Value.of(bBuffer, deadFlagTimestamp, -1);
+                                    }
+                            );
+                        });
                 futureResponses.add(response);
-                
             }
         }
         return futureResponses;
     }
-    
+
     /**
-     * Execute sending response depend on accepted counter.
+     * Produce list of responses over proxy(node, request, service).
      *
+     * @param id            id for proxy
      * @param configuration replication configuration
-     * @param ackCounter    counter of ack responses
-     * @param resp          response to send if ackCounter >= configuration.ack
-     * @param session       session for sending responses
+     * @param service       AsyncService for proxying
+     * @param nodes         dest nodes
+     * @return list of responses
      */
-    public static void sendAckFromResp(@NotNull final Utility.ReplicationConfiguration configuration,
-                                       final int ackCounter,
-                                       final Response resp,
-                                       @NotNull final HttpSession session) throws IOException {
-        if (ackCounter >= configuration.ack) {
-            session.sendResponse(resp);
-        } else {
-            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, AsyncService.EMPTY));
+    @NotNull
+    public static Collection<CompletableFuture<Void>> getFuturesReponseDelete(
+            @NotNull final String id,
+            final long currTime,
+            @NotNull final Utility.ReplicationConfiguration configuration,
+            @NotNull final AsyncService service,
+            @NotNull final String... nodes) {
+        final List<CompletableFuture<Void>> futureResponses = new ArrayList<>(configuration.from);
+
+        for (final var node :
+                nodes) {
+
+            if (!node.equals(service.policy.homeNode())) {
+                final CompletableFuture<Void> response =
+                        AsyncServiceUtility.proxyAsync(request(node, id)
+                                        .header(Utility.PROXY_HEADER, node)
+                                        .header(Utility.TIME_HEADER, Long.toString(currTime))
+                                        .DELETE()
+                                        .build(),
+                                service,
+                                responseInfo -> {
+                                    if (responseInfo.statusCode() == 202 /* ACCEPTED */
+                                            || responseInfo.statusCode() == 201 /* CREATED */) {
+                                        return HttpResponse.BodySubscribers.discarding();
+                                    }
+                                    throw new IllegalArgumentException("Failure in putting/deleting");
+                                });
+                futureResponses.add(response);
+            }
         }
+        return futureResponses;
     }
-    
+
+    /**
+     * Produce list of responses over proxy(node, request, service).
+     *
+     * @param id            id for proxy
+     * @param value         value for proxy
+     * @param configuration replication configuration
+     * @param service       AsyncService for proxying
+     * @param nodes         dest nodes
+     * @return list of responses
+     */
+    @NotNull
+    public static Collection<CompletableFuture<Void>> getFuturesReponsePut(
+            @NotNull final String id,
+            final long currTime,
+            @NotNull final byte[] value,
+            @NotNull final Utility.ReplicationConfiguration configuration,
+            @NotNull final AsyncService service,
+            @NotNull final String... nodes) {
+        final List<CompletableFuture<Void>> futureResponses = new ArrayList<>(configuration.from);
+
+        for (final var node :
+                nodes) {
+
+            if (!node.equals(service.policy.homeNode())) {
+                final CompletableFuture<Void> response =
+                        AsyncServiceUtility.proxyAsync(request(node, id)
+                                        .header(Utility.PROXY_HEADER, node)
+                                        .headers(Utility.TIME_HEADER, Long.toString(currTime))
+                                        .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
+                                        .build(),
+                                service,
+                                responseInfo -> {
+                                    if (responseInfo.statusCode() == 202 /* ACCEPTED */
+                                            || responseInfo.statusCode() == 201 /* CREATED */) {
+                                        return HttpResponse.BodySubscribers.discarding();
+                                    }
+                                    throw new IllegalArgumentException("Failure in putting/deleting");
+                                });
+                futureResponses.add(response);
+            }
+        }
+        return futureResponses;
+    }
+
     /**
      * Parsing replicas.
      *
@@ -303,18 +433,18 @@ public final class AsyncServiceUtility {
                                                                             @NotNull final AsyncService service) {
         final Utility.ReplicationConfiguration parsedReplica;
         final var nodeCount = service.policy.all().length;
-        
+
         parsedReplica = replicas == null ? AsyncService.DEFAULT_CONFIGURATIONS.get(nodeCount - 1) :
-                                Utility.ReplicationConfiguration.parse(replicas);
-        
+                Utility.ReplicationConfiguration.parse(replicas);
+
         if (parsedReplica == null || parsedReplica.ack <= 0
-                    || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
+                || parsedReplica.ack > parsedReplica.from || parsedReplica.from > nodeCount) {
             return null;
         }
-        
+
         return parsedReplica;
     }
-    
+
     /**
      * Combine parseAndValidateReplicas and handling error in 1 step.
      *
@@ -330,10 +460,10 @@ public final class AsyncServiceUtility {
             @NotNull final HttpSession session,
             @NotNull final AsyncService service) throws IOException {
         final var parsed = parseAndValidateReplicas(replicas, service);
-        
+
         if (parsed == null) {
             AsyncService.logger.error("Bad replicas param {}", replicas);
-            session.sendResponse(new Response(Response.BAD_REQUEST, AsyncService.EMPTY));
+            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
             return null;
         }
         return parsed;

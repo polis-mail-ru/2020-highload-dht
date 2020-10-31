@@ -97,17 +97,17 @@ public interface DAO extends Closeable {
      * @throws NoSuchElementException if no such record
      */
     @NotNull
-    default Table.Value getRaw(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+    default Table.Value getRaw(@NotNull ByteBuffer key) throws IOException {
         final Iterator<Table.ICell> iter = iteratorRaw(key);
         if (!iter.hasNext()) {
-            throw new NoSuchElementException("Not found");
+            return Table.Value.ABSENT;
         }
         
         final Table.ICell next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
-            throw new NoSuchElementException("Not found");
+            return Table.Value.ABSENT;
         }
     }
 
