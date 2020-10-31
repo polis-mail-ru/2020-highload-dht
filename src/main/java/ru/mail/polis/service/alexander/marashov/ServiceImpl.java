@@ -11,14 +11,12 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.alexander.marashov.Value;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzer;
 import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerGet;
@@ -27,9 +25,7 @@ import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -87,19 +83,9 @@ public class ServiceImpl extends HttpServer implements Service {
         );
 
         this.topology = topology;
-        this.defaultAck = this.topology.size() / 2 + 1;
-        this.defaultFrom = this.topology.size();
-
-        this.nodeToClient = new HashMap<>();
-        for (final String node : this.topology.all()) {
-            if (this.topology.isLocal(node)) {
-                continue;
-            }
-            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=" + proxyTimeoutValue));
-            if (nodeToClient.put(node, httpClient) != null) {
-                throw new IllegalStateException("Duplicate node");
-            }
-        }
+        this.nodeToClient = topology.clientsToOtherNodes(proxyTimeoutValue);
+        this.defaultAck = topology.getQuorumCount();
+        this.defaultFrom = topology.size();
     }
 
     /**
@@ -170,6 +156,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 400} if id is empty
      *           {@code 404} if not found,
      *           {@code 500} if an internal server error occurred.
+     *           {@code 504} if not enough replicas.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
@@ -240,6 +227,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 201} if data saved
      *           {@code 400} if id is empty,
      *           {@code 500} if an internal server error occurred.
+     *           {@code 504} if not enough replicas.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
@@ -315,6 +303,7 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 202} if the key deleted,
      *           {@code 400} if id is empty,
      *           {@code 500} if an internal server error occurred.
+     *           {@code 504} if not enough replicas.
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)

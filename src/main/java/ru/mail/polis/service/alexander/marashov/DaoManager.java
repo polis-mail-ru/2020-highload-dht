@@ -8,6 +8,7 @@ import ru.mail.polis.dao.alexander.marashov.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 
 public class DaoManager {
 
@@ -60,7 +61,7 @@ public class DaoManager {
         Value value = null;
         try {
             value = this.dao.rowGet(key);
-        } catch (final IOException e) {
+        } catch (final IOException | NoSuchElementException e) {
             log.debug("Key not found", e);
         }
 
@@ -79,6 +80,9 @@ public class DaoManager {
         return response;
     }
 
+    /**
+     * Closes the DAO or writes an error to the log.
+     */
     public void close() {
         try {
             dao.close();
