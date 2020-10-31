@@ -1,10 +1,8 @@
 package ru.mail.polis.s3ponia;
 
-import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.dao.DAO;
@@ -71,15 +69,15 @@ public final class AsyncServiceUtility {
                     getFuturesReponsePut(id, HttpRequest.newBuilder()
                                     .header(Utility.PROXY_HEADER, service.policy.homeNode())
                                     .headers(Utility.TIME_HEADER, Long.toString(currTime))
-                                    .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
-                            , parsed, service, nodes);
+                                    .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())),
+                            parsed, service, nodes);
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
 
             if (homeInReplicas) {
                 responses.add(upsert(key, value, currTime, service));
             }
 
-            if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync(methodForCodeClimate(session)).isCancelled()) {
+            if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync(validatePut(session)).isCancelled()) {
                 AsyncService.logger.error("Canceled task");
             }
         } catch (RejectedExecutionException | IOException e) {
@@ -89,7 +87,7 @@ public final class AsyncServiceUtility {
     }
 
     @NotNull
-    private static BiConsumer<Collection<Void>, Throwable> methodForCodeClimate(@NotNull HttpSession session) {
+    private static BiConsumer<Collection<Void>, Throwable> validatePut(@NotNull HttpSession session) {
         return (c, t) -> {
             try {
                 if (t == null) {
@@ -233,26 +231,6 @@ public final class AsyncServiceUtility {
     }
 
     /**
-     * Get proxy response.
-     *
-     * @param node    destination node
-     * @param request proxying request
-     * @param service proxying service
-     * @return Response from node
-     */
-    public static Response proxy(
-            @NotNull final String node,
-            @NotNull final Request request,
-            @NotNull final AsyncService service) {
-        try {
-            request.addHeader(Utility.PROXY_HEADER + ":" + node);
-            return service.urlToClient.get(node).invoke(request);
-        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            return null;
-        }
-    }
-
-    /**
      * Default HttpRequest.Builder for node and id.
      *
      * @param node node for request
@@ -314,7 +292,7 @@ public final class AsyncServiceUtility {
             if (!node.equals(service.policy.homeNode())) {
                 final var response = proxyAsync(
                         request(node, id).header(Utility.PROXY_HEADER, node).GET().build(), service,
-                        methodForCodeClimate());
+                        getBodyHandler());
                 futureResponses.add(response);
             }
         }
@@ -322,7 +300,7 @@ public final class AsyncServiceUtility {
     }
 
     @NotNull
-    private static HttpResponse.BodyHandler<Table.Value> methodForCodeClimate() {
+    private static HttpResponse.BodyHandler<Table.Value> getBodyHandler() {
         return responseInfo -> {
             if (responseInfo.statusCode() != 200 /* OK */
                     && responseInfo.statusCode() != 404 /* NOT FOUND */) {
