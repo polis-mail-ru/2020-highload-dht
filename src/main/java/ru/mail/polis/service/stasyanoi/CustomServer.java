@@ -43,9 +43,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(final @Param("id") String idParam,
-                    final HttpSession session,
-                    final Request request) {
+    public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         executorService.execute(() -> {
             try {
                 getInternal(idParam, session, request);
@@ -65,8 +63,7 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_GET)
-    public void getRep(final @Param("id") String idParam,
-                       final HttpSession session) {
+    public void getRep(final @Param("id") String idParam, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 getRepInternal(idParam, session);
@@ -78,8 +75,7 @@ public class CustomServer extends FrameServer {
         });
     }
 
-    private void getRepInternal(final String idParam,
-                                final HttpSession session) throws IOException {
+    private void getRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -90,8 +86,7 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private void getInternal(final String idParam,
-                             final HttpSession session,
+    private void getInternal(final String idParam, final HttpSession session,
                              final Request request) throws IOException {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
