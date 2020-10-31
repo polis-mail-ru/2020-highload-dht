@@ -58,7 +58,6 @@ public interface Table extends Closeable {
         private final long deadFlagTimeStamp;
         private final int generation;
 
-
         /**
          * Value constructor.
          *

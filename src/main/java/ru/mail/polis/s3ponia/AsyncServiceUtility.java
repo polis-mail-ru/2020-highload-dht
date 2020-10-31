@@ -1,7 +1,5 @@
 package ru.mail.polis.s3ponia;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import jdk.jshell.execution.Util;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
@@ -25,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
 import static ru.mail.polis.service.s3ponia.AsyncService.EMPTY;
@@ -33,19 +30,6 @@ import static ru.mail.polis.service.s3ponia.AsyncService.EMPTY;
 public final class AsyncServiceUtility {
 
     private AsyncServiceUtility() {
-    }
-
-    public static java.net.http.HttpClient httpClient() {
-        final var executor = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("client-%d")
-                        .build()
-        );
-        return java.net.http.HttpClient.newBuilder()
-                .version(java.net.http.HttpClient.Version.HTTP_1_1)
-                .executor(executor)
-                .build();
     }
 
     /**
@@ -81,7 +65,6 @@ public final class AsyncServiceUtility {
             final var currTime = System.currentTimeMillis();
             request.addHeader(Utility.TIME_HEADER + ": " + currTime);
 
-
             final var nodes = service.policy.getNodeReplicas(key, parsed.from);
             final var responses =
                     getFuturesReponsePut(id, currTime, request.getBody(), parsed, service, nodes);
@@ -111,6 +94,14 @@ public final class AsyncServiceUtility {
         }
     }
 
+    /**
+     * Asynchronous deleting key.
+     *
+     * @param key      key to delete
+     * @param currTime deleting time
+     * @param service  service where to delete
+     * @return CompletableFuture
+     */
     public static CompletableFuture<Void> delete(@NotNull final ByteBuffer key,
                                                  final long currTime,
                                                  @NotNull final AsyncService service) {
@@ -122,7 +113,7 @@ public final class AsyncServiceUtility {
                 AsyncService.logger.error(
                         "IOException in putting key(size: {}) from dao on node {}",
                         key.capacity(), service.policy.homeNode(), e);
-                throw new RuntimeException("IOException in putting key");
+                throw new RuntimeException("IOException in putting key", e);
             }
         }, service.es);
     }
@@ -139,7 +130,7 @@ public final class AsyncServiceUtility {
                 AsyncService.logger.error(
                         "IOException in putting key(size: {}), value(size: {}) from dao on node {}",
                         key.capacity(), value.capacity(), service.policy.homeNode(), e);
-                throw new RuntimeException("IOException in putting key");
+                throw new RuntimeException("IOException in putting key", e);
             }
         }, service.es);
     }
@@ -251,6 +242,13 @@ public final class AsyncServiceUtility {
         }
     }
 
+    /**
+     * Default HttpRequest.Builder for node and id.
+     *
+     * @param node node for request
+     * @param id   param in request
+     * @return HttpRequest.Builder
+     */
     public static HttpRequest.Builder request(
             @NotNull final String node,
             @NotNull final String id) {
@@ -259,7 +257,7 @@ public final class AsyncServiceUtility {
                     .uri(new URI(node + "/v0/entity?id=" + id))
                     .timeout(Duration.ofSeconds(1));
         } catch (URISyntaxException e) {
-            throw new RuntimeException("Error in parsing URI");
+            throw new RuntimeException("Error in parsing URI", e);
         }
     }
 
@@ -306,34 +304,39 @@ public final class AsyncServiceUtility {
             if (!node.equals(service.policy.homeNode())) {
                 final var response = proxyAsync(
                         request(node, id).header(Utility.PROXY_HEADER, node).GET().build(), service,
-                        (responseInfo) -> {
-                            if (responseInfo.statusCode() != 200 /* OK */
-                                    && responseInfo.statusCode() != 404 /* NOT FOUND */) {
-                                throw new IllegalArgumentException("Error in get request");
-                            }
-
-                            if (responseInfo.statusCode() == 404 /* NOT FOUND */) {
-                                return HttpResponse.BodySubscribers.replacing(Table.Value.ABSENT);
-                            }
-
-                            final var header = responseInfo.headers().firstValue(Utility.DEADFLAG_TIMESTAMP_HEADER);
-                            if (header.isEmpty()) {
-                                throw new IllegalArgumentException("No timestamp header");
-                            }
-                            final var deadFlagTimestamp = Long.parseLong(header.get());
-
-                            return HttpResponse.BodySubscribers.mapping(
-                                    HttpResponse.BodySubscribers.ofByteArray(),
-                                    (b) -> {
-                                        final var bBuffer = ByteBuffer.wrap(b);
-                                        return Table.Value.of(bBuffer, deadFlagTimestamp, -1);
-                                    }
-                            );
-                        });
+                        methodForCodeClimate());
                 futureResponses.add(response);
             }
         }
         return futureResponses;
+    }
+
+    @NotNull
+    private static HttpResponse.BodyHandler<Table.Value> methodForCodeClimate() {
+        return responseInfo -> {
+            if (responseInfo.statusCode() != 200 /* OK */
+                    && responseInfo.statusCode() != 404 /* NOT FOUND */) {
+                throw new IllegalArgumentException("Error in get request");
+            }
+
+            if (responseInfo.statusCode() == 404 /* NOT FOUND */) {
+                return HttpResponse.BodySubscribers.replacing(Table.Value.ABSENT);
+            }
+
+            final var header = responseInfo.headers().firstValue(Utility.DEADFLAG_TIMESTAMP_HEADER);
+            if (header.isEmpty()) {
+                throw new IllegalArgumentException("No timestamp header");
+            }
+            final var deadFlagTimestamp = Long.parseLong(header.get());
+
+            return HttpResponse.BodySubscribers.mapping(
+                    HttpResponse.BodySubscribers.ofByteArray(),
+                    (b) -> {
+                        final var bBuffer = ByteBuffer.wrap(b);
+                        return Table.Value.of(bBuffer, deadFlagTimestamp, -1);
+                    }
+            );
+        };
     }
 
     /**

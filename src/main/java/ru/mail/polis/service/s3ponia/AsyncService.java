@@ -21,13 +21,12 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -64,7 +63,16 @@ public final class AsyncService extends HttpServer implements Service {
         super(Utility.configFrom(port));
         assert 0 < workers;
         assert 0 < queueSize;
-        this.httpClient = AsyncServiceUtility.httpClient();
+        final var executor = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("client-%d")
+                        .build()
+        );
+        this.httpClient = java.net.http.HttpClient.newBuilder()
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .executor(executor)
+                .build();
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
         this.dao = dao;
@@ -103,7 +111,7 @@ public final class AsyncService extends HttpServer implements Service {
                 return dao.getRaw(key);
             } catch (IOException e) {
                 logger.error("IOException in getRAW", e);
-                throw new RuntimeException("IOException in getRAW");
+                throw new RuntimeException("IOException in getRAW", e);
             }
         }, this.es);
     }
