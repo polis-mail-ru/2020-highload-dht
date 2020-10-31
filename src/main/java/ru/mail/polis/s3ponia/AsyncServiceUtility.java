@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.BiConsumer;
 
 import static ru.mail.polis.service.s3ponia.AsyncService.EMPTY;
 
@@ -67,31 +68,40 @@ public final class AsyncServiceUtility {
 
             final var nodes = service.policy.getNodeReplicas(key, parsed.from);
             final var responses =
-                    getFuturesReponsePut(id, currTime, request.getBody(), parsed, service, nodes);
+                    getFuturesReponsePut(id, HttpRequest.newBuilder()
+                                    .header(Utility.PROXY_HEADER, service.policy.homeNode())
+                                    .headers(Utility.TIME_HEADER, Long.toString(currTime))
+                                    .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
+                            , parsed, service, nodes);
             final boolean homeInReplicas = Utility.isHomeInReplicas(service.policy.homeNode(), nodes);
 
             if (homeInReplicas) {
                 responses.add(upsert(key, value, currTime, service));
             }
 
-            if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync((c, t) -> {
-                try {
-                    if (t == null) {
-                        session.sendResponse(new Response(Response.CREATED, EMPTY));
-                    } else {
-                        AsyncService.logger.error("Error in proxying", t);
-                        session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-                    }
-                } catch (IOException e) {
-                    AsyncService.logger.error("Error in sending response in putting", e);
-                }
-            }).isCancelled()) {
+            if (Utility.atLeast(parsed.ack, responses).whenCompleteAsync(methodForCodeClimate(session)).isCancelled()) {
                 AsyncService.logger.error("Canceled task");
             }
         } catch (RejectedExecutionException | IOException e) {
             AsyncService.logger.error("Error", e);
             e.printStackTrace();
         }
+    }
+
+    @NotNull
+    private static BiConsumer<Collection<Void>, Throwable> methodForCodeClimate(@NotNull HttpSession session) {
+        return (c, t) -> {
+            try {
+                if (t == null) {
+                    session.sendResponse(new Response(Response.CREATED, EMPTY));
+                } else {
+                    AsyncService.logger.error("Error in proxying", t);
+                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
+                }
+            } catch (IOException e) {
+                AsyncService.logger.error("Error in sending response in putting", e);
+            }
+        };
     }
 
     /**
@@ -385,7 +395,6 @@ public final class AsyncServiceUtility {
      * Produce list of responses over proxy(node, request, service).
      *
      * @param id            id for proxy
-     * @param value         value for proxy
      * @param configuration replication configuration
      * @param service       AsyncService for proxying
      * @param nodes         dest nodes
@@ -394,8 +403,7 @@ public final class AsyncServiceUtility {
     @NotNull
     public static Collection<CompletableFuture<Void>> getFuturesReponsePut(
             @NotNull final String id,
-            final long currTime,
-            @NotNull final byte[] value,
+            @NotNull final HttpRequest.Builder req,
             @NotNull final Utility.ReplicationConfiguration configuration,
             @NotNull final AsyncService service,
             @NotNull final String... nodes) {
@@ -406,10 +414,7 @@ public final class AsyncServiceUtility {
 
             if (!node.equals(service.policy.homeNode())) {
                 final CompletableFuture<Void> response =
-                        AsyncServiceUtility.proxyAsync(request(node, id)
-                                        .header(Utility.PROXY_HEADER, node)
-                                        .headers(Utility.TIME_HEADER, Long.toString(currTime))
-                                        .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
+                        AsyncServiceUtility.proxyAsync(req.uri(URI.create(node + "/v0/entity?id=" + id))
                                         .build(),
                                 service,
                                 responseInfo -> {
