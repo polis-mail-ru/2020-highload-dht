@@ -15,6 +15,8 @@ import java.util.NoSuchElementException;
 
 public final class DAOServiceMethods {
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
+    public static final String TOMBSTONE = "isTombstone";
+    public static final String VERSION = "version";
 
     private DAOServiceMethods() {
     }
@@ -35,7 +37,8 @@ public final class DAOServiceMethods {
             } else {
                 response = new Response(Response.OK, toByteArray(value.getData()));
             }
-            response.addHeader("isTombstone" + value.isTombstone());
+            response.addHeader(TOMBSTONE + value.isTombstone());
+            response.addHeader(VERSION + value.getVersion());
             return response;
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);

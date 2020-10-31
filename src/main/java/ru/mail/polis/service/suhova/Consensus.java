@@ -4,6 +4,9 @@ import one.nio.http.Response;
 
 import java.util.List;
 
+import static ru.mail.polis.service.suhova.DAOServiceMethods.TOMBSTONE;
+import static ru.mail.polis.service.suhova.DAOServiceMethods.VERSION;
+
 public final class Consensus {
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
 
@@ -22,15 +25,20 @@ public final class Consensus {
         int count404 = 0;
         boolean isDeleted = false;
         Response okValue = new Response(Response.NOT_FOUND, Response.EMPTY);
+        long lastVersion = 0;
         for (final Response response : responses) {
             final int status = response.getStatus();
             if (status == 200) {
                 count++;
-                if (Boolean.parseBoolean(response.getHeader("isTombstone"))) {
+                if (Boolean.parseBoolean(response.getHeader(TOMBSTONE))) {
                     isDeleted = true;
                     continue;
                 }
-                okValue = response;
+                final long version = Long.parseLong(response.getHeader(VERSION));
+                if (version > lastVersion) {
+                    lastVersion = version;
+                    okValue = response;
+                }
             } else if (status == 404) {
                 count404++;
                 count++;

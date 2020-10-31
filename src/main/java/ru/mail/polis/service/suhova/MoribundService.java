@@ -41,6 +41,7 @@ public class MoribundService extends HttpServer implements Service {
     private final Topology<String> topology;
     @NotNull
     private final Map<String, HttpClient> clients;
+    private final String PROXY_HEADER = "PROXY";
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
 
     /**
@@ -109,7 +110,7 @@ public class MoribundService extends HttpServer implements Service {
                 }
                 return;
             }
-            if (request.getHeader("isProxy") == null) {
+            if (request.getHeader(PROXY_HEADER) == null) {
                 sendReplicationResponse(id, replicas, session, request);
             } else {
                 sendProxyResponse(id, session, request);
@@ -170,7 +171,7 @@ public class MoribundService extends HttpServer implements Service {
                                         final String replicas,
                                         final HttpSession session,
                                         final Request request) {
-        request.addHeader("isProxy");
+        request.addHeader(PROXY_HEADER);
         final int ack;
         final int from;
         if (replicas == null) {
