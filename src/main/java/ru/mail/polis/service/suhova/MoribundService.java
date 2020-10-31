@@ -41,7 +41,7 @@ public class MoribundService extends HttpServer implements Service {
     private final Topology<String> topology;
     @NotNull
     private final Map<String, HttpClient> clients;
-    private final String PROXY_HEADER = "PROXY";
+    private static final String PROXY_HEADER = "PROXY";
     private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
 
     /**

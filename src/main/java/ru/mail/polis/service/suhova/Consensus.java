@@ -44,6 +44,14 @@ public final class Consensus {
                 count++;
             }
         }
+        return getResponse(count, count404, ack, okValue, isDeleted);
+    }
+
+    private static Response getResponse(final int count,
+                                        final int count404,
+                                        final int ack,
+                                        final Response okValue,
+                                        final boolean isDeleted) {
         if (count >= ack) {
             if (isDeleted || count == count404) {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
