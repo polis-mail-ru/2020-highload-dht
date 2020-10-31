@@ -87,7 +87,7 @@ public final class AsyncServiceUtility {
     }
 
     @NotNull
-    private static BiConsumer<Collection<Void>, Throwable> validatePut(@NotNull HttpSession session) {
+    private static BiConsumer<Collection<Void>, Throwable> validatePut(@NotNull final HttpSession session) {
         return (c, t) -> {
             try {
                 if (t == null) {
