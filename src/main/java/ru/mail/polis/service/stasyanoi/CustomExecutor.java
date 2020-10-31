@@ -1,11 +1,6 @@
 package ru.mail.polis.service.stasyanoi;
 
 import one.nio.http.HttpSession;
-import one.nio.http.Response;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
