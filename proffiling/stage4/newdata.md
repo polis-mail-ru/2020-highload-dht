@@ -285,10 +285,16 @@
 
 #### Cpu
 ![async-profiler put cpu](flamegraphs/put_cpu_rendez.svg)
+На TreeMap тратится всего лишь 0.36% времени. Зато на хеширование по модулю hashCode тратит 0.5%.
 #### Alloc
 ![async-profiler put cpu](flamegraphs/put_alloc_rendez.svg)
+7.31% мы тратим на identifyByKey из которых 6% занимает TreeMap ( 1.65% на саму мапу и 3.9% на put).
+В хешировании по модулю handleRequest занимает 6% место 14, при этом аллокация на само хеширование судя по всему
+спрятана как лямбда в стеке checkIdAndReturnTargetNode и занимает 1.92% (весь стек целиком).  
 #### Lock
 ![async-profiler put cpu](flamegraphs/put_lock_rendez.svg)
+Аналогичные хешированию по модулю блокировки, зато видно, что после уменьшили блокировки
+на сессии.
 ### Get
     pc@pc-VirtualBox:~/projects/2020-highload-dht$ wrk -t4 -c64 -d60s -s proffiling/lua-scripts/get.lua -R45000 -L http://127.0.0.1:8080
     Running 1m test @ http://127.0.0.1:8080
@@ -426,11 +432,14 @@
 
 #### Cpu
 ![async-profiler put cpu](flamegraphs/get_cpu_rendez.svg)
+На TreeMap мы тратим уже 0.56%, а в случае с хешированием по модулю мы тратим 0.58% 
 #### Alloc
 ![async-profiler put cpu](flamegraphs/get_alloc_rendez.svg)
+Аналогично 4.29% на TreeMap put  и 1.68 TreeMap, и 2.05% в случае хеширования по модулю.
 #### Lock
 ![async-profiler put cpu](flamegraphs/get_lock_rendez.svg)
-
+Аналогичные хешированию по модулю блокировки, зато видно, что после уменьшили блокировки
+на сессии.
 ## Mod hashing 
 ### Put
     
@@ -720,3 +729,7 @@
  на 1 мс (50%), а в максимальном значении 23мс против 32 ( что тоже немало). Для get запросов 
  наблюдается паритет по среднему значению около 3.2 мс, но максимальная задержка уже меньше 
  у хеширования по модулю 33 мс против 45 мс у рандеву.
+ 
+ Исходя из увиденного можно сделать вывод, используя рандеву хешированию, мы тратим больше памяти ~6% против ~2%,
+ зато (по крайней мере) в случае с put запросами, мы занимаем меньше процессорного времени 0.36% против 0.5%.
+ 
