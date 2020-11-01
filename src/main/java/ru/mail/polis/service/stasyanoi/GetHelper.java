@@ -20,8 +20,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static ru.mail.polis.service.stasyanoi.Merger.getEndResponseGet;
-
 public final class GetHelper {
 
     private static final String REPS = "reps";
@@ -42,11 +40,11 @@ public final class GetHelper {
      * @param port - this server port.
      * @return - list of replica responses
      */
-    public static List<Response> getResponsesInternal(final Response responseHttpTemp,
-                                                final Map<Integer, String> tempNodeMapping,
-                                                final int from,
-                                                final Request request,
-                                                final int port) {
+    public static List<Response> getResponsesFromReplicas(final Response responseHttpTemp,
+                                                          final Map<Integer, String> tempNodeMapping,
+                                                          final int from,
+                                                          final Request request,
+                                                          final int port) {
         final List<Response> responses = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
@@ -168,13 +166,12 @@ public final class GetHelper {
                                            final int port) {
         final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-            final Pair<Integer, Integer> ackFrom =
-                    Util.getAckFrom(request, replicationDefaults, nodeMapping);
+            final Pair<Integer, Integer> ackFrom = Util.getAckFrom(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
-            final List<Response> responses =
-                    GetHelper.getResponsesInternal(responseHttpCurrent, tempNodeMapping, from - 1, request, port);
+            final List<Response> responses = GetHelper.getResponsesFromReplicas(responseHttpCurrent,
+                    tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
-            responseHttp = getEndResponseGet(responses, ack, nodeMapping);
+            responseHttp = Merger.mergeGetResponses(responses, ack, nodeMapping);
         } else {
             responseHttp = responseHttpCurrent;
         }

@@ -40,7 +40,7 @@ public final class DeleteHelper {
             final Pair<Integer, Integer> ackFrom = getRF(request, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses =
-                    GetHelper.getResponsesInternal(responseHttpCurrent,
+                    GetHelper.getResponsesFromReplicas(responseHttpCurrent,
                             tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
             responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
@@ -51,8 +51,7 @@ public final class DeleteHelper {
     }
 
     @NotNull
-    private static Pair<Integer, Integer> getRF(final Request request,
-                                                final Map<Integer, String> nodeMapping) {
+    private static Pair<Integer, Integer> getRF(final Request request, final Map<Integer, String> nodeMapping) {
         return Util.getAckFrom(request, replicationDefaults, nodeMapping);
     }
 }

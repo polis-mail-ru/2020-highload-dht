@@ -41,7 +41,7 @@ public final class PutHelper {
                     Util.getAckFrom(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses =
-                    GetHelper.getResponsesInternal(responseHttpCurrent,
+                    GetHelper.getResponsesFromReplicas(responseHttpCurrent,
                             tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
             responseHttp = getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);

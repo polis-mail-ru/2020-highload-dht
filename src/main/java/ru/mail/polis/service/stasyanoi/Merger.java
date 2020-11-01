@@ -26,7 +26,7 @@ public final class Merger {
      * @return - merged response.
      */
     @NotNull
-    public static Response getEndResponseGet(final List<Response> responses,
+    public static Response mergeGetResponses(final List<Response> responses,
                                              final Integer ack,
                                              final Map<Integer, String> nodeMapping) {
 
