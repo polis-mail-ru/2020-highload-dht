@@ -62,7 +62,7 @@ public class RocksDBStorage implements DAO {
         final Timestamp timestamp = new Timestamp(
                 Util.byteBufferToBytes(value),
                 System.currentTimeMillis(),
-                Timestamp.STATE_DATA);
+                Timestamp.State.DATA);
         try {
             db.put(Util.pack(key),timestamp.getTimestampData());
         } catch (RocksDBException ex) {
@@ -84,7 +84,7 @@ public class RocksDBStorage implements DAO {
         final Timestamp timestamp = new Timestamp(
                 null,
                 System.currentTimeMillis(),
-                Timestamp.STATE_DELETED);
+                Timestamp.State.DELETED);
         try {
             db.put(Util.pack(key),timestamp.getTimestampData());
         } catch (RocksDBException ex) {
