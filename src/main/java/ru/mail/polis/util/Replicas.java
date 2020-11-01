@@ -20,7 +20,7 @@ public class Replicas {
     private final int from;
     private int answers;
     private byte[] freshData = Response.EMPTY;
-    private long freshTimestamp = 0L;
+    private long freshTimestamp;
     private Timestamp.State freshState = Timestamp.State.UNKNOWN;
 
     private static final Logger log = LoggerFactory.getLogger(Replicas.class);
@@ -102,8 +102,8 @@ public class Replicas {
     }
 
     private Response formGetResponse() {
-        if ((freshState == Timestamp.State.DELETED)
-                || (freshState == Timestamp.State.UNKNOWN)) {
+        if (freshState == Timestamp.State.DELETED
+                || freshState == Timestamp.State.UNKNOWN) {
             log.error("No data founded in replicas to sent to client");
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
@@ -128,6 +128,9 @@ public class Replicas {
         }
     }
 
+    /**
+     * Clean fields "answers", "freshData", "freshTimestamp", "freshState" to initial values.
+     */
     public void clean() {
         answers = 0;
         freshData = Response.EMPTY;

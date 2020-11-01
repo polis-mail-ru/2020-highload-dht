@@ -78,7 +78,7 @@ public class Timestamp {
     }
 
     public byte[] getData() {
-        return data;
+        return data.clone();
     }
 
     public long getTimestampValue() {
