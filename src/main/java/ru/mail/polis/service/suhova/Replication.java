@@ -41,7 +41,7 @@ public class Replication {
             return new Replication(Integer.parseInt(values.get(0)), Integer.parseInt(values.get(1)));
         } catch (NumberFormatException e) {
             logger.error("Parameter 'replicas' cannot be parsed! {}", replicationSpec, e);
-            throw new NumberFormatException(e.getMessage());
+            throw new IllegalArgumentException(e);
         }
     }
 }
