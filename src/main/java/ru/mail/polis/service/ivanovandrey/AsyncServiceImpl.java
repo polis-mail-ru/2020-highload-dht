@@ -21,10 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
@@ -34,11 +31,11 @@ import static one.nio.http.Request.METHOD_PUT;
 public class AsyncServiceImpl extends HttpServer implements Service {
 
     private static final String ERROR_MESSAGE = "Can't send response. Session {}";
+    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     @NotNull
     private final DAO dao;
-    private final ExecutorService service;
-    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private final ExecutorService executor;
 
     /**
      * Constructor.
@@ -47,14 +44,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param dao - dao implementation.
      */
     public AsyncServiceImpl(final int port,
-                       @NotNull final DAO dao) throws IOException {
+                       @NotNull final DAO dao,
+                            @NotNull final int queueSize,
+                            @NotNull final int countOfWorkers) throws IOException {
         super(createConfig(port));
         this.dao = dao;
-        final int countOfWorkers = Runtime.getRuntime().availableProcessors();
-        service = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
+        executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
                 TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(1024),
+                new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Error in async_worker-{} : ", t, e))
                         .setNameFormat("async_worker-%d")
                         .build());
     }
@@ -66,8 +65,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         ac.reusePort = true;
 
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
-        httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
-        httpServerConfig.queueTime = 10;
         httpServerConfig.acceptors = new AcceptorConfig[]{ac};
         return httpServerConfig;
     }
@@ -78,24 +75,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
-    public void get(@NotNull @Param(value = "id", required = true) final String id,
-                    final HttpSession session) {
-        service.execute(() -> {
-            try {
-            if (id.isEmpty()) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                return;
-                }
-            final ByteBuffer key = strToByteBuffer(id, UTF_8);
-            final ByteBuffer val;
-            val = dao.get(key);
-            session.sendResponse(Response.ok(Converter.fromByteBufferToByteArray(val)));
-            } catch (NoSuchElementException e) {
-                try {
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            } catch (IOException i) {
-                    log.error(ERROR_MESSAGE, session, e);
-            }
+    public void asyncGet(@NotNull @Param(value = "id", required = true) final String id,
+                         final HttpSession session){
+        executor.execute(() -> {
+        try {
+            get(id, session);
         } catch (IOException e) {
                 log.error("Error in get request", e);
                 try {
@@ -103,8 +87,32 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 } catch (IOException ex) {
                     log.error(ERROR_MESSAGE, session, ex);
                 }
+        } catch (RejectedExecutionException e) {
+            log.error("Rejected  exception: ", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (IOException e1) {
+                log.error("Queue overflowed: ", e1);
             }
+        } catch (NoSuchElementException e) {
+            try {
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException i) {
+                log.error(ERROR_MESSAGE, session, e);
+            }
+        }
         });
+    }
+
+    public void get(@NotNull @Param(value = "id", required = true) final String id,
+                    final HttpSession session) throws IOException{
+            if (id.isEmpty()) {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+                }
+            final ByteBuffer key = strToByteBuffer(id, UTF_8);
+            final ByteBuffer val = dao.get(key);
+            session.sendResponse(Response.ok(Converter.fromByteBufferToByteArray(val)));
     }
 
     /** Put/update data by key method.
@@ -114,11 +122,34 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_PUT)
-    public void put(@NotNull @Param(value = "id", required = true) final String id,
+    public void asyncPut(@NotNull @Param(value = "id", required = true) final String id,
                     @NotNull @Param(value = "request", required = true) final Request request,
                     @NotNull final HttpSession session) {
-        service.execute(() -> {
+        executor.execute(() -> {
             try {
+                put(id,request,session);
+            } catch (IOException e) {
+                log.error("Error in delete request", e);
+                try {
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                } catch (IOException ex) {
+                    log.error(ERROR_MESSAGE, session, ex);
+                }
+            } catch (RejectedExecutionException e) {
+                log.error("Rejected  exception: ", e);
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException e1) {
+                    log.error("Queue overflowed: ", e1);
+                }
+            }
+        });
+    }
+
+
+    public void put(@NotNull @Param(value = "id", required = true) final String id,
+                    @NotNull @Param(value = "request", required = true) final Request request,
+                    @NotNull final HttpSession session) throws IOException {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
@@ -127,15 +158,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 final ByteBuffer value = ByteBuffer.wrap(request.getBody());
                 dao.upsert(key, value);
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                } catch (IOException e) {
-                log.error("Error in delete request", e);
-                try {
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                } catch (IOException ex) {
-                    log.error(ERROR_MESSAGE, session, ex);
-                }
-            }
-        });
     }
 
     /** Delete data by key method.
@@ -144,23 +166,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public void delete(@NotNull @Param(value = "id", required = true) final String id,
+    public void asyncDelete(@NotNull @Param(value = "id", required = true) final String id,
                        @NotNull final HttpSession session) {
-        service.execute(() -> {
+        executor.execute(() -> {
             try {
-                if (id.isEmpty()) {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-                final ByteBuffer key = strToByteBuffer(id, UTF_8);
-                dao.remove(key);
-                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-                } catch (NoSuchElementException e) {
-                try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException i) {
-                    log.error(ERROR_MESSAGE, session, e);
-                }
+                delete(id,session);
             } catch (IOException e) {
                 log.error("Error in delete request", e);
                 try {
@@ -168,8 +178,32 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 } catch (IOException ex) {
                     log.error(ERROR_MESSAGE, session, ex);
                 }
+            } catch (RejectedExecutionException e) {
+                log.error("Rejected  exception: ", e);
+                try {
+                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+                } catch (IOException e1) {
+                    log.error("Queue overflowed: ", e1);
+                }
+            } catch (NoSuchElementException e) {
+                try {
+                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                } catch (IOException i) {
+                    log.error(ERROR_MESSAGE, session, e);
+                }
             }
         });
+    }
+
+    public void delete(@NotNull @Param(value = "id", required = true) final String id,
+                       @NotNull final HttpSession session) throws IOException{
+                if (id.isEmpty()) {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
+                }
+                final ByteBuffer key = strToByteBuffer(id, UTF_8);
+                dao.remove(key);
+                session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
     /**
@@ -179,13 +213,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
-        service.execute(() -> {
             try {
                 session.sendResponse(Response.ok("OK"));
             } catch (IOException e) {
                 log.error(ERROR_MESSAGE, session, e);
             }
-        });
     }
 
     @Override
