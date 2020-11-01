@@ -1,7 +1,6 @@
 package ru.mail.polis.service.mariarheon;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,7 +9,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,15 +17,15 @@ import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -94,11 +92,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         if (myself != null) {
             final var resp = processRequest(key, request);
             try {
-                if (resp == null) {
-                    trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
-                } else {
-                    trySendResponse(session, resp.get());
-                }
+                trySendResponse(session, resp.get());
             } catch (InterruptedException | ExecutionException e) {
                 logger.error(SERV_UN, e);
             }
@@ -120,50 +114,52 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                 @NotNull final HttpSession session,
                                 final @Param("request") Request request) {
         final var responsibleNodes = sharding.getResponsibleNodes(key, replicas);
-        final var answers = new ArrayList<Future<Response>>(responsibleNodes.size());
+        final var answers = new CompletableFuture<?>[responsibleNodes.size()];
+        int i = 0;
         for (final var node : responsibleNodes) {
             if (sharding.isMe(node)) {
-                answers.add(processRequest(key, request));
+                answers[i] = processRequest(key, request);
             } else {
-                answers.add(passOn(node, request));
+                answers[i] = sharding.passOn(node, addMyselfParamToRequest(request));
             }
+            i++;
         }
-        final var composer = new ReplicasResponseComposer();
-        for (final var answer : answers) {
-            if (answer == null) {
-                continue;
+        var all = CompletableFuture.allOf(answers);
+
+        all.thenAccept(ignored -> {
+            final var composer = new ReplicasResponseComposer();
+            for (final var answer : answers) {
+                final Response response;
+                try {
+                    response = (Response) answer.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    continue;
+                }
+                composer.addResponse(response, replicas.getAckCount());
             }
-            final Response response;
-            try {
-                response = answer.get();
-            } catch (InterruptedException | ExecutionException e) {
-                continue;
-            }
-            composer.addResponse(response, replicas.getAckCount());
-        }
-        final var requiredResponse = composer.getComposedResponse();
-        trySendResponse(session, requiredResponse);
+            final var requiredResponse = composer.getComposedResponse();
+            trySendResponse(session, requiredResponse);
+        }).exceptionally((ex) -> {
+            logger.error(SERV_UN, ex);
+            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            return null;
+        });
     }
 
-    private Future<Response> processRequest(final @Param(value = "id", required = true) String key,
+    private CompletableFuture<Response> processRequest(final @Param(value = "id", required = true) String key,
                                 final @Param("request") Request request) {
-        try {
-            return service.submit(() -> {
-                switch (request.getMethod()) {
-                    case METHOD_GET:
-                        return get(key);
-                    case METHOD_PUT:
-                        return put(key, request);
-                    case METHOD_DELETE:
-                        return delete(key);
-                    default:
-                        return null;
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            logger.error(SERV_UN, ex);
-            return null;
-        }
+        return CompletableFuture.supplyAsync(() -> {
+            switch (request.getMethod()) {
+                case METHOD_GET:
+                    return get(key);
+                case METHOD_PUT:
+                    return put(key, request);
+                case METHOD_DELETE:
+                    return delete(key);
+                default:
+                    return new ZeroResponse(Response.NOT_FOUND);
+            }
+        }, service);
     }
 
     private Response get(final String key) {
@@ -213,26 +209,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return new ZeroResponse(Response.ACCEPTED);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
-        }
-    }
-
-    private Future<Response> passOn(@NotNull final String reqNode,
-                                    @NotNull final Request request) {
-        try {
-            return service.submit(() -> passOnInternal(reqNode, request));
-        } catch (RejectedExecutionException ex) {
-            logger.error(SERV_UN, ex);
-            return null;
-        }
-    }
-
-    private Response passOnInternal(@NotNull final String reqNode,
-                                @NotNull final Request request) {
-        try {
-            return sharding.passOn(reqNode, addMyselfParamToRequest(request));
-        } catch (InterruptedException | IOException | HttpException | PoolException e) {
-            logger.error("Failed to pass on the request: ", e);
             return new ZeroResponse(Response.INTERNAL_ERROR);
         }
     }

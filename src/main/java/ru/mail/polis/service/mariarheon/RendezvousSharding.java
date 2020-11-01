@@ -1,14 +1,11 @@
 package ru.mail.polis.service.mariarheon;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,13 +13,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public class RendezvousSharding {
     private final List<String> nodes;
     private final String currentNode;
     private final Map<String, HttpClient> clients;
-    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofMillis(100);
-    private static final String TIMEOUT_QUERY_PARAM = "?timeout=";
+    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofSeconds(500);
 
     /**
      * Constructor for RendezvousSharding.
@@ -35,10 +32,12 @@ public class RendezvousSharding {
         this.nodes = Util.asSortedList(topology);
         this.currentNode = currentNode;
         clients = new HashMap<>();
+        final var httpClientBuilder = HttpClient.newBuilder()
+                .connectTimeout(HTTP_CLIENT_TIMEOUT);
         for (final String node : nodes) {
             if (!node.equals(currentNode)) {
-                clients.put(node, new HttpClient(new ConnectionString(node
-                        + TIMEOUT_QUERY_PARAM + HTTP_CLIENT_TIMEOUT.toMillis())));
+                final var httpClient = httpClientBuilder.build();
+                clients.put(node, httpClient);
             }
         }
     }
@@ -93,13 +92,15 @@ public class RendezvousSharding {
      * Pass request to another node.
      * @param to node where request should be sent.
      * @param request the request.
-     * @return response from node. 
+     * @return response from node.
      */
-    public Response passOn(final String to, final Request request) throws InterruptedException,
-                                                              IOException,
-                                                              HttpException,
-                                                              PoolException {
-        return clients.get(to).invoke(request);
+    public CompletableFuture<Response> passOn(final String to, final Request request) {
+        final var javaHttpRequest = RequestConverter.convert(request, to);
+        final var httpClient = clients.get(to);
+        final var bodyHandler = HttpResponse.BodyHandlers.ofByteArray();
+        return httpClient.sendAsync(javaHttpRequest, bodyHandler)
+                .thenApply(ResponseConverter::convert)
+                .exceptionally(ex -> new ZeroResponse(Response.INTERNAL_ERROR));
     }
 
     /**
