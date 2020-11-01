@@ -21,7 +21,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
@@ -31,6 +35,8 @@ import static one.nio.http.Request.METHOD_PUT;
 public class AsyncServiceImpl extends HttpServer implements Service {
 
     private static final String ERROR_MESSAGE = "Can't send response. Session {}";
+    private static final String REJ_ERR = "Rejected  exception: ";
+    private static final String OVF_ERR = "Queue overflowed: ";
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     @NotNull
@@ -69,14 +75,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-    /** Get data by key method.
+    /** Async get data by key method.
      * @param id - id request.
      * @param session - session.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_GET)
     public void asyncGet(@NotNull @Param(value = "id", required = true) final String id,
-                         final HttpSession session){
+                         final HttpSession session) {
         executor.execute(() -> {
         try {
             get(id, session);
@@ -88,11 +94,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     log.error(ERROR_MESSAGE, session, ex);
                 }
         } catch (RejectedExecutionException e) {
-            log.error("Rejected  exception: ", e);
+            log.error(REJ_ERR, e);
             try {
                 session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             } catch (IOException e1) {
-                log.error("Queue overflowed: ", e1);
+                log.error(OVF_ERR, e1);
             }
         } catch (NoSuchElementException e) {
             try {
@@ -104,8 +110,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /** Get data by key method.
+     * @param id - id request.
+     * @param session - session.
+     **/
     public void get(@NotNull @Param(value = "id", required = true) final String id,
-                    final HttpSession session) throws IOException{
+                    final HttpSession session) throws IOException {
             if (id.isEmpty()) {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                 return;
@@ -115,7 +125,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(Response.ok(Converter.fromByteBufferToByteArray(val)));
     }
 
-    /** Put/update data by key method.
+    /** Async put/update data by key method.
      * @param id - id request.
      * @param request - data.
      * @param session - session.
@@ -136,17 +146,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     log.error(ERROR_MESSAGE, session, ex);
                 }
             } catch (RejectedExecutionException e) {
-                log.error("Rejected  exception: ", e);
+                log.error(REJ_ERR, e);
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException e1) {
-                    log.error("Queue overflowed: ", e1);
+                    log.error(OVF_ERR, e1);
                 }
             }
         });
     }
 
-
+    /** Put/update data by key method.
+     * @param id - id request.
+     * @param request - data.
+     * @param session - session.
+     **/
     public void put(@NotNull @Param(value = "id", required = true) final String id,
                     @NotNull @Param(value = "request", required = true) final Request request,
                     @NotNull final HttpSession session) throws IOException {
@@ -160,7 +174,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
-    /** Delete data by key method.
+    /** Async delete data by key method.
      * @param id - id request.
      * @param session - session.
      **/
@@ -179,11 +193,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     log.error(ERROR_MESSAGE, session, ex);
                 }
             } catch (RejectedExecutionException e) {
-                log.error("Rejected  exception: ", e);
+                log.error(REJ_ERR, e);
                 try {
                     session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
                 } catch (IOException e1) {
-                    log.error("Queue overflowed: ", e1);
+                    log.error(OVF_ERR, e1);
                 }
             } catch (NoSuchElementException e) {
                 try {
@@ -195,8 +209,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
+    /** Delete data by key method.
+     * @param id - id request.
+     * @param session - session.
+     **/
     public void delete(@NotNull @Param(value = "id", required = true) final String id,
-                       @NotNull final HttpSession session) throws IOException{
+                       @NotNull final HttpSession session) throws IOException {
                 if (id.isEmpty()) {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
