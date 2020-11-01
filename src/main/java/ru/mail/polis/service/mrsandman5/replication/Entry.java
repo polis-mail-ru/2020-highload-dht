@@ -75,11 +75,17 @@ public final class Entry implements Comparable<Entry> {
      * @return target Entry.
      * */
     @NotNull
-    public static Entry mergeEntries(@NotNull final Collection<Entry> values) {
-        return values.stream()
+    private static Entry mergeEntries(@NotNull final Collection<Entry> entries) {
+        return entries.stream()
                 .filter(value -> value.getState() != State.ABSENT)
                 .max(Comparator.comparingLong(Entry::getTimestamp))
                 .orElseGet(Entry::absent);
+    }
+
+    @NotNull
+    public static Response entriesToResponse(@NotNull final Collection<Entry> entries) {
+        final Entry entry = Entry.mergeEntries(entries);
+        return entryToResponse(entry);
     }
 
     /** Convert service Response to Entry.
@@ -116,11 +122,11 @@ public final class Entry implements Comparable<Entry> {
         switch (entry.getState()) {
             case PRESENT:
                 result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
-                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
+                result.addHeader(ResponseUtils.getTimestamp(entry));
                 return result;
             case REMOVED:
                 result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
-                result.addHeader(ResponseUtils.TIMESTAMP + entry.getTimestamp());
+                result.addHeader(ResponseUtils.getTimestamp(entry));
                 return result;
             case ABSENT:
                 return ResponseUtils.emptyResponse(Response.NOT_FOUND);

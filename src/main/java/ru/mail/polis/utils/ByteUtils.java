@@ -4,6 +4,7 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 public final class ByteUtils {
 
@@ -30,6 +31,11 @@ public final class ByteUtils {
         final var bytes = new byte[buffer.remaining()];
         buffer.duplicate().get(bytes);
         return bytes;
+    }
+
+    @NotNull
+    public static ByteBuffer getWrap(@NotNull final String id) {
+        return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
     }
 
 }

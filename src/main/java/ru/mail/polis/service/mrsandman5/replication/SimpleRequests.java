@@ -23,14 +23,11 @@ public final class SimpleRequests {
      * {@code 404} (data is not found).
      * {@code 500} (internal server error occurred).
      */
-    public Response get(@NotNull final ByteBuffer key) {
+    public Entry get(@NotNull final ByteBuffer key) {
         try {
-            final Entry value = Entry.entryFromBytes(key, dao);
-            return Entry.entryToResponse(value);
-        } catch (NoSuchElementException e) {
-            return ResponseUtils.emptyResponse(Response.NOT_FOUND);
-        } catch (IOException e) {
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
+            return Entry.entryFromBytes(key, dao);
+        } catch (NoSuchElementException | IOException e) {
+            return null;
         }
     }
 
@@ -39,14 +36,12 @@ public final class SimpleRequests {
      * {@code 201} (new value created).
      * {@code 500} (internal server error occurred).
      */
-    public Response put(@NotNull final ByteBuffer key,
+    public void put(@NotNull final ByteBuffer key,
                          @NotNull final byte[] bytes) {
         try {
             final ByteBuffer body = ByteBuffer.wrap(bytes);
             dao.upsert(key, body);
-            return ResponseUtils.emptyResponse(Response.CREATED);
-        } catch (IOException e) {
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
+        } catch (IOException ignored) {
         }
     }
 
@@ -55,12 +50,10 @@ public final class SimpleRequests {
      * {@code 202} (value deleted).
      * {@code 500} (internal server error occurred).
      */
-    public Response delete(@NotNull final ByteBuffer key) {
+    public void delete(@NotNull final ByteBuffer key) {
         try {
             dao.remove(key);
-            return ResponseUtils.emptyResponse(Response.ACCEPTED);
-        } catch (IOException e) {
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
+        } catch (IOException ignored) {
         }
     }
 
