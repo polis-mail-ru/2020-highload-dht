@@ -91,8 +91,8 @@ public class ReplicationController {
     private Response choseRelevant(@NotNull final List<TimestampDataWrapper> tdws, @NotNull final String[] nodes,
                                 final boolean isForwarded) throws IOException {
         final TimestampDataWrapper relevantTs = TimestampDataWrapper.getRelevantTs(tdws);
-        return nodes.length == 1 && isForwarded ? new Response(Response.OK, relevantTs.toBytes()) :
-                relevantTs.getState() == RecordState.DELETED ? new Response(Response.NOT_FOUND, relevantTs.toBytes()) :
+        return relevantTs.getState() == RecordState.DELETED ? new Response(Response.NOT_FOUND, relevantTs.toBytes()) :
+                nodes.length == 1 && isForwarded ? new Response(Response.OK, relevantTs.toBytes()) :
                         new Response(Response.OK, relevantTs.getBytes());
     }
 
@@ -109,25 +109,24 @@ public class ReplicationController {
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException e) {
                 log.error("IO in is forward replPut");
-                return new Response(Response.GATEWAY_TIMEOUT, e.toString().getBytes(StandardCharsets.UTF_8));
+                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
             }
         }
         final String[] nodes = topology.replicasFor(wrapId(id), replFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
-            Response response = null;
             try {
                 if (topology.isMe(node)) {
                     dao.upsertWithTime(wrapId(id), ByteBuffer.wrap(value));
                     ack++;
                 } else {
-                    response = nodesClient.get(node).put(HEADER + id, value, PROXY_HEADER);
+                    final Response response = nodesClient.get(node).put(HEADER + id, value, PROXY_HEADER);
+                    if (nonNull(response) && response.getStatus() == 201) {
+                        ack++;
+                    }
                 }
             } catch (InterruptedException | PoolException | HttpException | IOException  e) {
                 log.error("Cant proxying response to other node in replPut", e);
-            }
-            if (nonNull(response) && response.getStatus() == 201) {
-                ack++;
             }
         }
         return ack >= a ? new Response(Response.CREATED, Response.EMPTY) :
@@ -142,28 +141,27 @@ public class ReplicationController {
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             } catch (IOException e) {
                 log.error("IO in is forward replDelete");
-                return new Response(Response.GATEWAY_TIMEOUT, e.toString().getBytes(StandardCharsets.UTF_8));
+                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
             }
         }
         final String[] nodes = topology.replicasFor(wrapId(id), replFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
-            Response response = null;
             try {
                 if (topology.isMe(node)) {
                     dao.removeWithTimestamp(wrapId(id));
                     ack++;
                 } else {
-                    response = nodesClient.get(node).delete(HEADER + id, PROXY_HEADER);
+                    final Response response = nodesClient.get(node).delete(HEADER + id, PROXY_HEADER);
+                    if (nonNull(response) && response.getStatus() == 202) {
+                        ack++;
+                    }
                 }
                 if (ack == a) {
                     return new Response(Response.ACCEPTED, Response.EMPTY);
                 }
             } catch (InterruptedException | PoolException | HttpException | IOException e) {
                 log.error("Cant proxying response to other node in replDelete", e);
-            }
-            if (nonNull(response) && response.getStatus() == 202) {
-                ack++;
             }
         }
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);

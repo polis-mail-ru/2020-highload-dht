@@ -47,7 +47,7 @@ public class TimestampDataWrapper {
 
     @NotNull
     public static TimestampDataWrapper getEmptyOne() {
-        return new TimestampDataWrapper( null, -1, RecordState.EMPTY);
+        return new TimestampDataWrapper(null, -1, RecordState.EMPTY);
     }
 
     @NotNull
@@ -56,7 +56,7 @@ public class TimestampDataWrapper {
     }
 
     @NotNull
-    public  byte[] getBytes() throws IOException {
+    public byte[] getBytes() throws IOException {
         final ByteBuffer buffer = getValue().duplicate();
         final byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
@@ -69,6 +69,7 @@ public class TimestampDataWrapper {
             return buffer;
         } else throw new IOException("No such value");
     }
+
 
     @NotNull
     public byte[] toBytes() {
