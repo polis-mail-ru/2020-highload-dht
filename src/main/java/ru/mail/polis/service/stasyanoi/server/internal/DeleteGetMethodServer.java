@@ -5,18 +5,21 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-
-import static ru.mail.polis.service.stasyanoi.Merger.mergePutDeleteResponses;
+import java.util.Set;
 
 public class DeleteGetMethodServer extends GetMethodServer {
 
-    public DeleteGetMethodServer(final HttpServerConfig config) throws IOException {
-        super(config);
+    public DeleteGetMethodServer(final DAO dao,
+                           final HttpServerConfig config,
+                           final Set<String> topology) throws IOException {
+        super(dao, config, topology);
     }
 
     /**
@@ -41,7 +44,7 @@ public class DeleteGetMethodServer extends GetMethodServer {
             final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
                     tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
-            responseHttp = mergePutDeleteResponses(responses, ack, 202, nodeMapping);
+            responseHttp = Merger.mergePutDeleteResponses(responses, ack, 202, nodeMapping);
         } else {
             responseHttp = responseHttpCurrent;
         }
