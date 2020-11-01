@@ -59,6 +59,8 @@ public final class ServiceFactory {
 
         return new AsyncServiceImpl(port,
                 dao,
+                1024,
+                Runtime.getRuntime().availableProcessors(),
                 new SimpleTopology(topology, "http://localhost:" + port));
     }
 }
