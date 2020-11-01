@@ -80,28 +80,6 @@ public final class Util {
     }
 
     /**
-     * Hash route request.
-     *
-     * @param request - request to route.
-     * @param node - node to route the request to.
-     * @param nodeMapping - node list.
-     * @return - returned response.
-     * @throws IOException - for errors with the net.
-     */
-    public static Response routeRequest(final Request request,
-                                        final int node,
-                                        final Map<Integer, String> nodeMapping)
-            throws IOException {
-
-        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        try (HttpClient httpClient = new HttpClient(connectionString)) {
-            return httpClient.invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
-            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
-        }
-    }
-
-    /**
      * Get node with hash.
      *
      * @param idArray - key.
