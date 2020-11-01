@@ -21,6 +21,7 @@ public class ConstantsServer extends HttpServer {
     protected DAO dao;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
     protected Map<String, HttpClient> httpClientMap;
+    protected java.net.http.HttpClient asyncHttpClient;
 
 
 
@@ -35,6 +36,7 @@ public class ConstantsServer extends HttpServer {
         final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
         final Map<String, HttpClient> clients = new HashMap<>();
 
+        asyncHttpClient = java.net.http.HttpClient.newHttpClient();
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
             clients.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));

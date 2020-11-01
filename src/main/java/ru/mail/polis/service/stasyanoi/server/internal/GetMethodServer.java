@@ -15,6 +15,9 @@ import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -23,6 +26,9 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static ru.mail.polis.service.stasyanoi.Util.getJavaRequest;
+import static ru.mail.polis.service.stasyanoi.Util.getOneNioResponse;
 
 public class GetMethodServer extends ConstantsServer {
 
@@ -51,13 +57,15 @@ public class GetMethodServer extends ConstantsServer {
                 .stream()
                 .limit(from)
                 .map(nodeHost -> new Pair<>(
-                        httpClientMap.get(nodeHost.getValue()),
+                        asyncHttpClient,
                         getNewRequest(request, port)))
                 .map(clientRequest -> {
                     try {
-                        HttpClient value0 = clientRequest.getValue0();
-                        return value0.invoke(clientRequest.getValue1());
-                    } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                        java.net.http.HttpClient client = clientRequest.getValue0();
+                        Request oneNioReqeust = clientRequest.getValue1();
+                        return getOneNioResponse(client.send(getJavaRequest(oneNioReqeust),
+                                HttpResponse.BodyHandlers.ofByteArray()));
+                    } catch (InterruptedException | IOException e) {
                         return Util.responseWithNoBody(Response.INTERNAL_ERROR);
                     }
                 })
@@ -97,7 +105,7 @@ public class GetMethodServer extends ConstantsServer {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
         final String newPath;
-        if (request.getHeader(REPS) == null) {
+        if (!request.getQueryString().contains("&reps=false")) {
             newPath = path + "?" + queryString + "&reps=false";
         } else {
             newPath = path + "?" + queryString;

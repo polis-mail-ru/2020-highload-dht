@@ -10,6 +10,7 @@ import ru.mail.polis.service.stasyanoi.Util;
 import ru.mail.polis.service.stasyanoi.server.internal.FrameServer;
 
 import java.io.IOException;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -105,7 +106,7 @@ public class CustomServer extends FrameServer {
         if (node == nodeNum) {
             responseHttp = getResponseIfIdNotNull(id, dao);
         } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request);
         }
         return responseHttp;
     }
@@ -194,7 +195,7 @@ public class CustomServer extends FrameServer {
             dao.upsert(key, value);
             responseHttp = Util.responseWithNoBody(Response.CREATED);
         } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request);
         }
         return responseHttp;
     }
@@ -273,19 +274,16 @@ public class CustomServer extends FrameServer {
             dao.remove(key);
             responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
         } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request);
         }
         return responseHttp;
     }
 
-    private Response routeRequest(final Request request,
-                                 final int node,
-                                 final Map<Integer, String> nodeMapping)
-            throws IOException {
+    private Response routeRequest(final Request request) throws IOException {
         try {
-            HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
-            return httpClient.invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
+            return Util.getOneNioResponse(asyncHttpClient.send(Util.getJavaRequest(request),
+                    HttpResponse.BodyHandlers.ofByteArray()));
+        } catch (InterruptedException e) {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }

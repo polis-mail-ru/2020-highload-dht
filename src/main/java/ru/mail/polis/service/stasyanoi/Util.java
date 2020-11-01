@@ -4,7 +4,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
 import com.google.common.primitives.Bytes;
-import one.nio.http.HttpClient;
+import com.sun.net.httpserver.Headers;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
@@ -18,12 +18,13 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public final class Util {
@@ -213,6 +214,61 @@ public final class Util {
             errorSession.sendResponse(Util.responseWithNoBody(Response.SERVICE_UNAVAILABLE));
         } catch (IOException e) {
             logger.error(e.getMessage());
+        }
+    }
+
+    public static Response getOneNioResponse(HttpResponse<byte[]> javaResponse) {
+        Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
+        javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
+        return response;
+    }
+
+    public static HttpRequest getJavaRequest(Request oneNioReqeust) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder();
+
+        String newPath = oneNioReqeust.getPath() + "?" + oneNioReqeust.getQueryString();
+        String host = oneNioReqeust.getHeader("Host: ");
+
+        String uri = "http://" + host + newPath;
+        String methodName = oneNioReqeust.getMethodName();
+        if (methodName.equalsIgnoreCase("GET")) {
+            return builder.GET()
+                    .uri(URI.create(uri))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioReqeust.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+                    .build();
+        } else if (methodName.equalsIgnoreCase("PUT")) {
+            HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioReqeust.getBody());
+            return builder.PUT(bodyPublisher)
+                    .uri(URI.create(uri))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioReqeust.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+
+                    .build();
+        } else {
+            return builder.DELETE()
+                    .uri(URI.create(uri))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioReqeust.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+                    .build();
         }
     }
 }
