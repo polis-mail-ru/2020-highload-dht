@@ -1,12 +1,8 @@
 package ru.mail.polis.service.mariarheon;
 
-import one.nio.http.Request;
 import one.nio.http.Response;
 
-import java.net.URI;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Duration;
 
 public final class ResponseConverter {
     private ResponseConverter() {

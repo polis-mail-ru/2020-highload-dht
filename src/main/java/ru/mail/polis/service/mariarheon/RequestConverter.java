@@ -23,7 +23,7 @@ public final class RequestConverter {
         final var query = request.getURI();
         final var wholeURIString = host + query;
         final var uri = URI.create(wholeURIString);
-        var builder = HttpRequest.newBuilder(uri)
+        final var builder = HttpRequest.newBuilder(uri)
                 .timeout(REQUEST_TIMEOUT);
         switch (request.getMethod()) {
             case Request.METHOD_GET:

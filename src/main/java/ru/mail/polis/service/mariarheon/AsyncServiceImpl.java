@@ -17,7 +17,6 @@ import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -26,7 +25,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -124,7 +122,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
             i++;
         }
-        var all = CompletableFuture.allOf(answers);
+        final var all = CompletableFuture.allOf(answers);
 
         all.thenAccept(ignored -> {
             final var composer = new ReplicasResponseComposer();
