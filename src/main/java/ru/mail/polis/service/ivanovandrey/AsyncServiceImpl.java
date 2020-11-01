@@ -175,16 +175,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     /** Async delete data by key method.
-     * @param id - id request.
+     * @param key - key request.
      * @param session - session.
      **/
     @Path("/v0/entity")
     @RequestMethod(METHOD_DELETE)
-    public void asyncDelete(@NotNull @Param(value = "id", required = true) final String id,
+    public void asyncDelete(@NotNull @Param(value = "id", required = true) final String key,
                        @NotNull final HttpSession session) {
         executor.execute(() -> {
             try {
-                delete(id,session);
+                delete(key,session);
             } catch (IOException e) {
                 log.error("Error in delete request", e);
                 try {
