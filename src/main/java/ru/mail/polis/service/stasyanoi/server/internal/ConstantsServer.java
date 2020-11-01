@@ -13,7 +13,7 @@ public class ConstantsServer extends HttpServer {
     protected static final String REPS = "reps";
     protected static final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
 
-    public ConstantsServer(HttpServerConfig config) throws IOException {
+    public ConstantsServer(final HttpServerConfig config) throws IOException {
         super(config);
     }
 

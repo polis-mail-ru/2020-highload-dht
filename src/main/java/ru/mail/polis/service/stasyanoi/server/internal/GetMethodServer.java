@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 public class GetMethodServer extends ConstantsServer {
 
-    public GetMethodServer(HttpServerConfig config) throws IOException {
+    public GetMethodServer(final HttpServerConfig config) throws IOException {
         super(config);
     }
 
