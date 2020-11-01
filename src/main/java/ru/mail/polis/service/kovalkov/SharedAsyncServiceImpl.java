@@ -267,7 +267,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
                 log.error("Method has empty id. IO exception in mapping occurred. ", e);
             }
         }
-        return topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
+        return topology.identifyByKey(id.getBytes(UTF_8));
     }
 
     @Override

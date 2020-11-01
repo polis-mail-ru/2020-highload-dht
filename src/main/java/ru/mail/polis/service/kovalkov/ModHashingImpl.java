@@ -30,8 +30,8 @@ public class ModHashingImpl implements Topology<String> {
     }
 
     @Override
-    public String identifyByKey(final ByteBuffer key) {
-        return allNodes[(key.hashCode() & Integer.MAX_VALUE) % nodeCount()];
+    public String identifyByKey(final byte[] key) {
+        return allNodes[(Arrays.hashCode(key) & Integer.MAX_VALUE) % nodeCount()];
     }
 
     @Override
