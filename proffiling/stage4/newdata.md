@@ -293,7 +293,7 @@
 спрятана как лямбда в стеке checkIdAndReturnTargetNode и занимает 1.92% (весь стек целиком).  
 #### Lock
 ![async-profiler put cpu](flamegraphs/put_lock_rendez.svg)
-Аналогичные хешированию по модулю блокировки, зато видно, что после уменьшили блокировки
+Аналогичные хешированию по модулю блокировки, зато видно, что после ревью уменьшились блокировки
 на сессии.
 ### Get
     pc@pc-VirtualBox:~/projects/2020-highload-dht$ wrk -t4 -c64 -d60s -s proffiling/lua-scripts/get.lua -R45000 -L http://127.0.0.1:8080
