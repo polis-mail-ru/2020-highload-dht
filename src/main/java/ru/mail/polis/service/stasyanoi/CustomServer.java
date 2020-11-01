@@ -93,23 +93,16 @@ public class CustomServer extends FrameServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
         } else {
-            responseHttp = getResponseGet(idParam, request, tempNodeMapping);
+            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
+            final int node = Util.getNode(idArray, nodeCount);
+            final ByteBuffer id = Mapper.fromBytes(idArray);
+            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
+            final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
+            tempNodeMapping.remove(node);
+            responseHttp = GetHelper.getReplicaGetResponse(request,
+                    tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         }
         session.sendResponse(responseHttp);
-    }
-
-    private Response getResponseGet(final String idParam, final Request request,
-                                    final Map<Integer, String> tempNodeMapping) throws IOException {
-        final Response responseHttp;
-        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int node = Util.getNode(idArray, nodeCount);
-        final ByteBuffer id = Mapper.fromBytes(idArray);
-        final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
-        final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
-        tempNodeMapping.remove(node);
-        responseHttp = GetHelper.getReplicaGetResponse(request,
-                tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
-        return responseHttp;
     }
 
     private Response getProxy(final Request request, final int node, final ByteBuffer id) throws IOException {
