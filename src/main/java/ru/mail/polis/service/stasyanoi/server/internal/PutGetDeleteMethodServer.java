@@ -34,8 +34,7 @@ public class PutGetDeleteMethodServer extends DeleteGetMethodServer {
         final Map<Integer, String> nodeMapping = mappings.getValue1();
         Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-            final Pair<Integer, Integer> ackFrom =
-                    Util.ackFromPair(request, replicationDefaults, nodeMapping);
+            final Pair<Integer, Integer> ackFrom = Util.ackFromPair(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
                             tempNodeMapping, from - 1, request, port);

@@ -2,17 +2,10 @@ package ru.mail.polis.service.stasyanoi.server.internal;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
-import one.nio.http.Request;
-import one.nio.http.Response;
-import org.javatuples.Pair;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-
-import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
 public class ConstantsServer extends HttpServer {
 
