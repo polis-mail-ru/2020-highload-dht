@@ -76,7 +76,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             }
         }
         this.replFactor = new ReplicationFactor(topology.nodeCount() / 2 + 1, topology.nodeCount());
-        this.controller = new ReplicationController(dao, topology, nodesClient);
+        this.controller = new ReplicationController(dao, topology, nodesClient, this.replFactor);
     }
 
     /**
@@ -212,7 +212,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                         service.execute(() -> {
                             try {
                                 session.sendResponse(controller.replPut(id,
-                                        replicationFactor, isForwarded, request.getBody(), replicationFactor.getAck()));
+                                         isForwarded, request.getBody(), replicationFactor.getAck()));
                             } catch (IOException e) {
                                 exceptionIOHandler(session, "IO exception in repl put", e);
                             }
@@ -221,8 +221,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 case METHOD_DELETE:
                     service.execute(() -> {
                         try {
-                            session.sendResponse(controller.replDelete(id, replicationFactor,
-                                    isForwarded, replicationFactor.getAck()));
+                            session.sendResponse(controller.replDelete(id, isForwarded, replicationFactor.getAck()));
                         } catch (IOException e) {
                             exceptionIOHandler(session, "IO exception in repl delete", e);
                         }

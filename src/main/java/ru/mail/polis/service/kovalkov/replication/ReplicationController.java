@@ -15,6 +15,7 @@ import ru.mail.polis.service.kovalkov.sharding.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,15 +31,17 @@ public class ReplicationController {
     private final DAOImpl dao;
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodesClient;
+    private final ReplicationFactor replicationFactor;
 
     public ReplicationController(@NotNull final DAO dao, @NotNull final Topology<String> topology,
-                                 @NotNull final Map<String, HttpClient> nodesClient) {
+                                 @NotNull final Map<String, HttpClient> nodesClient, ReplicationFactor replicationFactor) {
         this.dao = (DAOImpl) dao;
         this.topology = topology;
         this.nodesClient = nodesClient;
+        this.replicationFactor = replicationFactor;
     }
 
-    public Response replGet(@NotNull final String id, @NotNull final ReplicationFactor replFactor,
+    public Response replGet(final String id, @NotNull final ReplicationFactor replFactor,
                             final boolean isForwarded)  {
         int replicas = 0;
         final String[] nodes = getNodeReplica(id, replFactor, isForwarded);
@@ -98,10 +101,10 @@ public class ReplicationController {
 
     @NotNull
     private ByteBuffer wrapId(@NotNull final String id) {
-        return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        return ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
     }
 
-    public Response replPut(@NotNull final String id, @NotNull final ReplicationFactor replFactor,
+    public Response replPut(@NotNull final String id,
                         final boolean isForwarded, @NotNull final byte[] value, final int a) {
         if (isForwarded) {
             try {
@@ -112,7 +115,7 @@ public class ReplicationController {
                 return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
             }
         }
-        final String[] nodes = topology.replicasFor(wrapId(id), replFactor.getFrom());
+        final String[] nodes = topology.replicasFor(wrapId(id), replicationFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
             try {
@@ -133,8 +136,7 @@ public class ReplicationController {
                 new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    public Response replDelete(@NotNull final String id, @NotNull final ReplicationFactor replFactor,
-                           final boolean isForwarded, final int a) {
+    public Response replDelete(@NotNull final String id, final boolean isForwarded, final int a) {
         if (isForwarded) {
             try {
                 dao.removeWithTimestamp(wrapId(id));
@@ -144,7 +146,7 @@ public class ReplicationController {
                 return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
             }
         }
-        final String[] nodes = topology.replicasFor(wrapId(id), replFactor.getFrom());
+        final String[] nodes = topology.replicasFor(wrapId(id), replicationFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
             try {
