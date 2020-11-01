@@ -71,10 +71,10 @@ public final class Merger {
      * @return - merged response.
      */
     @NotNull
-    public static Response getEndResponsePutAndDelete(final List<Response> responses,
-                                                      final Integer ack,
-                                                      final int status,
-                                                      final Map<Integer, String> nodeMapping) {
+    public static Response mergePutDeleteResponses(final List<Response> responses,
+                                                   final Integer ack,
+                                                   final int status,
+                                                   final Map<Integer, String> nodeMapping) {
         final Response responseHttp;
         final List<Response> goodResponses = responses.stream()
                 .filter(response -> response.getStatus() == status)

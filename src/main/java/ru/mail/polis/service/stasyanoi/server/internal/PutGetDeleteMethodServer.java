@@ -39,7 +39,7 @@ public class PutGetDeleteMethodServer extends DeleteGetMethodServer {
             final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
                             tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
-            responseHttp = Merger.getEndResponsePutAndDelete(responses, ack, 201, nodeMapping);
+            responseHttp = Merger.mergePutDeleteResponses(responses, ack, 201, nodeMapping);
         } else {
             responseHttp = responseHttpCurrent;
         }

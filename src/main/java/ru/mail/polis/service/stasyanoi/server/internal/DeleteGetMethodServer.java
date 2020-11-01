@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
+import static ru.mail.polis.service.stasyanoi.Merger.mergePutDeleteResponses;
 
 public class DeleteGetMethodServer extends GetMethodServer {
 
@@ -41,7 +41,7 @@ public class DeleteGetMethodServer extends GetMethodServer {
             final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
                     tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
-            responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
+            responseHttp = mergePutDeleteResponses(responses, ack, 202, nodeMapping);
         } else {
             responseHttp = responseHttpCurrent;
         }
