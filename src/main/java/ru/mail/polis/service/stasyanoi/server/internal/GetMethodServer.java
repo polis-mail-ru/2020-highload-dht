@@ -43,27 +43,26 @@ public class GetMethodServer extends ConstantsServer {
      * @return - list of replica responses
      */
     public List<Response> getResponsesFromReplicas(final Response responseHttpTemp,
-                                                          final Map<Integer, String> tempNodeMapping,
-                                                          final int from,
-                                                          final Request request,
-                                                          final int port) {
+                                                   final Map<Integer, String> tempNodeMapping,
+                                                   final int from,
+                                                   final Request request,
+                                                   final int port) {
         final List<Response> responses = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
                 .map(nodeHost -> new Pair<>(
-                        new HttpClient(new ConnectionString(nodeHost.getValue())), getNewRequest(request, port)))
+                        new HttpClient(new ConnectionString(nodeHost.getValue())),
+                        getNewRequest(request, port)))
                 .map(clientRequest -> {
-                    try {
-                        final Response invoke = clientRequest.getValue0().invoke(clientRequest.getValue1());
-                        clientRequest.getValue0().close();
-                        return invoke;
+                    try (HttpClient value0 = clientRequest.getValue0()) {
+                        return value0.invoke(clientRequest.getValue1());
                     } catch (InterruptedException | PoolException | IOException | HttpException e) {
                         return Util.responseWithNoBody(Response.INTERNAL_ERROR);
                     }
                 })
                 .collect(Collectors.toList());
-        responses.add(responseHttpTemp);
 
+        responses.add(responseHttpTemp);
         return responses;
     }
 
