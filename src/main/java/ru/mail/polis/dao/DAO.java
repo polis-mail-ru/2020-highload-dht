@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.service.Value;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -98,7 +99,22 @@ public interface DAO extends Closeable {
     void remove(@NotNull ByteBuffer key) throws IOException;
 
     /**
-     * Perform compaction
+     * Timestamp-based value get.
+     */
+    Value getValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException;
+
+    /**
+     * Timestamp-based value upsert.
+     */
+    void upsertValue(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException;
+
+    /**
+     * Timestamp-based value remove.
+     */
+    void removeValue(@NotNull ByteBuffer key) throws IOException;
+
+    /**
+     * Performs compaction.
      */
     default void compact() throws IOException {
         // Implement me when you get to stage 3

@@ -22,6 +22,17 @@ class Topology {
         return new HashSet<>(this.clusterNodes);
     }
 
+<<<<<<< HEAD
+=======
+    String getCurrentNode() {
+        return id;
+    }
+
+    int getSize() {
+        return this.clusterNodes.size();
+    }
+
+>>>>>>> task_5
     boolean isSelfId(@NotNull final String nodeId) {
         return nodeId.equals(id);
     }
@@ -29,4 +40,20 @@ class Topology {
     String primaryFor(@NotNull final ByteBuffer key) {
         return clusterNodes.get((key.hashCode() & Integer.MAX_VALUE) % clusterNodes.size());
     }
+<<<<<<< HEAD
+=======
+
+    String[] getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) {
+
+        int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % clusterNodes.size();
+        final String[] nodeReplicas = new String[numOfReplicas];
+
+        for (int i = 0; i < numOfReplicas; i++) {
+            nodeReplicas[i] = clusterNodes.get(nodeIndex);
+            nodeIndex = (nodeIndex + 1) % clusterNodes.size();
+        }
+
+        return nodeReplicas;
+    }
+>>>>>>> task_5
 }

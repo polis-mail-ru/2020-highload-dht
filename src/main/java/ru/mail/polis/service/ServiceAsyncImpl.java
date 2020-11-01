@@ -34,6 +34,11 @@ import static ru.mail.polis.util.Util.toByteArray;
 
 public class ServiceAsyncImpl extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(ServiceAsyncImpl.class);
+<<<<<<< HEAD
+=======
+    private static final String PROXY_HEADER = "X-Proxy-For:";
+    private static final int CONNECTION_TIMEOUT = 100;
+>>>>>>> task_5
 
     @NotNull
     private final DAO dao;
@@ -44,6 +49,7 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     private final Topology topology;
     private final Map<String, HttpClient> nodeToClient;
 
+<<<<<<< HEAD
     private static final String PROXY_HEADER = "X-Proxy-For:";
     private static final int CONNECTION_TIMEOUT = 100;
 
@@ -53,6 +59,11 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
             final int workersCount,
             final int queueSize,
             @NotNull final Topology topology
+=======
+    ServiceAsyncImpl(
+            final int port, @NotNull final DAO dao, final int workersCount,
+            final int queueSize, @NotNull final Topology topology
+>>>>>>> task_5
     ) throws IOException {
         super(getConfig(port, workersCount));
         this.dao = dao;
@@ -104,9 +115,13 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     ) {
         try {
             if (id == null || id.isEmpty()) {
+<<<<<<< HEAD
                 session.sendResponse(
                     new Response(Response.BAD_REQUEST, Response.EMPTY)
                 );
+=======
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+>>>>>>> task_5
                 return;
             }
 
@@ -149,13 +164,27 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
     }
 
     private void get(final ByteBuffer key, final HttpSession session) {
+<<<<<<< HEAD
+=======
+        try {
+            executeGet(key, session);
+        } catch (RejectedExecutionException e) {
+            logger.error("Execution exception in GET", e);
+        }
+    }
+
+    private void executeGet(final ByteBuffer key, final HttpSession session) throws RejectedExecutionException {
+>>>>>>> task_5
         this.executor.execute(() -> {
             try {
                 getValue(key, session);
             } catch (IOException e) {
                 logger.error("Couldn't send response", e);
+<<<<<<< HEAD
             } catch (RejectedExecutionException e) {
                 logger.error("Execution exception in GET", e);
+=======
+>>>>>>> task_5
             }
         });
     }
@@ -182,23 +211,41 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
+<<<<<<< HEAD
     private void put(
         final ByteBuffer key,
         final Request request,
         final HttpSession session
     ) {
+=======
+    private void put(final ByteBuffer key, final Request request, final HttpSession session) {
+        try {
+            executePut(key, request, session);
+        } catch (RejectedExecutionException e) {
+            logger.error("Execution exception in PUT", e);
+        }
+    }
+
+    private void executePut(
+            final ByteBuffer key, final Request request, final HttpSession session
+    ) throws RejectedExecutionException {
+>>>>>>> task_5
         this.executor.execute(() -> {
             try {
                 this.putValue(key, ByteBuffer.wrap(request.getBody()), session);
             } catch (IOException e) {
                 logger.error("PUT error:", e);
+<<<<<<< HEAD
             } catch (RejectedExecutionException e) {
                 logger.error("Execution exception in PUT", e);
+=======
+>>>>>>> task_5
             }
         });
     }
 
     private void delete(final ByteBuffer key, final HttpSession session) {
+<<<<<<< HEAD
         this.executor.execute(() -> {
             try {
                 dao.remove(key);
@@ -210,6 +257,23 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
                 logger.error("Execution exception in DELETE", e);
             }
         });
+=======
+        try {
+            executeDelete(key, session);
+        } catch (RejectedExecutionException e) {
+            logger.error("Execution exception in DELETE", e);
+        }
+    }
+
+    private void executeDelete(final ByteBuffer key, final HttpSession session) throws RejectedExecutionException {
+        try {
+            dao.remove(key);
+            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
+        } catch (IOException e) {
+            this.handleError(session);
+            logger.error("DELETE error:", e);
+        }
+>>>>>>> task_5
     }
 
     @Override
@@ -240,7 +304,12 @@ public class ServiceAsyncImpl extends HttpServer implements Service {
 
     /**
      * This forwards request to other nodes in the cluster.
+<<<<<<< HEAD
      * @param nodeId - id of target node
+=======
+     *
+     * @param nodeId  - id of target node
+>>>>>>> task_5
      * @param request - request to forward
      * @return response from forwarded request
      */

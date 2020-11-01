@@ -1,19 +1,18 @@
 package ru.mail.polis.dao;
 
-import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
+import ru.mail.polis.util.Util;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import static ru.mail.polis.util.Util.fromShiftedArray;
+public class RecordIterator implements Iterator<Record> {
 
-public class RecordIterator implements Iterator<Record>, AutoCloseable {
     private final RocksIterator iterator;
 
-    RecordIterator(@NotNull final RocksIterator iterator) {
+    RecordIterator(final RocksIterator iterator) {
         this.iterator = iterator;
     }
 
@@ -23,18 +22,20 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
     }
 
     @Override
-    public Record next() throws IllegalStateException {
-        if (!hasNext()) {
-            throw new NoSuchElementException("No such element");
+    public Record next() {
+        if (hasNext()) {
+            final ByteBuffer buf = Util.fromShiftedArray(iterator.key());
+            final Record rec = Record.of(buf, ByteBuffer.wrap(iterator.value()));
+            iterator.next();
+            return rec;
+        } else {
+            throw new NoSuchElementException("Further record isn't found. Iterator stopped\n");
         }
-
-        final byte[] key = iterator.key();
-        final byte[] value = iterator.value();
-        iterator.next();
-        return Record.of(fromShiftedArray(key), ByteBuffer.wrap(value));
     }
 
-    @Override
+    /**
+     * stops iterator running, closes file processed.
+     */
     public void close() {
         iterator.close();
     }
