@@ -43,7 +43,7 @@ public class RendezvousHashingImpl implements Topology<String> {
     @Override
     public String identifyByKey(final byte[] key) {
         final TreeMap<Integer,String> nodesAndHashes = new TreeMap<>();
-        for ( final Map.Entry<String, Hasher> entry : nodeHashes.entrySet()) {
+        for (final Map.Entry<String, Hasher> entry : nodeHashes.entrySet()) {
             nodesAndHashes.put(entry.getValue().putBytes(key).hash().hashCode(), entry.getKey());
         }
         final String ownerNode = nodesAndHashes.firstEntry().getValue();
