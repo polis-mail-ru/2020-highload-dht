@@ -1,18 +1,13 @@
 package ru.mail.polis.service.boriskin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,25 +16,36 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER;
+
 /**
- * Поддержка следующего HTTP REST API протокола:
- * 1. HTTP GET /v0/entity?id="ID" -- получить данные по ключу.
- * Возвращает 200 OK и данные или 404 Not Found
- * 2. HTTP PUT /v0/entity?id="ID" -- создать/перезаписать (upsert) данные по ключу.
- * Возвращает 201 Created
- * 3. HTTP DELETE /v0/entity?id="ID" -- удалить данные по ключу.
- * Возвращает 202 Accepted
+ * Поддержка следующего расширенного HTTP REST API протокола:
+ * 1. HTTP GET /v0/entity?id="ID"[&replicas=ack/from] -- получить данные по ключу "ID".
+ * Возвращает:
+ * 200 OK и данные,
+ *      если ответили хотя бы ack из from реплик;
+ * 404 Not Found,
+ *      если ни одна из ack реплик, вернувших ответ,
+ *      не содержит данные (либо данные удалены хотя бы на одной из ack ответивших реплик);
+ * 504 Not Enough Replicas,
+ *      если не получили 200/404 от ack реплик из всего множества from реплик.
+ * 2. HTTP PUT /v0/entity?id="ID"[&replicas=ack/from] -- создать/перезаписать данные по ключу "ID".
+ * Возвращает:
+ * 201 Created,
+ *      если хотя бы ack из from реплик подтвердили операцию;
+ * 504 Not Enough Replicas,
+ *      если не набралось ack подтверждений из всего множества from реплик.
+ * 3. HTTP DELETE /v0/entity?id="ID"[&replicas=ack/from] -- удалить данные по ключу "ID".
+ * Возвращает:
+ * 202 Accepted,
+ *      если хотя бы ack из from реплик подтвердили операцию;
+ * 504 Not Enough Replicas,
+ *      если не набралось ack подтверждений из всего множества from реплик.
  *
  * @author makary
  */
@@ -49,53 +55,36 @@ public class NewService extends HttpServer implements Service {
     @NotNull
     private final ExecutorService executorService;
     @NotNull
-    private final DAO dao;
-    @NotNull
     private final Topology<String> topology;
+    
     @NotNull
-    private final Map<String, HttpClient> nodeToClientMap;
-
-    private enum Operations {
-        GETTING, UPSERTING, REMOVING
-    }
+    private final ReplicaFactor defaultReplicaFactor;
+    @NotNull
+    private final ReplicaWorker replicaWorker;
 
     /**
      * Конструктор {@link NewService}.
      *
      * @param port порт
      * @param dao Дао
-     * @param workers воркеры
-     * @param queueSize размер очереди
+     * @param topology топология
      * @throws IOException возможна ошибка при неправильных параметрах
      */
     public NewService(final int port,
                       @NotNull final DAO dao,
-                      final int workers,
-                      final int queueSize,
                       @NotNull final Topology<String> topology) throws IOException {
         super(getConfigFrom(port));
-        assert 0 < workers;
-        assert 0 < queueSize;
-        this.dao = dao;
-        this.executorService = new ThreadPoolExecutor(
-                workers,
-                workers,
-                0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(queueSize),
-                new ThreadFactoryBuilder().setNameFormat("worker-%d").setUncaughtExceptionHandler((t, e) ->
-                        logger.error("Ошибка в {}, возникла при обработке запроса", t, e)).build(),
-                new ThreadPoolExecutor.AbortPolicy());
+        this.executorService = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder().setNameFormat("worker-%d").build());
         this.topology = topology;
-        this.nodeToClientMap = new HashMap<>();
-        for (final String node : topology.all()) {
-            if (topology.isMyNode(node)) {
-                continue;
-            }
-            final HttpClient httpClient = new HttpClient(new ConnectionString(node + "?timeout=1000"));
-            if (nodeToClientMap.put(node, httpClient) != null) {
-                throw new IllegalStateException("Duplicate Node!");
-            }
-        }
+        this.defaultReplicaFactor = ReplicaFactor.from(topology.all().size());
+        this.replicaWorker = new ReplicaWorker(
+                Executors.newFixedThreadPool(
+                        Runtime.getRuntime().availableProcessors(),
+                        new ThreadFactoryBuilder().setNameFormat("proxy-worker-%d").build()),
+                dao,
+                topology);
     }
 
     @NotNull
@@ -109,157 +98,45 @@ public class NewService extends HttpServer implements Service {
         return httpServerConfig;
     }
 
-    @NotNull
-    private static byte[] toByteArray(@NotNull final ByteBuffer byteBuffer) {
-        if (!byteBuffer.hasRemaining()) {
-            return Response.EMPTY;
-        }
-        final byte[] result = new byte[byteBuffer.remaining()];
-        byteBuffer.get(result);
-        assert !byteBuffer.hasRemaining();
-        return result;
-    }
-
     /**
      * HTTP GET /v0/entity?id="ID" -- получает данные по ключу.
-     *
-     * @param id ключ
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) final String id,
-                    @NotNull final HttpSession httpSession,
-                    @NotNull final Request request) throws IOException {
-        idValidation(id, httpSession);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        runExecutorService(key, httpSession, request, Operations.GETTING);
-    }
-
-    /**
-     * HTTP PUT /v0/entity?id="ID" -- создает/перезаписывает (upsert) данные по ключу.
-     *
-     * @param id ключ
-     * @param request данные
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id,
-                    final Request request,
-                    @NotNull final HttpSession httpSession) throws IOException {
-        idValidation(id, httpSession);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        runExecutorService(key, httpSession, request, Operations.UPSERTING);
-    }
-
-    /**
+     * HTTP PUT /v0/entity?id="ID" -- создает/перезаписывает данные по ключу.
      * HTTP DELETE /v0/entity?id="ID" - удаляет данные по ключу.
      *
      * @param id ключ
+     * @param replicas реплики
+     * @param httpSession сессия
+     * @param request данные
      */
     @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id,
-                       @NotNull final HttpSession httpSession,
-                       @NotNull final Request request) throws IOException {
+    public void entity(
+            @Param("id") final String id,
+            @Param("replicas") final String replicas,
+            final HttpSession httpSession,
+            final Request request) {
         idValidation(id, httpSession);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        runExecutorService(key, httpSession, request, Operations.REMOVING);
-    }
-
-    private void idValidation(@Param(value = "id", required = true) final String id,
-                              @NotNull final HttpSession httpSession) {
-        if (id.isEmpty()) {
-            resp(httpSession, Response.BAD_REQUEST);
-        }
-    }
-
-    private void runExecutorService(@NotNull final ByteBuffer key,
-                                    @NotNull final HttpSession httpSession,
-                                    @NotNull final Request request,
-                                    @NotNull final Operations operation) throws IOException {
-        final String node = topology.primaryFor(key);
+        final ReplicaFactor replicationFactor;
         try {
-            executorService.execute(() -> {
-                if (topology.isMyNode(node)) { // локальный ли запрос?
-                    operation(key, httpSession, request, operation);
-                } else {
-                    proxy(node, httpSession, request);
-                }
-            });
-        } catch (RejectedExecutionException rejectedExecutionException) {
-            logger.error("Ошибка при выполнении операции {} ", operation, rejectedExecutionException);
-            resp(httpSession, Response.SERVICE_UNAVAILABLE);
-        }
-    }
-
-    private void operation(@NotNull final ByteBuffer key,
-                           @NotNull final HttpSession httpSession,
-                           @NotNull final Request request,
-                           @NotNull final Operations operation) {
-        try {
-            switch (operation) {
-                case GETTING:
-                    doGet(key, httpSession);
-                    break;
-                case UPSERTING:
-                    final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                    doUpsert(key, httpSession, value);
-                    break;
-                case REMOVING:
-                    doRemove(key, httpSession);
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + operation);
+            replicationFactor = replicas == null
+                    ? defaultReplicaFactor : ReplicaFactor.from(replicas);
+            final int nodeSetSize = topology.all().size();
+            if (replicationFactor.getFrom() > nodeSetSize) {
+                throw new IllegalArgumentException(
+                        "Неправильный фактор репликации:"
+                                + "[from = " + replicationFactor.getFrom() + "] > [ nodeSetSize = " + nodeSetSize);
             }
-        } catch (IOException ioException) {
-            logger.error("Ошибка в {}: ", operation, ioException);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
         }
+        runExecutorService(httpSession, request, replicationFactor);
     }
 
-    private void doGet(@NotNull final ByteBuffer key,
-                       @NotNull final HttpSession httpSession) throws IOException {
-        try {
-            httpSession.sendResponse(Response.ok(toByteArray(dao.get(key))));
-        } catch (NoSuchElementException noSuchElementException) {
-            resp(httpSession, Response.NOT_FOUND);
-        } catch (IOException ioException) {
-            logger.error("Ошибка в GET: {}", toByteArray(key));
-            resp(httpSession, Response.INTERNAL_ERROR);
-        }
-    }
-
-    private void doUpsert(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession httpSession,
-            final ByteBuffer value) throws IOException {
-        try {
-            dao.upsert(key, value);
-            resp(httpSession, Response.CREATED);
-        } catch (IOException ioException) {
-            logger.error("Ошибка в PUT: {}, значение: {}", toByteArray(key), toByteArray(value));
-            resp(httpSession, Response.INTERNAL_ERROR);
-        }
-    }
-
-    private void doRemove(@NotNull final ByteBuffer key,
-                          @NotNull final HttpSession httpSession) throws IOException {
-        try {
-            dao.remove(key);
-            resp(httpSession, Response.ACCEPTED);
-        } catch (IOException ioException) {
-            logger.error("Ошибка в DELETE: {}", toByteArray(key));
-            resp(httpSession, Response.INTERNAL_ERROR);
-        }
-    }
-
-    private void proxy(@NotNull final String node,
-                       @NotNull final HttpSession httpSession,
-                       @NotNull final Request request) {
-        try {
-            request.addHeader("X-Proxy-For: " + node);
-            httpSession.sendResponse(nodeToClientMap.get(node).invoke(request));
-        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            logger.error("Не получилось проксировать запрос ", exception);
-            resp(httpSession, Response.INTERNAL_ERROR);
+    private void idValidation(
+            @Param(value = "id", required = true) final String id,
+            @NotNull final HttpSession httpSession) {
+        if (id == null || id.isEmpty()) {
+            resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
     }
 
@@ -269,7 +146,8 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession сессия
      */
     @Path("/v0/status")
-    public Response status(final HttpSession httpSession) {
+    public Response status(
+            final HttpSession httpSession) {
         return Response.ok("OK");
     }
 
@@ -280,16 +158,57 @@ public class NewService extends HttpServer implements Service {
      * @param httpSession Диалоговое состояние
      */
     @Override
-    public void handleDefault(final Request request,
-                              final HttpSession httpSession) {
+    public void handleDefault(
+            final Request request,
+            final HttpSession httpSession) {
         logger.error("Непонятный запрос: {}", request);
-        resp(httpSession, Response.BAD_REQUEST);
+        resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    private void resp(@NotNull final HttpSession httpSession,
-                      @NotNull final String response) {
+    private void runExecutorService(
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request,
+            @NotNull final ReplicaFactor replicationFactor) {
         try {
-            httpSession.sendResponse(new Response(response, Response.EMPTY));
+            executorService.execute(() -> operation(httpSession, request, replicationFactor));
+        } catch (RejectedExecutionException rejectedExecutionException) {
+            logger.error("Ошибка, превышен допустимый размер очередди задач ", rejectedExecutionException);
+            resp(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+        }
+    }
+
+    private void operation(
+            @NotNull final HttpSession httpSession,
+            @NotNull final Request request,
+            @NotNull final ReplicaFactor replicationFactor) {
+        final boolean alreadyProxied = request.getHeader(PROXY_HEADER) != null;
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                resp(httpSession,
+                        replicaWorker.getting(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            case Request.METHOD_PUT:
+                resp(httpSession,
+                        replicaWorker.upserting(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            case Request.METHOD_DELETE:
+                resp(httpSession,
+                        replicaWorker.removing(
+                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                break;
+            default:
+                resp(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                break;
+        }
+    }
+
+    private void resp(
+            @NotNull final HttpSession httpSession,
+            @NotNull final Response response) {
+        try {
+            httpSession.sendResponse(response);
         } catch (IOException ioException) {
             logger.error("Ошибка при отправке ответа ({}) ", response, ioException);
         }
@@ -304,9 +223,6 @@ public class NewService extends HttpServer implements Service {
         } catch (InterruptedException interruptedException) {
             logger.error("Не получилось завершить Executor Service", interruptedException);
             Thread.currentThread().interrupt();
-        }
-        for (final HttpClient httpClient : nodeToClientMap.values()) {
-            httpClient.clear();
         }
     }
 }
