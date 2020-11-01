@@ -26,7 +26,7 @@ public final class Merger {
      * @return - merged response.
      */
     @NotNull
-    public static Response getEndResponseGet(final List<Response> responses,
+    public static Response mergeGetResponses(final List<Response> responses,
                                              final Integer ack,
                                              final Map<Integer, String> nodeMapping) {
 
@@ -40,7 +40,7 @@ public final class Merger {
         final Response responseHttp;
 
         if (nodeMapping.size() < ack || ack == 0) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final boolean hasGoodResponses = !goodResponses.isEmpty();
             if (hasGoodResponses) {
@@ -53,9 +53,9 @@ public final class Merger {
                 final ArrayList<Map.Entry<Long, Response>> entries = new ArrayList<>(map.entrySet());
                 responseHttp = entries.get(entries.size() - 1).getValue();
             } else if (emptyResponses.size() >= ack) {
-                responseHttp = Util.getResponseWithNoBody(Response.NOT_FOUND);
+                responseHttp = Util.responseWithNoBody(Response.NOT_FOUND);
             } else {
-                responseHttp = Util.getResponseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = Util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;
@@ -71,25 +71,25 @@ public final class Merger {
      * @return - merged response.
      */
     @NotNull
-    public static Response getEndResponsePutAndDelete(final List<Response> responses,
-                                                      final Integer ack,
-                                                      final int status,
-                                                      final Map<Integer, String> nodeMapping) {
+    public static Response mergePutDeleteResponses(final List<Response> responses,
+                                                   final Integer ack,
+                                                   final int status,
+                                                   final Map<Integer, String> nodeMapping) {
         final Response responseHttp;
         final List<Response> goodResponses = responses.stream()
                 .filter(response -> response.getStatus() == status)
                 .collect(Collectors.toList());
         if (nodeMapping.size() < ack || ack == 0) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             if (goodResponses.size() >= ack) {
                 if (status == 202) {
-                    responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
+                    responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
                 } else {
-                    responseHttp = Util.getResponseWithNoBody(Response.CREATED);
+                    responseHttp = Util.responseWithNoBody(Response.CREATED);
                 }
             } else {
-                responseHttp = Util.getResponseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = Util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;

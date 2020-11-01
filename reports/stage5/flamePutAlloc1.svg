@@ -2374,7 +2374,7 @@
 <text x="736.8" y="398.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.stasyanoi.CustomServer$$Lambda$68 (86 samples, 0.39%)</title><rect x="733.8" y="371.0" width="4.6" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<title>ru.mail.polis.service.stasyanoi.server.CustomServer$$Lambda$68 (86 samples, 0.39%)</title><rect x="733.8" y="371.0" width="4.6" height="15" fill="#5dcbcb" rx="2" ry="2"/>
 <text x="736.8" y="382.0"></text>
 </g>
 <g>
@@ -2434,7 +2434,7 @@
 <text x="753.0" y="398.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.service.stasyanoi.CustomServer$$Lambda$119 (88 samples, 0.40%)</title><rect x="750.0" y="371.0" width="4.8" height="15" fill="#6cdada" rx="2" ry="2"/>
+<title>ru.mail.polis.service.stasyanoi.server.CustomServer$$Lambda$119 (88 samples, 0.40%)</title><rect x="750.0" y="371.0" width="4.8" height="15" fill="#6cdada" rx="2" ry="2"/>
 <text x="753.0" y="382.0"></text>
 </g>
 <g>

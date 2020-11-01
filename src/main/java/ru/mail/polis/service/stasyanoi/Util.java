@@ -4,13 +4,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
 import com.google.common.primitives.Bytes;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -18,12 +14,13 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public final class Util {
@@ -41,7 +38,7 @@ public final class Util {
      * @return - the built request.
      */
     @NotNull
-    public static Response getResponseWithNoBody(final String requestType) {
+    public static Response responseWithNoBody(final String requestType) {
         final Response responseHttp = new Response(requestType);
         responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return responseHttp;
@@ -50,14 +47,14 @@ public final class Util {
     /**
      * Get RF.
      *
-     * @param request - request to replicate.
+     * @param request             - request to replicate.
      * @param replicationDefaults - default RFs.
-     * @param nodeMapping - node list.
+     * @param nodeMapping         - node list.
      * @return - pair of ack and from.
      */
-    public static Pair<Integer, Integer> getAckFrom(final Request request,
-                                                    final List<String> replicationDefaults,
-                                                    final Map<Integer, String> nodeMapping) {
+    public static Pair<Integer, Integer> ackFromPair(final Request request,
+                                                     final List<String> replicationDefaults,
+                                                     final Map<Integer, String> nodeMapping) {
         final int ack;
         final int from;
         String replicas = request.getParameter("replicas");
@@ -80,31 +77,9 @@ public final class Util {
     }
 
     /**
-     * Hash route request.
-     *
-     * @param request - request to route.
-     * @param node - node to route the request to.
-     * @param nodeMapping - node list.
-     * @return - returned response.
-     * @throws IOException - for errors with the net.
-     */
-    public static Response routeRequest(final Request request,
-                                        final int node,
-                                        final Map<Integer, String> nodeMapping)
-            throws IOException {
-
-        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
-        try (HttpClient httpClient = new HttpClient(connectionString)) {
-            return httpClient.invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
-            return getResponseWithNoBody(Response.INTERNAL_ERROR);
-        }
-    }
-
-    /**
      * Get node with hash.
      *
-     * @param idArray - key.
+     * @param idArray   - key.
      * @param nodeCount - amount of nodes.
      * @return - the node number.
      */
@@ -118,10 +93,10 @@ public final class Util {
      * Send the 500 status error.
      *
      * @param session - session to use.
-     * @param e - the error that casued the 500 error.
+     * @param e       - the error that casued the 500 error.
      */
     public static void sendErrorInternal(final HttpSession session,
-                                   final IOException e) {
+                                         final IOException e) {
         try {
             logger.error(e.getMessage(), e);
             session.sendError("500", e.getMessage());
@@ -180,7 +155,7 @@ public final class Util {
      * Add timestamp to header.
      *
      * @param timestamp - timestamp to add.
-     * @param response - the response to which to add the timestamp.
+     * @param response  - the response to which to add the timestamp.
      * @return - the modified response.
      */
     public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
@@ -232,9 +207,76 @@ public final class Util {
      */
     public static void send503Error(final HttpSession errorSession) {
         try {
-            errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));
+            errorSession.sendResponse(Util.responseWithNoBody(Response.SERVICE_UNAVAILABLE));
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
     }
+
+//    /**
+//     * Get one nio response.
+//     *
+//     * @param javaResponse - response.
+//     * @return one nio response.
+//     */
+//    public static Response getOneNioResponse(HttpResponse<byte[]> javaResponse) {
+//        Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
+//        javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
+//        return response;
+//    }
+//
+//    /**
+//     * Get net java request.
+//     *
+//     * @param oneNioRequest - one nio request.
+//     * @return - java net request.
+//     */
+//    public static HttpRequest getJavaRequest(Request oneNioRequest) {
+//        HttpRequest.Builder builder = HttpRequest.newBuilder();
+//
+//        String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
+//        String host = oneNioRequest.getHeader("Host: ");
+//
+//        String uri = "http://" + host + newPath;
+//        String methodName = oneNioRequest.getMethodName();
+//        if (methodName.equalsIgnoreCase("GET")) {
+//            return builder.GET()
+//                    .uri(URI.create(uri))
+//                    .version(HttpClient.Version.HTTP_1_1)
+//                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioRequest.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+//                    .build();
+//        } else if (methodName.equalsIgnoreCase("PUT")) {
+//            HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
+//            return builder.PUT(bodyPublisher)
+//                    .uri(URI.create(uri))
+//                    .version(HttpClient.Version.HTTP_1_1)
+//                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioRequest.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+//
+//                    .build();
+//        } else {
+//            return builder.DELETE()
+//                    .uri(URI.create(uri))
+//                    .version(HttpClient.Version.HTTP_1_1)
+//                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioRequest.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+//                    .build();
+//        }
+//    }
 }

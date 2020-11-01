@@ -1,6 +1,5 @@
-package ru.mail.polis.service.stasyanoi;
+package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Path;
@@ -8,21 +7,13 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-public class FrameServer extends HttpServer {
-
-    protected Map<Integer, String> nodeMapping;
-    protected int nodeCount;
-    protected int nodeNum;
-    protected DAO dao;
-    protected CustomExecutor executorService = CustomExecutor.getExecutor();
+public class FrameServer extends PutDeleteGetMethodServer {
 
     /**
      * Server config without endpoints.
@@ -35,18 +26,7 @@ public class FrameServer extends HttpServer {
     public FrameServer(final DAO dao,
                        final HttpServerConfig config,
                        final Set<String> topology) throws IOException {
-        super(config);
-        this.nodeCount = topology.size();
-        final ArrayList<String> urls = new ArrayList<>(topology);
-        final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
-        for (int i = 0; i < urls.size(); i++) {
-            nodeMappingTemp.put(i, urls.get(i));
-            if (urls.get(i).contains(String.valueOf(super.port))) {
-                nodeNum = i;
-            }
-        }
-        this.nodeMapping = nodeMappingTemp;
-        this.dao = dao;
+        super(dao, config, topology);
     }
 
     @Override
@@ -76,7 +56,7 @@ public class FrameServer extends HttpServer {
      */
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        final Response response = Util.responseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
 
@@ -88,6 +68,6 @@ public class FrameServer extends HttpServer {
     @Path("/v0/status")
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
-        return Util.getResponseWithNoBody(Response.OK);
+        return Util.responseWithNoBody(Response.OK);
     }
 }
