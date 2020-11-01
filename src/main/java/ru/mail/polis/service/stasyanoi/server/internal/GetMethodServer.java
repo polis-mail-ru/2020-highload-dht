@@ -1,33 +1,24 @@
-package ru.mail.polis.service.stasyanoi;
+package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
+import ru.mail.polis.service.stasyanoi.Merger;
+import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
-public final class GetHelper {
+public class GetMethodServer extends ConstantsServer {
 
-    private static final String REPS = "reps";
-    private static final String TRUE_VAL = "true";
-    private static final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
-
-    private GetHelper() {
-
+    public GetMethodServer(HttpServerConfig config) throws IOException {
+        super(config);
     }
 
     /**
@@ -40,7 +31,7 @@ public final class GetHelper {
      * @param port - this server port.
      * @return - list of replica responses
      */
-    public static List<Response> getResponsesFromReplicas(final Response responseHttpTemp,
+    public List<Response> getResponsesFromReplicas(final Response responseHttpTemp,
                                                           final Map<Integer, String> tempNodeMapping,
                                                           final int from,
                                                           final Request request,
@@ -73,7 +64,7 @@ public final class GetHelper {
      * @return - new Request.
      */
     @NotNull
-    public static Request getNewRequest(final Request request, final int port) {
+    public Request getNewRequest(final Request request, final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
         final String newPath = path + "/rep?" + queryString;
@@ -90,7 +81,7 @@ public final class GetHelper {
      * @return - new request.
      */
     @NotNull
-    public static Request getNoRepRequest(final Request request,
+    public Request getNoRepRequest(final Request request,
                                           final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
@@ -106,9 +97,9 @@ public final class GetHelper {
     }
 
     @NotNull
-    private static Request getCloneRequest(final Request request,
-                                          final String newPath,
-                                          final int thisServerPort) {
+    private Request getCloneRequest(final Request request,
+                                           final String newPath,
+                                           final int thisServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         Arrays.stream(request.getHeaders())
                 .filter(Objects::nonNull)
@@ -126,8 +117,8 @@ public final class GetHelper {
      * @return - response.
      * @throws IOException - throw if problems with I|O occur.
      */
-    public static Response getResponseIfIdNotNull(final ByteBuffer id,
-                                            final DAO dao) throws IOException {
+    public Response getResponseIfIdNotNull(final ByteBuffer id,
+                                                  final DAO dao) throws IOException {
         try {
             final ByteBuffer body = dao.get(id);
             final byte[] bytes = Mapper.toBytes(body);
@@ -159,16 +150,16 @@ public final class GetHelper {
      * @param port - this server port.
      * @return - the replica response.
      */
-    public static Response getReplicaGetResponse(final Request request,
-                                           final Map<Integer, String> tempNodeMapping,
-                                           final Response responseHttpCurrent,
-                                           final Map<Integer, String> nodeMapping,
-                                           final int port) {
+    public Response getReplicaGetResponse(final Request request,
+                                                 final Map<Integer, String> tempNodeMapping,
+                                                 final Response responseHttpCurrent,
+                                                 final Map<Integer, String> nodeMapping,
+                                                 final int port) {
         final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
             final Pair<Integer, Integer> ackFrom = Util.ackFromPair(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
-            final List<Response> responses = GetHelper.getResponsesFromReplicas(responseHttpCurrent,
+            final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
                     tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
             responseHttp = Merger.mergeGetResponses(responses, ack, nodeMapping);

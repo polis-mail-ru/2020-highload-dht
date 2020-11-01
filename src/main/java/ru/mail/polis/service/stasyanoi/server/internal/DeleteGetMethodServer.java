@@ -1,23 +1,22 @@
-package ru.mail.polis.service.stasyanoi;
+package ru.mail.polis.service.stasyanoi.server.internal;
 
+import one.nio.http.HttpServerConfig;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.stasyanoi.Util;
 
-import java.util.Arrays;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
-public final class DeleteHelper {
+public class DeleteGetMethodServer extends GetMethodServer {
 
-    private static final String TRUE_VAL = "true";
-    private static final String REPS = "reps";
-    private static final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
-
-    private DeleteHelper() {
+    public DeleteGetMethodServer(HttpServerConfig config) throws IOException {
+        super(config);
     }
 
     /**
@@ -30,18 +29,17 @@ public final class DeleteHelper {
      * @param port - this server port.
      * @return - response for delete replicating.
      */
-    public static Response getDeleteReplicaResponse(final Request request,
-                                              final Map<Integer, String> tempNodeMapping,
-                                              final Response responseHttpCurrent,
-                                              final Map<Integer, String> nodeMapping,
-                                              final int port) {
+    public Response getDeleteReplicaResponse(final Request request,
+                                             final Map<Integer, String> tempNodeMapping,
+                                             final Response responseHttpCurrent,
+                                             final Map<Integer, String> nodeMapping,
+                                             final int port) {
         final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
             final Pair<Integer, Integer> ackFrom = getRF(request, nodeMapping);
             final int from = ackFrom.getValue1();
-            final List<Response> responses =
-                    GetHelper.getResponsesFromReplicas(responseHttpCurrent,
-                            tempNodeMapping, from - 1, request, port);
+            final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
+                    tempNodeMapping, from - 1, request, port);
             final Integer ack = ackFrom.getValue0();
             responseHttp = getEndResponsePutAndDelete(responses, ack, 202, nodeMapping);
         } else {
@@ -51,7 +49,7 @@ public final class DeleteHelper {
     }
 
     @NotNull
-    private static Pair<Integer, Integer> getRF(final Request request, final Map<Integer, String> nodeMapping) {
+    private Pair<Integer, Integer> getRF(final Request request, final Map<Integer, String> nodeMapping) {
         return Util.ackFromPair(request, replicationDefaults, nodeMapping);
     }
 }

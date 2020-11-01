@@ -1,4 +1,4 @@
-package ru.mail.polis.service.stasyanoi;
+package ru.mail.polis.service.stasyanoi.server;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,6 +10,8 @@ import one.nio.http.Response;
 import org.javatuples.Pair;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
+import ru.mail.polis.service.stasyanoi.Util;
+import ru.mail.polis.service.stasyanoi.server.internal.FrameServer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -18,9 +20,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.RejectedExecutionException;
-
-import static ru.mail.polis.service.stasyanoi.Util.getByteBufferValue;
-import static ru.mail.polis.service.stasyanoi.Util.getKey;
 
 public class CustomServer extends FrameServer {
 
@@ -80,8 +79,8 @@ public class CustomServer extends FrameServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer id = getKey(idParam);
-            responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
+            final ByteBuffer id = Util.getKey(idParam);
+            responseHttp = getResponseIfIdNotNull(id, dao);
         }
         session.sendResponse(responseHttp);
     }
@@ -96,10 +95,10 @@ public class CustomServer extends FrameServer {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
             final ByteBuffer id = Mapper.fromBytes(idArray);
-            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
+            final Request noRepRequest = getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
             tempNodeMapping.remove(node);
-            responseHttp = GetHelper.getReplicaGetResponse(request,
+            responseHttp = getReplicaGetResponse(request,
                     tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         }
         session.sendResponse(responseHttp);
@@ -108,7 +107,7 @@ public class CustomServer extends FrameServer {
     private Response getProxy(final Request request, final int node, final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
-            responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
+            responseHttp = getResponseIfIdNotNull(id, dao);
         } else {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
@@ -162,8 +161,8 @@ public class CustomServer extends FrameServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = getKey(idParam);
-            final ByteBuffer value = getByteBufferValue(request);
+            final ByteBuffer key = Util.getKey(idParam);
+            final ByteBuffer value = Util.getByteBufferValue(request);
             dao.upsert(key, value);
             responseHttp = Util.responseWithNoBody(Response.CREATED);
         }
@@ -180,12 +179,12 @@ public class CustomServer extends FrameServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
+            final Request noRepRequest = getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
             final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
                     new Pair<>(tempNodeMapping, nodeMapping);
-            responseHttp = PutHelper.getPutReplicaResponse(request, mappings,
+            responseHttp = getPutReplicaResponse(request, mappings,
                     responseHttpCurrent, super.port);
         }
         session.sendResponse(responseHttp);
@@ -195,7 +194,7 @@ public class CustomServer extends FrameServer {
         final Response responseHttp;
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
-            final ByteBuffer value = getByteBufferValue(request);
+            final ByteBuffer value = Util.getByteBufferValue(request);
             dao.upsert(key, value);
             responseHttp = Util.responseWithNoBody(Response.CREATED);
         } else {
@@ -246,7 +245,7 @@ public class CustomServer extends FrameServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = getKey(idParam);
+            final ByteBuffer key = Util.getKey(idParam);
             dao.remove(key);
             responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
         }
@@ -262,10 +261,10 @@ public class CustomServer extends FrameServer {
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = GetHelper.getNoRepRequest(request, super.port);
+            final Request noRepRequest = getNoRepRequest(request, super.port);
             final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
             tempNodeMapping.remove(node);
-            responseHttp = DeleteHelper.getDeleteReplicaResponse(request, tempNodeMapping,
+            responseHttp = getDeleteReplicaResponse(request, tempNodeMapping,
                     responseHttpCurrent, nodeMapping, super.port);
         }
         session.sendResponse(responseHttp);

@@ -1,6 +1,5 @@
-package ru.mail.polis.service.stasyanoi;
+package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Path;
@@ -8,6 +7,8 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.stasyanoi.CustomExecutor;
+import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -16,7 +17,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-public class FrameServer extends HttpServer {
+public class FrameServer extends PutGetDeleteMethodServer {
 
     protected Map<Integer, String> nodeMapping;
     protected int nodeCount;
