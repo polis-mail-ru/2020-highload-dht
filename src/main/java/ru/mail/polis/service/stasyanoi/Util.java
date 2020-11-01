@@ -4,14 +4,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
 import com.google.common.primitives.Bytes;
-import com.sun.net.httpserver.Headers;
-import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.http.*;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -237,12 +232,12 @@ public final class Util {
                     .uri(URI.create(uri))
                     .version(HttpClient.Version.HTTP_1_1)
                     .expectContinue(true)
-//                    .headers(Arrays
-//                            .stream(oneNioReqeust.getHeaders())
-//                            .filter(Objects::nonNull)
-//                            .map(header -> header.split(": "))
-//                            .flatMap(Arrays::stream)
-//                            .toArray(String[]::new))
+                    .headers(Arrays
+                            .stream(oneNioReqeust.getHeaders())
+                            .filter(Objects::nonNull)
+                            .map(header -> header.split(": "))
+                            .flatMap(Arrays::stream)
+                            .toArray(String[]::new))
                     .build();
         } else if (methodName.equalsIgnoreCase("PUT")) {
             HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioReqeust.getBody());
@@ -250,12 +245,12 @@ public final class Util {
                     .uri(URI.create(uri))
                     .version(HttpClient.Version.HTTP_1_1)
                     .expectContinue(true)
-//                    .headers(Arrays
-//                            .stream(oneNioReqeust.getHeaders())
-//                            .filter(Objects::nonNull)
-//                            .map(header -> header.split(": "))
-//                            .flatMap(Arrays::stream)
-//                            .toArray(String[]::new))
+                    .headers(Arrays
+                            .stream(oneNioReqeust.getHeaders())
+                            .filter(Objects::nonNull)
+                            .map(header -> header.split(": "))
+                            .flatMap(Arrays::stream)
+                            .toArray(String[]::new))
 
                     .build();
         } else {
@@ -263,12 +258,12 @@ public final class Util {
                     .uri(URI.create(uri))
                     .version(HttpClient.Version.HTTP_1_1)
                     .expectContinue(true)
-//                    .headers(Arrays
-//                            .stream(oneNioReqeust.getHeaders())
-//                            .filter(Objects::nonNull)
-//                            .map(header -> header.split(": "))
-//                            .flatMap(Arrays::stream)
-//                            .toArray(String[]::new))
+                    .headers(Arrays
+                            .stream(oneNioReqeust.getHeaders())
+                            .filter(Objects::nonNull)
+                            .map(header -> header.split(": "))
+                            .flatMap(Arrays::stream)
+                            .toArray(String[]::new))
                     .build();
         }
     }

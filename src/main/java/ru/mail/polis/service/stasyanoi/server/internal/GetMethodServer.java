@@ -5,7 +5,6 @@ import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -15,9 +14,6 @@ import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -26,9 +22,6 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static ru.mail.polis.service.stasyanoi.Util.getJavaRequest;
-import static ru.mail.polis.service.stasyanoi.Util.getOneNioResponse;
 
 public class GetMethodServer extends ConstantsServer {
 
