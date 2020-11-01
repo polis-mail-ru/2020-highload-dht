@@ -1,5 +1,6 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
+import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import ru.mail.polis.dao.DAO;
@@ -23,6 +24,9 @@ public class ConstantsServer extends HttpServer {
     protected int nodeNum;
     protected DAO dao;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
+    protected Map<String, HttpClient> httpClientMap;
+    protected java.net.http.HttpClient asyncHttpClient;
+
 
 
     public ConstantsServer(final DAO dao,
@@ -31,15 +35,21 @@ public class ConstantsServer extends HttpServer {
         super(config);
         this.nodeCount = topology.size();
         final ArrayList<String> urls = new ArrayList<>(topology);
+        urls.sort(String::compareTo);
+
         final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
+        final Map<String, HttpClient> clients = new HashMap<>();
+
+        asyncHttpClient = java.net.http.HttpClient.newHttpClient();
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
+            clients.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));
             if (urls.get(i).contains(String.valueOf(super.port))) {
                 nodeNum = i;
             }
         }
+        this.httpClientMap = clients;
         this.nodeMapping = nodeMappingTemp;
         this.dao = dao;
     }
-
 }

@@ -1,12 +1,8 @@
 package ru.mail.polis.service.stasyanoi.server;
 
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.RequestMethod;
-import one.nio.http.Response;
+import one.nio.http.*;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
@@ -109,7 +105,7 @@ public class CustomServer extends FrameServer {
         if (node == nodeNum) {
             responseHttp = getResponseIfIdNotNull(id, dao);
         } else {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
@@ -198,7 +194,7 @@ public class CustomServer extends FrameServer {
             dao.upsert(key, value);
             responseHttp = Util.responseWithNoBody(Response.CREATED);
         } else {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
@@ -277,8 +273,20 @@ public class CustomServer extends FrameServer {
             dao.remove(key);
             responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
         } else {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
+    }
+
+    private Response routeRequest(final Request request,
+                                 final int node,
+                                 final Map<Integer, String> nodeMapping)
+            throws IOException {
+        try {
+            HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
+            return httpClient.invoke(request);
+        } catch (InterruptedException | PoolException | HttpException e) {
+            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
     }
 }
