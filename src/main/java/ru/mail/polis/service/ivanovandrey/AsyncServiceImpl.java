@@ -51,8 +51,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @NotNull
     private final Map<String, HttpClient> clients;
     private final ExecutorService executor;
-
-
+    
     /**
      * Constructor.
      *  @param port - service configuration.
