@@ -19,7 +19,7 @@ public class RendezvousSharding {
     private final List<String> nodes;
     private final String currentNode;
     private final Map<String, HttpClient> clients;
-    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofSeconds(500);
+    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofSeconds(5);
 
     /**
      * Constructor for RendezvousSharding.
