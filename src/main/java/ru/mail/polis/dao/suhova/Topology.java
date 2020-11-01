@@ -11,6 +11,8 @@ public interface Topology<N> {
 
     int size();
 
+    int quorumSize();
+
     @NotNull
     N[] allNodes();
 }

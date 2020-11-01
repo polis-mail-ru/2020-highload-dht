@@ -14,21 +14,23 @@ import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 
 public final class DAOServiceMethods {
-    private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
+    private static final Logger logger = LoggerFactory.getLogger(DAOServiceMethods.class);
     public static final String TOMBSTONE = "isTombstone";
     public static final String VERSION = "version";
+    @NotNull
+    public final DAO dao;
 
-    private DAOServiceMethods() {
+    public DAOServiceMethods(@NotNull final DAO dao) {
+        this.dao = dao;
     }
 
     /**
      * Get a value from DAO and send response with it.
      *
-     * @param id  - key
-     * @param dao - dao
+     * @param id - key
      * @return response
      */
-    public static Response get(@NotNull final String id, @NotNull final DAO dao) {
+    public Response get(@NotNull final String id) {
         try {
             final Value value = dao.getCell(toByteBuffer(id)).getValue();
             final Response response;
@@ -48,11 +50,10 @@ public final class DAOServiceMethods {
     /**
      * Put a value into DAO and send response about it.
      *
-     * @param id  - key
-     * @param dao - dao
+     * @param id - key
      * @return response
      */
-    public static Response put(final @NotNull String id, final Request request, @NotNull final DAO dao) {
+    public Response put(final @NotNull String id, final Request request) {
         try {
             dao.upsert(toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
@@ -65,11 +66,10 @@ public final class DAOServiceMethods {
     /**
      * Delete a value from DAO and send response about it.
      *
-     * @param id  - key
-     * @param dao - dao
+     * @param id - key
      * @return response
      */
-    public static Response delete(@NotNull final String id, @NotNull final DAO dao) {
+    public Response delete(@NotNull final String id) {
         try {
             dao.remove(toByteBuffer(id));
             return new Response(Response.ACCEPTED, Response.EMPTY);

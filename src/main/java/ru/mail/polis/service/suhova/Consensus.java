@@ -17,10 +17,10 @@ public final class Consensus {
      * Resolves conflicts among responses received from a GET request.
      *
      * @param responses - list of all responses
-     * @param ack       - ack
+     * @param acks       - acks
      * @return resulting response
      */
-    public static Response get(final List<Response> responses, final int ack) {
+    public static Response get(final List<Response> responses, final int acks) {
         int count = 0;
         int count404 = 0;
         boolean isDeleted = false;
@@ -30,10 +30,6 @@ public final class Consensus {
             final int status = response.getStatus();
             if (status == 200) {
                 count++;
-                if (Boolean.parseBoolean(response.getHeader(TOMBSTONE))) {
-                    isDeleted = true;
-                    continue;
-                }
                 final long version = Long.parseLong(response.getHeader(VERSION));
                 if (version > lastVersion) {
                     lastVersion = version;
@@ -43,16 +39,11 @@ public final class Consensus {
                 count404++;
                 count++;
             }
+            if (Boolean.parseBoolean(okValue.getHeader(TOMBSTONE))) {
+                    isDeleted = true;
+                }
         }
-        return getResponse(count, count404, ack, okValue, isDeleted);
-    }
-
-    private static Response getResponse(final int count,
-                                        final int count404,
-                                        final int ack,
-                                        final Response okValue,
-                                        final boolean isDeleted) {
-        if (count >= ack) {
+        if (count >= acks) {
             if (isDeleted || count == count404) {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             } else {
@@ -67,35 +58,35 @@ public final class Consensus {
      * Resolves conflicts among responses received from a PUT request.
      *
      * @param responses - list of all responses
-     * @param ack       - ack
+     * @param acks       - ack
      * @return resulting response
      */
-    public static Response put(final List<Response> responses, final int ack) {
-        return simpleResponse(responses, ack, 201, Response.CREATED);
+    public static Response put(final List<Response> responses, final int acks) {
+        return successIfEnoughAcks(responses, acks, 201, Response.CREATED);
     }
 
     /**
      * Resolves conflicts among responses received from a DELETE request.
      *
      * @param responses - list of all responses
-     * @param ack       - ack
+     * @param acks       - ack
      * @return resulting response
      */
-    public static Response delete(final List<Response> responses, final int ack) {
-        return simpleResponse(responses, ack, 202, Response.ACCEPTED);
+    public static Response delete(final List<Response> responses, final int acks) {
+        return successIfEnoughAcks(responses, acks, 202, Response.ACCEPTED);
     }
 
-    private static Response simpleResponse(final List<Response> responses,
-                                           final int ack,
-                                           final int status,
-                                           final String result) {
+    private static Response successIfEnoughAcks(final List<Response> responses,
+                                                final int acks,
+                                                final int status,
+                                                final String result) {
         int ackCount = 0;
         for (final Response response : responses) {
             if (response.getStatus() == status) {
                 ackCount++;
             }
         }
-        if (ackCount >= ack) {
+        if (ackCount >= acks) {
             return new Response(result, Response.EMPTY);
         } else {
             return new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY);

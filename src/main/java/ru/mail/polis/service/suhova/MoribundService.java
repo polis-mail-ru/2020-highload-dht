@@ -31,18 +31,18 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class MoribundService extends HttpServer implements Service {
+    private static final String PROXY_HEADER = "PROXY";
+    private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
     @NotNull
-    private final DAO dao;
+    private final DAOServiceMethods daoServiceMethods;
     @NotNull
     private final ExecutorService executor;
-    private final int ackDefault;
-    private final int fromDefault;
     @NotNull
     private final Topology<String> topology;
     @NotNull
     private final Map<String, HttpClient> clients;
-    private static final String PROXY_HEADER = "PROXY";
-    private static final Logger logger = LoggerFactory.getLogger(MoribundService.class);
+    private final int ackDefault;
+    private final int fromDefault;
 
     /**
      * Implementation {@link Service}.
@@ -61,10 +61,10 @@ public class MoribundService extends HttpServer implements Service {
         super(getConfig(port));
         assert workersCount > 0;
         assert queueSize > 0;
-        this.dao = dao;
+        this.daoServiceMethods = new DAOServiceMethods(dao);
         this.topology = topology;
         this.fromDefault = topology.size();
-        this.ackDefault = fromDefault / 2 + 1;
+        this.ackDefault = topology.quorumSize();
         this.clients = new HashMap<>();
         for (final String node : topology.allNodes()) {
             if (topology.isMe(node)) {
@@ -72,7 +72,7 @@ public class MoribundService extends HttpServer implements Service {
             }
             final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
             if (clients.put(node, client) != null) {
-                throw new IllegalArgumentException("Duplicate node!");
+                throw new IllegalArgumentException("Duplicate node: " + node);
             }
         }
         executor = new ThreadPoolExecutor(
@@ -113,7 +113,7 @@ public class MoribundService extends HttpServer implements Service {
             if (request.getHeader(PROXY_HEADER) == null) {
                 sendReplicationResponse(id, replicas, session, request);
             } else {
-                sendProxyResponse(id, session, request);
+                localResponse(id, session, request);
             }
         });
     }
@@ -125,17 +125,17 @@ public class MoribundService extends HttpServer implements Service {
      * @param session - session
      * @param request - request
      */
-    public void sendProxyResponse(final String id, final HttpSession session, final Request request) {
+    public void localResponse(final String id, final HttpSession session, final Request request) {
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    session.sendResponse(DAOServiceMethods.get(id, dao));
+                    session.sendResponse(daoServiceMethods.get(id));
                     break;
                 case Request.METHOD_PUT:
-                    session.sendResponse(DAOServiceMethods.put(id, request, dao));
+                    session.sendResponse(daoServiceMethods.put(id, request));
                     break;
                 case Request.METHOD_DELETE:
-                    session.sendResponse(DAOServiceMethods.delete(id, dao));
+                    session.sendResponse(daoServiceMethods.delete(id));
                     break;
                 default:
                     break;
@@ -178,9 +178,9 @@ public class MoribundService extends HttpServer implements Service {
             ack = ackDefault;
             from = fromDefault;
         } else {
-            final Replica replica = Replica.of(replicas);
-            ack = replica.getAck();
-            from = replica.getFrom();
+            final Replication replication = Replication.of(replicas);
+            ack = replication.getAcks();
+            from = replication.getReplicas();
             if (ack > from || ack <= 0) {
                 try {
                     session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -195,15 +195,15 @@ public class MoribundService extends HttpServer implements Service {
             final List<Response> responses;
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    responses = getAllResponses(nodes, DAOServiceMethods.get(id, dao), request);
+                    responses = getAllResponses(nodes, daoServiceMethods.get(id), request);
                     session.sendResponse(Consensus.get(responses, ack));
                     break;
                 case Request.METHOD_PUT:
-                    responses = getAllResponses(nodes, DAOServiceMethods.put(id, request, dao), request);
+                    responses = getAllResponses(nodes, daoServiceMethods.put(id, request), request);
                     session.sendResponse(Consensus.put(responses, ack));
                     break;
                 case Request.METHOD_DELETE:
-                    responses = getAllResponses(nodes, DAOServiceMethods.delete(id, dao), request);
+                    responses = getAllResponses(nodes, daoServiceMethods.delete(id), request);
                     session.sendResponse(Consensus.delete(responses, ack));
                     break;
                 default:

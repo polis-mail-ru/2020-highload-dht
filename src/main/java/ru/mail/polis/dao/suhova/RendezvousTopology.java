@@ -47,6 +47,11 @@ public class RendezvousTopology implements Topology<String> {
         return topology.length;
     }
 
+    @Override
+    public int quorumSize() {
+        return topology.length / 2 + 1;
+    }
+
     @NotNull
     @Override
     public String[] allNodes() {
