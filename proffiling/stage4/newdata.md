@@ -582,6 +582,15 @@
     Requests/sec:  44966.75
     Transfer/sec:      3.56MB
 
+#### Cpu
+![async-profiler put cpu](flamegraphs/new_mod_put_cpu.svg) 
+
+#### Alloc
+![async-profiler put cpu](flamegraphs/new_mod_put_alloc.svg)
+
+#### Lock
+![async-profiler put cpu](flamegraphs/new_mod_put_lock.svg)
+
 ### Get
 
     pc@pc-VirtualBox:~/projects/2020-highload-dht$ wrk -t4 -c64 -d60s -s proffiling/lua-scripts/get.lua -R45000 -L http://127.0.0.1:8080
@@ -722,6 +731,16 @@
     2698196 requests in 1.00m, 231.13MB read
     Requests/sec:  44970.02
     Transfer/sec:      3.85MB
+
+#### Cpu
+![async-profiler put cpu](flamegraphs/new_mod_get_cpu.svg) 
+
+#### Alloc
+![async-profiler put cpu](flamegraphs/new_mod_get_alloc.svg)
+
+#### Lock
+![async-profiler put cpu](flamegraphs/new_mod_get_lock.svg)
+
 
 # Резюме
 Суммарно мы видим многократное снижение максимальной задержки в обоих случая, так же как и задержки
