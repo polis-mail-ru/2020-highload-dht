@@ -18,4 +18,5 @@ public interface Topology<I> {
 
     boolean isMe(I node);
 
+    I getCurrentNode();
 }

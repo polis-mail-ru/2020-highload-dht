@@ -53,7 +53,7 @@ public final class DAOImpl implements DAO {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
-            db.put(BufferConverter.convertBytes(key), unfoldToBytes(value));
+            db.put(BufferConverter.convertBytes(key), BufferConverter.unfoldToBytes(value));
         } catch (RocksDBException e) {
             log.error("Rocks upsert error: ", e);
             throw new IOException("Rocks upsert error: ", e);
@@ -88,40 +88,37 @@ public final class DAOImpl implements DAO {
     @NotNull
     public TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key) throws  IOException {
         try {
-            final byte[] packedKey = BufferConverter.convertBytes(key);
-            final byte[] valueByteArray = db.get(packedKey);
-            return TimestampRecord.fromBytes(valueByteArray);
+            final byte[] byteKey = BufferConverter.convertBytes(key);
+            final byte[] bytesValue = db.get(byteKey);
+            return TimestampDataWrapper.wrapFromBytesAndGetOne(bytesValue);
         } catch (RocksDBException e) {
-            throw new IOException("getting error", e);
+            log.error("Getting error: ",e);
+            throw new IOException(e);
         }
     }
+
     public void removeWithTimestamp(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final byte[] packedKey = BufferConverter.convertBytes(key);
-            final TimestampDataWrapper record = TimestampDataWrapper.tombstone(System.currentTimeMillis());
-            final byte[] arrayValue = record.toBytes();
-            db.put(packedKey, arrayValue);
+            final var v = TimestampDataWrapper.getDeletedOne(System.currentTimeMillis());
+            final byte[] byteKey = BufferConverter.convertBytes(key);
+            final byte[] bytesValue = v.toBytes();
+            db.put(byteKey, bytesValue);
         } catch (RocksDBException e) {
-            throw new IOException("removing error",e);
+            log.error("Remove error: ", e);
+            throw new IOException("Remove error: ", e);
         }
     }
 
     public void upsertWithTime(@NotNull final ByteBuffer key, @NotNull final ByteBuffer values) throws IOException {
         try {
-            final TimestampDataWrapper record = TimestampDataWrapper.fromValue(values, System.currentTimeMillis());
-            final byte[] packedKey = BufferConverter.convertBytes(key);
-            final byte[] arrayValue = record.toBytes();
-            db.put(packedKey, arrayValue);
+            final var v = TimestampDataWrapper.getOne(values, System.currentTimeMillis());
+            final byte[] byteKey = BufferConverter.convertBytes(key);
+            final byte[] bytesValue = v.toBytes();
+            db.put(byteKey, bytesValue);
         } catch (RocksDBException e) {
-            throw new IOException("upserting error", e);
+            log.error("Rocks upsert error: ", e);
+            throw new IOException("Rocks upsert error: ", e);
         }
-    }
-
-    private static byte[] unfoldToBytes(@NotNull final ByteBuffer buffer) {
-        final ByteBuffer copy = buffer.duplicate();
-        final byte[] array = new byte[copy.remaining()];
-        copy.get(array);
-        return array;
     }
 
     /**
@@ -130,7 +127,8 @@ public final class DAOImpl implements DAO {
      * @param data - store data.
      * @return - new DAO.
      */
-    public static DAO createDAO(final File data) throws IOException {
+    @NotNull
+    public static DAO createDAO(@NotNull final File data) throws IOException {
         try {
             final var options = new Options()
                     .setCreateIfMissing(true)

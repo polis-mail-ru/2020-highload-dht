@@ -21,6 +21,8 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.kovalkov.replication.ReplicationController;
+import ru.mail.polis.service.kovalkov.replication.ReplicationFactor;
 import ru.mail.polis.service.kovalkov.sharding.Topology;
 
 import java.io.IOException;
@@ -46,10 +48,11 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private final Topology<String> topology;
     private final ExecutorService service;
     private final DAO dao;
+    private final ReplicationFactor replFactor;
+    private final ReplicationController controller;
 
     /**
      * Constructor.
-     *
      * @param config - service configuration.
      * @param dao - dao implementation.
      * @param topology  - cluster configuration
@@ -72,6 +75,8 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 this.nodesClient.put(n, client);
             }
         }
+        this.replFactor = new ReplicationFactor(topology.nodeCount() / 2 + 1, topology.nodeCount());
+        this.controller = new ReplicationController(dao, topology, nodesClient);
     }
 
     /**
@@ -110,11 +115,11 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     @NotNull
     private Response proxy(@NotNull final String targetNode, @NotNull final Request request) {
         try {
-            request.addHeader("X-Proxy-For:" + targetNode);
+            request.addHeader("X-Proxy-For: " + targetNode);
             final HttpClient client = nodesClient.get(targetNode);
             return client.invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
     }
 
@@ -145,45 +150,98 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
      * @param request - request from client or other node
      */
     @Path("/v0/entity")
-    @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
-    public void entity(@Param(value = "id",required = true) @NotNull final String id,
-                       @NotNull final Request request,
-                       @NotNull final HttpSession session,
-                       @Param("replicas") final String replicas) {
-        checkIdAndReturnTargetNode(id, session);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+    public void entity(@Param(value = "id",required = true) @NotNull final String id, @NotNull final Request request,
+                       @NotNull final HttpSession session, @Param("replicas") final String replicas)  {
+        try {
+            checkIdAndReturnTargetNode(id, session);
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+            final boolean isForwarded = request.getHeader("X-OK-Proxy: True") != null;
+            final ReplicationFactor replicationFactor = ReplicationFactor
+                    .getReplicationFactor(replicas, replFactor, session);
+            if (topology.nodeCount() == 1) {
+                singleNodeExec(request, session, key, id);
+            } else {
+                noSingleNodeExec(request, session, id, isForwarded, replicationFactor);
+            }
+        } catch (IOException e) {
+            exceptionIOHandler(session, "IO in entity has been occurred", e);
+        }
+    }
+
+    private void singleNodeExec(@NotNull final Request request,
+                                @NotNull final HttpSession session,
+                                @NotNull final ByteBuffer key, @NotNull final String id) throws IOException {
         final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
         if (topology.isMe(ownerNode)) {
-            try {
-                switch (request.getMethod()) {
-                    case METHOD_GET:
-                        asyncGet(key, session);
-                        break;
-                    case METHOD_PUT:
-                        asyncPut(key, request, session);
-                        break;
-                    case METHOD_DELETE:
-                        asyncDelete(key, session);
-                        break;
-                    default:
-                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                        log.info("Unsupported method");
-                        break;
-                }
-            } catch (IOException e) {
-                exceptionIOHandler(session, "IO exception. Entyties", e);
+            switch (request.getMethod()) {
+                case METHOD_GET:
+                    asyncGet(key, session);
+                    break;
+                case METHOD_PUT:
+                    asyncPut(key, request, session);
+                    break;
+                case METHOD_DELETE:
+                    asyncDelete(key, session);
+                    break;
+                default:
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    log.info("Unsupported method");
+                    break;
             }
-            return;
         } else {
             proxyForwarding(request, session, ownerNode);
-            return;
+        }
+    }
+
+    private void noSingleNodeExec(@NotNull final Request request, @NotNull final HttpSession session,
+                                  @NotNull String id, final boolean isForwarded,
+                                  @NotNull final ReplicationFactor replicationFactor) throws IOException {
+        final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
+        if (topology.isMe(ownerNode)) {
+            switch (request.getMethod()) {
+                case METHOD_GET:
+                    service.execute(() -> {
+                        try {
+                            session.sendResponse(controller.replGet(id, replicationFactor, isForwarded));
+                        } catch (IOException e) {
+                            exceptionIOHandler(session, "IO exception in repl get", e);
+                        }
+                    });
+                    break;
+                case METHOD_PUT:
+                        service.execute(() -> {
+                            try {
+                                session.sendResponse(controller.replPut(id,
+                                        replicationFactor, isForwarded, request.getBody(), replicationFactor.getAck()));
+                            } catch (IOException e) {
+                                exceptionIOHandler(session, "IO exception in repl put", e);
+                            }
+                        });
+                    break;
+                case METHOD_DELETE:
+                    service.execute(() -> {
+                        try {
+                            session.sendResponse(controller.replDelete(id, replicationFactor,
+                                    isForwarded, replicationFactor.getAck()));
+                        } catch (IOException e) {
+                            exceptionIOHandler(session, "IO exception in repl delete", e);
+                        }
+                    });
+                    break;
+                default:
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    log.info("Unsupported method");
+                    break;
+            }
+        } else {
+            proxyForwarding(request, session, ownerNode);
         }
     }
 
     private void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
         log.error(message, e);
         try {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         } catch (IOException ex) {
             log.error(IO_EX, ex);
         }
@@ -262,13 +320,9 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
      * @param session - current session
      * @return - data owner
      */
-    private void checkIdAndReturnTargetNode(final String id, @NotNull final HttpSession session) {
+    private void checkIdAndReturnTargetNode(final String id, @NotNull final HttpSession session) throws IOException {
         if (id.isEmpty()) {
-            try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                log.error("Method has empty id. IO exception in mapping occurred. ", e);
-            }
         }
     }
 

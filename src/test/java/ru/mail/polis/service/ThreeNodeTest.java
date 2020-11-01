@@ -204,10 +204,8 @@ class ThreeNodeTest extends ClusterTestBase {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
-
             // Stop node 1
             stop(1, storage1);
-
             // Insert
             assertEquals(201, upsert(0, key, value, 2, 3).getStatus());
 

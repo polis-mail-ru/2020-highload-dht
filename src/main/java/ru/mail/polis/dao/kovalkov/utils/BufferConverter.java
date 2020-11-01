@@ -16,6 +16,7 @@ public final class BufferConverter {
      * @param key - Buffer.
      * @return - Bytes.
      */
+    @NotNull
     public static byte[] unfoldToBytes(@NotNull final ByteBuffer key) {
         final ByteBuffer copyBuffer = key.duplicate();
         final byte[] bytes = new byte[copyBuffer.remaining()];
@@ -30,6 +31,7 @@ public final class BufferConverter {
      * @param key - Buffer.
      * @return - signed Bytes array.
      */
+    @NotNull
     public static byte[] convertBytes(@NotNull final ByteBuffer key) {
         final byte[] arrayKey = unfoldToBytes(key);
         for (int i = 0; i < arrayKey.length; i++) {
@@ -44,6 +46,7 @@ public final class BufferConverter {
      * @param key - byte array.
      * @return - ByteBuffer.
      */
+    @NotNull
     public static ByteBuffer foldToBuffer(@NotNull final byte[] key) {
         final byte[] copy = Arrays.copyOf(key, key.length);
         for (int i = 0; i < copy.length; i++) {

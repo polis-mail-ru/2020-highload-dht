@@ -1,67 +1,100 @@
 package ru.mail.polis.dao.kovalkov;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 
 public class TimestampDataWrapper {
-    private static final Logger log = LoggerFactory.getLogger(TimestampDataWrapper.class);
-
-    private final boolean deleteFlag;
-    private final long time;
+    private final RecordState state;
+    private final long timestamp;
     private final ByteBuffer buffer;
 
-    private TimestampDataWrapper(final boolean deleteFlag, final long timestamp, final ByteBuffer buffer) {
-        this.deleteFlag = deleteFlag;
-        this.time = timestamp;
+    private TimestampDataWrapper(final ByteBuffer buffer, final long timestamp, @NotNull final RecordState state) {
+        this.timestamp = timestamp;
         this.buffer = buffer;
+        this.state = state;
     }
 
-    public static TimestampDataWrapper resolveExistingValue(final ByteBuffer buffer, final long timestamp) {
-        return new TimestampDataWrapper(false, timestamp, buffer);
-    }
-
-    public static TimestampDataWrapper resolveDeletedValue(final long timestamp) {
-        return new TimestampDataWrapper(true, timestamp, ByteBuffer.allocate(0));
-    }
-
-    static TimestampDataWrapper resolveMissingValue() {
-        return new TimestampDataWrapper(false, -1, null);
-    }
-
-    boolean isDeleteFlag() {
-        return deleteFlag;
-    }
-
-    boolean isValueMissing() {
-        return buffer == null;
-    }
-
-    long getTime() {
-        return time;
-    }
-
-    private ByteBuffer getValue() throws IOException {
-        if (deleteFlag) {
-            log.info("Record has been removed");
-            throw new IOException();
-        } else {
-            return buffer;
+    @NotNull
+    public static TimestampDataWrapper wrapFromBytesAndGetOne(final byte[] bytes) {
+        if (Objects.nonNull(bytes)) {
+            final ByteBuffer buf = ByteBuffer.wrap(bytes);
+            final RecordState state = getTypeOfState(buf.get());
+            final long ts = buf.getLong();
+            return new TimestampDataWrapper(buf, ts, state);
         }
-    }
-    public static TimestampDataWrapper composeFromBytes(final byte[] bytes) {
-        final ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        final short isValueDeleted = buffer.getShort();
-        final long timestamp = buffer.getLong();
-
-        return new TimestampDataWrapper(isValueDeleted == 1, timestamp, buffer);
+        return getEmptyOne();
     }
 
-    public byte[] getValueBytes() {
-        final short isDeleted = deleteFlag ? (short) 1 : (short) -1;
-        return ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining())
-                .putShort(isDeleted).putLong(time).put(buffer.duplicate()).array();
+    private static RecordState getTypeOfState(final byte b) {
+        return b == 1 ? RecordState.EXIST : b == 0 ? RecordState.EMPTY : RecordState.DELETED;
+    }
+
+    private static byte getByteOfState(@NotNull RecordState recordState) {
+        return (byte) (recordState == RecordState.EXIST ? 1 : recordState == RecordState.EMPTY ? 0 : -1);
+    }
+
+    @NotNull
+    public static TimestampDataWrapper getOne(@NotNull final ByteBuffer buffer, final long timestamp) {
+        return new TimestampDataWrapper(buffer, timestamp, RecordState.EXIST);
+    }
+
+    @NotNull
+    public static TimestampDataWrapper getEmptyOne() {
+        return new TimestampDataWrapper( null, -1, RecordState.EMPTY);
+    }
+
+    @NotNull
+    public static TimestampDataWrapper getDeletedOne(final long timestamp) {
+        return new TimestampDataWrapper(null, timestamp, RecordState.DELETED);
+    }
+
+    @NotNull
+    public  byte[] getBytes() throws IOException {
+        final ByteBuffer buffer = getValue().duplicate();
+        final byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        return bytes;
+    }
+
+    @NotNull
+    public ByteBuffer getValue() throws IOException {
+        if (state == RecordState.EXIST) {
+            return buffer;
+        } else throw new IOException("No such value");
+    }
+
+    @NotNull
+    public byte[] toBytes() {
+        final int cap = state == RecordState.EXIST ? this.buffer.remaining() : 0;
+        final ByteBuffer b = ByteBuffer.allocate(cap + 1 + Long.BYTES);
+        b.put(getByteOfState(getState()));
+        b.putLong(getTimestamp());
+        if (getState() == RecordState.EXIST) {
+            b.put(buffer.duplicate());
+        }
+        return b.array();
+    }
+
+    @NotNull
+    public static TimestampDataWrapper getRelevantTs(@NotNull final List<TimestampDataWrapper> list) {
+        return list.size() == 1 ? list.get(0) : list.stream().filter(i -> i.getState() != RecordState.EMPTY)
+                .max(Comparator.comparingLong(TimestampDataWrapper::getTimestamp))
+                .orElseGet(TimestampDataWrapper::getEmptyOne);
+    }
+
+    @NotNull
+    public RecordState getState() {
+        return state;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
     }
 }

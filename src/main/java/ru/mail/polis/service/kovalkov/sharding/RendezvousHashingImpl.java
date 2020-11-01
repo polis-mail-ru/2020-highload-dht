@@ -75,4 +75,9 @@ public class RendezvousHashingImpl implements Topology<String> {
     public boolean isMe(final String node) {
         return node.equals(currentNode);
     }
+
+    @Override
+    public String getCurrentNode() {
+        return currentNode;
+    }
 }

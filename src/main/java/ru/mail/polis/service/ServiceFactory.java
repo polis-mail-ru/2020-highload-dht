@@ -18,8 +18,8 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.kovalkov.ReplicationServiceImpl;
 import ru.mail.polis.service.kovalkov.sharding.ModHashingImpl;
-import ru.mail.polis.service.kovalkov.SharedAsyncServiceImpl;
 
 import java.io.IOException;
 import java.util.Set;
@@ -57,7 +57,7 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return new SharedAsyncServiceImpl(SharedAsyncServiceImpl.getConfig(port), dao,
+        return new ReplicationServiceImpl(ReplicationServiceImpl.getConfig(port), dao,
                 new ModHashingImpl("http://localhost:" + port, topology));
     }
 }
