@@ -18,8 +18,8 @@ import java.util.TreeMap;
 
 public class ConstantsServer extends HttpServer {
 
-    protected final String TRUE_VAL = "true";
-    protected final String REPS = "reps";
+    protected static final String TRUE_VAL = "true";
+    protected static final String REPS = "reps";
     protected final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     protected Map<Integer, String> nodeMapping;
     protected int nodeCount;

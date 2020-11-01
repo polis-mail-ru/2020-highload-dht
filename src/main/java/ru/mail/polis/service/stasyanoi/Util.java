@@ -47,9 +47,9 @@ public final class Util {
     /**
      * Get RF.
      *
-     * @param request - request to replicate.
+     * @param request             - request to replicate.
      * @param replicationDefaults - default RFs.
-     * @param nodeMapping - node list.
+     * @param nodeMapping         - node list.
      * @return - pair of ack and from.
      */
     public static Pair<Integer, Integer> ackFromPair(final Request request,
@@ -79,7 +79,7 @@ public final class Util {
     /**
      * Get node with hash.
      *
-     * @param idArray - key.
+     * @param idArray   - key.
      * @param nodeCount - amount of nodes.
      * @return - the node number.
      */
@@ -93,10 +93,10 @@ public final class Util {
      * Send the 500 status error.
      *
      * @param session - session to use.
-     * @param e - the error that casued the 500 error.
+     * @param e       - the error that casued the 500 error.
      */
     public static void sendErrorInternal(final HttpSession session,
-                                   final IOException e) {
+                                         final IOException e) {
         try {
             logger.error(e.getMessage(), e);
             session.sendError("500", e.getMessage());
@@ -155,7 +155,7 @@ public final class Util {
      * Add timestamp to header.
      *
      * @param timestamp - timestamp to add.
-     * @param response - the response to which to add the timestamp.
+     * @param response  - the response to which to add the timestamp.
      * @return - the modified response.
      */
     public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
@@ -213,70 +213,70 @@ public final class Util {
         }
     }
 
-    /**
-     * Get one nio response.
-     *
-     * @param javaResponse - response.
-     * @return one nio response.
-     */
-    public static Response getOneNioResponse(HttpResponse<byte[]> javaResponse) {
-        Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
-        javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
-        return response;
-    }
-
-    /**
-     * Get net java request.
-     *
-     * @param oneNioRequest - one nio request.
-     * @return - java net request.
-     */
-    public static HttpRequest getJavaRequest(Request oneNioRequest) {
-        HttpRequest.Builder builder = HttpRequest.newBuilder();
-
-        String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
-        String host = oneNioRequest.getHeader("Host: ");
-
-        String uri = "http://" + host + newPath;
-        String methodName = oneNioRequest.getMethodName();
-        if (methodName.equalsIgnoreCase("GET")) {
-            return builder.GET()
-                    .uri(URI.create(uri))
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .expectContinue(true)
-                    .headers(Arrays
-                            .stream(oneNioRequest.getHeaders())
-                            .filter(Objects::nonNull)
-                            .map(header -> header.split(": "))
-                            .flatMap(Arrays::stream)
-                            .toArray(String[]::new))
-                    .build();
-        } else if (methodName.equalsIgnoreCase("PUT")) {
-            HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
-            return builder.PUT(bodyPublisher)
-                    .uri(URI.create(uri))
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .expectContinue(true)
-                    .headers(Arrays
-                            .stream(oneNioRequest.getHeaders())
-                            .filter(Objects::nonNull)
-                            .map(header -> header.split(": "))
-                            .flatMap(Arrays::stream)
-                            .toArray(String[]::new))
-
-                    .build();
-        } else {
-            return builder.DELETE()
-                    .uri(URI.create(uri))
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .expectContinue(true)
-                    .headers(Arrays
-                            .stream(oneNioRequest.getHeaders())
-                            .filter(Objects::nonNull)
-                            .map(header -> header.split(": "))
-                            .flatMap(Arrays::stream)
-                            .toArray(String[]::new))
-                    .build();
-        }
-    }
+//    /**
+//     * Get one nio response.
+//     *
+//     * @param javaResponse - response.
+//     * @return one nio response.
+//     */
+//    public static Response getOneNioResponse(HttpResponse<byte[]> javaResponse) {
+//        Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
+//        javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
+//        return response;
+//    }
+//
+//    /**
+//     * Get net java request.
+//     *
+//     * @param oneNioRequest - one nio request.
+//     * @return - java net request.
+//     */
+//    public static HttpRequest getJavaRequest(Request oneNioRequest) {
+//        HttpRequest.Builder builder = HttpRequest.newBuilder();
+//
+//        String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
+//        String host = oneNioRequest.getHeader("Host: ");
+//
+//        String uri = "http://" + host + newPath;
+//        String methodName = oneNioRequest.getMethodName();
+//        if (methodName.equalsIgnoreCase("GET")) {
+//            return builder.GET()
+//                    .uri(URI.create(uri))
+//                    .version(HttpClient.Version.HTTP_1_1)
+//                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioRequest.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+//                    .build();
+//        } else if (methodName.equalsIgnoreCase("PUT")) {
+//            HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
+//            return builder.PUT(bodyPublisher)
+//                    .uri(URI.create(uri))
+//                    .version(HttpClient.Version.HTTP_1_1)
+//                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioRequest.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+//
+//                    .build();
+//        } else {
+//            return builder.DELETE()
+//                    .uri(URI.create(uri))
+//                    .version(HttpClient.Version.HTTP_1_1)
+//                    .expectContinue(true)
+//                    .headers(Arrays
+//                            .stream(oneNioRequest.getHeaders())
+//                            .filter(Objects::nonNull)
+//                            .map(header -> header.split(": "))
+//                            .flatMap(Arrays::stream)
+//                            .toArray(String[]::new))
+//                    .build();
+//        }
+//    }
 }

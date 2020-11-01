@@ -96,10 +96,10 @@ public class GetMethodServer extends ConstantsServer {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
         final String newPath;
-        if (!request.getQueryString().contains("&reps=false")) {
-            newPath = path + "?" + queryString + "&reps=false";
-        } else {
+        if (request.getQueryString().contains("&reps=false")) {
             newPath = path + "?" + queryString;
+        } else {
+            newPath = path + "?" + queryString + "&reps=false";
         }
         final Request noRepRequest = getCloneRequest(request, newPath, port);
         noRepRequest.setBody(request.getBody());
