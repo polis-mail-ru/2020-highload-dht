@@ -52,6 +52,6 @@ public final class DeleteHelper {
 
     @NotNull
     private static Pair<Integer, Integer> getRF(final Request request, final Map<Integer, String> nodeMapping) {
-        return Util.getAckFrom(request, replicationDefaults, nodeMapping);
+        return Util.ackFromPair(request, replicationDefaults, nodeMapping);
     }
 }

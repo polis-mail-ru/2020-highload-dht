@@ -78,7 +78,7 @@ public class CustomServer extends FrameServer {
     private void getRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final ByteBuffer id = getKey(idParam);
             responseHttp = GetHelper.getResponseIfIdNotNull(id, dao);
@@ -91,7 +91,7 @@ public class CustomServer extends FrameServer {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
@@ -160,12 +160,12 @@ public class CustomServer extends FrameServer {
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final ByteBuffer key = getKey(idParam);
             final ByteBuffer value = getByteBufferValue(request);
             dao.upsert(key, value);
-            responseHttp = Util.getResponseWithNoBody(Response.CREATED);
+            responseHttp = Util.responseWithNoBody(Response.CREATED);
         }
         session.sendResponse(responseHttp);
     }
@@ -176,7 +176,7 @@ public class CustomServer extends FrameServer {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
@@ -197,7 +197,7 @@ public class CustomServer extends FrameServer {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             final ByteBuffer value = getByteBufferValue(request);
             dao.upsert(key, value);
-            responseHttp = Util.getResponseWithNoBody(Response.CREATED);
+            responseHttp = Util.responseWithNoBody(Response.CREATED);
         } else {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }
@@ -244,11 +244,11 @@ public class CustomServer extends FrameServer {
     private void deleteRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final ByteBuffer key = getKey(idParam);
             dao.remove(key);
-            responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
+            responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
         }
         session.sendResponse(responseHttp);
     }
@@ -258,7 +258,7 @@ public class CustomServer extends FrameServer {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
             final int node = Util.getNode(idArray, nodeCount);
@@ -276,7 +276,7 @@ public class CustomServer extends FrameServer {
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
             dao.remove(key);
-            responseHttp = Util.getResponseWithNoBody(Response.ACCEPTED);
+            responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
         } else {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
         }

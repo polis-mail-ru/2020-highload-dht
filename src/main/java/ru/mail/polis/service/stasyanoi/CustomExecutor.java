@@ -46,7 +46,7 @@ public class CustomExecutor extends ThreadPoolExecutor {
 
     private void send503Error(final HttpSession errorSession) {
         try {
-            errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));
+            errorSession.sendResponse(Util.responseWithNoBody(Response.SERVICE_UNAVAILABLE));
         } catch (IOException e) {
             logger.error(e.getMessage());
         }

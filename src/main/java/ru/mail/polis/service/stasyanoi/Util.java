@@ -41,7 +41,7 @@ public final class Util {
      * @return - the built request.
      */
     @NotNull
-    public static Response getResponseWithNoBody(final String requestType) {
+    public static Response responseWithNoBody(final String requestType) {
         final Response responseHttp = new Response(requestType);
         responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return responseHttp;
@@ -55,9 +55,9 @@ public final class Util {
      * @param nodeMapping - node list.
      * @return - pair of ack and from.
      */
-    public static Pair<Integer, Integer> getAckFrom(final Request request,
-                                                    final List<String> replicationDefaults,
-                                                    final Map<Integer, String> nodeMapping) {
+    public static Pair<Integer, Integer> ackFromPair(final Request request,
+                                                     final List<String> replicationDefaults,
+                                                     final Map<Integer, String> nodeMapping) {
         final int ack;
         final int from;
         String replicas = request.getParameter("replicas");
@@ -97,7 +97,7 @@ public final class Util {
         try (HttpClient httpClient = new HttpClient(connectionString)) {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException e) {
-            return getResponseWithNoBody(Response.INTERNAL_ERROR);
+            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
 
@@ -232,7 +232,7 @@ public final class Util {
      */
     public static void send503Error(final HttpSession errorSession) {
         try {
-            errorSession.sendResponse(Util.getResponseWithNoBody(Response.SERVICE_UNAVAILABLE));
+            errorSession.sendResponse(Util.responseWithNoBody(Response.SERVICE_UNAVAILABLE));
         } catch (IOException e) {
             logger.error(e.getMessage());
         }

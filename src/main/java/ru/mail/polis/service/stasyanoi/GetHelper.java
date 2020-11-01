@@ -56,7 +56,7 @@ public final class GetHelper {
                         clientRequest.getValue0().close();
                         return invoke;
                     } catch (InterruptedException | PoolException | IOException | HttpException e) {
-                        return Util.getResponseWithNoBody(Response.INTERNAL_ERROR);
+                        return Util.responseWithNoBody(Response.INTERNAL_ERROR);
                     }
                 })
                 .collect(Collectors.toList());
@@ -140,9 +140,9 @@ public final class GetHelper {
         } catch (NoSuchElementException e) {
             final byte[] deleteTime = dao.getDeleteTime(id);
             if (deleteTime.length == 0) {
-                return Util.getResponseWithNoBody(Response.NOT_FOUND);
+                return Util.responseWithNoBody(Response.NOT_FOUND);
             } else {
-                final Response deletedResponse = Util.getResponseWithNoBody(Response.NOT_FOUND);
+                final Response deletedResponse = Util.responseWithNoBody(Response.NOT_FOUND);
                 Util.addTimestampHeader(deleteTime, deletedResponse);
                 return deletedResponse;
             }
@@ -166,7 +166,7 @@ public final class GetHelper {
                                            final int port) {
         final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-            final Pair<Integer, Integer> ackFrom = Util.getAckFrom(request, replicationDefaults, nodeMapping);
+            final Pair<Integer, Integer> ackFrom = Util.ackFromPair(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses = GetHelper.getResponsesFromReplicas(responseHttpCurrent,
                     tempNodeMapping, from - 1, request, port);

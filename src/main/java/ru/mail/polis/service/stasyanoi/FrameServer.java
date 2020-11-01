@@ -76,7 +76,7 @@ public class FrameServer extends HttpServer {
      */
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = Util.getResponseWithNoBody(Response.BAD_REQUEST);
+        final Response response = Util.responseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
 
@@ -88,6 +88,6 @@ public class FrameServer extends HttpServer {
     @Path("/v0/status")
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
-        return Util.getResponseWithNoBody(Response.OK);
+        return Util.responseWithNoBody(Response.OK);
     }
 }

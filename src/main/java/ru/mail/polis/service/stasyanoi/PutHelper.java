@@ -38,7 +38,7 @@ public final class PutHelper {
         Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
             final Pair<Integer, Integer> ackFrom =
-                    Util.getAckFrom(request, replicationDefaults, nodeMapping);
+                    Util.ackFromPair(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses =
                     GetHelper.getResponsesFromReplicas(responseHttpCurrent,
