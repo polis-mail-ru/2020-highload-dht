@@ -11,9 +11,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-public class PutGetDeleteMethodServer extends DeleteGetMethodServer {
+public class PutDeleteGetMethodServer extends DeleteGetMethodServer {
 
-    public PutGetDeleteMethodServer(final HttpServerConfig config) throws IOException {
+    public PutDeleteGetMethodServer(final HttpServerConfig config) throws IOException {
         super(config);
     }
 

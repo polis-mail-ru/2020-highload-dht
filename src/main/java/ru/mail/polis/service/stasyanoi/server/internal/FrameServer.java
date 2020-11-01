@@ -17,7 +17,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-public class FrameServer extends PutGetDeleteMethodServer {
+public class FrameServer extends PutDeleteGetMethodServer {
 
     protected Map<Integer, String> nodeMapping;
     protected int nodeCount;
