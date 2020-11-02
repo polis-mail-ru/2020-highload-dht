@@ -1,13 +1,8 @@
 package ru.mail.polis.service.zvladn7;
 
-import com.google.common.primitives.Longs;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
-import one.nio.http.HttpSession;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.util.Utf8;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -15,187 +10,283 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.zvladn7.Value;
 import ru.mail.polis.dao.zvladn7.exceptions.DeletedValueException;
+import ru.mail.polis.service.zvladn7.bodyhandlers.ChangeBodyHandler;
+import ru.mail.polis.service.zvladn7.bodyhandlers.GetBodyHandler;
+import ru.mail.polis.service.zvladn7.topology.Topology;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
 
 class ServiceHelper {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceHelper.class);
     private static final String PROXY_REQUEST_HEADER = "X-Proxy-To-Node";
+    private static final int TIMEOUT = 500;
 
     private final Topology<String> topology;
-    private final Map<String, HttpClient> clients;
+
+    @NotNull
+    private final java.net.http.HttpClient client;
+    @NotNull
     private final DAO dao;
+    @NotNull
+    private final ExecutorService es;
+
 
     /**
      * Helper for asynchronous server implementation.
      *
      * @param topology - topology of local node
      * @param dao      - DAO implemenation
+     * @param es       - asynchronous service executor
      */
     ServiceHelper(@NotNull final Topology<String> topology,
-                  @NotNull final DAO dao) {
+                  @NotNull final DAO dao,
+                  @NotNull final ExecutorService es) {
         this.topology = topology;
         this.dao = dao;
-        this.clients = new HashMap<>();
-        for (final String node : topology.nodes()) {
-            if (topology.isLocal(node)) {
-                continue;
-            }
-            final ConnectionString connectionString = new ConnectionString(node + "?timeout=1000");
-            final HttpClient client = new HttpClient(connectionString);
-            if (clients.put(node, client) != null) {
-                log.error("Cannot start server. Duplicate node with connection string: {}", node);
-                throw new IllegalStateException("Duplicate node");
-            }
-        }
+        this.es = es;
+        final ExecutorService clientES = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("async-client-%d")
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Error when processing request in: {}", t, e))
+                        .build()
+        );
+        this.client = java.net.http.HttpClient.newBuilder()
+                .executor(clientES)
+                .connectTimeout(Duration.ofMillis(TIMEOUT))
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .build();
     }
 
-    void handleGet(
-            @NotNull final String id,
-            @NotNull final HttpSession session,
-            @NotNull final Request request) throws IOException {
-        final ByteBuffer key = wrapString(id);
-        handleOrProxy(key, request, session, () -> {
+    private CompletableFuture<ResponseValue> localGet(@NotNull final ByteBuffer key,
+                                                      @NotNull final String id) {
+        return CompletableFuture.supplyAsync(() -> {
             final Value value;
             try {
                 value = dao.getValue(key);
                 log.debug("Value successfully got!");
-                return getLocalResponse(value);
+                return getLocalValue(value);
             } catch (IOException e) {
                 log.error("Internal error. Can't get value with key: {}", id, e);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                throw new RuntimeException("Error", e);
             } catch (NoSuchElementException e) {
                 log.info("Value with key: {} was not found", id, e);
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
+                return ResponseValue.absent();
             }
-        }, (responses, replicasHolder)
-                -> ConflictResolver.resolveGetAndSend(responses, replicasHolder, session));
+        }, es);
     }
 
-    void handleDelete(
+    CompletableFuture<Response> handleGet(
             @NotNull final String id,
-            @NotNull final HttpSession session,
-            @NotNull final Request request) throws IOException {
+            @NotNull final Request request,
+            @NotNull final ReplicasHolder replicasHolder) throws IOException {
         final ByteBuffer key = wrapString(id);
-        handleOrProxy(key, request, session, () -> {
+        return handleGetOrProxy(key, request, replicasHolder, () -> localGet(key, id), this::resolveGet);
+    }
+
+    private <T> List<CompletableFuture<T>> proxy(@NotNull final Set<String> nodesForResponse,
+                                                 @NotNull final String method,
+                                                 @NotNull final HttpResponse.BodyHandler<T> handler,
+                                                 @NotNull final Function<String, HttpRequest> requestProvider) {
+        log.debug("Proxy request: {} from {} to {}", method, topology.local(), nodesForResponse);
+        final List<CompletableFuture<T>> responses = new ArrayList<>();
+        nodesForResponse.forEach(node -> {
+            final HttpRequest request = requestProvider.apply(node);
+            final CompletableFuture<T> futureResponse =
+                    client.sendAsync(request, handler)
+                            .thenApplyAsync(HttpResponse::body);
+            responses.add(futureResponse);
+        });
+        return responses;
+    }
+
+    private CompletableFuture<Response> handleGetOrProxy(final ByteBuffer key,
+                                                         final Request request,
+                                                         final ReplicasHolder replicasHolder,
+                                                         final LocalExecutor<ResponseValue> localExecutor,
+                                                         final Resolver<ResponseValue> resolver) throws IOException {
+        final String id = request.getParameter("id=");
+        final String header = request.getHeader(PROXY_REQUEST_HEADER);
+        log.debug("Header: {}", header);
+        final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
+        CompletableFuture<ResponseValue> localResponse = null;
+        log.debug(nodesForResponse.toString());
+        if (topology.isLocal(nodesForResponse)) {
+            nodesForResponse.remove(topology.local());
+            localResponse = localExecutor.execute();
+            if (header != null) {
+                return localResponse.thenApplyAsync(ResponseValue::toProxyResponse, es);
+            }
+        }
+        List<CompletableFuture<ResponseValue>> responses;
+        responses = proxy(nodesForResponse, request.getMethodName(), GetBodyHandler.INSTANCE,
+                node -> requestBuilderFor(node, id).GET().build());
+        if (localResponse != null) {
+            responses.add(localResponse);
+        }
+        log.info("Resolve GET");
+        return resolver.resolve(replicasHolder.ack, responses);
+    }
+
+    private CompletableFuture<Response> resolveGet(final int ack,
+                                                   @NotNull final List<CompletableFuture<ResponseValue>> futures) {
+        return ConflictResolver.atLeastAsync(futures, ack)
+                .thenApplyAsync(collection -> ResponseValue.toResponse(ConflictResolver.resolveGet(collection)), es);
+    }
+
+    private CompletableFuture<String> localDelete(@NotNull final ByteBuffer key,
+                                                  @NotNull final String id) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
                 dao.remove(key);
                 log.debug("Value successfully deleted!");
             } catch (IOException e) {
                 log.error("Internal error. Can't delete value with key: {}", id, e);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                throw new RuntimeException("Error", e);
             }
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        }, (responses, replicasHolder)
-                -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, true));
+            return Response.ACCEPTED;
+        }, es);
     }
 
-    void handleUpsert(
+    CompletableFuture<Response> handleDelete(
             @NotNull final String id,
             @NotNull final Request request,
-            @NotNull final HttpSession session) throws IOException {
+            @NotNull final ReplicasHolder replicasHolder) throws IOException {
         final ByteBuffer key = wrapString(id);
-        handleOrProxy(key, request, session, () -> {
+        return handleChangeOrProxy(key, request, replicasHolder, () -> localDelete(key, id), this::resolveChange);
+    }
+
+    private CompletableFuture<String> localUpsert(@NotNull final ByteBuffer key,
+                                                  @NotNull final String id,
+                                                  @NotNull final Request request) {
+        return CompletableFuture.supplyAsync(() -> {
             final ByteBuffer value = wrapArray(request.getBody());
             try {
                 dao.upsert(key, value);
                 log.debug("Value successfully upserted!");
             } catch (IOException e) {
                 log.error("Internal error. Can't insert or update value with key: {}", id, e);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                throw new RuntimeException("Error", e);
             }
-            return new Response(Response.CREATED, Response.EMPTY);
-        }, (responses, replicasHolder)
-                -> ConflictResolver.resolveChangesAndSend(responses, replicasHolder, session, false));
+            return Response.CREATED;
+        }, es);
     }
 
-    private Response getLocalResponse(final Value value) {
-        final byte[] bytes = Longs.toByteArray(value.getTimestamp());
-        try {
-            final byte[] body = toBytes(value.getData(), bytes);
-            return Response.ok(body);
-        } catch (DeletedValueException ex) {
-            return new Response(Response.NOT_FOUND, bytes);
-        }
+    CompletableFuture<Response> handleUpsert(
+            @NotNull final String id,
+            @NotNull final Request request,
+            @NotNull final ReplicasHolder replicasHolder) throws IOException {
+        final ByteBuffer key = wrapString(id);
+        return handleChangeOrProxy(
+                key, request, replicasHolder, () -> localUpsert(key, id, request), this::resolveChange);
     }
 
-    private List<Response> proxy(@NotNull final Set<String> nodesForResponse,
-                                 @NotNull final Request request) {
-        log.debug("Proxy request: {} from {} to {}", request.getMethodName(), topology.local(), nodesForResponse);
-        final List<Response> responses = new ArrayList<>();
-        nodesForResponse.forEach(node -> {
-            try {
-                request.addHeader(PROXY_REQUEST_HEADER + ": " + node);
-                responses.add(clients.get(node).invoke(request));
-            } catch (IOException | InterruptedException | HttpException | PoolException e) {
-                log.error("Cannot proxy request!", e);
-                responses.add(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            }
-        });
-        return responses;
+    private CompletableFuture<Response> resolveChange(final int ack,
+                                                      @NotNull final List<CompletableFuture<String>> futures) {
+        return ConflictResolver.atLeastAsync(futures, ack)
+                .thenApplyAsync(v -> new Response(v.iterator().next(), Response.EMPTY), es);
     }
 
-    private void handleOrProxy(final ByteBuffer key,
-                               final Request request,
-                               final HttpSession session,
-                               final LocalExecutor localExecutor,
-                               final Resolver resolver) throws IOException {
+
+    private CompletableFuture<Response> handleChangeOrProxy(final ByteBuffer key,
+                                                            final Request request,
+                                                            final ReplicasHolder replicasHolder,
+                                                            final LocalExecutor<String> localExecutor,
+                                                            final Resolver<String> resolver) throws IOException {
         final String id = request.getParameter("id=");
-        final ReplicasHolder replicasHolder = parseReplicasParameter(request.getParameter("replicas="));
-        log.debug("{} request with mapping: /v0/entity with: key={}", request.getMethodName(), id);
-        log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
-        if (id.isEmpty()) {
-            sendEmptyIdResponse(session, request.getMethodName());
-            return;
-        }
-        if (isInvalidReplicationFactor(replicasHolder)) {
-            sendInvalidRFResponse(session, replicasHolder);
-            return;
-        }
         final String header = request.getHeader(PROXY_REQUEST_HEADER);
         log.debug("Header: {}", header);
         final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
-        Response localResponse = null;
+        CompletableFuture<String> localResponse = null;
         log.debug(nodesForResponse.toString());
         if (topology.isLocal(nodesForResponse)) {
             nodesForResponse.remove(topology.local());
             localResponse = localExecutor.execute();
             if (header != null) {
-                session.sendResponse(localResponse);
+                return localResponse.thenApplyAsync(v -> getChangeResponse(request.getMethodName()), es);
             }
         }
-        List<Response> responses;
-        if (header == null) {
-            responses = proxy(nodesForResponse, request);
-            if (localResponse != null) {
-                responses.add(localResponse);
-            }
-            final List<Response> responsesWithoutErrors = responses.stream()
-                    .filter(response -> response.getStatus() != 500)
-                    .collect(Collectors.toList());
-            resolver.resolve(responsesWithoutErrors, replicasHolder);
+        List<CompletableFuture<String>> responses;
+        responses = proxy(nodesForResponse,
+                request.getMethodName(),
+                ChangeBodyHandler.INSTANCE,
+                node -> requestBuilderFor(node, id)
+                        .method(request.getMethodName(), getBodyPublisher(request))
+                        .build());
+        if (localResponse != null) {
+            responses.add(localResponse);
+        }
+        log.info("Resolve PUT");
+        return resolver.resolve(replicasHolder.ack, responses);
+    }
+
+    private static HttpRequest.BodyPublisher getBodyPublisher(@NotNull final Request request) {
+        switch (request.getMethodName()) {
+            case "PUT":
+                return BodyPublishers.ofByteArray(request.getBody());
+            case "DELETE":
+                return BodyPublishers.noBody();
+            default:
+                throw new IllegalArgumentException("Unknown method");
         }
     }
 
-    private boolean isInvalidReplicationFactor(@NotNull final ReplicasHolder replicasHolder) {
-        return replicasHolder.ack == 0 || replicasHolder.ack > replicasHolder.from;
+    private static Response getChangeResponse(final String methodName) {
+        return new Response(getResponseStatus(methodName), Response.EMPTY);
     }
 
-    private ReplicasHolder parseReplicasParameter(final String replicas) {
-        if (replicas == null) {
-            return new ReplicasHolder(topology.size() / ServiceTopology.VIRTUAL_NODES_PER_NODE);
-        } else {
-            return new ReplicasHolder(replicas);
+    private static String getResponseStatus(@NotNull final String methodName) {
+        switch (methodName) {
+            case "PUT":
+                return Response.CREATED;
+            case "DELETE":
+                return Response.ACCEPTED;
+            default:
+                throw new IllegalArgumentException("Unknown method");
         }
+    }
+
+    private static ResponseValue getLocalValue(@NotNull final Value value) {
+        try {
+            final byte[] body = toBytes(value.getData());
+            return ResponseValue.active(value.getTimestamp(), body);
+        } catch (DeletedValueException ex) {
+            return ResponseValue.deleted(value.getTimestamp());
+        }
+    }
+
+    private static HttpRequest.Builder requestBuilderFor(@NotNull final String node,
+                                                         @NotNull final String id) {
+        try {
+            return HttpRequest.newBuilder()
+                    .uri(provideURI(node, id))
+                    .timeout(Duration.ofMillis(TIMEOUT).dividedBy(2))
+                    .header(PROXY_REQUEST_HEADER, node);
+        } catch (URISyntaxException e) {
+            log.error("Cannot construct URI on proxy request building on node {} with id: {}", node, id);
+            throw new IllegalArgumentException("Failed to create URI", e);
+        }
+    }
+
+    private static URI provideURI(@NotNull final String node,
+                                  @NotNull final String id) throws URISyntaxException {
+        return new URI(node + "/v0/entity?id=" + id);
     }
 
     private static ByteBuffer wrapString(final String str) {
@@ -218,26 +309,6 @@ class ServiceHelper {
             return result;
         }
         return Response.EMPTY;
-    }
-
-    private byte[] toBytes(final ByteBuffer data, final byte[] bytes) {
-        final byte[] dataBytes = toBytes(data);
-        final byte[] mergedBytes = new byte[dataBytes.length + bytes.length];
-        System.arraycopy(dataBytes, 0, mergedBytes, 0, dataBytes.length);
-        System.arraycopy(bytes, 0, mergedBytes, dataBytes.length, bytes.length);
-        return mergedBytes;
-    }
-
-    private static void sendEmptyIdResponse(final HttpSession session,
-                                            final String methodName) throws IOException {
-        log.info("Empty key was provided in {} method!", methodName);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    private static void sendInvalidRFResponse(final HttpSession session,
-                                              final ReplicasHolder replicasHolder) throws IOException {
-        log.info("Invalid replication factor with ack = {}, from = {}", replicasHolder.ack, replicasHolder.from);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
 }

@@ -1,4 +1,4 @@
-package ru.mail.polis.service.zvladn7;
+package ru.mail.polis.service.zvladn7.topology;
 
 import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
@@ -16,7 +16,7 @@ import java.util.TreeMap;
 public class ServiceTopology implements Topology<String> {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceTopology.class);
-    static final int VIRTUAL_NODES_PER_NODE = 10;
+    public static final int VIRTUAL_NODES_PER_NODE = 10;
 
     @NotNull
     private final String local;

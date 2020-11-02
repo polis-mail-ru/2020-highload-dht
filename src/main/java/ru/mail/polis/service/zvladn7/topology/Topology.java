@@ -1,4 +1,4 @@
-package ru.mail.polis.service.zvladn7;
+package ru.mail.polis.service.zvladn7.topology;
 
 import org.jetbrains.annotations.NotNull;
 

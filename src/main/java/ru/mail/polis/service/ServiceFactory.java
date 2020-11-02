@@ -19,7 +19,7 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.zvladn7.AsyncService;
-import ru.mail.polis.service.zvladn7.ServiceTopology;
+import ru.mail.polis.service.zvladn7.topology.ServiceTopology;
 
 import java.io.IOException;
 import java.util.Set;
@@ -31,7 +31,7 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-    private static final int EXECUTOR_QUEUE_SIZE = 128;
+    private static final int EXECUTOR_QUEUE_SIZE = 1024;
 
     private ServiceFactory() {
         // Not supposed to be instantiated

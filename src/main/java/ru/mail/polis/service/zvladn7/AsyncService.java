@@ -15,9 +15,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.zvladn7.topology.ServiceTopology;
+import ru.mail.polis.service.zvladn7.topology.Topology;
 
 import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -25,12 +28,14 @@ import java.util.concurrent.TimeUnit;
 
 public class AsyncService extends HttpServer implements Service {
 
+
     private static final String ERROR_SENDING_RESPONSE = "Error when sending response";
     private static final String ERROR_SERVICE_UNAVAILABLE = "Cannot send SERVICE_UNAVAILABLE response";
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
 
     private final ExecutorService es;
     private final ServiceHelper helper;
+    private final Topology<String> topology;
 
     /**
      * Asynchronous server implementation.
@@ -55,7 +60,8 @@ public class AsyncService extends HttpServer implements Service {
                         ).build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-        this.helper = new ServiceHelper(topology, dao);
+        this.helper = new ServiceHelper(topology, dao, es);
+        this.topology = topology;
     }
 
     @Override
@@ -85,13 +91,20 @@ public class AsyncService extends HttpServer implements Service {
      * 4. 500 if some io error was happened
      *
      * @param id - String
+     * @param replicas - replication factor
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
     public void get(@Param(value = "id", required = true) final String id,
+                    @Param(value = "replicas") final String replicas,
                     final HttpSession session,
                     final Request request) {
-        processRequest(() -> helper.handleGet(id, session, request), session);
+        processRequest(
+                replicasHolder -> helper.handleGet(id, request, replicasHolder),
+                session,
+                id,
+                request.getMethodName(),
+                replicas);
     }
 
     /**
@@ -103,13 +116,20 @@ public class AsyncService extends HttpServer implements Service {
      * 3. 500 if some io error was happened
      *
      * @param id - String
+     * @param replicas - replication factor
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
     public void remove(@Param(value = "id", required = true) final String id,
+                       @Param(value = "replicas") final String replicas,
                        final HttpSession session,
                        final Request request) {
-        processRequest(() -> helper.handleDelete(id, session, request), session);
+        processRequest(
+                replicasHolder -> helper.handleDelete(id, request, replicasHolder),
+                session,
+                id,
+                request.getMethodName(),
+                replicas);
     }
 
     /**
@@ -121,15 +141,21 @@ public class AsyncService extends HttpServer implements Service {
      * 3. 500 if some io error was happened
      *
      * @param id - String
+     * @param replicas - replication factor
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
     public void upsert(
             @Param(value = "id", required = true) final String id,
+            @Param(value = "replicas") final String replicas,
             final Request request,
             final HttpSession session) {
-        processRequest(() -> helper.handleUpsert(id, request, session), session);
-    }
+        processRequest(
+                replicasHolder -> helper.handleUpsert(id, request, replicasHolder),
+                session,
+                id,
+                request.getMethodName(),
+                replicas);    }
 
     @Override
     public synchronized void stop() {
@@ -151,7 +177,7 @@ public class AsyncService extends HttpServer implements Service {
         return config;
     }
 
-    private static void sendServiceUnavailableResponse(final HttpSession session, final RejectedExecutionException e) {
+    private static void sendServiceUnavailableResponse(final HttpSession session, final Exception e) {
         log.error("Cannot complete request", e);
         try {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE));
@@ -160,19 +186,76 @@ public class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private static void process(final Processor processor) {
+    private void processRequest(@NotNull final Processor processor,
+                                @NotNull final HttpSession session,
+                                @NotNull final String id,
+                                @NotNull final String methodName,
+                                final String replicas) {
+        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
+        log.debug("{} request with mapping: /v0/entity with: key={}", methodName, id);
+        log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
         try {
-            processor.process();
-        } catch (IOException e) {
+            if (id.isEmpty()) {
+                sendEmptyIdResponse(session, methodName);
+                return;
+            }
+            if (isInvalidReplicationFactor(replicasHolder)) {
+                sendInvalidRFResponse(session, replicasHolder);
+                return;
+            }
+            respond(
+                    session,
+                    processor.process(replicasHolder)
+            );
+        } catch (RejectedExecutionException | IOException e) {
             log.error(ERROR_SENDING_RESPONSE, e);
-        }
-    }
-
-    private void processRequest(final Processor processor, final HttpSession session) {
-        try {
-            es.execute(() -> process(processor));
-        } catch (RejectedExecutionException e) {
             sendServiceUnavailableResponse(session, e);
         }
     }
+
+    private void respond(@NotNull final HttpSession session,
+                         @NotNull final CompletableFuture<Response> future) {
+        future.whenCompleteAsync((r, t) -> {
+            try {
+                if (t == null) {
+                    session.sendResponse(r);
+                } else {
+                    final String responseStatus;
+                    if (t.getCause() instanceof IllegalStateException) {
+                        responseStatus = Response.GATEWAY_TIMEOUT;
+                    } else {
+                        responseStatus = Response.INTERNAL_ERROR;
+                    }
+                    session.sendResponse(new Response(responseStatus, Response.EMPTY));
+                }
+            } catch (IOException e) {
+                log.error("Cannot send response: {}", r, e);
+            }
+        });
+    }
+
+    private static boolean isInvalidReplicationFactor(@NotNull final ReplicasHolder replicasHolder) {
+        return replicasHolder.ack == 0 || replicasHolder.ack > replicasHolder.from;
+    }
+
+    private static void sendEmptyIdResponse(final HttpSession session,
+                                            final String methodName) throws IOException {
+        log.info("Empty key was provided in {} method!", methodName);
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    private static void sendInvalidRFResponse(final HttpSession session,
+                                              final ReplicasHolder replicasHolder) throws IOException {
+        log.info("Invalid replication factor with ack = {}, from = {}", replicasHolder.ack, replicasHolder.from);
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    private ReplicasHolder parseReplicasParameter(final String replicas) {
+        if (replicas == null) {
+            return new ReplicasHolder(topology.size() / ServiceTopology.VIRTUAL_NODES_PER_NODE);
+        } else {
+            return new ReplicasHolder(replicas);
+        }
+    }
+
 }
