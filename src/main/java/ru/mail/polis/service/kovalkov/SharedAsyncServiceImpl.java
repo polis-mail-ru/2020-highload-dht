@@ -189,18 +189,7 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         try {
             service.execute(() -> {
-                try {
-                    getInternal(id, session);
-                } catch (IOException e) {
-                    exceptionIOHandler(session, "Method get. IO exception. ", e);
-                } catch (NoSuchElementException e) {
-                    log.info("Method get. Can't find value by this key ", e);
-                    try {
-                        session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                    } catch (IOException ioException) {
-                        log.error("Method get. Id is empty. Can't send response:", e);
-                    }
-                }
+                getInternal(id, session);
             });
         } catch (RejectedExecutionException e) {
             log.error("Rejected  exception: ", e);
@@ -213,10 +202,21 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     }
 
     private void getInternal(@NotNull final ByteBuffer key,
-                             @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer value = dao.get(key);
-        final byte[] bytes = BufferConverter.unfoldToBytes(value);
-        session.sendResponse(Response.ok(bytes));
+                             @NotNull final HttpSession session) {
+        try {
+            final ByteBuffer value = dao.get(key);
+            final byte[] bytes = BufferConverter.unfoldToBytes(value);
+            session.sendResponse(Response.ok(bytes));
+        } catch (IOException e) {
+            exceptionIOHandler(session, "Method get. IO exception. ", e);
+        } catch (NoSuchElementException e) {
+            log.info("Method get. Can't find value by this key ", e);
+            try {
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error("Method get. Id is empty. Can't send response:", e);
+            }
+        }
     }
 
     private void asyncPut(@NotNull final ByteBuffer id,

@@ -1,11 +1,14 @@
 package ru.mail.polis.service.kovalkov;
 
-import com.google.common.hash.Hasher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
@@ -40,8 +43,8 @@ public class RendezvousHashingImpl implements Topology<String> {
     public String identifyByKey(final byte[] key) {
         final TreeMap<Integer,String> nodesAndHashes = new TreeMap<>();
         for (int i = 0; i < allNodes.length; i++) {
-            nodesAndHashes.put(nodeHashes.get(i) +
-                    murmur3_32().newHasher().putBytes(key).hash().hashCode(), allNodes[i]);
+            nodesAndHashes.put(nodeHashes.get(i)
+                    + murmur3_32().newHasher().putBytes(key).hash().hashCode(), allNodes[i]);
         }
         final String ownerNode = nodesAndHashes.firstEntry().getValue();
         if (ownerNode == null) {
