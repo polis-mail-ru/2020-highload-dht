@@ -39,7 +39,7 @@ public class MyRequestHelper {
             cell = dao.getCell(key);
             final Response response;
             if (cell.getValue().isTombstone()) {
-                response = new Response(Response.OK, Response.EMPTY);
+                response = new Response(Response.NOT_FOUND, Response.EMPTY);
             } else {
                 final ByteBuffer value = dao.get(key);
                 final byte[] body = new byte[value.remaining()];
@@ -97,15 +97,15 @@ public class MyRequestHelper {
         int missedResponses = 0;
         for (final Response resp : responseList) {
             final int status = resp.getStatus();
-            if (status == 200) {
+            if (status == 404 && getTimestamp(resp) == -1) {
+                missedResponses++;
+                correctResponses++;
+            } else {
                 correctResponses++;
                 if (getTimestamp(resp) > time) {
                     time = getTimestamp(resp);
                     response = resp;
                 }
-            } else if (status == 404) {
-                missedResponses++;
-                correctResponses++;
             }
         }
         final boolean tomb = Boolean.parseBoolean(response.getHeader(TOMBSTONE));
