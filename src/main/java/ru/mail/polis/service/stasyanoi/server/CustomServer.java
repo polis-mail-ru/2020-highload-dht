@@ -50,7 +50,7 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void getRun(String idParam, HttpSession session, Request request) {
+    private void getRun(final String idParam, final HttpSession session, final Request request) {
         try {
             getInternal(idParam, session, request);
         } catch (IOException e) {
@@ -76,7 +76,7 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void getRepRun(String idParam, HttpSession session) {
+    private void getRepRun(final String idParam, final HttpSession session) {
         try {
             getRepInternal(idParam, session);
         } catch (IOException e) {
@@ -142,7 +142,7 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void putRun(String idParam, Request request, HttpSession session) {
+    private void putRun(final String idParam, final Request request, final HttpSession session) {
         try {
             putInternal(idParam, request, session);
         } catch (IOException e) {
@@ -169,7 +169,7 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void putRepRun(String idParam, Request request, HttpSession session) {
+    private void putRepRun(final String idParam, final Request request, final HttpSession session) {
         try {
             putRepInternal(idParam, request, session);
         } catch (IOException e) {
@@ -179,8 +179,8 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void putRepInternal(final String idParam, final Request request,
-                                final HttpSession session) throws IOException {
+    private void putRepInternal(final String idParam, final Request request, final HttpSession session)
+            throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -193,9 +193,8 @@ public class CustomServer extends FrameServer {
         session.sendResponse(responseHttp);
     }
 
-    private void putInternal(final String idParam, final Request request,
-                             final HttpSession session) throws IOException {
-
+    private void putInternal(final String idParam, final Request request, final HttpSession session)
+            throws IOException {
         final Response responseHttp;
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
@@ -242,7 +241,7 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void deleteRun(String idParam, Request request, HttpSession session) {
+    private void deleteRun(final String idParam, final Request request, final HttpSession session) {
         try {
             deleteInternal(idParam, request, session);
         } catch (IOException e) {
