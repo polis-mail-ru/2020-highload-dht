@@ -10,12 +10,9 @@ import ru.mail.polis.dao.kate.moreva.Cell;
 import ru.mail.polis.dao.kate.moreva.Value;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.TreeMap;
+import java.util.*;
 
 public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
@@ -95,19 +92,14 @@ public class MyRequestHelper {
      * Merges responses for GET request.
      */
     public Response mergeResponses(final List<Response> responseList) {
-        final Map<Response, Integer> responses = new TreeMap<>(Comparator.comparing(this::getStatus));
-        responseList.forEach(response -> {
-            final Integer val = responses.get(response);
-            responses.put(response, val == null ? 0 : val + 1);
-        });
         Response response = null;
-        int maxCount = -1;
         long time = Long.MIN_VALUE;
-        for (final Map.Entry<Response, Integer> entry : responses.entrySet()) {
-            if (entry.getValue() >= maxCount && getTimestamp(entry.getKey()) > time) {
-                time = getTimestamp(entry.getKey());
-                maxCount = entry.getValue();
-                response = entry.getKey();
+        List<Response> respon = new ArrayList<>(responseList);
+
+        for (Response response1 : respon) {
+            if (getTimestamp(response1) > time) {
+                time = getTimestamp(response1);
+                response = response1;
             }
         }
         return response;

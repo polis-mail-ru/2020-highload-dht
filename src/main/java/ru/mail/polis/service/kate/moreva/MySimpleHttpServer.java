@@ -131,6 +131,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 }
                 final boolean isProxy = requestHelper.isProxied(request);
                 final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
+
+                if (replicasFactor.getFrom() > this.topology.size()) {
+                    requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                }
                 if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
@@ -171,7 +175,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(session, requestHelper.getEntity(key));
             return;
         }
-        final List<Response> result = replication(requestHelper.getEntity(key), request, key, replicas)
+        final List<Response> result = replication(() -> requestHelper.getEntity(key), request, key, replicas)
                 .stream()
                 .filter(resp -> requestHelper.getStatus(resp) == 200 || requestHelper.getStatus(resp) == 404)
                 .collect(Collectors.toList());
@@ -188,7 +192,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(session, requestHelper.putEntity(key, request));
             return;
         }
-        final List<Response> result = replication(requestHelper.putEntity(key, request), request, key, replicas)
+        final List<Response> result = replication(() -> requestHelper.putEntity(key, request), request, key, replicas)
                 .stream()
                 .filter(response -> requestHelper.getStatus(response) == 201)
                 .collect(Collectors.toList());
@@ -201,20 +205,20 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(session, requestHelper.deleteEntity(key));
             return;
         }
-        final List<Response> result = replication(requestHelper.deleteEntity(key), request, key, replicas)
+        final List<Response> result = replication(() ->requestHelper.deleteEntity(key), request, key, replicas)
                 .stream()
                 .filter(response -> requestHelper.getStatus(response) == 202)
                 .collect(Collectors.toList());
         requestHelper.correctReplication(result.size(), replicas, session, Response.ACCEPTED);
     }
 
-    private List<Response> replication(final Response response, final Request request, final ByteBuffer key,
+    private List<Response> replication(final Action action, final Request request, final ByteBuffer key,
                                        final Replicas replicas) {
         final Set<String> nodes = topology.primaryFor(key, replicas);
         final List<Response> result = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
-                result.add(response);
+                result.add(action.act());
             } else {
                 result.add(proxy(node, request));
             }
@@ -245,5 +249,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         for (final HttpClient client : nodeClients.values()) {
             client.clear();
         }
+    }
+
+    private interface Action {
+        Response act();
     }
 }
