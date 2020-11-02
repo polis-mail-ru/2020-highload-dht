@@ -10,9 +10,10 @@ import ru.mail.polis.dao.kate.moreva.Cell;
 import ru.mail.polis.dao.kate.moreva.Value;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
@@ -94,12 +95,11 @@ public class MyRequestHelper {
     public Response mergeResponses(final List<Response> responseList) {
         Response response = null;
         long time = Long.MIN_VALUE;
-        List<Response> respon = new ArrayList<>(responseList);
-
-        for (Response response1 : respon) {
-            if (getTimestamp(response1) > time) {
-                time = getTimestamp(response1);
-                response = response1;
+        List<Response> responses = new ArrayList<>(responseList);
+        for (final Response tmpResponse : responses) {
+            if (getTimestamp(tmpResponse) > time) {
+                time = getTimestamp(tmpResponse);
+                response = tmpResponse;
             }
         }
         return response;

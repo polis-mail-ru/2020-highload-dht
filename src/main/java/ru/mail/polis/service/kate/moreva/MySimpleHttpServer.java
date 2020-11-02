@@ -205,7 +205,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(session, requestHelper.deleteEntity(key));
             return;
         }
-        final List<Response> result = replication(() ->requestHelper.deleteEntity(key), request, key, replicas)
+        final List<Response> result = replication(() -> requestHelper.deleteEntity(key), request, key, replicas)
                 .stream()
                 .filter(response -> requestHelper.getStatus(response) == 202)
                 .collect(Collectors.toList());
