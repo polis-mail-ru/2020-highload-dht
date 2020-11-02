@@ -2,7 +2,6 @@ package ru.mail.polis.service.nik27090;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -12,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -24,14 +22,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
@@ -45,11 +45,13 @@ public class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private final ExecutorService executorService;
     @NotNull
-    private final DAO dao;
-    @NotNull
     private final Topology<String> topology;
     @NotNull
     private final Map<String, HttpClient> nodeToClient;
+    @NotNull
+    private final DaoHelper daoHelper;
+    @NotNull
+    private final HttpHelper httpHelper;
 
     /**
      * Service constructor.
@@ -68,9 +70,11 @@ public class ServiceImpl extends HttpServer implements Service {
             final Duration timeout,
             @NotNull final Topology<String> topology) throws IOException {
         super(createConfig(port));
-        this.dao = dao;
         this.topology = topology;
         this.nodeToClient = new HashMap<>();
+        this.daoHelper = new DaoHelper(dao);
+        this.httpHelper = new HttpHelper();
+
         for (final String node : topology.all()) {
             if (topology.isCurrentNode(node)) {
                 continue;
@@ -113,7 +117,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public void status(final HttpSession session) {
         log.debug("Request status.");
 
-        sendResponse(session, Response.ok("OK"));
+        httpHelper.sendResponse(session, Response.ok("OK"));
     }
 
     /**
@@ -125,29 +129,36 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_DELETE, METHOD_PUT})
-    public void getEntity(
+    public void requestHandler(
             @NotNull final @Param(value = "id", required = true) String id,
+            final @Param(value = "replicas") String af,
             final HttpSession session,
             final Request request) {
         try {
             executorService.execute(() -> {
-
-                if (id.isEmpty()) {
-                    sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                final AckFrom ackFrom = topology.parseAckFrom(af);
+                if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
+                    httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
+
+                if (id.isEmpty()) {
+                    httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
+                }
+
                 switch (request.getMethod()) {
                     case METHOD_GET:
                         log.debug("GET request: id = {}", id);
-                        getEntityExecutor(id, session, request);
+                        getEntityExecutor(id, session, request, ackFrom);
                         break;
                     case METHOD_PUT:
                         log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-                        putEntityExecutor(id, session, request);
+                        putEntityExecutor(id, session, request, ackFrom);
                         break;
                     case METHOD_DELETE:
                         log.debug("DELETE request: id = {}", id);
-                        deleteEntityExecutor(id, session, request);
+                        deleteEntityExecutor(id, session, request, ackFrom);
                         break;
                     default:
                         break;
@@ -155,80 +166,98 @@ public class ServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException e) {
             log.error(REJECTED_EXECUTION_EXCEPTION, e);
-            sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
+            httpHelper.sendResponse(session, new Response(Response.SERVICE_UNAVAILABLE));
         }
     }
 
-    private void getEntityExecutor(final String id, final HttpSession session, final Request request) {
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final String node = topology.getRightNodeForKey(key);
-            if (topology.isCurrentNode(node)) {
-                final ByteBuffer value = dao.get(key).duplicate();
-                final byte[] response = new byte[value.remaining()];
-                value.get(response);
-                sendResponse(session, Response.ok(response));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (NoSuchElementException e) {
-            sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+    private void getEntityExecutor(final String id,
+                                   final HttpSession session,
+                                   final Request request,
+                                   final AckFrom ackFrom) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        if (topology.isProxyReq(request)) {
+            httpHelper.sendResponse(session, daoHelper.getEntity(key));
+            return;
         }
+
+        final List<String> nodes = Arrays.stream(topology.getReplicas(key, ackFrom.getFrom()))
+                .collect(Collectors.toList());
+
+        final List<Response> notFailedResponses = topology
+                .getResponseFromNodes(nodes, request, daoHelper.getEntity(key), nodeToClient)
+                .stream()
+                .filter(response -> response.getStatus() == ResponseCode.OK
+                        || response.getStatus() == ResponseCode.NOT_FOUND)
+                .collect(Collectors.toList());
+
+        httpHelper.calculateResponse(
+                session,
+                notFailedResponses.size(),
+                ackFrom,
+                daoHelper.resolveGet(notFailedResponses));
     }
 
-    private void deleteEntityExecutor(final String id, final HttpSession session, final Request request) {
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final String node = topology.getRightNodeForKey(key);
-            if (topology.isCurrentNode(node)) {
-                dao.remove(key);
-                sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (IOException e) {
-            log.error("Internal error with id = {}", id, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+    private void deleteEntityExecutor(final String id,
+                                      final HttpSession session,
+                                      final Request request,
+                                      final AckFrom ackFrom) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        if (topology.isProxyReq(request)) {
+            httpHelper.sendResponse(session, daoHelper.delEntity(key));
+            return;
         }
+
+        final List<String> nodes = Arrays.stream(topology.getReplicas(key, ackFrom.getFrom()))
+                .collect(Collectors.toList());
+
+        final List<Response> notFailedResponses = topology
+                .getResponseFromNodes(nodes, request, daoHelper.delEntity(key), nodeToClient)
+                .stream()
+                .filter(response -> response.getStatus() == ResponseCode.ACCEPTED)
+                .collect(Collectors.toList());
+
+        httpHelper.calculateResponse(
+                session,
+                notFailedResponses.size(),
+                ackFrom,
+                new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
-    private void putEntityExecutor(final String id, final HttpSession session, final Request request) {
-        try {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            final String node = topology.getRightNodeForKey(key);
-            if (topology.isCurrentNode(node)) {
-                final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                dao.upsert(key, value);
-                sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
-            } else {
-                sendResponse(session, proxy(node, request));
-            }
-        } catch (IOException e) {
-            log.error("Internal error with id = {}, value length = {}", id, request.getBody().length, e);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
-    }
+    private void putEntityExecutor(final String id,
+                                   final HttpSession session,
+                                   final Request request,
+                                   final @NotNull AckFrom ackFrom) {
+        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
-    @NotNull
-    private Response proxy(
-            @NotNull final String node,
-            @NotNull final Request request) throws IOException {
-        request.addHeader("X-Proxy-For: " + node);
-        try {
-            return nodeToClient.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
-            throw new IOException("Can't proxy request", e);
+        if (topology.isProxyReq(request)) {
+            httpHelper.sendResponse(session, daoHelper.putEntity(key, value));
+            return;
         }
+
+        final List<String> nodes = Arrays.stream(topology.getReplicas(key, ackFrom.getFrom()))
+                .collect(Collectors.toList());
+
+        final List<Response> notFailedResponses = topology
+                .getResponseFromNodes(nodes, request, daoHelper.putEntity(key, value), nodeToClient)
+                .stream()
+                .filter(response -> response.getStatus() == ResponseCode.CREATED)
+                .collect(Collectors.toList());
+
+        httpHelper.calculateResponse(
+                session,
+                notFailedResponses.size(),
+                ackFrom,
+                new Response(Response.CREATED, Response.EMPTY));
     }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
         log.debug("Can't understand request: {}", request);
 
-        sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+        httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
@@ -244,14 +273,6 @@ public class ServiceImpl extends HttpServer implements Service {
 
         for (final HttpClient client : nodeToClient.values()) {
             client.clear();
-        }
-    }
-
-    private void sendResponse(@NotNull final HttpSession session, @NotNull final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            log.error("Can't send response", e);
         }
     }
 }
