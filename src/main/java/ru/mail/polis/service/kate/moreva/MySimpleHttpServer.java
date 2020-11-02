@@ -47,6 +47,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodeClients;
     private final MyRequestHelper requestHelper;
+    private final Replicas quorum;
 
     /**
      * Http Server constructor.
@@ -81,6 +82,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error in {} when processing request", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.quorum = Replicas.quorum(nodeClients.size() + 1);
     }
 
     private static HttpServerConfig getConfig(final int port, final int numberOfWorkers) {
@@ -96,7 +98,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        requestHelper.handleResponse(session, Response.BAD_REQUEST);
+        requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     /**
@@ -105,7 +107,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        requestHelper.handleResponse(session, Response.OK);
+        requestHelper.sendLoggedResponse(session, new Response(Response.OK, Response.EMPTY));
     }
 
     /**
@@ -124,21 +126,20 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             executorService.execute(() -> {
                 if (id.isBlank()) {
                     log.error("Request with empty id on /v0/entity");
-                    requestHelper.handleResponse(session, Response.BAD_REQUEST);
+                    requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
                 final boolean isProxy = requestHelper.isProxied(request);
-                final Replicas replicasFactor = isProxy
-                        || replicas == null ? Replicas.quorum(nodeClients.size() + 1) : Replicas.parser(replicas);
+                final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
                 if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
-                    requestHelper.handleResponse(session, Response.BAD_REQUEST);
+                    requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
                 final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
                 defineMethod(request, session, key, replicasFactor, isProxy);
             });
         } catch (RejectedExecutionException e) {
-            requestHelper.handleResponse(session, Response.SERVICE_UNAVAILABLE);
+            requestHelper.sendLoggedResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 
@@ -156,7 +157,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 break;
             default:
                 log.error("Not allowed method on /v0/entity");
-                requestHelper.handleResponse(session, Response.METHOD_NOT_ALLOWED);
+                requestHelper.sendLoggedResponse(session, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                 break;
         }
     }
@@ -172,11 +173,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final List<Response> result = replication(requestHelper.getEntity(key), request, key, replicas)
                 .stream()
-                .filter(resp -> requestHelper.getStatus(resp).equals(Response.OK)
-                        || requestHelper.getStatus(resp).equals(Response.NOT_FOUND))
+                .filter(resp -> requestHelper.getStatus(resp) == 200 || requestHelper.getStatus(resp) == 404)
                 .collect(Collectors.toList());
         if (result.size() < replicas.getAck()) {
-            requestHelper.handleResponse(session, NOT_ENOUGH_REPLICAS);
+            requestHelper.sendLoggedResponse(session, new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY));
             return;
         }
         requestHelper.sendLoggedResponse(session, requestHelper.mergeResponses(result));
@@ -190,7 +190,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final List<Response> result = replication(requestHelper.putEntity(key, request), request, key, replicas)
                 .stream()
-                .filter(response -> requestHelper.getStatus(response).equals(Response.CREATED))
+                .filter(response -> requestHelper.getStatus(response) == 201)
                 .collect(Collectors.toList());
         requestHelper.correctReplication(result.size(), replicas, session, Response.CREATED);
     }
@@ -203,7 +203,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final List<Response> result = replication(requestHelper.deleteEntity(key), request, key, replicas)
                 .stream()
-                .filter(response -> requestHelper.getStatus(response).equals(Response.ACCEPTED))
+                .filter(response -> requestHelper.getStatus(response) == 202)
                 .collect(Collectors.toList());
         requestHelper.correctReplication(result.size(), replicas, session, Response.ACCEPTED);
     }

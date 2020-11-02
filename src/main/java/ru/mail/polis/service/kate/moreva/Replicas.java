@@ -26,9 +26,9 @@ public class Replicas {
         if (params.size() != 2) {
             throw new IllegalArgumentException("Wrong Replica factor: " + replicas);
         }
-        final int confirmation = Integer.parseInt(params.get(0));
+        final int ack = Integer.parseInt(params.get(0));
         final int from = Integer.parseInt(params.get(1));
-        return new Replicas(confirmation, from);
+        return new Replicas(ack, from);
     }
 
     public int getAck() {
