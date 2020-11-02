@@ -12,6 +12,7 @@ import ru.mail.polis.dao.zvladn7.exceptions.DeletedValueException;
 import ru.mail.polis.service.zvladn7.bodyhandlers.ChangeBodyHandler;
 import ru.mail.polis.service.zvladn7.bodyhandlers.GetBodyHandler;
 import ru.mail.polis.service.zvladn7.topology.Topology;
+import ru.mail.polis.service.zvladn7.util.Nets;
 
 import java.io.IOException;
 import java.net.http.HttpRequest;
@@ -30,10 +31,6 @@ import java.util.function.Function;
 import static ru.mail.polis.service.zvladn7.util.Bytes.toBytes;
 import static ru.mail.polis.service.zvladn7.util.Bytes.wrapArray;
 import static ru.mail.polis.service.zvladn7.util.Bytes.wrapString;
-import static ru.mail.polis.service.zvladn7.util.Nets.PROXY_REQUEST_HEADER;
-import static ru.mail.polis.service.zvladn7.util.Nets.TIMEOUT;
-import static ru.mail.polis.service.zvladn7.util.Nets.getBodyPublisher;
-import static ru.mail.polis.service.zvladn7.util.Nets.getChangeResponse;
 import static ru.mail.polis.service.zvladn7.util.Nets.requestBuilderFor;
 
 class ServiceHelper {
@@ -72,7 +69,7 @@ class ServiceHelper {
         );
         this.client = java.net.http.HttpClient.newBuilder()
                 .executor(clientES)
-                .connectTimeout(Duration.ofMillis(TIMEOUT))
+                .connectTimeout(Duration.ofMillis(Nets.TIMEOUT))
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
                 .build();
     }
@@ -125,7 +122,7 @@ class ServiceHelper {
                                                          @NotNull final LocalExecutor<ResponseValue> localExecutor,
                                                          @NotNull final Resolver<ResponseValue> resolver
     ) throws IOException {
-        final String header = request.getHeader(PROXY_REQUEST_HEADER);
+        final String header = request.getHeader(Nets.PROXY_REQUEST_HEADER);
         log.debug("Header: {}", header);
         final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
         CompletableFuture<ResponseValue> localResponse = null;
@@ -211,7 +208,7 @@ class ServiceHelper {
                                                             final ReplicasHolder replicasHolder,
                                                             final LocalExecutor<String> localExecutor,
                                                             final Resolver<String> resolver) throws IOException {
-        final String header = request.getHeader(PROXY_REQUEST_HEADER);
+        final String header = request.getHeader(Nets.PROXY_REQUEST_HEADER);
         log.debug("Header: {}", header);
         final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
         CompletableFuture<String> localResponse = null;
@@ -220,7 +217,7 @@ class ServiceHelper {
             nodesForResponse.remove(topology.local());
             localResponse = localExecutor.execute();
             if (header != null) {
-                return localResponse.thenApplyAsync(v -> getChangeResponse(request.getMethodName()), es);
+                return localResponse.thenApplyAsync(v -> Nets.getChangeResponse(request.getMethodName()), es);
             }
         }
         List<CompletableFuture<String>> responses;
@@ -228,7 +225,7 @@ class ServiceHelper {
                 request.getMethodName(),
                 ChangeBodyHandler.INSTANCE,
                 node -> requestBuilderFor(node, request.getParameter("id="))
-                        .method(request.getMethodName(), getBodyPublisher(request))
+                        .method(request.getMethodName(), Nets.getBodyPublisher(request))
                         .build());
         if (localResponse != null) {
             responses.add(localResponse);

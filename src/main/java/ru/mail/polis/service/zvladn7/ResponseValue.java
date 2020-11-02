@@ -10,22 +10,22 @@ public final class ResponseValue {
 
     private static final int NO_TIMESTAMP_VALUE = -1;
 
-    private final long timpestamp;
+    private final long timestamp;
     @NotNull
     private final byte[] body;
     @NotNull
     private final State state;
 
-    private ResponseValue(final long timpestamp,
+    private ResponseValue(final long timestamp,
                           @NotNull final byte[] body,
                           @NotNull final State state) {
-        this.timpestamp = timpestamp;
-        this.body = body;
+        this.timestamp = timestamp;
+        this.body = body.clone();
         this.state = state;
     }
 
-    long getTimpestamp() {
-        return timpestamp;
+    long getTimestamp() {
+        return timestamp;
     }
 
     public static ResponseValue active(final long timestamp, @NotNull final byte[] body) {
@@ -54,7 +54,7 @@ public final class ResponseValue {
             case ACTIVE:
                 return responseProvider.apply(value);
             case DELETED:
-                return new Response(Response.NOT_FOUND, Longs.toByteArray(value.timpestamp));
+                return new Response(Response.NOT_FOUND, Longs.toByteArray(value.timestamp));
             case ABSENT:
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             default:
@@ -66,7 +66,7 @@ public final class ResponseValue {
         final byte[] responesBody = new byte[value.body.length + Long.BYTES];
         System.arraycopy(value.body, 0, responesBody, 0, value.body.length);
         System.arraycopy(
-                Longs.toByteArray(value.timpestamp), 0, responesBody, value.body.length, Long.BYTES);
+                Longs.toByteArray(value.timestamp), 0, responesBody, value.body.length, Long.BYTES);
         return Response.ok(responesBody);
     }
 

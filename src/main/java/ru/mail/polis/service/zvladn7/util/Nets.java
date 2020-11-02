@@ -17,6 +17,11 @@ public class Nets {
     public static final String PROXY_REQUEST_HEADER = "X-Proxy-To-Node";
     public static final int TIMEOUT = 500;
 
+    /**
+     * Provide BodyPublisher by http method name.
+     * @param request - request which was sent to the server
+     * @return BodyPublisher for building request for async client.
+     */
     public static HttpRequest.BodyPublisher getBodyPublisher(@NotNull final Request request) {
         switch (request.getMethodName()) {
             case "PUT":
@@ -28,6 +33,11 @@ public class Nets {
         }
     }
 
+    /**
+     * Transform method name to response.
+     * @param methodName - name of Http request
+     * @return Response corresponding to the method name
+     */
     public static Response getChangeResponse(final String methodName) {
         return new Response(getResponseStatus(methodName), Response.EMPTY);
     }
@@ -43,6 +53,12 @@ public class Nets {
         }
     }
 
+    /**
+     * Prepare builder for specialization.
+     * @param node - node identifier
+     * @param id - id of value which was requested
+     * @return request builder
+     */
     public static HttpRequest.Builder requestBuilderFor(@NotNull final String node,
                                                          @NotNull final String id) {
         try {

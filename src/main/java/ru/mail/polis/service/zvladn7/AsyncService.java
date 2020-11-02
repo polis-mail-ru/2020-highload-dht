@@ -231,7 +231,7 @@ public class AsyncService extends HttpServer implements Service {
             } catch (IOException e) {
                 log.error("Cannot send response: {}", r, e);
             }
-        }).isCancelled())  {
+        }).isCancelled()) {
             log.error("Canceled request");
         }
     }

@@ -20,12 +20,10 @@ final class ConflictResolver {
     static ResponseValue resolveGet(@NotNull final Collection<ResponseValue> responses) {
         final Iterator<ResponseValue> iterator = responses.iterator();
         ResponseValue theMostFreshedResponse = iterator.next();
-        long theMostFreshedTimestamp = theMostFreshedResponse.getTimpestamp();
-        log.info("Response timestamp: {}", theMostFreshedTimestamp);
+        long theMostFreshedTimestamp = theMostFreshedResponse.getTimestamp();
         while (iterator.hasNext()) {
             final ResponseValue next = iterator.next();
-            final long responseTimestamp = next.getTimpestamp();
-            log.info("Response timestamp: {}", responseTimestamp);
+            final long responseTimestamp = next.getTimestamp();
             if (responseTimestamp > theMostFreshedTimestamp) {
                 theMostFreshedTimestamp = responseTimestamp;
                 theMostFreshedResponse = next;
@@ -46,12 +44,10 @@ final class ConflictResolver {
             if (nextFuture.whenCompleteAsync((v, t) -> {
                 if (t == null) {
                     results.add(v);
-                    log.info("Success");
                     if (successes.decrementAndGet() == 0) {
                         resultFuture.complete(results);
                     }
                 } else {
-                    log.error("Exception");
                     if (failures.decrementAndGet() == 0) {
                         resultFuture.completeExceptionally(new IllegalStateException("Not enough replicas to respond"));
                     }
