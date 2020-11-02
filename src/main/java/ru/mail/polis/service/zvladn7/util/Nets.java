@@ -11,11 +11,14 @@ import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.time.Duration;
 
-public class Nets {
+public final class Nets {
 
     private static final Logger log = LoggerFactory.getLogger(Nets.class);
     public static final String PROXY_REQUEST_HEADER = "X-Proxy-To-Node";
     public static final int TIMEOUT = 500;
+
+    private Nets() {
+    }
 
     /**
      * Provide BodyPublisher by http method name.
