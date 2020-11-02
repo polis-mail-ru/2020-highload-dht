@@ -95,7 +95,7 @@ public class MyRequestHelper {
     public Response mergeResponses(final List<Response> responseList) {
         Response response = null;
         long time = Long.MIN_VALUE;
-        List<Response> responses = new ArrayList<>(responseList);
+        final List<Response> responses = new ArrayList<>(responseList);
         for (final Response tmpResponse : responses) {
             if (getTimestamp(tmpResponse) > time) {
                 time = getTimestamp(tmpResponse);
