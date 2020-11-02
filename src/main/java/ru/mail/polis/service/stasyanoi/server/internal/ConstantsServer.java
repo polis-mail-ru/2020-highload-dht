@@ -4,8 +4,11 @@ import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.net.ConnectionString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
+import ru.mail.polis.service.stasyanoi.server.CustomServer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,7 +31,7 @@ public class ConstantsServer extends HttpServer {
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
     protected Map<String, HttpClient> httpClientMap;
     protected java.net.http.HttpClient asyncHttpClient;
-
+    protected Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
 
     public ConstantsServer(final DAO dao,

@@ -1,11 +1,8 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
@@ -14,6 +11,10 @@ import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -50,13 +51,18 @@ public class GetMethodServer extends ConstantsServer {
                 .stream()
                 .limit(from)
                 .map(nodeHost -> new Pair<>(
-                        httpClientMap.get(nodeHost.getValue()),
+                        new Pair<>(asyncHttpClient, nodeHost.getValue()),
                         getNewRequest(request, port)))
                 .map(clientRequest -> {
                     try {
-                        HttpClient value0 = clientRequest.getValue0();
-                        return value0.invoke(clientRequest.getValue1());
-                    } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                        Pair<HttpClient, String> clientAndHost = clientRequest.getValue0();
+                        HttpClient client = clientAndHost.getValue0();
+                        String host = clientAndHost.getValue1();
+                        Request oneNioRequest = clientRequest.getValue1();
+                        HttpRequest javaRequest = Util.getJavaRequest(oneNioRequest, host);
+                        return Util.getOneNioResponse(client.send(javaRequest,
+                                HttpResponse.BodyHandlers.ofByteArray()));
+                    } catch (InterruptedException | IOException e) {
                         return Util.responseWithNoBody(Response.INTERNAL_ERROR);
                     }
                 })

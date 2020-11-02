@@ -11,12 +11,17 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.Util;
 import ru.mail.polis.service.stasyanoi.server.internal.FrameServer;
 
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -96,6 +101,7 @@ public class CustomServer extends FrameServer {
                              final HttpSession session,
                              final Request request) throws IOException {
         final Response responseHttp;
+        logger.info("This Node: " + nodeNum + " | Method " + request.getMethodName());
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -181,6 +187,7 @@ public class CustomServer extends FrameServer {
                              final HttpSession session) throws IOException {
 
         final Response responseHttp;
+        logger.info("This Node: " + nodeNum + " | Method " + request.getMethodName());
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -263,6 +270,7 @@ public class CustomServer extends FrameServer {
     private void deleteInternal(final String idParam, final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
+        logger.info("This Node: " + nodeNum + " | Method " + request.getMethodName());
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -290,14 +298,17 @@ public class CustomServer extends FrameServer {
         return responseHttp;
     }
 
+
     private Response routeRequest(final Request request,
                                  final int node,
                                  final Map<Integer, String> nodeMapping)
             throws IOException {
         try {
-            HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
-            return httpClient.invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
+            logger.info("from " + nodeNum +" route to " + node);
+            HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
+            return Util.getOneNioResponse(asyncHttpClient.send(javaRequest,
+                    HttpResponse.BodyHandlers.ofByteArray()));
+        } catch (InterruptedException | ConnectException e) {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }

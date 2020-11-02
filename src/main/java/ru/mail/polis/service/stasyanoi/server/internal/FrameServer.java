@@ -31,6 +31,7 @@ public class FrameServer extends PutDeleteGetMethodServer {
 
     @Override
     public synchronized void start() {
+        logger.info("start " + nodeNum);
         super.start();
         dao.open();
     }
@@ -38,6 +39,7 @@ public class FrameServer extends PutDeleteGetMethodServer {
     @Override
     public synchronized void stop() {
         super.stop();
+        logger.info("stop " + nodeNum);
         try {
             dao.close();
             executorService.shutdown();
