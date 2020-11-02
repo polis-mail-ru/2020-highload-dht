@@ -46,7 +46,7 @@ public class MemTable implements Table {
         return map.tailMap(from)
                 .entrySet()
                 .stream()
-                .map(element -> new Cell(element.getKey(), element.getValue().getData()))
+                .map(element -> new Cell(element.getKey(), element.getValue()))
                 .iterator();
     }
 
