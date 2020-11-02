@@ -112,7 +112,7 @@ public class MyRequestHelper {
                 correctResponses++;
             }
         }
-        boolean tomb = Boolean.parseBoolean(response.getHeader(TOMBSTONE));
+        final boolean tomb = Boolean.parseBoolean(response.getHeader(TOMBSTONE));
         if (tomb || correctResponses == missedResponses) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
         }
