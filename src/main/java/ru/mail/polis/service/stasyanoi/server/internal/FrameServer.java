@@ -7,6 +7,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
@@ -33,6 +34,7 @@ public class FrameServer extends PutDeleteGetMethodServer {
     public synchronized void start() {
         logger.info("start " + nodeNum);
         super.start();
+        executorService = CustomExecutor.getExecutor();
         dao.open();
     }
 

@@ -88,6 +88,7 @@ public class CustomServer extends FrameServer {
     private void getRepInternal(final String idParam,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
+        logger.info("This Node: " + nodeNum + " | Method Rep Get");
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -115,6 +116,9 @@ public class CustomServer extends FrameServer {
             responseHttp = getReplicaGetResponse(request,
                     tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         }
+        logger.info("This Node: " + nodeNum + " |" + " Response: " + responseHttp.getStatus() +
+                " | Method: " + request.getMethodName());
+
         session.sendResponse(responseHttp);
     }
 
@@ -172,6 +176,8 @@ public class CustomServer extends FrameServer {
     private void putRepInternal(final String idParam, final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
+        logger.info("This Node: " + nodeNum + " | Method Rep Put");
+
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -202,6 +208,8 @@ public class CustomServer extends FrameServer {
             responseHttp = getPutReplicaResponse(request, mappings,
                     responseHttpCurrent, super.port);
         }
+        logger.info("This Node: " + nodeNum + " |" + " Response: " + responseHttp.getStatus()
+                + " | Method: " + request.getMethodName());
         session.sendResponse(responseHttp);
     }
 
@@ -257,6 +265,7 @@ public class CustomServer extends FrameServer {
 
     private void deleteRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
+        logger.info("This Node: " + nodeNum + " | Method Rep Delete");
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -283,6 +292,7 @@ public class CustomServer extends FrameServer {
             responseHttp = getDeleteReplicaResponse(request, tempNodeMapping,
                     responseHttpCurrent, nodeMapping, super.port);
         }
+        logger.info("This Node: " + nodeNum + " |" + " Response: " + responseHttp.getStatus() + " | Method: " + request.getMethodName());
         session.sendResponse(responseHttp);
     }
 
