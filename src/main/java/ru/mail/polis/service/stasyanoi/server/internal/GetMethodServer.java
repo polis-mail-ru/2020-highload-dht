@@ -16,13 +16,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+
+import static ru.mail.polis.service.stasyanoi.Util.*;
 
 public class GetMethodServer extends ConstantsServer {
 
@@ -47,26 +50,33 @@ public class GetMethodServer extends ConstantsServer {
                                                    final int from,
                                                    final Request request,
                                                    final int port) {
-        final List<Response> responses = tempNodeMapping.entrySet()
+        List<Response> responses = new ArrayList<>();
+        var completableFutures = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
                 .map(nodeHost -> new Pair<>(
                         new Pair<>(asyncHttpClient, nodeHost.getValue()),
                         getNewRequest(request, port)))
                 .map(clientRequest -> {
-                    try {
-                        Pair<HttpClient, String> clientAndHost = clientRequest.getValue0();
-                        HttpClient client = clientAndHost.getValue0();
-                        String host = clientAndHost.getValue1();
-                        Request oneNioRequest = clientRequest.getValue1();
-                        HttpRequest javaRequest = Util.getJavaRequest(oneNioRequest, host);
-                        return Util.getOneNioResponse(client.send(javaRequest,
-                                HttpResponse.BodyHandlers.ofByteArray()));
-                    } catch (InterruptedException | IOException e) {
-                        return Util.responseWithNoBody(Response.INTERNAL_ERROR);
-                    }
+                    Pair<HttpClient, String> clientAndHost = clientRequest.getValue0();
+                    HttpClient client = clientAndHost.getValue0();
+                    String host = clientAndHost.getValue1();
+                    Request oneNioRequest = clientRequest.getValue1();
+                    HttpRequest javaRequest = getJavaRequest(oneNioRequest, host);
+                    return client.sendAsync(javaRequest, HttpResponse.BodyHandlers.ofByteArray())
+                            .thenApplyAsync(Util::getOneNioResponse)
+                            .handle((response, throwable) -> {
+                                if (throwable != null) {
+                                    return responseWithNoBody(Response.INTERNAL_ERROR);
+                                } else {
+                                    return response;
+                                }
+                            })
+                            .thenAcceptAsync(responses::add);
                 })
-                .collect(Collectors.toList());
+                .toArray(CompletableFuture[]::new);
+
+        CompletableFuture.allOf(completableFutures);
 
         responses.add(responseHttpTemp);
         return responses;
@@ -138,19 +148,19 @@ public class GetMethodServer extends ConstantsServer {
         try {
             final ByteBuffer body = dao.get(id);
             final byte[] bytes = Mapper.toBytes(body);
-            final Pair<byte[], byte[]> bodyTimestamp = Util.getTimestamp(bytes);
+            final Pair<byte[], byte[]> bodyTimestamp = getTimestamp(bytes);
             final byte[] newBody = bodyTimestamp.getValue0();
             final byte[] time = bodyTimestamp.getValue1();
             final Response okResponse = Response.ok(newBody);
-            Util.addTimestampHeader(time, okResponse);
+            addTimestampHeader(time, okResponse);
             return okResponse;
         } catch (NoSuchElementException e) {
             final byte[] deleteTime = dao.getDeleteTime(id);
             if (deleteTime.length == 0) {
-                return Util.responseWithNoBody(Response.NOT_FOUND);
+                return responseWithNoBody(Response.NOT_FOUND);
             } else {
-                final Response deletedResponse = Util.responseWithNoBody(Response.NOT_FOUND);
-                Util.addTimestampHeader(deleteTime, deletedResponse);
+                final Response deletedResponse = responseWithNoBody(Response.NOT_FOUND);
+                addTimestampHeader(deleteTime, deletedResponse);
                 return deletedResponse;
             }
         }
@@ -173,7 +183,7 @@ public class GetMethodServer extends ConstantsServer {
                                                  final int port) {
         final Response responseHttp;
         if (request.getParameter(REPS, TRUE_VAL).equals(TRUE_VAL)) {
-            final Pair<Integer, Integer> ackFrom = Util.ackFromPair(request, replicationDefaults, nodeMapping);
+            final Pair<Integer, Integer> ackFrom = ackFromPair(request, replicationDefaults, nodeMapping);
             final int from = ackFrom.getValue1();
             final List<Response> responses = getResponsesFromReplicas(responseHttpCurrent,
                     tempNodeMapping, from - 1, request, port);
