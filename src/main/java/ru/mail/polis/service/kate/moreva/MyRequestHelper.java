@@ -38,19 +38,17 @@ public class MyRequestHelper {
         final Cell cell;
         try {
             cell = dao.getCell(key);
-            final Value cellValue = cell.getValue();
-            if (cellValue.isTombstone()) {
-                final Response response = new Response(Response.OK, Response.EMPTY);
-                response.addHeader(TIMESTAMP + cellValue.getTimestamp());
-                response.addHeader(TOMBSTONE + cellValue.isTombstone());
-                return response;
+            final Response response;
+            if (cell.getValue().isTombstone()) {
+                response = new Response(Response.OK, Response.EMPTY);
+            } else {
+                final ByteBuffer value = dao.get(key);
+                final byte[] body = new byte[value.remaining()];
+                value.get(body);
+                response = new Response(Response.OK, body);
             }
-            final ByteBuffer value = dao.get(key).duplicate();
-            final byte[] body = new byte[value.remaining()];
-            value.get(body);
-            final Response response = new Response(Response.OK, body);
             response.addHeader(TIMESTAMP + cell.getValue().getTimestamp());
-            response.addHeader(TOMBSTONE + cellValue.isTombstone());
+            response.addHeader(TOMBSTONE + cell.getValue().isTombstone());
             return response;
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -58,7 +56,6 @@ public class MyRequestHelper {
             log.error("GET method failed on /v0/entity for id {}", key.get(), e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-
     }
 
     /**
