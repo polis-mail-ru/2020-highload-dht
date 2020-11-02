@@ -24,9 +24,6 @@ public class SSTable implements Table {
     private int fileSize;
     private final File file;
 
-    private final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
-    private final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
-
     /**
      * Creates SSTable from file.
      */
@@ -35,6 +32,7 @@ public class SSTable implements Table {
         try {
             fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
             fileSize = (int) fileChannel.size();
+            final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
             fileChannel.read(intBuffer.rewind(), fileChannel.size() - Integer.BYTES);
             rowsCount = intBuffer.rewind().getInt();
         } catch (IOException e) {
@@ -101,13 +99,13 @@ public class SSTable implements Table {
     }
 
     private int getIntFrom(final int offset) throws IOException {
-        intBuffer.position(0);
+        final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
         fileChannel.read(intBuffer, offset);
         return intBuffer.rewind().getInt();
     }
 
     private long getLongFrom(final int offset) throws IOException {
-        longBuffer.position(0);
+        final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
         fileChannel.read(longBuffer, offset);
         return longBuffer.rewind().getLong();
     }
@@ -120,7 +118,7 @@ public class SSTable implements Table {
     }
 
     private int getOffset(final int row) throws IOException {
-        intBuffer.rewind();
+        final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
         fileChannel.read(intBuffer, fileSize - (1 + rowsCount - row) * Integer.BYTES);
         intBuffer.rewind();
         return intBuffer.getInt();
@@ -141,9 +139,9 @@ public class SSTable implements Table {
         final long timestamp = getLongFrom(offset + Integer.BYTES + keyLength);
         final ByteBuffer valueBuffer = timestamp > 0
                 ? getFrom(
-                        offset + Integer.BYTES + keyLength + Long.BYTES + Integer.BYTES,
-                        getIntFrom(offset + Integer.BYTES + keyLength + Long.BYTES)
-                )
+                offset + Integer.BYTES + keyLength + Long.BYTES + Integer.BYTES,
+                getIntFrom(offset + Integer.BYTES + keyLength + Long.BYTES)
+        )
                 : null;
         return new Value(timestamp & 0x7fffffff, valueBuffer);
     }
