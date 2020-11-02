@@ -113,15 +113,15 @@ public class ReplicationController {
 
     public Response replPut(@NotNull final String id,
                         final boolean isForwarded, @NotNull final byte[] value, final int a) {
-//        if (isForwarded) {
-//            try {
-//                dao.upsertWithTime(wrapId(id), ByteBuffer.wrap(value));
-//                return new Response(Response.CREATED, Response.EMPTY);
-//            } catch (IOException e) {
-//                log.error("IO in is forward replPut");
-//                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
-//            }
-//        }
+        if (isForwarded) {
+            try {
+                dao.upsertWithTime(wrapId(id), ByteBuffer.wrap(value));
+                return new Response(Response.CREATED, Response.EMPTY);
+            } catch (IOException e) {
+                log.error("IO in is forward replPut");
+                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
+            }
+        }
         final String[] nodes = topology.replicasFor(wrapId(id), replicationFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
@@ -131,7 +131,7 @@ public class ReplicationController {
                     ack++;
                 } else {
                     final Response response = nodesClient.get(node).put(HEADER + id, value, PROXY_HEADER);
-                    if (nonNull(response) && response.getStatus() == 201) {
+                    if (response.getStatus() == 201) {
                         ack++;
                     }
                 }
@@ -139,20 +139,23 @@ public class ReplicationController {
                 log.error("Cant proxying response to other node in replPut", e);
             }
         }
-        return ack >= a || isForwarded ? new Response(Response.CREATED, Response.EMPTY) :
-                new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        if (ack >= a) {
+            return new Response(Response.CREATED, Response.EMPTY)   ;
+        } else {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        }
     }
 
     public Response replDelete(@NotNull final String id, final boolean isForwarded, final int a)  {
-//        if (isForwarded) {
-//            try {
-//                dao.removeWithTimestamp(wrapId(id));
-//                return new Response(Response.ACCEPTED, Response.EMPTY);
-//            } catch (IOException e) {
-//                log.error("IO in is forward replDelete");
-//                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
-//            }
-//        }
+        if (isForwarded) {
+            try {
+                dao.removeWithTimestamp(wrapId(id));
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            } catch (IOException e) {
+                log.error("IO in is forward replDelete");
+                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(StandardCharsets.UTF_8));
+            }
+        }
         final String[] nodes = topology.replicasFor(wrapId(id), replicationFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
@@ -162,7 +165,7 @@ public class ReplicationController {
                     ack++;
                 } else {
                     final Response response = nodesClient.get(node).delete(HEADER + id, PROXY_HEADER);
-                    if (nonNull(response) && response.getStatus() == 202) {
+                    if (response.getStatus() == 202) {
                         ack++;
                     }
                 }
@@ -173,11 +176,11 @@ public class ReplicationController {
                 log.error("Cant proxying response to other node in replDelete", e);
             }
         }
-        if (ack >= a || isForwarded) {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } else {
+//        if (ack >= a) {
+//            return new Response(Response.ACCEPTED, Response.EMPTY);
+//        } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
+//        }
     }
 
 

@@ -21,7 +21,6 @@ public final class BufferConverter {
         final ByteBuffer copyBuffer = key.duplicate();
         final byte[] bytes = new byte[copyBuffer.remaining()];
         copyBuffer.get(bytes);
-        copyBuffer.clear();
         return bytes;
     }
 

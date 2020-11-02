@@ -90,7 +90,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
-        httpServerConfig.queueTime = 10;
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -204,32 +203,14 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             try {
                 switch (request.getMethod()) {
                     case METHOD_GET:
-                        service.execute(() -> {
-                            try {
-                                session.sendResponse(controller.replGet(id, replicationFactor, isForwarded));
-                            } catch (IOException e) {
-                                exceptionIOHandler(session, "IO exception in repl get", e);
-                            }
-                        });
+                        act(session, () -> controller.replGet(id, replicationFactor, isForwarded));
                         break;
                     case METHOD_PUT:
-                            service.execute(() -> {
-                                try {
-                                    session.sendResponse(controller.replPut(id,
-                                             isForwarded, request.getBody(), replicationFactor.getAck()));
-                                } catch (IOException e) {
-                                    exceptionIOHandler(session, "IO exception in repl put", e);
-                                }
-                            });
+                        act(session, () -> controller.replPut(id, isForwarded, request.getBody(),
+                                replicationFactor.getAck()));
                         break;
                     case METHOD_DELETE:
-                        service.execute(() -> {
-                            try {
-                                session.sendResponse(controller.replDelete(id, isForwarded, replicationFactor.getAck()));
-                            } catch (IOException e) {
-                                exceptionIOHandler(session, "IO exception in repl delete", e);
-                            }
-                        });
+                        act(session, () -> controller.replDelete(id, isForwarded, replicationFactor.getAck()));
                         break;
                     default:
                         session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
@@ -327,6 +308,25 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
+    private void act(@NotNull final HttpSession session, final Action action) {
+        try {
+            service.execute(() -> {
+                try {
+                    session.sendResponse(action.act());
+                } catch (IOException e) {
+                    log.error("IO exception in act", e);
+                    try {
+                        session.sendError(Response.INTERNAL_ERROR, e.getMessage());
+                    } catch (IOException e1) {
+                        log.error("IO when send Internal Error", e1);
+                    }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("rejected exception", e);
+        }
+    }
+
     @Override
     public synchronized void stop() {
         super.stop();
@@ -339,4 +339,9 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         }
         nodesClient.values().forEach(Pool::close);
     }
+}
+
+@FunctionalInterface
+interface Action {
+    Response act() throws IOException;
 }

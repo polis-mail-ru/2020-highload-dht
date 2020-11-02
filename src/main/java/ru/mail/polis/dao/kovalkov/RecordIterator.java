@@ -24,10 +24,8 @@ public final class RecordIterator implements Iterator<Record>, AutoCloseable {
     @Override
     public Record next() throws IllegalStateException {
         if (!hasNext())throw new IllegalStateException("No further");
-        final byte[] bytesKey = rocksIterator.key();
-        final ByteBuffer bufferKey = BufferConverter.foldToBuffer(bytesKey);
-        final byte[] bytesValue = rocksIterator.value();
-        final ByteBuffer bufferValue = ByteBuffer.wrap(bytesValue);
+        final ByteBuffer bufferKey = BufferConverter.foldToBuffer(rocksIterator.key());
+        final ByteBuffer bufferValue = ByteBuffer.wrap(rocksIterator.value());
         final Record record = Record.of(bufferKey, bufferValue);
         rocksIterator.next();
         return record;

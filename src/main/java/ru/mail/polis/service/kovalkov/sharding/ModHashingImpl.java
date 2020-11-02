@@ -40,7 +40,7 @@ public class ModHashingImpl implements Topology<String> {
     @Override
     public String[] replicasFor(@NotNull ByteBuffer key, int replicas) {
         final String[] rep = new String[replicas];
-        int nodeStarterIndex = (key.hashCode() & Integer.MAX_VALUE) % nodeCount();
+        int nodeStarterIndex = (key.hashCode() & Integer.MAX_VALUE) % allNodes.length;
         for (int i = 0; i < replicas; i++) {
             rep[i] = allNodes[nodeStarterIndex];
             nodeStarterIndex = (nodeStarterIndex + 1) % allNodes.length;
