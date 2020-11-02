@@ -7,12 +7,14 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -88,5 +90,18 @@ public class FrameServer extends PutDeleteGetMethodServer {
         } catch (InterruptedException | IOException e) {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
+    }
+
+    protected Response putProxy(final Request request, final byte[] idArray, final int node) throws IOException {
+        final Response responseHttp;
+        if (node == nodeNum) {
+            final ByteBuffer key = Mapper.fromBytes(idArray);
+            final ByteBuffer value = Util.getByteBufferValue(request);
+            dao.upsert(key, value);
+            responseHttp = Util.responseWithNoBody(Response.CREATED);
+        } else {
+            responseHttp = routeRequest(request, node, nodeMapping);
+        }
+        return responseHttp;
     }
 }
