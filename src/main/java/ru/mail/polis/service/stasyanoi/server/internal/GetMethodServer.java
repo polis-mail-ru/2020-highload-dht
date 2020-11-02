@@ -11,7 +11,6 @@ import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -48,37 +47,33 @@ public class GetMethodServer extends ConstantsServer {
                                                    final int from,
                                                    final Request request,
                                                    final int port) {
-        List<Response> responses = new ArrayList<>();
-        var completableFutures = tempNodeMapping.entrySet()
+        final List<Response> responses = new ArrayList<>();
+        final var completableFutures = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
                 .map(nodeHost -> new Pair<>(
                         new Pair<>(asyncHttpClient, nodeHost.getValue()),
                         getNewRequest(request, port)))
                 .map(clientRequest -> {
-                    Pair<HttpClient, String> clientAndHost = clientRequest.getValue0();
-                    HttpClient client = clientAndHost.getValue0();
-                    String host = clientAndHost.getValue1();
-                    Request oneNioRequest = clientRequest.getValue1();
-                    HttpRequest javaRequest = Util.getJavaRequest(oneNioRequest, host);
+                    final Pair<HttpClient, String> clientAndHost = clientRequest.getValue0();
+                    final HttpClient client = clientAndHost.getValue0();
+                    final String host = clientAndHost.getValue1();
+                    final Request oneNioRequest = clientRequest.getValue1();
+                    final HttpRequest javaRequest = Util.getJavaRequest(oneNioRequest, host);
                     return client.sendAsync(javaRequest, HttpResponse.BodyHandlers.ofByteArray())
                             .thenApplyAsync(Util::getOneNioResponse)
                             .handle((response, throwable) -> {
-                                if (throwable != null) {
-                                    return Util.responseWithNoBody(Response.INTERNAL_ERROR);
-                                } else {
+                                if (throwable == null) {
                                     return response;
+                                } else {
+                                    return Util.responseWithNoBody(Response.INTERNAL_ERROR);
                                 }
                             })
                             .thenAcceptAsync(responses::add);
                 })
                 .toArray(CompletableFuture[]::new);
 
-
-
         CompletableFuture.allOf(completableFutures).join();
-
-
         responses.add(responseHttpTemp);
         return responses;
     }
