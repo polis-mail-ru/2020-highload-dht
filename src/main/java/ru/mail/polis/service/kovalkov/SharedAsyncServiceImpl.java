@@ -84,7 +84,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.queueTime = 10;
-        httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -148,8 +147,9 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     public void entity(@Param(value = "id",required = true) @NotNull final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
-        final String ownerNode = checkIdAndReturnTargetNode(id, session);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+        final byte[] idBytes = id.getBytes(UTF_8);
+        final String ownerNode = checkIdAndReturnTargetNode(idBytes, session);
+        final ByteBuffer key = ByteBuffer.wrap(idBytes);
         if (topology.isMe(ownerNode)) {
             try {
                 switch (request.getMethod()) {
@@ -187,27 +187,29 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     }
 
     private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
-        service.execute(() -> {
+        try {
+            service.execute(() -> {
+                try {
+                    getInternal(id, session);
+                } catch (IOException e) {
+                    exceptionIOHandler(session, "Method get. IO exception. ", e);
+                } catch (NoSuchElementException e) {
+                    log.info("Method get. Can't find value by this key ", e);
+                    try {
+                        session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+                    } catch (IOException ioException) {
+                        log.error("Method get. Id is empty. Can't send response:", e);
+                    }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Rejected  exception: ", e);
             try {
-                getInternal(id, session);
-            } catch (IOException e) {
-                exceptionIOHandler(session, "Method get. IO exception. ", e);
-            } catch (RejectedExecutionException e) {
-                log.error("Rejected  exception: ", e);
-                try {
-                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-                } catch (IOException e1) {
-                    log.error("IO exception when send 503 response: ", e1);
-                }
-            } catch (NoSuchElementException e) {
-                log.info("Method get. Can't find value by this key ", e);
-                try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("Method get. Id is empty. Can't send response:", e);
-                }
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (IOException e1) {
+                log.error("IO exception when send 503 response: ", e1);
             }
-        });
+        }
     }
 
     private void getInternal(@NotNull final ByteBuffer key,
@@ -259,15 +261,15 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param session - current session
      * @return - data owner
      */
-    private String checkIdAndReturnTargetNode(final String id, @NotNull final HttpSession session) {
-        if (id.isEmpty()) {
+    private String checkIdAndReturnTargetNode(final byte[] id, @NotNull final HttpSession session) {
+        if (id.length == 0) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
                 log.error("Method has empty id. IO exception in mapping occurred. ", e);
             }
         }
-        return topology.identifyByKey(id.getBytes(UTF_8));
+        return topology.identifyByKey(id);
     }
 
     @Override

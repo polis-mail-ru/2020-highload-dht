@@ -5,11 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
@@ -17,7 +13,7 @@ public class RendezvousHashingImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(RendezvousHashingImpl.class);
     private final String[] allNodes;
     private final String currentNode;
-    final Map<String, Hasher> nodeHashes;
+    final List<Integer> nodeHashes;
 
     /**
      * Constructor for modular topology implementation.
@@ -34,17 +30,18 @@ public class RendezvousHashingImpl implements Topology<String> {
         this.allNodes = new String[allNodes.size()];
         allNodes.toArray(this.allNodes);
         Arrays.sort(this.allNodes);
-        this.nodeHashes = new HashMap<>();
+        this.nodeHashes = new ArrayList<>();
         for (final String node: this.allNodes) {
-            nodeHashes.put(node, murmur3_32().newHasher().putString(node, StandardCharsets.UTF_8));
+            nodeHashes.add(murmur3_32().newHasher().putString(node, StandardCharsets.UTF_8).hash().hashCode());
         }
     }
 
     @Override
     public String identifyByKey(final byte[] key) {
         final TreeMap<Integer,String> nodesAndHashes = new TreeMap<>();
-        for (final Map.Entry<String, Hasher> entry : nodeHashes.entrySet()) {
-            nodesAndHashes.put(entry.getValue().putBytes(key).hash().hashCode(), entry.getKey());
+        for (int i = 0; i < allNodes.length; i++) {
+            nodesAndHashes.put(nodeHashes.get(i) +
+                    murmur3_32().newHasher().putBytes(key).hash().hashCode(), allNodes[i]);
         }
         final String ownerNode = nodesAndHashes.firstEntry().getValue();
         if (ownerNode == null) {
