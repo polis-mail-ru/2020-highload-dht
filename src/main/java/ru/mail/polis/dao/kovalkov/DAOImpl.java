@@ -86,10 +86,15 @@ public final class DAOImpl implements DAO {
     }
 
     @NotNull
-    public TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key) throws  IOException {
+    public TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key)
+            throws IOException, NoSuchElementException {
         try {
             final byte[] byteKey = BufferConverter.convertBytes(key);
             final byte[] bytesValue = db.get(byteKey);
+            if (bytesValue == null) {
+                log.info("NSEE in get");
+                throw new NoSuchElementException("Can't find this key");
+            }
             return TimestampDataWrapper.wrapFromBytesAndGetOne(bytesValue);
         } catch (RocksDBException e) {
             log.error("Getting error: ",e);

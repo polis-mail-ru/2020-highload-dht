@@ -23,13 +23,10 @@ public class TimestampDataWrapper {
 
     @NotNull
     public static TimestampDataWrapper wrapFromBytesAndGetOne(final byte[] bytes) {
-        if (Objects.nonNull(bytes)) {
-            final ByteBuffer buf = ByteBuffer.wrap(bytes);
-            final RecordState state = getTypeOfState(buf.get());
-            final long ts = buf.getLong();
+        final ByteBuffer buf = ByteBuffer.wrap(bytes);
+        final RecordState state = getTypeOfState(buf.get());
+        final long ts = buf.getLong();
             return new TimestampDataWrapper(buf, ts, state);
-        }
-        return getEmptyOne();
     }
 
     private static RecordState getTypeOfState(final byte b) {
