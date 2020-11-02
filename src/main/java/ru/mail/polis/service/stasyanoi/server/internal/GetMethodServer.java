@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static ru.mail.polis.service.stasyanoi.Util.*;
 
@@ -76,7 +77,10 @@ public class GetMethodServer extends ConstantsServer {
                 })
                 .toArray(CompletableFuture[]::new);
 
-        CompletableFuture.allOf(completableFutures);
+
+
+        CompletableFuture.allOf(completableFutures).join();
+
 
         responses.add(responseHttpTemp);
         return responses;
