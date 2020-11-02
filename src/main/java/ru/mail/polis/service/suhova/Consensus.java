@@ -17,13 +17,12 @@ public final class Consensus {
      * Resolves conflicts among responses received from a GET request.
      *
      * @param responses - list of all responses
-     * @param acks       - acks
+     * @param acks      - acks
      * @return resulting response
      */
     public static Response get(final List<Response> responses, final int acks) {
         int count = 0;
         int count404 = 0;
-        boolean isDeleted = false;
         Response okValue = new Response(Response.NOT_FOUND, Response.EMPTY);
         long lastVersion = 0;
         for (final Response response : responses) {
@@ -39,12 +38,9 @@ public final class Consensus {
                 count404++;
                 count++;
             }
-            if (Boolean.parseBoolean(okValue.getHeader(TOMBSTONE))) {
-                    isDeleted = true;
-                }
         }
         if (count >= acks) {
-            if (isDeleted || count == count404) {
+            if (Boolean.parseBoolean(okValue.getHeader(TOMBSTONE)) || count == count404) {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             } else {
                 return Response.ok(okValue.getBody());
@@ -58,7 +54,7 @@ public final class Consensus {
      * Resolves conflicts among responses received from a PUT request.
      *
      * @param responses - list of all responses
-     * @param acks       - ack
+     * @param acks      - ack
      * @return resulting response
      */
     public static Response put(final List<Response> responses, final int acks) {
@@ -69,7 +65,7 @@ public final class Consensus {
      * Resolves conflicts among responses received from a DELETE request.
      *
      * @param responses - list of all responses
-     * @param acks       - ack
+     * @param acks      - ack
      * @return resulting response
      */
     public static Response delete(final List<Response> responses, final int acks) {
