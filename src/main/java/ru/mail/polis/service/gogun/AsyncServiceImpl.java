@@ -2,7 +2,6 @@ package ru.mail.polis.service.gogun;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -10,7 +9,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +17,22 @@ import ru.mail.polis.dao.gogun.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -35,12 +41,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
-
+    private static final Duration TIMEOUT = Duration.ofSeconds(1);
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
     private final ExecutorService executorService;
     private final Map<String, HttpClient> nodeClients;
+    @NotNull
+    private final java.net.http.HttpClient client;
 
     /**
      * class that provides requests to lsm dao via http.
@@ -72,6 +80,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final HttpClient client = new HttpClient(new ConnectionString(node));
             nodeClients.put(node, client);
         }
+
+        final Executor clientExecutor = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("client-%d")
+                        .build());
+        this.client =
+                java.net.http.HttpClient.newBuilder()
+                        .executor(clientExecutor)
+                        .connectTimeout(TIMEOUT)
+                        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                        .build();
     }
 
     @Override
@@ -110,9 +130,24 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    @NotNull
+    private static HttpRequest.Builder requestForRepl(@NotNull final String node,
+                                                      @NotNull final String id) {
+        final String uri = node + "/v0/entity?id=" + id;
+        try {
+            return HttpRequest.newBuilder()
+                    .uri(new URI(uri))
+                    .header("X-Proxy-For", "true")
+                    .timeout(TIMEOUT);
+        } catch (URISyntaxException e) {
+//            log.error("uri error", e);
+            throw new IllegalStateException("uri error", e);
+        }
+    }
+
     private void handleRequest(final String id, final Request request,
                                final HttpSession session) throws IOException {
-        log.debug("PUT request with id: {}", id);
+        log.debug("{} request with id: {}", request.getMethodName(), id);
         if (id.isEmpty()) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
@@ -120,7 +155,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
-        if (request.getHeader("X-Proxy-For: ") != null) {
+        if (request.getHeader("X-Proxy-For") != null) {
             ServiceUtils.selector(() -> handlePut(key, request),
                     () -> handleGet(key),
                     () -> handleGet(key),
@@ -141,23 +176,30 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final List<Response> responses = new ArrayList<>();
+        final List<CompletableFuture<Response>> responsesFuture = new ArrayList<>(replicasFactor.getFrom());
         final String nodeForRequest = topology.get(key);
-
         final List<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
         for (final String node : replNodes) {
-            responses.add(proxy(node, request));
+            responsesFuture.add(proxy(node, request));
         }
 
-        final MergeResponses mergeResponses = new MergeResponses(responses, replicasFactor.getAck());
+        Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((t, v) -> {
+            if (v != null) {
+                log.error("Future complete error {}", v.getMessage());
+            }
 
-        responses.removeIf((e) -> e.getStatus() == 500);
-        ServiceUtils.selector(mergeResponses::mergePutResponses,
-                mergeResponses::mergeGetResponses,
-                mergeResponses::mergeDeleteResponses,
-                request.getMethod(),
-                session);
-
+            final MergeResponses mergeResponses = new MergeResponses(t, replicasFactor.getAck());
+            t.removeIf((e) -> e.getStatus() == 500);
+            try {
+                ServiceUtils.selector(mergeResponses::mergePutResponses,
+                        mergeResponses::mergeGetResponses,
+                        mergeResponses::mergeDeleteResponses,
+                        request.getMethod(),
+                        session);
+            } catch (IOException e) {
+                log.error("error sending response", e);
+            }
+        }, executorService).isCancelled();
     }
 
     private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
@@ -167,8 +209,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             log.error("Internal server error put", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
 
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
         return new Response(Response.CREATED, Response.EMPTY);
@@ -204,35 +244,61 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             log.error("Internal server error del", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
 
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-
         }
 
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
-    private Response proxy(final String node, final Request request) {
+    private CompletableFuture<Response> proxy(final String node, final Request request) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
-        try {
-            if (topology.isMe(node)) {
-                switch (request.getMethod()) {
-                    case Request.METHOD_PUT:
-                        return handlePut(key, request);
-                    case Request.METHOD_GET:
-                        return handleGet(key);
-                    case Request.METHOD_DELETE:
-                        return handleDel(key);
-                    default:
-                        break;
-                }
+
+        if (topology.isMe(node)) {
+            switch (request.getMethod()) {
+                case Request.METHOD_PUT:
+                    return CompletableFuture.supplyAsync(
+                            () -> handlePut(key, request),
+                            executorService);
+                case Request.METHOD_GET:
+                    return CompletableFuture.supplyAsync(
+                            () -> handleGet(key),
+                            executorService);
+                case Request.METHOD_DELETE:
+                    return CompletableFuture.supplyAsync(
+                            () -> handleDel(key),
+                            executorService);
+                default:
+                    break;
             }
-            request.addHeader("X-Proxy-For: " + node);
-            return nodeClients.get(node).invoke(request);
-        } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
+        HttpRequest requestForReplica = null;
+//        request.addHeader("X-Proxy-For: " + node);
+        switch (request.getMethod()) {
+            case Request.METHOD_PUT:
+                requestForReplica = requestForRepl(node, id).PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())).build();
+                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executorService);
+            case Request.METHOD_GET:
+                requestForReplica = requestForRepl(node, id).GET().build();
+                return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executorService);
+            case Request.METHOD_DELETE:
+                requestForReplica = requestForRepl(node, id).DELETE().build();
+                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executorService);
+            default:
+                break;
+        }
+//        try {
+//            return nodeClients.get(node).invoke(requestForReplica);
+//        } catch (IOException | InterruptedException | PoolException | HttpException e) {
+//            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+//        }
+
+        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                .thenApplyAsync(HttpResponse::body, executorService);
+
+
     }
 
     /**

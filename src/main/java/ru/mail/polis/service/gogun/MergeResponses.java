@@ -3,15 +3,15 @@ package ru.mail.polis.service.gogun;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
+import java.util.Collection;
 
 public class MergeResponses {
 
     private final int ack;
     @NotNull
-    final List<Response> responses;
+    final Collection<Response> responses;
 
-    public MergeResponses(@NotNull final List<Response> responses, final int ack) {
+    public MergeResponses(@NotNull final Collection<Response> responses, final int ack) {
         this.responses = responses;
         this.ack = ack;
     }
@@ -25,7 +25,8 @@ public class MergeResponses {
             if (response.getStatus() == 404) {
                 numNotFoundResponses++;
             } else if (response.getStatus() == 200) {
-                final long generation = Long.parseLong(response.getHeader("timestamp: "));
+                String head = response.getHeader("timestamp: ");
+                final long generation = Long.parseLong(head);
                 if (lastGeneration > generation || lastGeneration == 0) {
                     lastGeneration = generation;
                     last = response;

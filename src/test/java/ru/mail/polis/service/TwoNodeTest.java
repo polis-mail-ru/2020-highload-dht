@@ -32,7 +32,9 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /**
  * Unit tests for a two node replicated {@link Service} cluster.
@@ -211,8 +213,8 @@ class TwoNodeTest extends ClusterTestBase {
     }
 
     @Test
-    void respectRF() {
-        assertTimeoutPreemptively(TIMEOUT, () -> {
+    void respectRF() throws Exception {
+
             final String key = randomId();
             final byte[] value = randomValue();
 
@@ -247,6 +249,6 @@ class TwoNodeTest extends ClusterTestBase {
 
             // Check
             assertEquals(1, copies);
-        });
+
     }
 }
