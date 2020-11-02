@@ -21,6 +21,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -66,7 +67,7 @@ public class ServiceImpl extends HttpServer implements Service {
             final @NotNull DAO dao,
             final int workers,
             final int queueCapacity,
-            final String timeout,
+            final Duration timeout,
             @NotNull final Topology<String> topology) throws IOException {
         super(createConfig(port));
         this.topology = topology;
@@ -79,7 +80,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 continue;
             }
 
-            final HttpClient client = new HttpClient(new ConnectionString(node + timeout));
+            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout.toMillis()));
             if (nodeToClient.put(node, client) != null) {
                 throw new IllegalStateException("Duplicate node");
             }
