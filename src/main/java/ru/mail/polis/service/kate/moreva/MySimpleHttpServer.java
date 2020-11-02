@@ -135,6 +135,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 if (replicasFactor.getFrom() > this.topology.size()) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                 }
+
                 if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;

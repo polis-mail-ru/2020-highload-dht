@@ -11,13 +11,13 @@ import ru.mail.polis.dao.kate.moreva.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
     private static final String TIMESTAMP = "Timestamp: ";
+    private static final String TOMBSTONE = "Tombstone: ";
     private static final String PROXY_HEADER = "X-Proxy-For:";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final Logger log = LoggerFactory.getLogger(MyRequestHelper.class);
@@ -40,8 +40,9 @@ public class MyRequestHelper {
             cell = dao.getCell(key);
             final Value cellValue = cell.getValue();
             if (cellValue.isTombstone()) {
-                final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                final Response response = new Response(Response.OK, Response.EMPTY);
                 response.addHeader(TIMESTAMP + cellValue.getTimestamp());
+                response.addHeader(TOMBSTONE + cellValue.isTombstone());
                 return response;
             }
             final ByteBuffer value = dao.get(key).duplicate();
@@ -49,6 +50,7 @@ public class MyRequestHelper {
             value.get(body);
             final Response response = new Response(Response.OK, body);
             response.addHeader(TIMESTAMP + cell.getValue().getTimestamp());
+            response.addHeader(TOMBSTONE + cellValue.isTombstone());
             return response;
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -93,18 +95,29 @@ public class MyRequestHelper {
      * Merges responses for GET request.
      */
     public Response mergeResponses(final List<Response> responseList) {
-        Response response = null;
+        Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
         long time = Long.MIN_VALUE;
-        final List<Response> responses = new ArrayList<>(responseList);
-            for (final Response tmpResponse : responses) {
-                if (getTimestamp(tmpResponse) > time) {
-                    time = getTimestamp(tmpResponse);
-                    response = tmpResponse;
+        int correctResponses = 0;
+        int missedResponses = 0;
+        for (final Response resp : responseList) {
+            final int status = resp.getStatus();
+            if (status == 200) {
+                correctResponses++;
+                if (getTimestamp(resp) > time) {
+                    time = getTimestamp(resp);
+                    response = resp;
                 }
+            } else if (status == 404) {
+                missedResponses++;
+                correctResponses++;
             }
+        }
+        boolean tomb = Boolean.parseBoolean(response.getHeader(TOMBSTONE));
+        if (tomb || correctResponses == missedResponses) {
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
         return response;
     }
-
 
     /**
      * Returns response status.

@@ -122,18 +122,19 @@ final class SSTable implements Table {
     private Cell getCell(final int rowPosition) {
         try {
             int offset = getOffset(rowPosition);
-            final ByteBuffer keyByteBufferSize = allocateIntBuffer.rewind();
-            fileChannel.read(keyByteBufferSize.duplicate(), offset);
+            final ByteBuffer keyByteBufferSize = ByteBuffer.allocate(Integer.BYTES);
+            fileChannel.read(keyByteBufferSize, offset);
             offset += Integer.BYTES;
 
-            final int keySize = keyByteBufferSize.duplicate().rewind().getInt();
+            final int keySize = keyByteBufferSize.rewind().getInt();
+
             final ByteBuffer keyByteBuffer = ByteBuffer.allocate(keySize);
             fileChannel.read(keyByteBuffer, offset);
             offset += keySize;
 
-            final ByteBuffer timestampBuffer = allocateLongBuffer.rewind();
-            fileChannel.read(timestampBuffer.duplicate(), offset);
-            final long timestamp = timestampBuffer.duplicate().rewind().getLong();
+            final ByteBuffer timestampBuffer = ByteBuffer.allocate(Long.BYTES);
+            fileChannel.read(timestampBuffer, offset);
+            final long timestamp = timestampBuffer.rewind().getLong();
 
             if (timestamp < 0) {
                 return new Cell(keyByteBuffer.rewind(), new Value(-timestamp));
