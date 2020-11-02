@@ -139,9 +139,9 @@ public class SSTable implements Table {
         final long timestamp = getLongFrom(offset + Integer.BYTES + keyLength);
         final ByteBuffer valueBuffer = timestamp > 0
                 ? getFrom(
-                        offset + Integer.BYTES + keyLength + Long.BYTES + Integer.BYTES,
-                        getIntFrom(offset + Integer.BYTES + keyLength + Long.BYTES)
-                )
+                offset + Integer.BYTES + keyLength + Long.BYTES + Integer.BYTES,
+                getIntFrom(offset + Integer.BYTES + keyLength + Long.BYTES)
+        )
                 : null;
         return new Value(timestamp & 0x7fffffff, valueBuffer);
     }
