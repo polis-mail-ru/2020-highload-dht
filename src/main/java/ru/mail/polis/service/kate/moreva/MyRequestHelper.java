@@ -144,14 +144,10 @@ public class MyRequestHelper {
                                    final Replicas replicas,
                                    final HttpSession session,
                                    final String response) {
-        try {
-            if (ack < replicas.getAck()) {
-                sendLoggedResponse(session, new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY));
-            } else {
-                session.sendResponse(new Response(response, Response.EMPTY));
-            }
-        } catch (IOException e) {
-            sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        if (ack < replicas.getAck()) {
+            sendLoggedResponse(session, new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY));
+        } else {
+            sendLoggedResponse(session, new Response(response, Response.EMPTY));
         }
     }
 
