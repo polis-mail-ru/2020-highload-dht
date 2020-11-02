@@ -1,12 +1,9 @@
 package ru.mail.polis.service.stasyanoi;
 
-import one.nio.http.HttpSession;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
-import static ru.mail.polis.service.stasyanoi.Util.send503Error;
 
 public class CustomExecutor extends ThreadPoolExecutor {
     
@@ -16,15 +13,6 @@ public class CustomExecutor extends ThreadPoolExecutor {
                           final TimeUnit unit,
                           final BlockingQueue<Runnable> workQueue) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
-    }
-
-    /**
-     * Set session for error sending.
-     *
-     * @param errorSession - session to which to send the error.
-     */
-    public void setSessionForRejectedError(final HttpSession errorSession) {
-        this.setRejectedExecutionHandler((r, executor) -> send503Error(errorSession));
     }
 
     /**
