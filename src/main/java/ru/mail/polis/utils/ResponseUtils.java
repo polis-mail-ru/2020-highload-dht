@@ -14,7 +14,8 @@ public final class ResponseUtils {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
-    public static final String TIMEOUT = "?timeout=";
+    public static final String ENTITY = "/v0/entity";
+    public static final int TIMEOUT_MILLIS = 1000;
     public static final String PROXY = "X-Proxy-For";
     public static final String TIMESTAMP = "Timestamp";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
@@ -43,6 +44,12 @@ public final class ResponseUtils {
     public static void sendEmptyResponse(@NotNull final HttpSession session,
                                          @NotNull final String code) {
         sendResponse(session, emptyResponse(code));
+    }
+
+    public static void sendNonEmptyResponse(@NotNull final HttpSession session,
+                                            @NotNull final String code,
+                                            final byte[] values) {
+        sendResponse(session, nonemptyResponse(code, values));
     }
 
     @NotNull

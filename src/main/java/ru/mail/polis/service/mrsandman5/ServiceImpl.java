@@ -14,25 +14,33 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.service.Service;
-import ru.mail.polis.service.mrsandman5.client.AsyncClient;
-import ru.mail.polis.service.mrsandman5.client.Client;
-import ru.mail.polis.service.mrsandman5.client.LocalClient;
+import ru.mail.polis.service.mrsandman5.handlers.DeleteBodyHandler;
+import ru.mail.polis.service.mrsandman5.handlers.GetBodyHandler;
+import ru.mail.polis.service.mrsandman5.handlers.PutBodyHandler;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 import ru.mail.polis.service.mrsandman5.replication.SimpleRequests;
 import ru.mail.polis.utils.ByteUtils;
+import ru.mail.polis.utils.FuturesUtils;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -43,23 +51,29 @@ public final class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
+    private final DAOImpl dao;
+    @NotNull
     private final Topology<String> topology;
+    @NotNull
     private final ReplicasFactor quorum;
-    private final Map<String, Client> httpClients;
+    @NotNull
+    private final Map<String, HttpClient> httpClients;
     @NotNull
     private final SimpleRequests simpleRequests;
+    @NotNull
+    private final ExecutorService executor;
 
     /** Create new ServiceImpl instance.
      * @param port - target port.
      * @param topology - cluster topology
      * @param dao - custom LSM DAO.
-     * @param workersCount - thread workers.
+     * @param executor - thread executor.
      * */
     @NotNull
     public static Service create(final int port,
                                  @NotNull final Topology<String> topology,
                                  @NotNull final DAO dao,
-                                 final int workersCount) throws IOException {
+                                 @NotNull final ExecutorService executor) throws IOException {
         final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
@@ -67,9 +81,8 @@ public final class ServiceImpl extends HttpServer implements Service {
 
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-        config.selectors = workersCount;
 
-        return new ServiceImpl(config, topology, dao);
+        return new ServiceImpl(config, topology, dao, executor);
     }
 
     /** Service constructor.
@@ -78,16 +91,18 @@ public final class ServiceImpl extends HttpServer implements Service {
      * @param dao - custom LSM DAO.
      * */
     private ServiceImpl(@NotNull final HttpServerConfig config,
-                       @NotNull final Topology<String> topology,
-                       @NotNull final DAO dao) throws IOException {
+                        @NotNull final Topology<String> topology,
+                        @NotNull final DAO dao,
+                        @NotNull final ExecutorService executor) throws IOException {
         super(config);
         this.topology = topology;
-        final DAOImpl serviceDao = (DAOImpl) dao;
-        this.simpleRequests = new SimpleRequests(serviceDao);
+        this.dao = (DAOImpl) dao;
+        this.executor = executor;
+        this.simpleRequests = new SimpleRequests(this.dao, executor);
         this.quorum = ReplicasFactor.quorum(topology.all().size());
         this.httpClients = topology.others()
                 .stream()
-                .collect(toMap(identity(), this::createClient));
+                .collect(toMap(identity(), this::createHttpClient));
     }
 
     /** Interact with service.
@@ -121,17 +136,17 @@ public final class ServiceImpl extends HttpServer implements Service {
             case Request.METHOD_GET:
                 respond(session,
                         proxied ? simpleRequests.get(key)
-                                : replicasGet(session, request, id, replicasFactor));
+                                : replicasGet(id, replicasFactor));
                 break;
             case Request.METHOD_PUT:
                 respond(session,
                         proxied ? simpleRequests.put(key, request.getBody())
-                                : replicasPut(session, request, id, replicasFactor));
+                                : replicasPut(id, request.getBody(), replicasFactor));
                 break;
             case Request.METHOD_DELETE:
                 respond(session,
                         proxied ? simpleRequests.delete(key)
-                                : replicasDelete(session, request, id, replicasFactor));
+                                : replicasDelete(id, replicasFactor));
                 break;
             default:
                 log.error("Non-supported request : {}", id);
@@ -140,100 +155,121 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    @SuppressWarnings("FutureReturnValueIgnored")
     private void respond(@NotNull final HttpSession session,
                          @NotNull final CompletableFuture<Response> response) {
         response.whenComplete((r, t) -> {
             if (t == null) {
                 ResponseUtils.sendResponse(session, r);
             } else {
-                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+                final String code;
+                if (t instanceof CompletionException) {
+                    t = t.getCause();
+                }
+                if (t instanceof IllegalStateException) {
+                    code = ResponseUtils.NOT_ENOUGH_REPLICAS;
+                } else {
+                    code = Response.INTERNAL_ERROR;
+                }
+                ResponseUtils.sendNonEmptyResponse(session,
+                        code,
+                        t.getMessage().getBytes(StandardCharsets.UTF_8));
             }
         });
     }
 
-    private List<Response> replication(@NotNull final Action local,
-                                       @NotNull final String requestName,
-                                       @NotNull final String id,
-                                       @NotNull final ReplicasFactor replicasFactor) {
+    private CompletableFuture<Response> replicasGet(@NotNull final String id,
+                                                    @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
-        return topology.replicasFor(key, replicasFactor)
-                .stream()
-                .map(node -> {
-                    try {
-                        return topology.isMe(node)
-                                ? local.act()
-                                : proxy.act();
-                    } catch (IOException e) {
-                        log.error("Action error: ", e);
-                        return null;
-                    }
-                })
-                .collect(Collectors.toList());
-    }
-
-    private void replicasGet(@NotNull final HttpSession session,
-                             @NotNull final String id,
-                             @NotNull final ReplicasFactor replicasFactor) {
-        final ByteBuffer key = ByteUtils.getWrap(id);
-        try {
-            final Collection<CompletableFuture<Entry>> result =
-                    new ArrayList<>(replicasFactor.getFrom());
-            for (final Response response : replication(() ->
-                    simpleRequests.get(key), id, replicasFactor)) {
-                if (ResponseUtils.getStatus(response).equals(Response.OK)
-                        || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
-                    final CompletableFuture<Entry> resp =
-                            CompletableFuture.supplyAsync(() -> {
-                                try {
-                                    return Entry.responseToEntry(response);
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }, workers);
-                    result.add(resp);
-                }
-            }
-            if (result.size() < replicasFactor.getAck()) {
-                ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
+        final Set<String> nodes = topology.replicasFor(key, replicasFactor);
+        final Collection<CompletableFuture<Entry>> result =
+                new ArrayList<>(replicasFactor.getFrom());
+        for (final String node : nodes) {
+            if (topology.isMe(node)) {
+                result.add(CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return Entry.entryFromBytes(key, dao);
+                            } catch (IOException e) {
+                                throw new RuntimeException("Error", e);
+                            }
+                        }, executor));
             } else {
-                ResponseUtils.sendResponse(session, Entry.entriesToResponse(result));
+                final HttpRequest request = requestForReplica(node, id)
+                        .GET()
+                        .build();
+                final CompletableFuture<Entry> entry = httpClients.get(node)
+                        .sendAsync(request, GetBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executor);
+                result.add(entry);
             }
-        } catch (IOException e) {
-            log.error("Replication error: ", e);
-            ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
         }
+        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck())
+                .thenApplyAsync(Entry::entriesToResponse, executor);
     }
 
-    private void replicasPut(@NotNull final HttpSession session,
-                             @NotNull final Request request,
-                             @NotNull final String id,
-                             @NotNull final ReplicasFactor replicasFactor) {
+    private CompletableFuture<Response> replicasPut(@NotNull final String id,
+                                                    @NotNull final byte[] value,
+                                                    @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
-        final List<Response> result = replication(() ->
-                simpleRequests.put(key, request.getBody()), id, replicasFactor)
-                .stream()
-                .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
-                .collect(Collectors.toList());
-        if (result.size() < replicasFactor.getAck()) {
-            ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
-        } else {
-            ResponseUtils.sendEmptyResponse(session, Response.CREATED);
+        final Set<String> nodes = topology.replicasFor(key, replicasFactor);
+        final Collection<CompletableFuture<Void>> result =
+                new ArrayList<>(replicasFactor.getFrom());
+        for (final String node : nodes) {
+            if (topology.isMe(node)) {
+                result.add(CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                final ByteBuffer body = ByteBuffer.wrap(value);
+                                dao.upsert(key, body);
+                                return null;
+                            } catch (IOException e) {
+                                throw new RuntimeException("Error", e);
+                            }
+                        }, executor));
+            } else {
+                final HttpRequest request = requestForReplica(node, id)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
+                        .build();
+                final CompletableFuture<Void> entry = httpClients.get(node)
+                        .sendAsync(request, PutBodyHandler.INSTANCE)
+                        .thenApplyAsync(x -> null, executor);
+                result.add(entry);
+            }
         }
+        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck())
+                .thenApplyAsync(x -> null, executor);
     }
 
-    private void replicasDelete(@NotNull final HttpSession session,
-                                @NotNull final String id,
-                                @NotNull final ReplicasFactor replicasFactor) {
+    private CompletableFuture<Response> replicasDelete(@NotNull final String id,
+                                                       @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
-        final List<Response> result = replication(() -> simpleRequests.delete(key), id, replicasFactor)
-                .stream()
-                .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
-                .collect(Collectors.toList());
-        if (result.size() < replicasFactor.getAck()) {
-            ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
-        } else {
-            ResponseUtils.sendEmptyResponse(session, Response.ACCEPTED);
+        final Set<String> nodes = topology.replicasFor(key, replicasFactor);
+        final Collection<CompletableFuture<Void>> result =
+                new ArrayList<>(replicasFactor.getFrom());
+        for (final String node : nodes) {
+            if (topology.isMe(node)) {
+                result.add(CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                dao.remove(key);
+                                return null;
+                            } catch (IOException e) {
+                                throw new RuntimeException("Error", e);
+                            }
+                        }, executor));
+            } else {
+                final HttpRequest request = requestForReplica(node, id)
+                        .DELETE()
+                        .build();
+                final CompletableFuture<Void> entry = httpClients.get(node)
+                        .sendAsync(request, DeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync(x -> null, executor);
+                result.add(entry);
+            }
         }
+        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck())
+                .thenApplyAsync(x -> null, executor);
     }
 
     /** Request method for status return.
@@ -244,28 +280,12 @@ public final class ServiceImpl extends HttpServer implements Service {
         return ResponseUtils.emptyResponse(Response.OK);
     }
 
-    /*private Response proxy(@NotNull final String node,
-                           @NotNull final String id) {
-        try {
-            request.addHeader(PROXY + node);
-            return httpClients.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException | IOException e) {
-            log.error("Unable to proxy request", e);
-            return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
-        }
-    }*/
-
-    /*@NotNull
-    private static HttpClient createHttpClient(@NotNull final String node) {
-        return new HttpClient(new ConnectionString(node + ResponseUtils.TIMEOUT));
-    }*/
-
     @NotNull
-    private Client createClient(@NotNull final String node) {
-        if (topology.isMe(node)) {
-            return new LocalClient(workers, simpleRequests);
-        }
-        return new AsyncClient(node, workers);
+    private HttpClient createHttpClient(@NotNull final String node) {
+        return java.net.http.HttpClient.newBuilder()
+                .executor(executor)
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .build();
     }
 
     @Override
@@ -274,22 +294,29 @@ public final class ServiceImpl extends HttpServer implements Service {
         ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
     }
 
-    /*private void asyncExecute(@NotNull final HttpSession session,
-                              @NotNull final Action action) {
-        asyncExecute(() -> {
-            try {
-                ResponseUtils.sendResponse(session, action.act());
-            } catch (IOException e) {
-                log.error("Unable to create response", e);
-                ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
-            }
-        });
-    }*/
+    @NotNull
+    private HttpRequest.Builder requestForReplica(@NotNull final String node,
+                                                  @NotNull final String id) {
+        final String uri = node + ResponseUtils.ENTITY + "?id=" + id;
+        return HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .header(PROXY, "True")
+                .timeout(Duration.ofMillis(ResponseUtils.TIMEOUT_MILLIS));
+    }
 
-    @FunctionalInterface
-    private interface Action {
-        @NotNull
-        Response act() throws IOException;
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException ie) {
+            log.error("Can't stop the executor", ie);
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
 }

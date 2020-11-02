@@ -29,7 +29,7 @@ public final class FuturesUtils {
                 }
             } else {
                 if (errorsLeft.decrementAndGet() == 0) {
-                    future.completeExceptionally(t);
+                    future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
                 }
             }
         }));

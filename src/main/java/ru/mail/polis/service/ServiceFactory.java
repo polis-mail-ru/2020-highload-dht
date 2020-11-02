@@ -23,6 +23,10 @@ import ru.mail.polis.service.mrsandman5.clustering.ConsistentHashingTopology;
 
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Constructs {@link Service} instances.
@@ -60,6 +64,11 @@ public final class ServiceFactory {
         }
 
         final var nodes = new ConsistentHashingTopology<>(topology, "http://localhost:" + port, VNODE_COUNT);
-        return ServiceImpl.create(port, nodes, dao, WORKERS);
+        final ExecutorService executor = new ThreadPoolExecutor(WORKERS,
+                WORKERS,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(1024));
+        return ServiceImpl.create(port, nodes, dao, executor);
     }
 }

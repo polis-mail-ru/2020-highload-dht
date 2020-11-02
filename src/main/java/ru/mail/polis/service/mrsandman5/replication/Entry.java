@@ -71,7 +71,7 @@ public final class Entry implements Comparable<Entry> {
     }
 
     /** Merge all Entries from nodes to single result node.
-     * @param values - collection of nodes' Entries.
+     * @param entries - collection of nodes' Entries.
      * @return target Entry.
      * */
     @NotNull
@@ -141,7 +141,7 @@ public final class Entry implements Comparable<Entry> {
      * @return target Entry.
      * */
     public static Entry entryFromBytes(@NotNull final ByteBuffer key,
-                                       @NotNull final DAOImpl dao) throws IOException {
+                                                          @NotNull final DAOImpl dao) throws IOException {
         final Iterator<Cell> cells = IteratorUtils.entryIterators(key, dao);
         if (!cells.hasNext()) {
             return Entry.absent();
