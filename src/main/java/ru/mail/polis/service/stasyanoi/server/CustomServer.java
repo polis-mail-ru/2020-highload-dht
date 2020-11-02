@@ -1,7 +1,5 @@
 package ru.mail.polis.service.stasyanoi.server;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -9,25 +7,18 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.javatuples.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.Util;
 import ru.mail.polis.service.stasyanoi.server.internal.FrameServer;
 
 import java.io.IOException;
-import java.net.ConnectException;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 
 public class CustomServer extends FrameServer {
@@ -309,18 +300,5 @@ public class CustomServer extends FrameServer {
             responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
-    }
-
-
-    private Response routeRequest(final Request request,
-                                 final int node,
-                                 final Map<Integer, String> nodeMapping) {
-        try {
-            HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
-            return Util.getOneNioResponse(asyncHttpClient.send(javaRequest,
-                    HttpResponse.BodyHandlers.ofByteArray()));
-        } catch (InterruptedException | IOException e) {
-            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
-        }
     }
 }

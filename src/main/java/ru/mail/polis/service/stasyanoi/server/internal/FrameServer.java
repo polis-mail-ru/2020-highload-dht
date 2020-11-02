@@ -11,6 +11,9 @@ import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -73,5 +76,17 @@ public class FrameServer extends PutDeleteGetMethodServer {
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
         return Util.responseWithNoBody(Response.OK);
+    }
+
+    protected Response routeRequest(final Request request,
+                                  final int node,
+                                  final Map<Integer, String> nodeMapping) {
+        try {
+            HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
+            return Util.getOneNioResponse(asyncHttpClient.send(javaRequest,
+                    HttpResponse.BodyHandlers.ofByteArray()));
+        } catch (InterruptedException | IOException e) {
+            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
     }
 }
