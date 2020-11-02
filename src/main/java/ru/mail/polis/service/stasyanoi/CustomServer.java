@@ -93,15 +93,17 @@ public class CustomServer extends HttpServer {
     public void get(final @Param("id") String idParam,
                     final HttpSession session,
                     final Request request) {
-        executorService.execute(() -> {
-            try {
-                getInternal(idParam, session, request);
-            } catch (IOException e) {
-                Util.sendErrorInternal(session, e);
-            } catch (RejectedExecutionException e) {
-                Util.send503Error(session);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    getInternal(idParam, session, request);
+                } catch (IOException e) {
+                    Util.sendErrorInternal(session, e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            Util.send503Error(session);
+        }
     }
 
     private void getInternal(final String idParam,
@@ -214,15 +216,19 @@ public class CustomServer extends HttpServer {
     public void delete(final @Param("id") String idParam,
                        final Request request,
                        final HttpSession session) {
-        executorService.execute(() -> {
-            try {
-                deleteInternal(idParam, request, session);
-            } catch (IOException e) {
-                Util.sendErrorInternal(session, e);
-            } catch (RejectedExecutionException e) {
-                Util.send503Error(session);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    deleteInternal(idParam, request, session);
+                } catch (IOException e) {
+                    Util.sendErrorInternal(session, e);
+                } catch (RejectedExecutionException e) {
+                    Util.send503Error(session);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            Util.send503Error(session);
+        }
     }
 
     private void deleteInternal(final String idParam,
