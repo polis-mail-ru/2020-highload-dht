@@ -31,6 +31,8 @@ plugins:
         enabled: false 
       DataClass:
         enabled: false
+      UselessParentheses:
+        enabled: false
   sonar-java:
     enabled: true
     config:
