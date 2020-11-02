@@ -92,7 +92,6 @@ public class CustomServer extends FrameServer {
     private void getRepInternal(final String idParam,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-        logger.info("This Node: " + nodeNum + " | Method Rep Get");
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -106,7 +105,6 @@ public class CustomServer extends FrameServer {
                              final HttpSession session,
                              final Request request) throws IOException {
         final Response responseHttp;
-        logger.info("This Node: " + nodeNum + " | Method " + request.getMethodName());
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -120,9 +118,6 @@ public class CustomServer extends FrameServer {
             responseHttp = getReplicaGetResponse(request,
                     tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
         }
-        logger.info("This Node: " + nodeNum + " |" + " Response: " + responseHttp.getStatus() +
-                " | Method: " + request.getMethodName());
-
         session.sendResponse(responseHttp);
     }
 
@@ -186,8 +181,6 @@ public class CustomServer extends FrameServer {
     private void putRepInternal(final String idParam, final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-        logger.info("This Node: " + nodeNum + " | Method Rep Put");
-
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -203,7 +196,6 @@ public class CustomServer extends FrameServer {
                              final HttpSession session) throws IOException {
 
         final Response responseHttp;
-        logger.info("This Node: " + nodeNum + " | Method " + request.getMethodName());
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -218,8 +210,6 @@ public class CustomServer extends FrameServer {
             responseHttp = getPutReplicaResponse(request, mappings,
                     responseHttpCurrent, super.port);
         }
-        logger.info("This Node: " + nodeNum + " |" + " Response: " + responseHttp.getStatus()
-                + " | Method: " + request.getMethodName());
         session.sendResponse(responseHttp);
     }
 
@@ -281,7 +271,6 @@ public class CustomServer extends FrameServer {
 
     private void deleteRepInternal(final String idParam, final HttpSession session) throws IOException {
         final Response responseHttp;
-        logger.info("This Node: " + nodeNum + " | Method Rep Delete");
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -295,7 +284,6 @@ public class CustomServer extends FrameServer {
     private void deleteInternal(final String idParam, final Request request,
                                 final HttpSession session) throws IOException {
         final Response responseHttp;
-        logger.info("This Node: " + nodeNum + " | Method " + request.getMethodName());
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
@@ -308,7 +296,6 @@ public class CustomServer extends FrameServer {
             responseHttp = getDeleteReplicaResponse(request, tempNodeMapping,
                     responseHttpCurrent, nodeMapping, super.port);
         }
-        logger.info("This Node: " + nodeNum + " |" + " Response: " + responseHttp.getStatus() + " | Method: " + request.getMethodName());
         session.sendResponse(responseHttp);
     }
 
@@ -329,7 +316,6 @@ public class CustomServer extends FrameServer {
                                  final int node,
                                  final Map<Integer, String> nodeMapping) {
         try {
-            logger.info("from " + nodeNum +" route to " + node);
             HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
             return Util.getOneNioResponse(asyncHttpClient.send(javaRequest,
                     HttpResponse.BodyHandlers.ofByteArray()));
