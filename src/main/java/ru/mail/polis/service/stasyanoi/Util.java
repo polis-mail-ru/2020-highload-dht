@@ -240,13 +240,13 @@ public final class Util {
         final String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
         final String uri = host + newPath;
         final String methodName = oneNioRequest.getMethodName();
-        final HttpRequest.Builder requestBuilder = builder.
-                timeout(Duration.ofSeconds(1))
+        final HttpRequest.Builder requestBuilder = builder
+                .timeout(Duration.ofSeconds(1))
                 .uri(URI.create(uri));
-        if (methodName.equalsIgnoreCase("GET")) {
+        if ("GET".equalsIgnoreCase(methodName)) {
             return requestBuilder.GET()
                     .build();
-        } else if (methodName.equalsIgnoreCase("PUT")) {
+        } else if ("PUT".equalsIgnoreCase(methodName)) {
             final HttpRequest.BodyPublisher bodyPublisher =
                     HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
             return requestBuilder.PUT(bodyPublisher)

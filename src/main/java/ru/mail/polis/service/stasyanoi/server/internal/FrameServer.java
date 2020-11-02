@@ -82,7 +82,7 @@ public class FrameServer extends PutDeleteGetMethodServer {
                                   final int node,
                                   final Map<Integer, String> nodeMapping) {
         try {
-            HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
+            final HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
             return Util.getOneNioResponse(asyncHttpClient.send(javaRequest,
                     HttpResponse.BodyHandlers.ofByteArray()));
         } catch (InterruptedException | IOException e) {
