@@ -267,7 +267,7 @@ public class CustomServer extends FrameServer {
         }
     }
 
-    private void deleteRepRun(String idParam, HttpSession session) {
+    private void deleteRepRun(final String idParam, final HttpSession session) {
         try {
             deleteRepInternal(idParam, session);
         } catch (IOException e) {
