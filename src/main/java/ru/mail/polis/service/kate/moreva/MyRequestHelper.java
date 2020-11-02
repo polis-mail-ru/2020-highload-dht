@@ -96,14 +96,15 @@ public class MyRequestHelper {
         Response response = null;
         long time = Long.MIN_VALUE;
         final List<Response> responses = new ArrayList<>(responseList);
-        for (final Response tmpResponse : responses) {
-            if (getTimestamp(tmpResponse) > time) {
-                time = getTimestamp(tmpResponse);
-                response = tmpResponse;
+            for (final Response tmpResponse : responses) {
+                if (getTimestamp(tmpResponse) > time) {
+                    time = getTimestamp(tmpResponse);
+                    response = tmpResponse;
+                }
             }
-        }
         return response;
     }
+
 
     /**
      * Returns response status.
