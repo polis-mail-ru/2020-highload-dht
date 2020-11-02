@@ -11,6 +11,7 @@ import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.server.CustomServer;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -45,7 +46,8 @@ public class ConstantsServer extends HttpServer {
         final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
         final Map<String, HttpClient> clients = new HashMap<>();
 
-        asyncHttpClient = java.net.http.HttpClient.newHttpClient();
+        asyncHttpClient = java.net.http.HttpClient.newBuilder()
+                .build();
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
             clients.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));

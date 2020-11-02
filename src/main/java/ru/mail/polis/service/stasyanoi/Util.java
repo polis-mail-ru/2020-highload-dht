@@ -20,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -239,17 +240,18 @@ public final class Util {
 
         String uri = host + newPath;
         String methodName = oneNioRequest.getMethodName();
+        HttpRequest.Builder requestBuilder = builder.timeout(Duration.ofSeconds(1));
         if (methodName.equalsIgnoreCase("GET")) {
-            return builder.GET()
+            return requestBuilder.GET()
                     .uri(URI.create(uri))
                     .build();
         } else if (methodName.equalsIgnoreCase("PUT")) {
             HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
-            return builder.PUT(bodyPublisher)
+            return requestBuilder.PUT(bodyPublisher)
                     .uri(URI.create(uri))
                     .build();
         } else {
-            return builder.DELETE()
+            return requestBuilder.DELETE()
                     .uri(URI.create(uri))
                     .build();
         }
