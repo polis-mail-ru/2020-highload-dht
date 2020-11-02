@@ -16,6 +16,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -56,7 +57,7 @@ public class NewService extends HttpServer implements Service {
     private final ExecutorService executorService;
     @NotNull
     private final Topology<String> topology;
-    
+
     @NotNull
     private final ReplicaFactor defaultReplicaFactor;
     @NotNull
@@ -70,15 +71,19 @@ public class NewService extends HttpServer implements Service {
      * @param topology топология
      * @throws IOException возможна ошибка при неправильных параметрах
      */
-    public NewService(final int port,
-                      @NotNull final DAO dao,
-                      @NotNull final Topology<String> topology) throws IOException {
+    public NewService(
+            final int port,
+            @NotNull final DAO dao,
+            @NotNull final Topology<String> topology) throws IOException {
         super(getConfigFrom(port));
         this.executorService = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
                 new ThreadFactoryBuilder().setNameFormat("worker-%d").build());
         this.topology = topology;
-        this.defaultReplicaFactor = ReplicaFactor.from(topology.all().size());
+
+        final Set<String> nodeSet = topology.all();
+        this.defaultReplicaFactor = ReplicaFactor.from(nodeSet.size());
+
         this.replicaWorker = new ReplicaWorker(
                 Executors.newFixedThreadPool(
                         Runtime.getRuntime().availableProcessors(),
@@ -129,6 +134,7 @@ public class NewService extends HttpServer implements Service {
             resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
+
         runExecutorService(httpSession, request, replicationFactor);
     }
 
@@ -172,7 +178,7 @@ public class NewService extends HttpServer implements Service {
         try {
             executorService.execute(() -> operation(httpSession, request, replicationFactor));
         } catch (RejectedExecutionException rejectedExecutionException) {
-            logger.error("Ошибка, превышен допустимый размер очередди задач ", rejectedExecutionException);
+            logger.error("Ошибка, превышен допустимый размер очереди задач: ", rejectedExecutionException);
             resp(httpSession, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
@@ -184,19 +190,19 @@ public class NewService extends HttpServer implements Service {
         final boolean alreadyProxied = request.getHeader(PROXY_HEADER) != null;
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                resp(httpSession,
-                        replicaWorker.getting(
-                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                replicaWorker.getting(
+                        httpSession,
+                        new MetaInfoRequest(request, replicationFactor, alreadyProxied));
                 break;
             case Request.METHOD_PUT:
-                resp(httpSession,
-                        replicaWorker.upserting(
-                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                replicaWorker.upserting(
+                        httpSession,
+                        new MetaInfoRequest(request, replicationFactor, alreadyProxied));
                 break;
             case Request.METHOD_DELETE:
-                resp(httpSession,
-                        replicaWorker.removing(
-                                new MetaInfoRequest(request, replicationFactor, alreadyProxied)));
+                replicaWorker.removing(
+                        httpSession,
+                        new MetaInfoRequest(request, replicationFactor, alreadyProxied));
                 break;
             default:
                 resp(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
@@ -204,7 +210,7 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
-    private void resp(
+    public static void resp(
             @NotNull final HttpSession httpSession,
             @NotNull final Response response) {
         try {
