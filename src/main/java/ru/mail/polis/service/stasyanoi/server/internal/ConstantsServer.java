@@ -34,7 +34,14 @@ public class ConstantsServer extends HttpServer {
     protected java.net.http.HttpClient asyncHttpClient;
     protected Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
-
+    /**
+     * Fields server.
+     *
+     * @param dao - dao.
+     * @param config - config.
+     * @param topology - topology.
+     * @throws IOException - IOException.
+     */
     public ConstantsServer(final DAO dao,
                            final HttpServerConfig config,
                            final Set<String> topology) throws IOException {

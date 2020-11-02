@@ -222,8 +222,8 @@ public final class Util {
      * @param javaResponse - response.
      * @return one nio response.
      */
-    public static Response getOneNioResponse(HttpResponse<byte[]> javaResponse) {
-        Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
+    public static Response getOneNioResponse(final HttpResponse<byte[]> javaResponse) {
+        final Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
         javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
         return response;
     }
@@ -235,26 +235,24 @@ public final class Util {
      * @param host - host.
      * @return - java net request.
      */
-    public static HttpRequest getJavaRequest(Request oneNioRequest, String host) {
-        HttpRequest.Builder builder = HttpRequest.newBuilder();
-
-        String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
-
-        String uri = host + newPath;
-        String methodName = oneNioRequest.getMethodName();
-        HttpRequest.Builder requestBuilder = builder.timeout(Duration.ofSeconds(1));
+    public static HttpRequest getJavaRequest(final Request oneNioRequest, final String host) {
+        final HttpRequest.Builder builder = HttpRequest.newBuilder();
+        final String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
+        final String uri = host + newPath;
+        final String methodName = oneNioRequest.getMethodName();
+        final HttpRequest.Builder requestBuilder = builder.
+                timeout(Duration.ofSeconds(1))
+                .uri(URI.create(uri));
         if (methodName.equalsIgnoreCase("GET")) {
             return requestBuilder.GET()
-                    .uri(URI.create(uri))
                     .build();
         } else if (methodName.equalsIgnoreCase("PUT")) {
-            HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
+            final HttpRequest.BodyPublisher bodyPublisher =
+                    HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
             return requestBuilder.PUT(bodyPublisher)
-                    .uri(URI.create(uri))
                     .build();
         } else {
             return requestBuilder.DELETE()
-                    .uri(URI.create(uri))
                     .build();
         }
     }

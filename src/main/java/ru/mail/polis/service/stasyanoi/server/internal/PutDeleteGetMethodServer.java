@@ -21,7 +21,6 @@ public class PutDeleteGetMethodServer extends DeleteGetMethodServer {
         super(dao, config, topology);
     }
 
-
     /**
      * Get put replicas.
      *
