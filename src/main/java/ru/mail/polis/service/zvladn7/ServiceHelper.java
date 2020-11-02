@@ -3,7 +3,6 @@ package ru.mail.polis.service.zvladn7;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.util.Utf8;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,10 +14,7 @@ import ru.mail.polis.service.zvladn7.bodyhandlers.GetBodyHandler;
 import ru.mail.polis.service.zvladn7.topology.Topology;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
-import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -31,11 +27,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
+import static ru.mail.polis.service.zvladn7.util.Bytes.toBytes;
+import static ru.mail.polis.service.zvladn7.util.Bytes.wrapArray;
+import static ru.mail.polis.service.zvladn7.util.Bytes.wrapString;
+import static ru.mail.polis.service.zvladn7.util.Nets.PROXY_REQUEST_HEADER;
+import static ru.mail.polis.service.zvladn7.util.Nets.TIMEOUT;
+import static ru.mail.polis.service.zvladn7.util.Nets.getBodyPublisher;
+import static ru.mail.polis.service.zvladn7.util.Nets.getChangeResponse;
+import static ru.mail.polis.service.zvladn7.util.Nets.requestBuilderFor;
+
 class ServiceHelper {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceHelper.class);
-    private static final String PROXY_REQUEST_HEADER = "X-Proxy-To-Node";
-    private static final int TIMEOUT = 500;
+    private static final String IO_EXCEPTION_ON_LOCAL_MESSAGE = "Can't execute local request";
 
     private final Topology<String> topology;
 
@@ -45,7 +49,6 @@ class ServiceHelper {
     private final DAO dao;
     @NotNull
     private final ExecutorService es;
-
 
     /**
      * Helper for asynchronous server implementation.
@@ -84,7 +87,7 @@ class ServiceHelper {
                 return getLocalValue(value);
             } catch (IOException e) {
                 log.error("Internal error. Can't get value with key: {}", id, e);
-                throw new RuntimeException("Error", e);
+                throw new RuntimeException(IO_EXCEPTION_ON_LOCAL_MESSAGE, e);
             } catch (NoSuchElementException e) {
                 log.info("Value with key: {} was not found", id, e);
                 return ResponseValue.absent();
@@ -116,12 +119,12 @@ class ServiceHelper {
         return responses;
     }
 
-    private CompletableFuture<Response> handleGetOrProxy(final ByteBuffer key,
-                                                         final Request request,
-                                                         final ReplicasHolder replicasHolder,
-                                                         final LocalExecutor<ResponseValue> localExecutor,
-                                                         final Resolver<ResponseValue> resolver) throws IOException {
-        final String id = request.getParameter("id=");
+    private CompletableFuture<Response> handleGetOrProxy(@NotNull final ByteBuffer key,
+                                                         @NotNull final Request request,
+                                                         @NotNull final ReplicasHolder replicasHolder,
+                                                         @NotNull final LocalExecutor<ResponseValue> localExecutor,
+                                                         @NotNull final Resolver<ResponseValue> resolver
+    ) throws IOException {
         final String header = request.getHeader(PROXY_REQUEST_HEADER);
         log.debug("Header: {}", header);
         final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
@@ -136,7 +139,7 @@ class ServiceHelper {
         }
         List<CompletableFuture<ResponseValue>> responses;
         responses = proxy(nodesForResponse, request.getMethodName(), GetBodyHandler.INSTANCE,
-                node -> requestBuilderFor(node, id).GET().build());
+                node -> requestBuilderFor(node, request.getParameter("id=")).GET().build());
         if (localResponse != null) {
             responses.add(localResponse);
         }
@@ -158,7 +161,7 @@ class ServiceHelper {
                 log.debug("Value successfully deleted!");
             } catch (IOException e) {
                 log.error("Internal error. Can't delete value with key: {}", id, e);
-                throw new RuntimeException("Error", e);
+                throw new RuntimeException(IO_EXCEPTION_ON_LOCAL_MESSAGE, e);
             }
             return Response.ACCEPTED;
         }, es);
@@ -182,7 +185,7 @@ class ServiceHelper {
                 log.debug("Value successfully upserted!");
             } catch (IOException e) {
                 log.error("Internal error. Can't insert or update value with key: {}", id, e);
-                throw new RuntimeException("Error", e);
+                throw new RuntimeException(IO_EXCEPTION_ON_LOCAL_MESSAGE, e);
             }
             return Response.CREATED;
         }, es);
@@ -203,13 +206,11 @@ class ServiceHelper {
                 .thenApplyAsync(v -> new Response(v.iterator().next(), Response.EMPTY), es);
     }
 
-
     private CompletableFuture<Response> handleChangeOrProxy(final ByteBuffer key,
                                                             final Request request,
                                                             final ReplicasHolder replicasHolder,
                                                             final LocalExecutor<String> localExecutor,
                                                             final Resolver<String> resolver) throws IOException {
-        final String id = request.getParameter("id=");
         final String header = request.getHeader(PROXY_REQUEST_HEADER);
         log.debug("Header: {}", header);
         final Set<String> nodesForResponse = topology.nodesForKey(key, replicasHolder.from);
@@ -226,7 +227,7 @@ class ServiceHelper {
         responses = proxy(nodesForResponse,
                 request.getMethodName(),
                 ChangeBodyHandler.INSTANCE,
-                node -> requestBuilderFor(node, id)
+                node -> requestBuilderFor(node, request.getParameter("id="))
                         .method(request.getMethodName(), getBodyPublisher(request))
                         .build());
         if (localResponse != null) {
@@ -236,32 +237,6 @@ class ServiceHelper {
         return resolver.resolve(replicasHolder.ack, responses);
     }
 
-    private static HttpRequest.BodyPublisher getBodyPublisher(@NotNull final Request request) {
-        switch (request.getMethodName()) {
-            case "PUT":
-                return BodyPublishers.ofByteArray(request.getBody());
-            case "DELETE":
-                return BodyPublishers.noBody();
-            default:
-                throw new IllegalArgumentException("Unknown method");
-        }
-    }
-
-    private static Response getChangeResponse(final String methodName) {
-        return new Response(getResponseStatus(methodName), Response.EMPTY);
-    }
-
-    private static String getResponseStatus(@NotNull final String methodName) {
-        switch (methodName) {
-            case "PUT":
-                return Response.CREATED;
-            case "DELETE":
-                return Response.ACCEPTED;
-            default:
-                throw new IllegalArgumentException("Unknown method");
-        }
-    }
-
     private static ResponseValue getLocalValue(@NotNull final Value value) {
         try {
             final byte[] body = toBytes(value.getData());
@@ -269,46 +244,6 @@ class ServiceHelper {
         } catch (DeletedValueException ex) {
             return ResponseValue.deleted(value.getTimestamp());
         }
-    }
-
-    private static HttpRequest.Builder requestBuilderFor(@NotNull final String node,
-                                                         @NotNull final String id) {
-        try {
-            return HttpRequest.newBuilder()
-                    .uri(provideURI(node, id))
-                    .timeout(Duration.ofMillis(TIMEOUT).dividedBy(2))
-                    .header(PROXY_REQUEST_HEADER, node);
-        } catch (URISyntaxException e) {
-            log.error("Cannot construct URI on proxy request building on node {} with id: {}", node, id);
-            throw new IllegalArgumentException("Failed to create URI", e);
-        }
-    }
-
-    private static URI provideURI(@NotNull final String node,
-                                  @NotNull final String id) throws URISyntaxException {
-        return new URI(node + "/v0/entity?id=" + id);
-    }
-
-    private static ByteBuffer wrapString(final String str) {
-        return ByteBuffer.wrap(toBytes(str));
-    }
-
-    private static ByteBuffer wrapArray(final byte[] arr) {
-        return ByteBuffer.wrap(arr);
-    }
-
-    private static byte[] toBytes(final String str) {
-        return Utf8.toBytes(str);
-    }
-
-    private static byte[] toBytes(final ByteBuffer value) {
-        if (value.hasRemaining()) {
-            final byte[] result = new byte[value.remaining()];
-            value.get(result);
-
-            return result;
-        }
-        return Response.EMPTY;
     }
 
 }

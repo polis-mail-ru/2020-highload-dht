@@ -7,7 +7,7 @@ import ru.mail.polis.service.zvladn7.ResponseValue;
 import java.net.http.HttpResponse;
 import java.util.concurrent.RejectedExecutionException;
 
-public class GetBodyHandler implements HttpResponse.BodyHandler<ResponseValue> {
+public final class GetBodyHandler implements HttpResponse.BodyHandler<ResponseValue> {
 
     public static final HttpResponse.BodyHandler<ResponseValue> INSTANCE = new GetBodyHandler();
     private static final int OK = 200;
@@ -17,7 +17,7 @@ public class GetBodyHandler implements HttpResponse.BodyHandler<ResponseValue> {
     }
 
     @Override
-    public HttpResponse.BodySubscriber<ResponseValue> apply(HttpResponse.ResponseInfo responseInfo) {
+    public HttpResponse.BodySubscriber<ResponseValue> apply(final HttpResponse.ResponseInfo responseInfo) {
         switch (responseInfo.statusCode()) {
             case OK:
                 return HttpResponse.BodySubscribers.mapping(

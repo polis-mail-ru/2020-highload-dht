@@ -1,6 +1,5 @@
 package ru.mail.polis.service.zvladn7;
 
-import com.google.common.primitives.Longs;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,36 +41,27 @@ final class ConflictResolver {
         final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> resultFuture = new CompletableFuture<>();
         final AtomicInteger successes = new AtomicInteger(ack);
-        final AtomicInteger failures = new AtomicInteger(futures.size() - ack  + 1);
-        futures.forEach(nextFuture -> nextFuture.whenCompleteAsync((v, t) -> {
-            if (t == null) {
-                results.add(v);
-                log.info("Success");
-                if (successes.decrementAndGet() == 0) {
-                    resultFuture.complete(results);
+        final AtomicInteger failures = new AtomicInteger(futures.size() - ack + 1);
+        futures.forEach(nextFuture -> {
+            if (nextFuture.whenCompleteAsync((v, t) -> {
+                if (t == null) {
+                    results.add(v);
+                    log.info("Success");
+                    if (successes.decrementAndGet() == 0) {
+                        resultFuture.complete(results);
+                    }
+                } else {
+                    log.error("Exception");
+                    if (failures.decrementAndGet() == 0) {
+                        resultFuture.completeExceptionally(new IllegalStateException("Not enough replicas to respond"));
+                    }
                 }
-            } else {
-                log.error("Exception");
-                if (failures.decrementAndGet() == 0) {
-                    resultFuture.completeExceptionally(new IllegalStateException("Not enough replicas to respond"));
-                }
+            }).isCancelled()) {
+                log.error("Cannot resolve success or failure");
             }
-        }));
+        });
 
         return resultFuture;
     }
 
-    private static long getResponseTimestamp(@NotNull final ResponseValue value) {
-        final byte[] body = value.getBody();
-        if (body.length == 0) {
-            return -1;
-        }
-        if (value.getState() == ResponseValue.State.ACTIVE) {
-            final byte[] timestampBytes = new byte[Long.BYTES];
-            System.arraycopy(body, body.length - Long.BYTES, timestampBytes, 0, Long.BYTES);
-            return Longs.fromByteArray(timestampBytes);
-        } else {
-            return Longs.fromByteArray(body);
-        }
-    }
 }

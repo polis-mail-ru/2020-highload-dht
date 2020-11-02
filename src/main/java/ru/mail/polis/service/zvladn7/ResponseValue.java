@@ -10,11 +10,11 @@ public final class ResponseValue {
 
     private static final int NO_TIMESTAMP_VALUE = -1;
 
-    private long timpestamp;
+    private final long timpestamp;
     @NotNull
-    private byte[] body;
+    private final byte[] body;
     @NotNull
-    private State state;
+    private final State state;
 
     private ResponseValue(final long timpestamp,
                           @NotNull final byte[] body,
@@ -24,21 +24,11 @@ public final class ResponseValue {
         this.state = state;
     }
 
-    public long getTimpestamp() {
+    long getTimpestamp() {
         return timpestamp;
     }
 
-    @NotNull
-    public byte[] getBody() {
-        return body;
-    }
-
-    @NotNull
-    public State getState() {
-        return state;
-    }
-
-    public static ResponseValue active(final long timestamp, final byte[] body) {
+    public static ResponseValue active(final long timestamp, @NotNull final byte[] body) {
         return new ResponseValue(timestamp, body, State.ACTIVE);
     }
 
@@ -50,15 +40,16 @@ public final class ResponseValue {
         return new ResponseValue(NO_TIMESTAMP_VALUE, Response.EMPTY, State.ABSENT);
     }
 
-    static Response toProxyResponse(final ResponseValue value) {
+    static Response toProxyResponse(@NotNull final ResponseValue value) {
         return toResponse(value, ResponseValue::proxyResponse);
     }
 
-    static Response toResponse(final ResponseValue value) {
+    static Response toResponse(@NotNull final ResponseValue value) {
         return toResponse(value, v -> Response.ok(v.body));
     }
 
-    private static Response toResponse(final ResponseValue value, final Function<ResponseValue, Response> responseProvider) {
+    private static Response toResponse(@NotNull final ResponseValue value,
+                                       @NotNull final Function<ResponseValue, Response> responseProvider) {
         switch (value.state) {
             case ACTIVE:
                 return responseProvider.apply(value);
@@ -66,11 +57,12 @@ public final class ResponseValue {
                 return new Response(Response.NOT_FOUND, Longs.toByteArray(value.timpestamp));
             case ABSENT:
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
+            default:
+                throw new IllegalStateException("Unknown value response value state");
         }
-        throw new IllegalStateException("Unknown value response value state");
     }
 
-    private static Response proxyResponse(final ResponseValue value) {
+    private static Response proxyResponse(@NotNull final ResponseValue value) {
         final byte[] responesBody = new byte[value.body.length + Long.BYTES];
         System.arraycopy(value.body, 0, responesBody, 0, value.body.length);
         System.arraycopy(

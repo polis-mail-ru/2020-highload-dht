@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 
 public class AsyncService extends HttpServer implements Service {
 
-
     private static final String ERROR_SENDING_RESPONSE = "Error when sending response";
     private static final String ERROR_SERVICE_UNAVAILABLE = "Cannot send SERVICE_UNAVAILABLE response";
     private static final Logger log = LoggerFactory.getLogger(AsyncService.class);
@@ -90,7 +89,7 @@ public class AsyncService extends HttpServer implements Service {
      * 3. 404 if value with id was not found
      * 4. 500 if some io error was happened
      *
-     * @param id - String
+     * @param id       - String
      * @param replicas - replication factor
      */
     @Path("/v0/entity")
@@ -115,7 +114,7 @@ public class AsyncService extends HttpServer implements Service {
      * 2. 400 if id is empty
      * 3. 500 if some io error was happened
      *
-     * @param id - String
+     * @param id       - String
      * @param replicas - replication factor
      */
     @Path("/v0/entity")
@@ -140,7 +139,7 @@ public class AsyncService extends HttpServer implements Service {
      * 2. 400 if id is empty
      * 3. 500 if some io error was happened
      *
-     * @param id - String
+     * @param id       - String
      * @param replicas - replication factor
      */
     @Path("/v0/entity")
@@ -155,7 +154,8 @@ public class AsyncService extends HttpServer implements Service {
                 session,
                 id,
                 request.getMethodName(),
-                replicas);    }
+                replicas);
+    }
 
     @Override
     public synchronized void stop() {
@@ -215,7 +215,7 @@ public class AsyncService extends HttpServer implements Service {
 
     private void respond(@NotNull final HttpSession session,
                          @NotNull final CompletableFuture<Response> future) {
-        future.whenCompleteAsync((r, t) -> {
+        if (future.whenCompleteAsync((r, t) -> {
             try {
                 if (t == null) {
                     session.sendResponse(r);
@@ -231,7 +231,9 @@ public class AsyncService extends HttpServer implements Service {
             } catch (IOException e) {
                 log.error("Cannot send response: {}", r, e);
             }
-        });
+        }).isCancelled())  {
+            log.error("Canceled request");
+        }
     }
 
     private static boolean isInvalidReplicationFactor(@NotNull final ReplicasHolder replicasHolder) {
