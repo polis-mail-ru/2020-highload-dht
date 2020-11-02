@@ -44,7 +44,6 @@ public class ReplicationController {
     public Response replGet(final String id, @NotNull final ReplicationFactor replFactor,
                             final boolean isForwarded) throws IOException {
         int replicas = 0;
-//        final String[]  = getNodeReplica(id, replFactor, isForwarded);
         final String[] nodes = isForwarded ? new String[]{topology.getCurrentNode()}
                 : topology.replicasFor(wrapId(id), replFactor.getFrom());
         final List<TimestampDataWrapper> values = new ArrayList<>();

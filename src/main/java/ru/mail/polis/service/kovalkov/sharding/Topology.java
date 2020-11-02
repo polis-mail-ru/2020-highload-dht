@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 
 public interface Topology<I> {
     @NotNull
-    I identifyByKey(@NotNull ByteBuffer key);
+    I identifyByKey(@NotNull byte[] key);
 
     @NotNull
     I[] replicasFor(@NotNull ByteBuffer key, int replicas);

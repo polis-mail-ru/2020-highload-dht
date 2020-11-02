@@ -42,9 +42,10 @@ import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
+    public static final String TIMEOUT = "?timeout=1000";
     private static final String IO_EX = "IO exception. Internal error response";
     private static final Logger log = LoggerFactory.getLogger(ReplicationServiceImpl.class);
-    private final Map<String, HttpClient> nodesClient = new HashMap<>();
+    private final Map<String, HttpClient> nodesClient = new HashMap<>(3);
     private final Topology<String> topology;
     private final ExecutorService service;
     private final DAO dao;
@@ -71,8 +72,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                         .build());
         for (final String n: topology.allNodes()) {
             if (!topology.isMe(n) && !this.nodesClient.containsKey(n)) {
-                final HttpClient client = new HttpClient(new ConnectionString(n + "?timeout=1000"));
-                this.nodesClient.put(n, client);
+                this.nodesClient.put(n, new HttpClient(new ConnectionString(n + TIMEOUT)));
             }
         }
         this.replFactor = new ReplicationFactor(topology.nodeCount() / 2 + 1, topology.nodeCount());
@@ -153,13 +153,14 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     public void entity(@Param(value = "id",required = true) @NotNull final String id, @NotNull final Request request,
                        @NotNull final HttpSession session, @Param("replicas") final String replicas)  {
         try {
-            checkIdAndReturnTargetNode(id, session);
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+            if (id.isEmpty()) {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            }
             final boolean isForwarded = request.getHeader("X-OK-Proxy: True") != null;
             final ReplicationFactor replicationFactor = ReplicationFactor
                     .getReplicationFactor(replicas, replFactor, session);
             if (topology.nodeCount() == 1) {
-                singleNodeExec(request, session, key, id);
+                singleNodeExec(request, session, id);
             } else {
                 noSingleNodeExec(request, session, id, isForwarded, replicationFactor);
             }
@@ -170,8 +171,10 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
 
     private void singleNodeExec(@NotNull final Request request,
                                 @NotNull final HttpSession session,
-                                @NotNull final ByteBuffer key, @NotNull final String id) throws IOException {
-        final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
+                                @NotNull final String id) throws IOException {
+        final byte[] bytesId = id.getBytes(UTF_8);
+        final ByteBuffer key = ByteBuffer.wrap(bytesId);
+        final String ownerNode = topology.identifyByKey(bytesId);
         if (topology.isMe(ownerNode)) {
             switch (request.getMethod()) {
                 case METHOD_GET:
@@ -196,41 +199,45 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private void noSingleNodeExec(@NotNull final Request request, @NotNull final HttpSession session,
                                   @NotNull String id, final boolean isForwarded,
                                   @NotNull final ReplicationFactor replicationFactor) throws IOException {
-        final String ownerNode = topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
+        final String ownerNode = topology.identifyByKey(id.getBytes(UTF_8));
         if (topology.isMe(ownerNode)) {
-            switch (request.getMethod()) {
-                case METHOD_GET:
-                    service.execute(() -> {
-                        try {
-                            session.sendResponse(controller.replGet(id, replicationFactor, isForwarded));
-                        } catch (IOException e) {
-                            exceptionIOHandler(session, "IO exception in repl get", e);
-                        }
-                    });
-                    break;
-                case METHOD_PUT:
+            try {
+                switch (request.getMethod()) {
+                    case METHOD_GET:
                         service.execute(() -> {
                             try {
-                                session.sendResponse(controller.replPut(id,
-                                         isForwarded, request.getBody(), replicationFactor.getAck()));
+                                session.sendResponse(controller.replGet(id, replicationFactor, isForwarded));
                             } catch (IOException e) {
-                                exceptionIOHandler(session, "IO exception in repl put", e);
+                                exceptionIOHandler(session, "IO exception in repl get", e);
                             }
                         });
-                    break;
-                case METHOD_DELETE:
-                    service.execute(() -> {
-                        try {
-                            session.sendResponse(controller.replDelete(id, isForwarded, replicationFactor.getAck()));
-                        } catch (IOException e) {
-                            exceptionIOHandler(session, "IO exception in repl delete", e);
-                        }
-                    });
-                    break;
-                default:
-                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                    log.info("Unsupported method");
-                    break;
+                        break;
+                    case METHOD_PUT:
+                            service.execute(() -> {
+                                try {
+                                    session.sendResponse(controller.replPut(id,
+                                             isForwarded, request.getBody(), replicationFactor.getAck()));
+                                } catch (IOException e) {
+                                    exceptionIOHandler(session, "IO exception in repl put", e);
+                                }
+                            });
+                        break;
+                    case METHOD_DELETE:
+                        service.execute(() -> {
+                            try {
+                                session.sendResponse(controller.replDelete(id, isForwarded, replicationFactor.getAck()));
+                            } catch (IOException e) {
+                                exceptionIOHandler(session, "IO exception in repl delete", e);
+                            }
+                        });
+                        break;
+                    default:
+                        session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                        log.info("Unsupported method");
+                        break;
+                }
+            } catch (final RejectedExecutionException e) {
+                log.error("rejected in multiple", e);
             }
         } else {
             proxyForwarding(request, session, ownerNode);
@@ -247,34 +254,36 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
+        try {
+            service.execute(() -> {
                 getInternal(id, session);
-            } catch (IOException e) {
-                exceptionIOHandler(session, "Method get. IO exception. ", e);
-            } catch (RejectedExecutionException e) {
-                log.error("Rejected  exception: ", e);
-                try {
-                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-                } catch (IOException e1) {
-                    log.error("IO exception when send 503 response: ", e1);
-                }
-            } catch (NoSuchElementException e) {
-                log.info("Method get. Can't find value by this key ", e);
-                try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("Method get. Id is empty. Can't send response:", e);
-                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Rejected single get", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (IOException e1) {
+                log.error("IO exception when send 503 response: ", e1);
             }
-        });
+        }
     }
 
     private void getInternal(@NotNull final ByteBuffer key,
-                             @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer value = dao.get(key);
-        final byte[] bytes = BufferConverter.unfoldToBytes(value);
-        session.sendResponse(Response.ok(bytes));
+                             @NotNull final HttpSession session) {
+        try {
+            final ByteBuffer value = dao.get(key);
+            final byte[] bytes = BufferConverter.unfoldToBytes(value);
+            session.sendResponse(Response.ok(bytes));
+        } catch (IOException e) {
+            exceptionIOHandler(session, "Method get. IO exception. ", e);
+        } catch (NoSuchElementException e) {
+            log.info("Method get. Can't find value by this key ", e);
+            try {
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error("Method get. Id is empty. Can't send response:", e);
+            }
+        }
     }
 
     private void asyncPut(@NotNull final ByteBuffer id,
@@ -312,18 +321,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
-    /**
-     * Checking id, and get data owner.
-     *
-     * @param id - key of data
-     * @param session - current session
-     * @return - data owner
-     */
-    private void checkIdAndReturnTargetNode(final String id, @NotNull final HttpSession session) throws IOException {
-        if (id.isEmpty()) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-        }
-    }
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {

@@ -22,7 +22,6 @@ public final class RecordIterator implements Iterator<Record>, AutoCloseable {
     }
 
     @Override
-    @NotNull
     public Record next() throws IllegalStateException {
         if (!hasNext())throw new IllegalStateException("No further");
         final byte[] bytesKey = rocksIterator.key();

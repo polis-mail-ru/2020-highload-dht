@@ -5,8 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -16,6 +18,7 @@ public class RendezvousHashingImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(RendezvousHashingImpl.class);
     private final String[] allNodes;
     private final String currentNode;
+    final List<Integer> nodeHashes;
 
     /**
      * Constructor for modular topology implementation.
@@ -32,21 +35,21 @@ public class RendezvousHashingImpl implements Topology<String> {
         this.allNodes = new String[allNodes.size()];
         allNodes.toArray(this.allNodes);
         Arrays.sort(this.allNodes);
+        this.nodeHashes = new ArrayList<>();
+        for (final String node: this.allNodes) {
+            nodeHashes.add(murmur3_32().newHasher().putString(node, StandardCharsets.UTF_8).hash().hashCode());
+        }
     }
 
     @NotNull
     @Override
-    public String identifyByKey(@NotNull final ByteBuffer key) {
-        final byte[] keyBytes = new byte[key.remaining()];
-        key.duplicate().get(keyBytes).clear();
-        final Map<Integer,String> nodesAndHashes = new TreeMap<>();
-        for (final String allNode : allNodes) {
-            nodesAndHashes.put(
-                    murmur3_32().newHasher().putInt(allNode
-                            .chars().sum()).putBytes(keyBytes).hash().hashCode(), allNode);
+    public String identifyByKey(final byte[] key) {
+        final TreeMap<Integer,String> nodesAndHashes = new TreeMap<>();
+        for (int i = 0; i < allNodes.length; i++) {
+            nodesAndHashes.put(nodeHashes.get(i)
+                    + murmur3_32().newHasher().putBytes(key).hash().hashCode(), allNodes[i]);
         }
-        final String ownerNode = nodesAndHashes.get(nodesAndHashes.keySet()
-                .stream().findFirst().orElse(null));
+        final String ownerNode = nodesAndHashes.firstEntry().getValue();
         if (ownerNode == null) {
             log.error("Hash is null");
             throw new IllegalStateException("Hash code can't be equals null");

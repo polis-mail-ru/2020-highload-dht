@@ -85,7 +85,6 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
         acceptorConfig.reusePort = true;
         final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.queueTime = 10;
-        httpServerConfig.maxWorkers = Runtime.getRuntime().availableProcessors();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -149,8 +148,9 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     public void entity(@Param(value = "id",required = true) @NotNull final String id,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
-        final String ownerNode = checkIdAndReturnTargetNode(id, session);
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(UTF_8));
+        final byte[] idBytes = id.getBytes(UTF_8);
+        final String ownerNode = checkIdAndReturnTargetNode(idBytes, session);
+        final ByteBuffer key = ByteBuffer.wrap(idBytes);
         if (topology.isMe(ownerNode)) {
             try {
                 switch (request.getMethod()) {
@@ -188,34 +188,36 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
     }
 
     private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
+        try {
+            service.execute(() -> {
                 getInternal(id, session);
-            } catch (IOException e) {
-                exceptionIOHandler(session, "Method get. IO exception. ", e);
-            } catch (RejectedExecutionException e) {
-                log.error("Rejected  exception: ", e);
-                try {
-                    session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-                } catch (IOException e1) {
-                    log.error("IO exception when send 503 response: ", e1);
-                }
-            } catch (NoSuchElementException e) {
-                log.info("Method get. Can't find value by this key ", e);
-                try {
-                    session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-                } catch (IOException ioException) {
-                    log.error("Method get. Id is empty. Can't send response:", e);
-                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("Rejected  exception: ", e);
+            try {
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            } catch (IOException e1) {
+                log.error("IO exception when send 503 response: ", e1);
             }
-        });
+        }
     }
 
     private void getInternal(@NotNull final ByteBuffer key,
-                             @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer value = dao.get(key);
-        final byte[] bytes = BufferConverter.unfoldToBytes(value);
-        session.sendResponse(Response.ok(bytes));
+                             @NotNull final HttpSession session) {
+        try {
+            final ByteBuffer value = dao.get(key);
+            final byte[] bytes = BufferConverter.unfoldToBytes(value);
+            session.sendResponse(Response.ok(bytes));
+        } catch (IOException e) {
+            exceptionIOHandler(session, "Method get. IO exception. ", e);
+        } catch (NoSuchElementException e) {
+            log.info("Method get. Can't find value by this key ", e);
+            try {
+                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ioException) {
+                log.error("Method get. Id is empty. Can't send response:", e);
+            }
+        }
     }
 
     private void asyncPut(@NotNull final ByteBuffer id,
@@ -260,15 +262,15 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
      * @param session - current session
      * @return - data owner
      */
-    private String checkIdAndReturnTargetNode(final String id, @NotNull final HttpSession session) {
-        if (id.isEmpty()) {
+    private String checkIdAndReturnTargetNode(final byte[] bytesid, @NotNull final HttpSession session) {
+        if (bytesid.length == 0) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
                 log.error("Method has empty id. IO exception in mapping occurred. ", e);
             }
         }
-        return topology.identifyByKey(ByteBuffer.wrap(id.getBytes(UTF_8)));
+        return topology.identifyByKey(bytesid);
     }
 
     @Override
