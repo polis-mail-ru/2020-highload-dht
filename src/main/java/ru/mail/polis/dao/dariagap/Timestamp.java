@@ -5,13 +5,33 @@ import ru.mail.polis.util.Util;
 import java.nio.ByteBuffer;
 
 public class Timestamp {
-    public static final Byte STATE_DATA = 0;
-    public static final Byte STATE_DELETED = -1;
-    public static final Byte STATE_UNKNOWN = -2;
+    public enum State {
+        DATA((byte) 0), DELETED((byte) -1), UNKNOWN((byte) -2);
+        private final byte code;
+
+        State(final byte code) {
+            this.code = code;
+        }
+
+        public byte getCode() {
+            return code;
+        }
+
+        private static State fromCode(final byte code) {
+            switch (code) {
+                case 0:
+                    return DATA;
+                case -1:
+                    return DELETED;
+                default:
+                    return UNKNOWN;
+            }
+        }
+    }
 
     private final byte[] data;
-    private final Long timestampValue;
-    private final Byte state;
+    private final long timestampValue;
+    private final State state;
 
     /**
      * Create a Timestamp instance with data, timestampValue and data state.
@@ -20,9 +40,9 @@ public class Timestamp {
      * @param timestampValue - timestamp of data updating
      * @param state - correct data or deleted data
      */
-    public Timestamp(final byte[] data, final Long timestampValue, final Byte state) {
+    public Timestamp(final byte[] data, final long timestampValue, final State state) {
         if (data == null) {
-            this.data = null;
+            this.data = new byte[0];
         } else {
             this.data = data.clone();
         }
@@ -35,19 +55,11 @@ public class Timestamp {
      */
     public byte[] getTimestampData() {
         final ByteBuffer buffer;
-        final Integer dataLength;
-        if (isDataNotEmpty()) {
-            dataLength = data.length;
-        } else {
-            dataLength = 0;
-        }
-        buffer = ByteBuffer.allocate(dataLength + Long.BYTES + Byte.BYTES);
+        buffer = ByteBuffer.allocate(data.length + Long.BYTES + Byte.BYTES);
         buffer.mark();
         buffer.putLong(timestampValue);
-        buffer.put(state);
-        if (isDataNotEmpty()) {
-            buffer.put(data);
-        }
+        buffer.put(state.getCode());
+        buffer.put(data);
         buffer.reset();
         return Util.byteBufferToBytes(buffer);
     }
@@ -58,33 +70,22 @@ public class Timestamp {
      * @param buffer - packed timestampValue, state and data
      */
     public static Timestamp getTimestampByData(final ByteBuffer buffer) {
-        final Long timestamp = buffer.getLong();
-        final Byte state = buffer.get();
-        return new Timestamp(Util.byteBufferToBytes(buffer),timestamp,state);
+        final long timestamp = buffer.getLong();
+        final byte state = buffer.get();
+        return new Timestamp(Util.byteBufferToBytes(buffer),
+                timestamp,
+                State.fromCode(state));
     }
 
-    private Boolean isDataNotEmpty() {
-        if (this.data == null) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * returns "data" field.
-     */
     public byte[] getData() {
-        if (isDataNotEmpty()) {
-            return data.clone();
-        }
-        return new byte[0];
+        return data.clone();
     }
 
-    public Long getTimestampValue() {
+    public long getTimestampValue() {
         return timestampValue;
     }
 
-    public Byte getState() {
+    public State getState() {
         return state;
     }
 }

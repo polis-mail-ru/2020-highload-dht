@@ -44,8 +44,9 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private final ExecutorService exec;
     private final Set<String> topology;
     private final Map<String,HttpClient> clients;
-    private final Logger log = LoggerFactory.getLogger(ClusterServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ClusterServiceImpl.class);
     private final String thisNode;
+    private final Replicas defaultReplicas;
 
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
 
@@ -72,8 +73,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
             @NotNull final int queueSize,
             @NotNull final Set<String> topology,
             @NotNull final int timeout) throws IOException {
-        super(formConfig(port));
-        HttpClient client;
+        super(newConfig(port));
         this.dao = dao;
         this.exec = new ThreadPoolExecutor(
                 executors,
@@ -88,6 +88,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
         this.clients = new HashMap<>();
         this.topology = topology;
         this.thisNode = "http://localhost:" + this.port;
+        HttpClient client;
         for (final String s: topology) {
             if (!isCurrentNode(s)) {
                 client = new HttpClient(new ConnectionString(s));
@@ -95,13 +96,14 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                 this.clients.put(s,client);
             }
         }
+        this.defaultReplicas = new Replicas(topology.size());
     }
 
     private Boolean isCurrentNode(final String node) {
         return node.equals(this.thisNode);
     }
 
-    private static HttpServerConfig formConfig(final int port) {
+    private static HttpServerConfig newConfig(final int port) {
         final HttpServerConfig conf = new HttpServerConfig();
         final AcceptorConfig ac = new AcceptorConfig();
         ac.port = port;
@@ -154,7 +156,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
         final Set<String> requestNodes;
         final Response response;
         final Replicas replicasInfo = (replicas == null)
-                ? new Replicas(topology.size()) : new Replicas(replicas);
+                ? defaultReplicas : new Replicas(replicas);
         if (id.isEmpty() || replicasInfo.getAsk() <= 0
                 || replicasInfo.getAsk() > replicasInfo.getFrom()) {
             response = new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -172,30 +174,25 @@ public class ClusterServiceImpl extends HttpServer implements Service {
                 }
             }
             response = replicasInfo.formFinalResponse(request.getMethod());
+            replicasInfo.clean();
         }
         return response;
     }
 
     private Response getResponseFromCurrent(final Request request, final String id) {
-        final Response response;
         switch (request.getMethod()) {
             case METHOD_GET:
-                response = getSync(id);
-                break;
+                return getSync(id);
             case METHOD_PUT:
-                response = putSync(id, request.getBody());
-                break;
+                return putSync(id, request.getBody());
             case METHOD_DELETE:
-                response = deleteSync(id);
-                break;
+                return deleteSync(id);
             default:
                 log.error("Unknown method");
-                response = new Response(
+                return new Response(
                         Response.METHOD_NOT_ALLOWED,
                         Response.EMPTY);
-                break;
         }
-        return response;
     }
 
     private void sendResponse(final HttpSession session, final Response response) {
@@ -208,8 +205,9 @@ public class ClusterServiceImpl extends HttpServer implements Service {
 
     private Response proxy(final HttpClient client, final Request request) {
         try {
-            request.addHeader(PROXY_HEADER);
-            return client.invoke(request);
+            final Request proxyRequest = new Request(request);
+            proxyRequest.addHeader(PROXY_HEADER);
+            return client.invoke(proxyRequest);
         } catch (IOException | InterruptedException | HttpException | PoolException e) {
             log.error(PROXY_ERROR, e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);

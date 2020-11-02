@@ -20,15 +20,15 @@ public class Replicas {
     private final int from;
     private int answers;
     private byte[] freshData = Response.EMPTY;
-    private Long freshTimestamp = 0L;
-    private Byte freshState = Timestamp.STATE_UNKNOWN;
+    private long freshTimestamp;
+    private Timestamp.State freshState = Timestamp.State.UNKNOWN;
 
-    private final Logger log = LoggerFactory.getLogger(Replicas.class);
+    private static final Logger log = LoggerFactory.getLogger(Replicas.class);
 
-    private static final Integer STATUS_OK = 200;
-    private static final Integer STATUS_CREATED = 201;
-    private static final Integer STATUS_ACCEPTED = 202;
-    private static final Integer STATUS_NOT_FOUND = 404;
+    private static final int STATUS_OK = 200;
+    private static final int STATUS_CREATED = 201;
+    private static final int STATUS_ACCEPTED = 202;
+    private static final int STATUS_NOT_FOUND = 404;
 
     /**
      * Config "ask" and "from" from query-parameter "replicas".
@@ -102,9 +102,8 @@ public class Replicas {
     }
 
     private Response formGetResponse() {
-        if (freshData.length == 0
-                && (freshState.equals(Timestamp.STATE_DELETED)
-                || freshState.equals(Timestamp.STATE_UNKNOWN))) {
+        if (freshState == Timestamp.State.DELETED
+                || freshState == Timestamp.State.UNKNOWN) {
             log.error("No data founded in replicas to sent to client");
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
@@ -127,5 +126,15 @@ public class Replicas {
             log.error("Not enough replicas returned answers");
             return new Response("504", "Not Enough Replicas".getBytes(UTF_8));
         }
+    }
+
+    /**
+     * Clean fields "answers", "freshData", "freshTimestamp", "freshState" to initial values.
+     */
+    public void clean() {
+        answers = 0;
+        freshData = Response.EMPTY;
+        freshTimestamp = 0L;
+        freshState = Timestamp.State.UNKNOWN;
     }
 }
