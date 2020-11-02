@@ -9,9 +9,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class ResponseAnalyzer<V> {
 
-    protected final Lock innerLock;
-    protected final Lock outerLock;
-    protected final Condition outerCondition;
+    protected final Lock lock;
+    protected final Condition condition;
 
     protected final int neededReplicasCount;
     protected final int totalReplicasCount;
@@ -31,9 +30,8 @@ public abstract class ResponseAnalyzer<V> {
         this.neededReplicasCount = neededReplicasCount;
         this.totalReplicasCount = totalReplicasCount;
 
-        this.innerLock = new ReentrantLock();
-        this.outerLock = new ReentrantLock();
-        this.outerCondition = outerLock.newCondition();
+        this.lock = new ReentrantLock();
+        this.condition = lock.newCondition();
 
         this.answeredCount = 0;
         this.failedCount = 0;
@@ -48,14 +46,14 @@ public abstract class ResponseAnalyzer<V> {
      * @param response - the analyzed response.
      */
     public final void accept(final Response response) {
-        innerLock.lock();
+        lock.lock();
         try {
             privateAccept(response);
             if (hasEnoughAnswers()) {
                 signalAll();
             }
         } finally {
-            innerLock.unlock();
+            lock.unlock();
         }
     }
 
@@ -64,14 +62,14 @@ public abstract class ResponseAnalyzer<V> {
      * @param v - the analyzed value.
      */
     public final void accept(final V v) {
-        innerLock.lock();
+        lock.lock();
         try {
             privateAccept(v);
             if (hasEnoughAnswers()) {
                 signalAll();
             }
         } finally {
-            innerLock.unlock();
+            lock.unlock();
         }
     }
 
@@ -82,16 +80,16 @@ public abstract class ResponseAnalyzer<V> {
      * @throws InterruptedException if the wait is interrupted.
      */
     public final void await(final long l, final TimeUnit timeUnit) throws InterruptedException {
-        outerLock.lock();
+        lock.lock();
         try {
             while (!hasEnoughAnswers()) {
-                final boolean timeIsOut = !outerCondition.await(l, timeUnit);
+                final boolean timeIsOut = !condition.await(l, timeUnit);
                 if (timeIsOut) {
                     break;
                 }
             }
         } finally {
-            outerLock.unlock();
+            lock.unlock();
         }
     }
 
@@ -100,11 +98,11 @@ public abstract class ResponseAnalyzer<V> {
      * @return correct response to send.
      */
     public final Response getResult() {
-        innerLock.lock();
+        lock.lock();
         try {
             return privateGetResult();
         } finally {
-            innerLock.unlock();
+            lock.unlock();
         }
     }
 
@@ -112,11 +110,11 @@ public abstract class ResponseAnalyzer<V> {
      * Send a signal to everyone waiting for the results to be processed.
      */
     protected void signalAll() {
-        outerLock.lock();
+        lock.lock();
         try {
-            outerCondition.signalAll();
+            condition.signalAll();
         } finally {
-            outerLock.unlock();
+            lock.unlock();
         }
     }
 

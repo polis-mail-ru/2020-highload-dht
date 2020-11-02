@@ -67,7 +67,21 @@ public class ServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-        this.responseManager = new ResponseManager(dao, topology, proxyTimeoutValue, executorService);
+
+        final ThreadPoolExecutor proxyExecutor = new ThreadPoolExecutor(
+                workersCount,
+                workersCount,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("proxy-worker-%d")
+                        .setUncaughtExceptionHandler((t, e) -> log.error("{}: uncaught exception", t, e))
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
+
+        this.responseManager = new ResponseManager(dao, topology, proxyTimeoutValue, proxyExecutor);
         this.defaultAck = topology.getQuorumCount();
         this.defaultFrom = topology.size();
         this.nodesCount = topology.size();
