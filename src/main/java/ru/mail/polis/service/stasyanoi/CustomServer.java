@@ -160,15 +160,17 @@ public class CustomServer extends HttpServer {
 
     private void runPut(final String idParam, final Request request, final HttpSession session) {
 
-        executorService.execute(() -> {
-            try {
-                putInternal(idParam, request, session);
-            } catch (IOException e) {
-                Util.sendErrorInternal(session, e);
-            } catch (RejectedExecutionException e) {
-                Util.send503Error(session);
-            }
-        });
+        try {
+            executorService.execute(() -> {
+                try {
+                    putInternal(idParam, request, session);
+                } catch (IOException e) {
+                    Util.sendErrorInternal(session, e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            Util.send503Error(session);
+        }
     }
 
     private void putInternal(final String idParam,
@@ -222,8 +224,6 @@ public class CustomServer extends HttpServer {
                     deleteInternal(idParam, request, session);
                 } catch (IOException e) {
                     Util.sendErrorInternal(session, e);
-                } catch (RejectedExecutionException e) {
-                    Util.send503Error(session);
                 }
             });
         } catch (RejectedExecutionException e) {
