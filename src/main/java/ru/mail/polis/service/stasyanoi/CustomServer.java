@@ -90,16 +90,20 @@ public class CustomServer extends HttpServer {
     @RequestMethod(Request.METHOD_GET)
     public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> {
-                try {
-                    getInternal(idParam, session, request);
-                } catch (IOException e) {
-                    Util.sendErrorInternal(session, e);
-                }
-            });
+            getRun(idParam, session, request);
         } catch (RejectedExecutionException e) {
             Util.send503Error(session);
         }
+    }
+
+    private void getRun(String idParam, HttpSession session, Request request) {
+        executorService.execute(() -> {
+            try {
+                getInternal(idParam, session, request);
+            } catch (IOException e) {
+                Util.sendErrorInternal(session, e);
+            }
+        });
     }
 
     private void getInternal(final String idParam, final HttpSession session, final Request request)
@@ -147,16 +151,20 @@ public class CustomServer extends HttpServer {
     @RequestMethod(Request.METHOD_PUT)
     public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> {
-                try {
-                    putInternal(idParam, request, session);
-                } catch (IOException e) {
-                    Util.sendErrorInternal(session, e);
-                }
-            });
+            putRun(idParam, request, session);
         } catch (RejectedExecutionException e) {
             Util.send503Error(session);
         }
+    }
+
+    private void putRun(String idParam, Request request, HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                putInternal(idParam, request, session);
+            } catch (IOException e) {
+                Util.sendErrorInternal(session, e);
+            }
+        });
     }
 
     private void putInternal(final String idParam, final Request request, final HttpSession session)
@@ -200,16 +208,20 @@ public class CustomServer extends HttpServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> {
-                try {
-                    deleteInternal(idParam, request, session);
-                } catch (IOException e) {
-                    Util.sendErrorInternal(session, e);
-                }
-            });
+            deleteRun(idParam, request, session);
         } catch (RejectedExecutionException e) {
             Util.send503Error(session);
         }
+    }
+
+    private void deleteRun(String idParam, Request request, HttpSession session) {
+        executorService.execute(() -> {
+            try {
+                deleteInternal(idParam, request, session);
+            } catch (IOException e) {
+                Util.sendErrorInternal(session, e);
+            }
+        });
     }
 
     private void deleteInternal(final String idParam, final Request request, final HttpSession session)
