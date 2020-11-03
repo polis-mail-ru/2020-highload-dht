@@ -65,7 +65,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
 
     private final Map<String, HttpClient> nodesToClients;
     private final ReplicationFactor rf;
-    private String deletedMarker;
+    private final String deletedMarker;
 
     /**
      * Service implementation with async HTTP client.
@@ -103,7 +103,6 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
             }
 
             final HttpClient httpClient = httpClientBuilder.build();
-
             if (nodesToClients.put(node, httpClient) != null) {
                 throw new IllegalStateException(MESSAGE_MAP.get(ErrorNames.DUPLICATE_NODES));
             }
@@ -139,7 +138,6 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
         }
 
         final ReplicationFactor replicationFactor;
-
         try {
             replicationFactor = ReplicationFactor.getReplicationFactor(replicas, rf, httpSession);
         } catch (IOException e) {
@@ -181,7 +179,6 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
         }
 
         final CompletableFuture<Void> futures = CompletableFuture.allOf(results);
-
         futures.thenApply(ignored -> new ResponseAggregator()).thenAccept(aggregator -> {
             for (final CompletableFuture<?> future : results) {
                 final Response response;
