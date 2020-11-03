@@ -91,17 +91,4 @@ public class FrameServer extends PutDeleteGetMethodServer {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
-
-    protected Response putProxy(final Request request, final byte[] idArray, final int node) throws IOException {
-        final Response responseHttp;
-        if (node == nodeNum) {
-            final ByteBuffer key = Mapper.fromBytes(idArray);
-            final ByteBuffer value = Util.getByteBufferValue(request);
-            dao.upsert(key, value);
-            responseHttp = Util.responseWithNoBody(Response.CREATED);
-        } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
-        }
-        return responseHttp;
-    }
 }

@@ -139,8 +139,7 @@ public class GetMethodServer extends ConstantsServer {
      * @return - response.
      * @throws IOException - throw if problems with I|O occur.
      */
-    public Response getResponseIfIdNotNull(final ByteBuffer id,
-                                                  final DAO dao) throws IOException {
+    public Response getResponseIfIdNotNull(final ByteBuffer id, final DAO dao) {
         try {
             final ByteBuffer body = dao.get(id);
             final byte[] bytes = Mapper.toBytes(body);
@@ -150,7 +149,7 @@ public class GetMethodServer extends ConstantsServer {
             final Response okResponse = Response.ok(newBody);
             Util.addTimestampHeader(time, okResponse);
             return okResponse;
-        } catch (NoSuchElementException e) {
+        } catch (NoSuchElementException | IOException e) {
             final byte[] deleteTime = dao.getDeleteTime(id);
             if (deleteTime.length == 0) {
                 return Util.responseWithNoBody(Response.NOT_FOUND);
