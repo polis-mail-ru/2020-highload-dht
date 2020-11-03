@@ -96,7 +96,7 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private void getRun(String idParam, HttpSession session, Request request) {
+    private void getRun(final String idParam, final HttpSession session, final Request request) {
         executorService.execute(() -> {
             try {
                 getInternal(idParam, session, request);
@@ -157,7 +157,7 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private void putRun(String idParam, Request request, HttpSession session) {
+    private void putRun(final String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 putInternal(idParam, request, session);
@@ -214,7 +214,7 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private void deleteRun(String idParam, Request request, HttpSession session) {
+    private void deleteRun(final String idParam, final Request request, final HttpSession session) {
         executorService.execute(() -> {
             try {
                 deleteInternal(idParam, request, session);
