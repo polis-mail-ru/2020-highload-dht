@@ -78,10 +78,10 @@ public class ReplicationController {
         try {
             final TimestampDataWrapper tdw = dao.getWithTimestamp(wrapId(id));
             return new Response(Response.OK, tdw.toBytes());
-        } catch (IOException exc) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException exc) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException exc) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -163,7 +163,7 @@ public class ReplicationController {
                         ack++;
                     }
                 }
-                if (ack == a) {
+                if (ack >= a) {
                     return new Response(Response.ACCEPTED, Response.EMPTY);
                 }
             } catch (InterruptedException | PoolException | HttpException | IOException e) {
