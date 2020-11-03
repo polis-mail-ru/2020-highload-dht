@@ -61,7 +61,6 @@ public class DaoHelper {
      * Get value with timestamp.
      *
      * @param key - key for key-value storage
-     * @param
      * @return - response of request
      */
     public CompletableFuture<Response> getEntity(final ByteBuffer key) {

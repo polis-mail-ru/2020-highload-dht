@@ -56,6 +56,12 @@ public class HttpHelper {
         }
     }
 
+    /**
+     * Convert CompletableFuture<Response> to Response, when complete
+     *
+     * @param session  - session
+     * @param response - response
+     */
     @SuppressWarnings("FutureReturnValueIgnored")
     public void respond(
             @NotNull final HttpSession session,
@@ -128,8 +134,8 @@ public class HttpHelper {
             log.error("Can't convert response from replica");
             return new Response(Response.INTERNAL_ERROR);
         }
-        Response res = new Response(String.valueOf(response.statusCode()), response.body());
-        res.addHeader(TIMESTAMP2 + response.headers().firstValue(TIMESTAMP).orElse("-1"));
-        return res;
+        final Response r = new Response(String.valueOf(response.statusCode()), response.body());
+        r.addHeader(TIMESTAMP2 + response.headers().firstValue(TIMESTAMP).orElse("-1"));
+        return r;
     }
 }
