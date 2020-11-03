@@ -91,16 +91,16 @@ public class MyRequestHelper {
     /**
      * Merges responses for GET request.
      */
-    public CompletableFuture<RequestValue> merge(final CompletableFuture<List<RequestValue>> future) {
-        final CompletableFuture<RequestValue> result = new CompletableFuture<>();
+    public CompletableFuture<ResponseValue> merge(final CompletableFuture<List<ResponseValue>> future) {
+        final CompletableFuture<ResponseValue> result = new CompletableFuture<>();
         future.whenCompleteAsync((r, t) -> {
             if (t != null) {
-                result.complete(new RequestValue(NOT_ENOUGH_REPLICAS, Response.EMPTY, -1));
+                result.complete(new ResponseValue(NOT_ENOUGH_REPLICAS, Response.EMPTY, -1));
                 return;
             }
-            RequestValue response = new RequestValue(Response.NOT_FOUND, Response.EMPTY, -1);
+            ResponseValue response = new ResponseValue(Response.NOT_FOUND, Response.EMPTY, -1);
             long time = Long.MIN_VALUE;
-            for (final RequestValue resp : r) {
+            for (final ResponseValue resp : r) {
                 if (resp.getTimestamp() > time) {
                     time = resp.getTimestamp();
                     response = resp;
@@ -114,13 +114,16 @@ public class MyRequestHelper {
         return result;
     }
 
-    public CompletableFuture<List<RequestValue>> collect(final List<CompletableFuture<RequestValue>> values,
-                                                         final int ack) {
+    /**
+     * Collects responses.
+     */
+    public CompletableFuture<List<ResponseValue>> collect(final List<CompletableFuture<ResponseValue>> values,
+                                                          final int ack) {
         final AtomicInteger numberOfErrors = new AtomicInteger(-1);
-        final List<RequestValue> results = new ArrayList<>();
-        final CompletableFuture<List<RequestValue>> resultsFuture = new CompletableFuture<>();
+        final List<ResponseValue> results = new ArrayList<>();
+        final CompletableFuture<List<ResponseValue>> resultsFuture = new CompletableFuture<>();
 
-        for (final CompletableFuture<RequestValue> value : values) {
+        for (final CompletableFuture<ResponseValue> value : values) {
             value.whenComplete((v, t) -> {
                 if (t != null) {
                     if (numberOfErrors.incrementAndGet() == (values.size() - ack)) {
@@ -142,6 +145,9 @@ public class MyRequestHelper {
         return resultsFuture;
     }
 
+    /**
+     * Parses int status code into String Response.Status
+     * */
     public String parseStatusCode(final int status) {
         switch (status) {
             case 200:

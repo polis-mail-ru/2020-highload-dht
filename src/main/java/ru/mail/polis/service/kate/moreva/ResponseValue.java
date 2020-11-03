@@ -1,16 +1,21 @@
 package ru.mail.polis.service.kate.moreva;
 
-import java.util.Arrays;
-
 /**
  * Utility class to work with request results.
  * */
-public class RequestValue {
+public class ResponseValue {
     private final String status;
     private final byte[] body;
     private final long timestamp;
 
-    public RequestValue(final String status, final byte[] body, final long timestamp) {
+    /**
+     * Response value constructor.
+     *
+     * @param status - the status of response.
+     * @param body - the response body.
+     * @param timestamp - timestamp of the needed Value.
+     * */
+    public ResponseValue(final String status, final byte[] body, final long timestamp) {
         this.status = status;
         this.body = body.clone();
         this.timestamp = timestamp;

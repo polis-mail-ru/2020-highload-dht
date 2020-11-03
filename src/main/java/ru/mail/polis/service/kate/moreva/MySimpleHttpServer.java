@@ -153,7 +153,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     private void defineMethod(final Request request, final HttpSession session, final ByteBuffer key,
                               final Replicas replicasFactor, final boolean isProxy) {
-        Context context = new Context(session, isProxy, request, replicasFactor);
+        final Context context = new Context(session, isProxy, request, replicasFactor);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 executeMethod(context, key, () -> requestHelper.getEntity(key));
@@ -176,10 +176,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(context.getSession(), action.act());
             return;
         }
-        final CompletableFuture<List<RequestValue>> future = requestHelper.collect(
+        final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
                 replication(action, key, topology, context),
                 context.getReplicaFactor().getAck());
-        final CompletableFuture<RequestValue> result = requestHelper.merge(future);
+        final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
         result.thenAccept(v -> requestHelper.sendLoggedResponse(
                 context.getSession(), new Response(v.getStatus(), v.getValue())))
                 .exceptionally(e -> {
@@ -188,25 +188,25 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 });
     }
 
-    private List<CompletableFuture<RequestValue>> replication(final MySimpleHttpServer.Action action,
-                                                              final ByteBuffer key,
-                                                              final Topology<String> topology,
-                                                              final Context context) {
+    private List<CompletableFuture<ResponseValue>> replication(final MySimpleHttpServer.Action action,
+                                                               final ByteBuffer key,
+                                                               final Topology<String> topology,
+                                                               final Context context) {
         Set<String> nodes = Collections.emptySet();
         try {
             nodes = topology.primaryFor(key, context.getReplicaFactor(), context.getReplicaFactor().getAck());
         } catch (IllegalArgumentException e) {
             requestHelper.sendLoggedResponse(context.getSession(), new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
-        final List<CompletableFuture<RequestValue>> results = new ArrayList<>(nodes.size());
+        final List<CompletableFuture<ResponseValue>> results = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
                 getLocalResults(action, results);
             } else {
                 final HttpRequest request = requestForReplica(context.getRequest(), key, context, node);
-                final CompletableFuture<RequestValue> result = this.client
+                final CompletableFuture<ResponseValue> result = this.client
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                        .thenApply(r -> new RequestValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
+                        .thenApply(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
                                 r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)));
                 results.add(result);
             }
@@ -214,17 +214,18 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         return results;
     }
 
-    private void getLocalResults(Action action, List<CompletableFuture<RequestValue>> results) {
-        final CompletableFuture<RequestValue> future = CompletableFuture.supplyAsync(() -> {
+    private void getLocalResults(final Action action, final List<CompletableFuture<ResponseValue>> results) {
+        final CompletableFuture<ResponseValue> future = CompletableFuture.supplyAsync(() -> {
             final Response response = action.act();
-            return new RequestValue(requestHelper.parseStatusCode(response.getStatus()),
+            return new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
                     response.getBody(), requestHelper.getTimestamp(response));
         });
         results.add(future);
     }
 
-    private HttpRequest requestForReplica(final Request request, ByteBuffer key, Context context, String node) {
-        URI uri = URI.create(node + "/v0/entity?id="
+    private HttpRequest requestForReplica(final Request request, final ByteBuffer key,
+                                          final Context context, final String node) {
+        final URI uri = URI.create(node + "/v0/entity?id="
                 + StandardCharsets.UTF_8.decode(key.duplicate()).toString()
                 + "&replicas=" + context.getReplicaFactor().toString());
         final HttpRequest.Builder builder = HttpRequest.newBuilder()

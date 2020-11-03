@@ -41,12 +41,12 @@ public class ModuleTopology implements Topology<String> {
     @Override
     public Set<String> primaryFor(@NotNull final ByteBuffer key,
                                   @NotNull final Replicas replicas,
-                                  final int ask) throws IllegalArgumentException{
-        final Set<String> result = new HashSet<>();
-        int index = key.hashCode() & Integer.MAX_VALUE % nodes.size();
+                                  final int ask) throws IllegalArgumentException {
         if (nodes.size() < replicas.getFrom() || ask > replicas.getFrom()) {
             throw new IllegalArgumentException("Unable to parse request. Too many nodes asked.");
         }
+        final Set<String> result = new HashSet<>();
+        int index = key.hashCode() & Integer.MAX_VALUE % nodes.size();
         while (result.size() < replicas.getFrom()) {
             result.add(nodes.get(index));
             index++;
