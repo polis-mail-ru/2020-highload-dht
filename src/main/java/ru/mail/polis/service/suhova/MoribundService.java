@@ -154,6 +154,7 @@ public class MoribundService extends HttpServer implements Service {
      */
     public void localResponse(final String id, final HttpSession session, final Request request) {
         try {
+            logger.debug("LOCAL {}", request.getMethodName());
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
                     session.sendResponse(daoServiceMethods.get(id));
@@ -294,13 +295,28 @@ public class MoribundService extends HttpServer implements Service {
     private CompletableFuture<Response> proxy(@NotNull final String node,
                                               @NotNull final Request request) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
-            .method(request.getMethodName(), HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
-            .timeout(Duration.ofSeconds(1))
-            .uri(URI.create(node + "/v0/entity?id=" + request.getParameter("id")));
-        builder.header(PROXY_HEADER, "1");
+            .uri(URI.create(node + "/v0/entity?id" + request.getParameter("id")));
+        builder.setHeader(PROXY_HEADER, "");
+        logger.debug("Proxy Method: {}", request.getMethodName());
+        switch (request.getMethodName()) {
+            case "GET":
+                builder.GET();
+                break;
+            case "PUT":
+                builder.PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()));
+                break;
+            case "DELETE":
+                builder.DELETE();
+                break;
+            default:
+                builder.method(request.getMethodName(), HttpRequest.BodyPublishers.noBody());
+        }
         final HttpRequest httpRequest = builder.build();
         return clients.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.ofByteArray())
-            .thenApplyAsync(a -> {
+            .whenComplete((a, t) -> a.request())
+            .handleAsync((a, t) ->
+            {
+                logger.debug("RESPONSE: {}", a);
                 final Response response = new Response(status(a.statusCode()), a.body());
                 final Map<String, List<String>> headers = a.headers().map();
                 for (Map.Entry<String, List<String>> header : headers.entrySet()) {

@@ -50,6 +50,7 @@ public final class Consensus {
                 logger.error("Cancelled in GET");
             }
         }
+        logger.debug("Success: {}, Ack: {}", count.get(), acks);
         if (count.get() >= acks) {
             if (Boolean.parseBoolean(okValue.get().getHeader(TOMBSTONE)) || count.get() == count404.get()) {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
