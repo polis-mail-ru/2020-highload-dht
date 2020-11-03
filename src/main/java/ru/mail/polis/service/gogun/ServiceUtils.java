@@ -8,6 +8,9 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -102,6 +105,20 @@ final class ServiceUtils {
                 return CompletableFuture.supplyAsync(deleteRequest, executorService);
             default:
                 return null;
+        }
+    }
+
+    @NotNull
+    static HttpRequest.Builder requestForRepl(@NotNull final String node,
+                                              @NotNull final String id) {
+        final String uri = node + "/v0/entity?id=" + id;
+        try {
+            return HttpRequest.newBuilder()
+                    .uri(new URI(uri))
+                    .header("X-Proxy-For", "true")
+                    .timeout(AsyncServiceImpl.TIMEOUT);
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("uri error", e);
         }
     }
 }

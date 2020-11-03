@@ -15,8 +15,6 @@ import ru.mail.polis.dao.gogun.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
@@ -34,10 +32,11 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
-    private static final Duration TIMEOUT = Duration.ofSeconds(1);
+    public static final Duration TIMEOUT = Duration.ofSeconds(1);
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
@@ -120,20 +119,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    @NotNull
-    private static HttpRequest.Builder requestForRepl(@NotNull final String node,
-                                                      @NotNull final String id) {
-        final String uri = node + "/v0/entity?id=" + id;
-        try {
-            return HttpRequest.newBuilder()
-                    .uri(new URI(uri))
-                    .header("X-Proxy-For", "true")
-                    .timeout(TIMEOUT);
-        } catch (URISyntaxException e) {
-            log.error("uri error", e);
-            throw new IllegalStateException("uri error", e);
-        }
-    }
+
 
     private void handleRequest(final String id, final Request request,
                                final HttpSession session) throws IOException {
