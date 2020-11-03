@@ -212,7 +212,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<String>> result =
+        final Collection<CompletableFuture<Response>> result =
                 new ArrayList<>(replicasFactor.getFrom());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -221,7 +221,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                             try {
                                 final ByteBuffer body = ByteBuffer.wrap(value);
                                 dao.upsert(key, body);
-                                return Response.CREATED;
+                                return ResponseUtils.emptyResponse(Response.CREATED);
                             } catch (IOException e) {
                                 throw new RuntimeException("Error", e);
                             }
@@ -230,21 +230,21 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                         .build();
-                final CompletableFuture<String> entry = httpClients.get(node)
+                final CompletableFuture<Response> entry = httpClients.get(node)
                         .sendAsync(request, PutBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executor);
+                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
                 result.add(entry);
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .thenApplyAsync(r -> ResponseUtils.emptyResponse(r.iterator().next()), executor);
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
     }
 
     private CompletableFuture<Response> replicasDelete(@NotNull final String id,
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<String>> result =
+        final Collection<CompletableFuture<Response>> result =
                 new ArrayList<>(replicasFactor.getFrom());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -252,7 +252,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                         () -> {
                             try {
                                 dao.remove(key);
-                                return Response.ACCEPTED;
+                                return ResponseUtils.emptyResponse(Response.ACCEPTED);
                             } catch (IOException e) {
                                 throw new RuntimeException("Error", e);
                             }
@@ -261,14 +261,14 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .DELETE()
                         .build();
-                final CompletableFuture<String> entry = httpClients.get(node)
+                final CompletableFuture<Response> entry = httpClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executor);
+                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
                 result.add(entry);
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .thenApplyAsync(r -> ResponseUtils.emptyResponse(r.iterator().next()), executor);
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
     }
 
     /** Request method for status return.

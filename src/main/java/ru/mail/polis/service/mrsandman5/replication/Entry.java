@@ -88,30 +88,6 @@ public final class Entry implements Comparable<Entry> {
         return entryToResponse(entry);
     }
 
-    /** Convert service Response to Entry.
-     * @param response - source Response.
-     * @return target Entry.
-     * */
-    @NotNull
-    public static Entry responseToEntry(@NotNull final Response response) throws IOException {
-        final String timestamp = response.getHeader(ResponseUtils.TIMESTAMP);
-        final int status = response.getStatus();
-        if (status == 200) {
-            if (timestamp == null) {
-                throw new IllegalArgumentException("Wrong input data");
-            }
-            return Entry.present(Long.parseLong(timestamp),response.getBody());
-        } else if (status == 404) {
-            if (timestamp == null) {
-                return Entry.absent();
-            } else {
-                return Entry.removed(Long.parseLong(timestamp));
-            }
-        } else {
-            throw new IOException("Wrong status");
-        }
-    }
-
     /** Convert Entry to service Response.
      * @param entry - source Entry.
      * @return target Response.
