@@ -82,42 +82,6 @@ public final class FutureUtils {
     }
 
     /**
-     * async handler to respond DELETE request.
-     *
-     * @param quant - quantity of success responses
-     * @param count - cluster-wide success quorum to send response
-     * @param futures - collection of future responses
-     * @return - HTTP response
-     */
-    public Response execDeleteWithFutures(final AtomicInteger quant,
-                                          final int count,
-                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
-        quant.set(incrementFutureCount(quant, 202, futures));
-        if (quant.get() >= futures.size() || quant.get() >= count) {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } else {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
-    }
-
-    /**
-     * async handler to respond PUT request.
-     *
-     * @param quant - quantity of success responses
-     * @param count - cluster-wide success quorum to send response
-     * @param futures - collection of future responses
-     * @return - HTTP response
-     */
-    public Response execUpsertWithFutures(final AtomicInteger quant,
-                                          final int count,
-                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
-        quant.set(incrementFutureCount(quant, 201, futures));
-        if (quant.get() >= futures.size() || quant.get() >= count) {
-            return new Response(Response.CREATED, Response.EMPTY);
-        } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-    }
-
-    /**
      * async handler to respond GET request.
      *
      * @param values - collection of values to be sent by HTTP response
@@ -147,6 +111,42 @@ public final class FutureUtils {
         }
         if (quant.get() >= futures.size() || quant.get() >= count) {
             return RepliServiceUtils.processResponses(nodes, values, isForwardedRequest);
+        } else {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        }
+    }
+
+    /**
+     * async handler to respond PUT request.
+     *
+     * @param quant - quantity of success responses
+     * @param count - cluster-wide success quorum to send response
+     * @param futures - collection of future responses
+     * @return - HTTP response
+     */
+    public Response execUpsertWithFutures(final AtomicInteger quant,
+                                          final int count,
+                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+        quant.set(incrementFutureCount(quant, 201, futures));
+        if (quant.get() >= futures.size() || quant.get() >= count) {
+            return new Response(Response.CREATED, Response.EMPTY);
+        } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    }
+
+    /**
+     * async handler to respond DELETE request.
+     *
+     * @param quant - quantity of success responses
+     * @param count - cluster-wide success quorum to send response
+     * @param futures - collection of future responses
+     * @return - HTTP response
+     */
+    public Response execDeleteWithFutures(final AtomicInteger quant,
+                                          final int count,
+                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+        quant.set(incrementFutureCount(quant, 202, futures));
+        if (quant.get() >= futures.size() || quant.get() >= count) {
+            return new Response(Response.ACCEPTED, Response.EMPTY);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
