@@ -210,6 +210,12 @@ public class NewService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Отправляет ответ.
+     *
+     * @param httpSession сессия
+     * @param response что отправить
+     */
     public static void resp(
             @NotNull final HttpSession httpSession,
             @NotNull final Response response) {

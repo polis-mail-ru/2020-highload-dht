@@ -77,7 +77,7 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            for (HttpResponse<byte[]> response : responses) {
+            for (final HttpResponse<byte[]> response : responses) {
                 if (response.statusCode() == 404) {
                     resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
                     return;

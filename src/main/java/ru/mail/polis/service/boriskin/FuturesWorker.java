@@ -23,6 +23,10 @@ import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER_VALUE;
 final class FuturesWorker {
     private static final Logger logger = LoggerFactory.getLogger(FuturesWorker.class);
 
+    private FuturesWorker() {
+        // to silence CodeClimate warning
+    }
+
     /**
      * Отправляет соответствующие запросы на реплики.
      *
