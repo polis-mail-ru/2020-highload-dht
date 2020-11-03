@@ -71,8 +71,14 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в GET {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
+            for (final HttpResponse<byte[]> response : responses) {
+                if (response.statusCode() == 404) {
+                    resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
+                }
+            }
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
             final int acks = getNumberOfSuccessfulResponses(
                     getStartAcks(replicas), responses, success);
@@ -127,7 +133,7 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в PUT {}, {} ",
                         topology.recogniseMyself(), mir.getId(), mir.getValue(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 201)
         ).exceptionally(exception -> {
@@ -172,7 +178,7 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в DELETE {}, {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 202)
         ).exceptionally(exception -> {
