@@ -2,6 +2,7 @@ package ru.mail.polis.service.alexander.marashov.analyzers;
 
 import one.nio.http.Response;
 import ru.mail.polis.dao.alexander.marashov.Value;
+import ru.mail.polis.service.alexander.marashov.ServiceImpl;
 
 import java.util.Collection;
 
@@ -18,6 +19,7 @@ public class ValuesAnalyzer {
 
         Value correctValue = null;
         for (final Value value : collection) {
+            ServiceImpl.log.debug("{}", value);
             if (correctValue == null) {
                 correctValue = value;
             } else if (value.compareTo(correctValue) < 0) {
@@ -25,9 +27,7 @@ public class ValuesAnalyzer {
             }
         }
 
-        assert correctValue != null;
-
-        if (correctValue.isTombstone()) {
+        if (correctValue == null || correctValue.isTombstone()) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
         return new Response(Response.OK, correctValue.getData().array());

@@ -30,11 +30,10 @@ import static ru.mail.polis.service.alexander.marashov.ValidatedParameters.valid
 
 public class ServiceImpl extends HttpServer implements Service {
 
-    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    public static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
-    public static final String PROXY_HEADER = "Proxy-Header";
-    public static final String TIMESTAMP_HEADER_NAME = "Timestamp-Header";
-    public static final String PROXY_HEADER_VALUE = "Proxy-Header: true";
+    public static final String PROXY_HEADER = "Proxy_Header";
+    public static final String TIMESTAMP_HEADER_NAME = "Timestamp_Header";
 
     private final ExecutorService executorService;
     private final ResponseManager responseManager;
@@ -136,7 +135,12 @@ public class ServiceImpl extends HttpServer implements Service {
             if (error == null) {
                 trySendAnswer(httpSession, response);
             } else {
-                trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                log.error("Future returned error", error);
+                if (error.getCause() instanceof IllegalStateException) {
+                    trySendAnswer(httpSession, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                } else {
+                    trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
             }
         }).isCancelled();
         if (canceled) {

@@ -45,4 +45,9 @@ public final class Value implements Comparable<Value> {
     public long getTimestamp() {
         return timestamp;
     }
+
+    @Override
+    public String toString() {
+        return "Value(timestamp = " + getTimestamp() + "; data = " + data + ")";
+    }
 }
