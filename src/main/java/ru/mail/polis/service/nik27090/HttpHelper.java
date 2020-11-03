@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Map;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class HttpHelper {
     private static final Logger log = LoggerFactory.getLogger(HttpHelper.class);
 
@@ -32,7 +34,8 @@ public class HttpHelper {
                                   final Response goodResponse) {
         if (sizeNotFailedResponse < ackFrom.getAck()) {
             log.error(NOT_ENOUGH_REPLICAS, ackFrom.getAck(), ackFrom.getFrom());
-            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, ("Not enough replicas error with ack: "
+                    + ackFrom.getAck() + ", from: " + ackFrom.getFrom()).getBytes(UTF_8)));
         } else {
             sendResponse(session, goodResponse);
         }
