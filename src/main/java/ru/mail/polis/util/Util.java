@@ -71,6 +71,11 @@ public final class Util {
         return arr;
     }
 
+    /**
+     * Mark request for local processing.
+     * @param request - request to mark
+     * @return - Request
+     */
     public static Request markTargetRequest(final Request request) {
         if (request.getParameter(HANDLE_ME) != null) {
             return request;
@@ -86,6 +91,11 @@ public final class Util {
         return modifiedRequest;
     }
 
+    /**
+     * Converts response from java.net.http to one.nio.http format.
+     * @param response - java.net.http response
+     * @return one.nio.http Response
+     */
     public static Response convertResponse(final HttpResponse<byte[]> response) {
         if (response == null) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
@@ -94,6 +104,12 @@ public final class Util {
         return new Response(statusCode, response.body());
     }
 
+    /**
+     * Converts request from java.net.http to one.nio.http format.
+     * @param request - java.net.http request
+     * @param host    - current host
+     * @return        - one.nio.http Request
+     */
     public static HttpRequest convertRequest(final Request request, final String host) {
         final String query = request.getURI();
         final String wholeURIString = host + query;
@@ -120,11 +136,12 @@ public final class Util {
         return builder.build();
     }
 
+    /**
+     * Wraps string to ByteBuffer
+     * @param id - string to wrap
+     * @return ByteBuffer
+     */
     public static ByteBuffer toByteBuffer(final String id) {
         return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-    }
-
-    public static boolean keyIsValid(final String key) {
-        return !key.isEmpty();
     }
 }

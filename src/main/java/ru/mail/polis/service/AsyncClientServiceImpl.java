@@ -35,23 +35,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Map.entry;
-import static one.nio.http.Request.METHOD_DELETE;
-import static one.nio.http.Request.METHOD_GET;
-import static one.nio.http.Request.METHOD_PUT;
 import static ru.mail.polis.service.ServiceImpl.getConfig;
 import static ru.mail.polis.util.Util.HANDLE_ME;
-import static ru.mail.polis.util.Util.markTargetRequest;
-import static ru.mail.polis.util.Util.convertRequest;
-import static ru.mail.polis.util.Util.keyIsValid;
 
 public class AsyncClientServiceImpl extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncClientServiceImpl.class);
 
     private enum ErrorNames {
-        IO_ERROR, NOT_ALLOWED_METHOD_ERROR,
-        CANNOT_SEND, MOVED, INVALID_KEY,
-        DUPLICATE_NODES, BAD_REPLICAS,
-        FUTURE_ERROR, TERMINATION_ERROR
+        IO_ERROR, NOT_ALLOWED_METHOD_ERROR, CANNOT_SEND, MOVED, INVALID_KEY,
+        DUPLICATE_NODES, BAD_REPLICAS, FUTURE_ERROR, TERMINATION_ERROR
     }
 
     private static final Map<AsyncClientServiceImpl.ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
@@ -73,7 +65,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
 
     private final Map<String, HttpClient> nodesToClients;
     private final ReplicationFactor rf;
-    private String DELETED_MARKER;
+    private String deletedMarker;
 
     /**
      * Service implementation with async HTTP client.
@@ -83,34 +75,26 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
      * @param workerPoolSize - workers count
      * @param queueSize      - ThreadPoolExecutor queue size
      * @param topology       - modular topology
-     * @throws IOException   - throws IO exception
+     * @throws IOException - throws IO exception
      */
     AsyncClientServiceImpl(
-            final int port,
-            @NotNull final DAO dao,
-            final int workerPoolSize,
-            final int queueSize,
-            @NotNull final Topology topology
+            final int port, @NotNull final DAO dao, final int workerPoolSize,
+            final int queueSize, @NotNull final Topology topology
     ) throws IOException {
         super(getConfig(port));
         this.dao = dao;
         this.topology = topology;
-        executorService = new ThreadPoolExecutor(workerPoolSize, workerPoolSize, 0L,
-                TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(queueSize),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("async_workers-%d")
-                        .build()
+        this.executorService = new ThreadPoolExecutor(
+                workerPoolSize, workerPoolSize, 0L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder().setNameFormat("async_workers-%d").build()
         );
 
-        DELETED_MARKER = UUID.randomUUID().toString();
+        this.deletedMarker = UUID.randomUUID().toString();
 
         this.nodesToClients = new HashMap<>();
         this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
 
-        final HttpClient.Builder httpClientBuilder = HttpClient
-                .newBuilder()
-                .connectTimeout(Duration.ofSeconds(1));
+        final HttpClient.Builder httpClientBuilder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1));
 
         for (final String node : topology.getNodes()) {
 
@@ -127,21 +111,19 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Handle GET, PUT & DELETE requests
+     * Handle GET, PUT & DELETE requests.
      *
      * @param id          -  id.
      * @param httpSession - HTTP session.
      * @param req         - sent request.
      **/
     @Path("/v0/entity")
-    @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
+    @RequestMethod({Request.METHOD_GET, Request.METHOD_PUT, Request.METHOD_DELETE})
     public void entity(
-            @Param(value = "id", required = true) final String id,
-            @NotNull final Request req,
-            @NotNull final HttpSession httpSession,
-            @Param("replicas") final String replicas
+            @Param(value = "id", required = true) final String id, @NotNull final Request req,
+            @NotNull final HttpSession httpSession, @Param("replicas") final String replicas
     ) {
-        if (!keyIsValid(id)) {
+        if (id.isEmpty()) {
             sendResponse(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
@@ -159,8 +141,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
         final ReplicationFactor replicationFactor;
 
         try {
-            replicationFactor = ReplicationFactor
-                    .getReplicationFactor(replicas, rf, httpSession);
+            replicationFactor = ReplicationFactor.getReplicationFactor(replicas, rf, httpSession);
         } catch (IOException e) {
             logger.error(MESSAGE_MAP.get(ErrorNames.BAD_REPLICAS));
             return;
@@ -170,7 +151,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     }
 
     private CompletableFuture<Response> proxy(final String to, final Request request) {
-        final HttpRequest req = convertRequest(request, to);
+        final HttpRequest req = Util.convertRequest(request, to);
         final HttpClient client = nodesToClients.get(to);
         final HttpResponse.BodyHandler<byte[]> body = HttpResponse.BodyHandlers.ofByteArray();
 
@@ -185,15 +166,17 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
             @NotNull final HttpSession session,
             final @Param("request") Request request
     ) {
-        final String[] nodes = topology.getReplicas(ByteBuffer.wrap(key.getBytes(Charset.defaultCharset())), replicas.getFrom());
+        final String[] nodes = topology.getReplicas(
+                ByteBuffer.wrap(key.getBytes(Charset.defaultCharset())), replicas.getFrom()
+        );
         final CompletableFuture<?>[] results = new CompletableFuture<?>[nodes.length];
 
         for (int i = 0; i < nodes.length; i++) {
-            String node = nodes[i];
+            final String node = nodes[i];
             if (topology.isSelfId(node)) {
                 results[i] = handleLocal(key, request);
             } else {
-                results[i] = proxy(node, markTargetRequest(request));
+                results[i] = proxy(node, Util.markTargetRequest(request));
             }
         }
 
@@ -225,11 +208,11 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     ) {
         return CompletableFuture.supplyAsync(() -> {
             switch (request.getMethod()) {
-                case METHOD_GET:
+                case Request.METHOD_GET:
                     return get(key);
-                case METHOD_PUT:
+                case Request.METHOD_PUT:
                     return put(key, request);
-                case METHOD_DELETE:
+                case Request.METHOD_DELETE:
                     return delete(key);
                 default:
                     return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -238,20 +221,21 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Handles GET requests
+     * Handles GET requests.
+     *
      * @param key - key to search
      * @return Response
      */
     private Response get(final String key) {
         try {
-            if (!keyIsValid(key)) {
+            if (key.isEmpty()) {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             final ByteBuffer response = dao.get(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)));
             final byte[] result = Util.toByteArray(response);
 
-            if (Arrays.equals(result, DELETED_MARKER.getBytes(StandardCharsets.UTF_8))) {
+            if (Arrays.equals(result, this.deletedMarker.getBytes(StandardCharsets.UTF_8))) {
                 return new Response(MESSAGE_MAP.get(ErrorNames.MOVED), Response.EMPTY);
             }
 
@@ -265,14 +249,15 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Handles PUT requests
-     * @param key - key to upsert
+     * Handles PUT requests.
+     *
+     * @param key     - key to upsert
      * @param request - user request
      * @return Response
      */
     private Response put(final String key, final Request request) {
         try {
-            if (!keyIsValid(key)) {
+            if (key.isEmpty()) {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
@@ -286,19 +271,20 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Handles DELETE requests
+     * Handles DELETE requests.
+     *
      * @param key - key to delete
      * @return Response
      */
     private Response delete(final String key) {
         try {
-            if (!keyIsValid(key)) {
+            if (key.isEmpty()) {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             dao.upsert(
-                Util.toByteBuffer(key),
-                Util.toByteBuffer(DELETED_MARKER)
+                    Util.toByteBuffer(key),
+                    Util.toByteBuffer(this.deletedMarker)
             );
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
@@ -307,10 +293,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void sendResponse(
-            final HttpSession session,
-            final Response response
-    ) {
+    private void sendResponse(final HttpSession session, final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException ex) {
@@ -329,8 +312,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public void handleDefault(@NotNull final Request request,
-                              @NotNull final HttpSession session) {
+    public void handleDefault(@NotNull final Request request, @NotNull final HttpSession session) {
         sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
