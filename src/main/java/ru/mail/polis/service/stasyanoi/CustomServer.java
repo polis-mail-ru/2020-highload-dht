@@ -155,11 +155,6 @@ public class CustomServer extends HttpServer {
     public void put(final @Param("id") String idParam,
                     final Request request,
                     final HttpSession session) {
-        runPut(idParam, request, session);
-    }
-
-    private void runPut(final String idParam, final Request request, final HttpSession session) {
-
         try {
             executorService.execute(() -> {
                 try {
