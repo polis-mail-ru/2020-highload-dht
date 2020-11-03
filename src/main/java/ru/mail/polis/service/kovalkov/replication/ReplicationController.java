@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.DAOImpl;
-import ru.mail.polis.dao.kovalkov.RecordState;
 import ru.mail.polis.dao.kovalkov.TimestampDataWrapper;
 import ru.mail.polis.service.kovalkov.sharding.Topology;
 
