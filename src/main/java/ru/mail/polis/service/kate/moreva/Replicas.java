@@ -23,9 +23,6 @@ public class Replicas {
      * */
     public static Replicas parser(final String replicas) {
         final List<String> params = Splitter.on('/').splitToList(replicas);
-        if (params.size() != 2) {
-            throw new IllegalArgumentException("Wrong Replica factor: " + replicas);
-        }
         final int ack = Integer.parseInt(params.get(0));
         final int from = Integer.parseInt(params.get(1));
         return new Replicas(ack, from);

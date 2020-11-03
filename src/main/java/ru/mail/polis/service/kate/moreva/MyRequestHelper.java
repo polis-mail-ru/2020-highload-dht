@@ -10,14 +10,17 @@ import ru.mail.polis.dao.kate.moreva.Cell;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
-    private static final String TIMESTAMP = "Timestamp: ";
-    private static final String TOMBSTONE = "Tombstone: ";
-    private static final String PROXY_HEADER = "X-Proxy-For:";
+    private static final String TIMESTAMP = "Timestamp:";
+    static final String PROXY_HEADER = "X-Proxy:";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final Logger log = LoggerFactory.getLogger(MyRequestHelper.class);
 
@@ -47,7 +50,6 @@ public class MyRequestHelper {
                 response = new Response(Response.OK, body);
             }
             response.addHeader(TIMESTAMP + cell.getValue().getTimestamp());
-            response.addHeader(TOMBSTONE + cell.getValue().isTombstone());
             return response;
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -90,36 +92,77 @@ public class MyRequestHelper {
     /**
      * Merges responses for GET request.
      */
-    public Response mergeResponses(final List<Response> responseList) {
-        Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
-        long time = Long.MIN_VALUE;
-        int correctResponses = 0;
-        int missedResponses = 0;
-        for (final Response resp : responseList) {
-            final int status = resp.getStatus();
-            if (status == 404 && getTimestamp(resp) == -1) {
-                missedResponses++;
-                correctResponses++;
-            } else {
-                correctResponses++;
-                if (getTimestamp(resp) > time) {
-                    time = getTimestamp(resp);
+    public CompletableFuture<RequestValue> merge(final CompletableFuture<List<RequestValue>> future) {
+        final CompletableFuture<RequestValue> result = new CompletableFuture<>();
+        future.whenCompleteAsync((r, t) -> {
+            if (t != null) {
+                result.complete(new RequestValue(NOT_ENOUGH_REPLICAS, Response.EMPTY, -1));
+                return;
+            }
+            RequestValue response = new RequestValue(Response.NOT_FOUND, Response.EMPTY, -1);
+            long time = Long.MIN_VALUE;
+            for (final RequestValue resp : r) {
+                if (resp.getTimestamp() > time) {
+                    time = resp.getTimestamp();
                     response = resp;
                 }
             }
-        }
-        final boolean tomb = Boolean.parseBoolean(response.getHeader(TOMBSTONE));
-        if (tomb || correctResponses == missedResponses) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
-        return response;
+            result.complete(response);
+        }).exceptionally(e -> {
+            log.error("Error while merge ", e);
+            return null;
+        });
+        return result;
     }
 
-    /**
-     * Returns response status.
-     */
-    public int getStatus(final Response response) {
-        return response.getStatus();
+    public CompletableFuture<List<RequestValue>> collect(final List<CompletableFuture<RequestValue>> values,
+                                                         final int ack) {
+        final AtomicInteger numberOfErrors = new AtomicInteger(-1);
+        final List<RequestValue> results = new ArrayList<>();
+        final CompletableFuture<List<RequestValue>> resultsFuture = new CompletableFuture<>();
+
+        for (final CompletableFuture<RequestValue> value : values) {
+            value.whenComplete((v, t) -> {
+                if (t != null) {
+                    if (numberOfErrors.incrementAndGet() == (values.size() - ack)) {
+                        resultsFuture.completeExceptionally(new RejectedExecutionException(t));
+                    }
+                    return;
+                }
+                if (results.size() >= ack) {
+                    return;
+                }
+                results.add(v);
+                if (results.size() == ack) {
+                    resultsFuture.complete(results);
+                }
+            }).exceptionally(e -> {
+                log.error("Error while collecting futures ", e);
+                return null;
+            });
+        }
+        return resultsFuture;
+    }
+
+    public String parseStatusCode(final int status) {
+        switch (status) {
+            case 200:
+                return Response.OK;
+            case 201:
+                return Response.CREATED;
+            case 202:
+                return Response.ACCEPTED;
+            case 400:
+                return Response.BAD_REQUEST;
+            case 404:
+                return Response.NOT_FOUND;
+            case 500:
+                return Response.INTERNAL_ERROR;
+            case 504:
+                return NOT_ENOUGH_REPLICAS;
+            default:
+                throw new UnsupportedOperationException(status + "not available");
+        }
     }
 
     /**
@@ -129,28 +172,9 @@ public class MyRequestHelper {
         return request.getHeader(PROXY_HEADER) != null;
     }
 
-    /**
-     * Returns response timestamp.
-     */
-    public static long getTimestamp(final Response response) {
+    public long getTimestamp(final Response response) {
         final String timestamp = response.getHeader(TIMESTAMP);
         return timestamp == null ? -1 : Long.parseLong(timestamp);
-    }
-
-    /**
-     * Creates request according to replication status.
-     * {@code 504} (not enough replicas).
-     * {@param response} (enough replicas).
-     */
-    public void correctReplication(final int ack,
-                                   final Replicas replicas,
-                                   final HttpSession session,
-                                   final String response) {
-        if (ack < replicas.getAck()) {
-            sendLoggedResponse(session, new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY));
-        } else {
-            sendLoggedResponse(session, new Response(response, Response.EMPTY));
-        }
     }
 
     /**

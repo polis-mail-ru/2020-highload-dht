@@ -42,13 +42,13 @@ public class ModuleTopology implements Topology<String> {
     public Set<String> primaryFor(@NotNull final ByteBuffer key, @NotNull final Replicas replicas) {
         final Set<String> result = new HashSet<>();
         int index = key.hashCode() & Integer.MAX_VALUE % nodes.size();
-            while (result.size() < replicas.getFrom()) {
-                result.add(nodes.get(index));
-                index++;
-                if (index == nodes.size()) {
-                    index = 0;
-                }
+        while (result.size() < replicas.getFrom()) {
+            result.add(nodes.get(index));
+            index++;
+            if (index == nodes.size()) {
+                index = 0;
             }
+        }
         return result;
     }
 

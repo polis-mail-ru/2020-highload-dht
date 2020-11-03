@@ -2,8 +2,6 @@ package ru.mail.polis.service.kate.moreva;
 
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -11,8 +9,6 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,18 +16,23 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * Simple Http Server Service implementation.
@@ -40,14 +41,15 @@ import java.util.stream.Collectors;
  */
 
 public class MySimpleHttpServer extends HttpServer implements Service {
-    private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
-    private static final String PROXY_HEADER = "X-Proxy-For:";
+    private static final String TIMESTAMP = "Timestamp";
+    static final String PROXY_HEADER_KEY = "X-Proxy";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
+    static final Duration timeout = Duration.ofSeconds(1);
     private final ExecutorService executorService;
     private final Topology<String> topology;
-    private final Map<String, HttpClient> nodeClients;
     private final MyRequestHelper requestHelper;
     private final Replicas quorum;
+    private final java.net.http.HttpClient client;
 
     /**
      * Http Server constructor.
@@ -61,17 +63,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         this.topology = topology;
         assert numberOfWorkers > 0;
         assert queueSize > 0;
-        this.nodeClients = new HashMap<>();
         this.requestHelper = new MyRequestHelper(dao);
-        for (final String node : topology.all()) {
-            if (topology.isMe(node)) {
-                continue;
-            }
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=1000"));
-            if (nodeClients.put(node, client) != null) {
-                throw new IllegalStateException("Duplicate node");
-            }
-        }
         this.executorService = new ThreadPoolExecutor(numberOfWorkers,
                 queueSize,
                 0L,
@@ -82,7 +74,16 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error in {} when processing request", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
-        this.quorum = Replicas.quorum(nodeClients.size() + 1);
+        this.quorum = Replicas.quorum(this.topology.size());
+        final Executor clientExecutor =
+                Executors.newFixedThreadPool(
+                        Runtime.getRuntime().availableProcessors(),
+                        new ThreadFactoryBuilder().setNameFormat("client-%d").build());
+        this.client = java.net.http.HttpClient.newBuilder()
+                .executor(clientExecutor)
+                .connectTimeout(timeout)
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .build();
     }
 
     private static HttpServerConfig getConfig(final int port, final int numberOfWorkers) {
@@ -123,17 +124,18 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     public void entity(@Param(value = "id", required = true) final String id, final Request request,
                        final HttpSession session, @Param("replicas") final String replicas) {
         try {
+            if (id.isBlank()) {
+                log.error("Request with empty id on /v0/entity");
+                requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
             executorService.execute(() -> {
-                if (id.isBlank()) {
-                    log.error("Request with empty id on /v0/entity");
-                    requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
                 final boolean isProxy = requestHelper.isProxied(request);
                 final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
 
                 if (replicasFactor.getFrom() > this.topology.size()) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
                 }
 
                 if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
@@ -150,15 +152,16 @@ public class MySimpleHttpServer extends HttpServer implements Service {
 
     private void defineMethod(final Request request, final HttpSession session, final ByteBuffer key,
                               final Replicas replicasFactor, final boolean isProxy) {
+        Context context = new Context(session, isProxy, request, replicasFactor);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                getMethod(key, request, session, replicasFactor, isProxy);
+                executeMethod(context, key, () -> requestHelper.getEntity(key));
                 break;
             case Request.METHOD_PUT:
-                putMethod(key, request, session, replicasFactor, isProxy);
+                executeMethod(context, key, () -> requestHelper.putEntity(key, context.getRequest()));
                 break;
             case Request.METHOD_DELETE:
-                deleteMethod(key, request, session, replicasFactor, isProxy);
+                executeMethod(context, key, () -> requestHelper.deleteEntity(key));
                 break;
             default:
                 log.error("Not allowed method on /v0/entity");
@@ -167,73 +170,72 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    private void getMethod(final ByteBuffer key,
-                           final Request request,
-                           final HttpSession session,
-                           final Replicas replicas,
-                           final boolean isProxy) {
-        if (isProxy) {
-            requestHelper.sendLoggedResponse(session, requestHelper.getEntity(key));
+    void executeMethod(final Context context, final ByteBuffer key, final Action action) {
+        if (context.isProxy()) {
+            requestHelper.sendLoggedResponse(context.getSession(), action.act());
             return;
         }
-        final List<Response> result = replication(() -> requestHelper.getEntity(key), request, key, replicas)
-                .stream()
-                .filter(resp -> requestHelper.getStatus(resp) == 200 || requestHelper.getStatus(resp) == 404)
-                .collect(Collectors.toList());
-        if (result.size() < replicas.getAck()) {
-            requestHelper.sendLoggedResponse(session, new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY));
-            return;
-        }
-        requestHelper.sendLoggedResponse(session, requestHelper.mergeResponses(result));
+        final CompletableFuture<List<RequestValue>> future = requestHelper.collect(
+                replication(action, key, topology, context),
+                context.getReplicaFactor().getAck());
+        final CompletableFuture<RequestValue> result = requestHelper.merge(future);
+        result.thenAccept(v -> requestHelper.sendLoggedResponse(
+                context.getSession(), new Response(v.getStatus(), v.getValue())))
+                .exceptionally(e -> {
+                    log.error("Execute method error", e);
+                    return null;
+                });
     }
 
-    private void putMethod(final ByteBuffer key, final Request request, final HttpSession session,
-                           final Replicas replicas, final boolean isProxy) {
-        if (isProxy) {
-            requestHelper.sendLoggedResponse(session, requestHelper.putEntity(key, request));
-            return;
-        }
-        final List<Response> result = replication(() -> requestHelper.putEntity(key, request), request, key, replicas)
-                .stream()
-                .filter(response -> requestHelper.getStatus(response) == 201)
-                .collect(Collectors.toList());
-        requestHelper.correctReplication(result.size(), replicas, session, Response.CREATED);
-    }
-
-    private void deleteMethod(final ByteBuffer key, final Request request, final HttpSession session,
-                              final Replicas replicas, final boolean isProxy) {
-        if (isProxy) {
-            requestHelper.sendLoggedResponse(session, requestHelper.deleteEntity(key));
-            return;
-        }
-        final List<Response> result = replication(() -> requestHelper.deleteEntity(key), request, key, replicas)
-                .stream()
-                .filter(response -> requestHelper.getStatus(response) == 202)
-                .collect(Collectors.toList());
-        requestHelper.correctReplication(result.size(), replicas, session, Response.ACCEPTED);
-    }
-
-    private List<Response> replication(final Action action, final Request request, final ByteBuffer key,
-                                       final Replicas replicas) {
-        final Set<String> nodes = topology.primaryFor(key, replicas);
-        final List<Response> result = new ArrayList<>(nodes.size());
+    private List<CompletableFuture<RequestValue>> replication(final MySimpleHttpServer.Action action,
+                                                              final ByteBuffer key,
+                                                              final Topology<String> topology,
+                                                              final Context context) {
+        final Set<String> nodes = topology.primaryFor(key, context.getReplicaFactor());
+        final List<CompletableFuture<RequestValue>> results = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
-                result.add(action.act());
+                getLocalResults(action, results);
             } else {
-                result.add(proxy(node, request));
+                final HttpRequest request = requestForReplica(context.getRequest(), key, context, node);
+                final CompletableFuture<RequestValue> result = this.client
+                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                        .thenApply(r -> new RequestValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
+                                Long.parseLong(r.headers().firstValue(TIMESTAMP).orElse("-1"))));
+                results.add(result);
             }
         }
-        return result;
+        return results;
     }
 
-    private Response proxy(final String node, final Request request) {
-        try {
-            request.addHeader(PROXY_HEADER + node);
-            return nodeClients.get(node).invoke(request);
-        } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            log.error("Proxy request error", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+    private void getLocalResults(Action action, List<CompletableFuture<RequestValue>> results) {
+        final CompletableFuture<RequestValue> future = CompletableFuture.supplyAsync(() -> {
+            final Response response = action.act();
+            return new RequestValue(requestHelper.parseStatusCode(response.getStatus()),
+                    response.getBody(), requestHelper.getTimestamp(response));
+        });
+        results.add(future);
+    }
+
+    private HttpRequest requestForReplica(final Request request, ByteBuffer key, Context context, String node) {
+        URI uri = URI.create(node
+                + "/v0/entity?id="
+                + StandardCharsets.UTF_8.decode(key.duplicate()).toString()
+                + "&replicas="
+                + context.getReplicaFactor().toString());
+        final HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .timeout(MySimpleHttpServer.timeout)
+                .uri(uri)
+                .headers(PROXY_HEADER_KEY, "true");
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                return builder.GET().build();
+            case Request.METHOD_PUT:
+                return builder.PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())).build();
+            case Request.METHOD_DELETE:
+                return builder.DELETE().build();
+            default:
+                throw new UnsupportedOperationException(request.getMethod() + Response.SERVICE_UNAVAILABLE);
         }
     }
 
@@ -247,12 +249,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             log.error("Error can't shutdown execution service");
             Thread.currentThread().interrupt();
         }
-        for (final HttpClient client : nodeClients.values()) {
-            client.clear();
-        }
     }
 
-    private interface Action {
+    public interface Action {
         Response act();
     }
 }
