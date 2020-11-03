@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
 
 public class DaoHelper {
     private static final Logger log = LoggerFactory.getLogger(DaoHelper.class);
@@ -60,30 +61,33 @@ public class DaoHelper {
      * Get value with timestamp.
      *
      * @param key - key for key-value storage
+     * @param
      * @return - response of request
      */
-    public Response getEntity(final ByteBuffer key) {
-        final Cell cell;
-        try {
-            cell = dao.getCell(key);
-            final Value cellValue = cell.getValue();
-            if (cellValue.isTombstone()) {
-                final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                response.addHeader(PROXY_HEADER + cellValue.getTimestamp());
+    public CompletableFuture<Response> getEntity(final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(() -> {
+            final Cell cell;
+            try {
+                cell = dao.getCell(key);
+                final Value cellValue = cell.getValue();
+                if (cellValue.isTombstone()) {
+                    final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                    response.addHeader(PROXY_HEADER + cellValue.getTimestamp());
+                    return response;
+                }
+                final ByteBuffer value = dao.get(key).duplicate();
+                final byte[] body = new byte[value.remaining()];
+                value.get(body);
+                final Response response = new Response(Response.OK, body);
+                response.addHeader(PROXY_HEADER + cell.getValue().getTimestamp());
                 return response;
+            } catch (NoSuchElementException e) {
+                return new Response(Response.NOT_FOUND, Response.EMPTY);
+            } catch (IOException e) {
+                log.error("GET method failed on /v0/entity for id {}", key.get(), e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-            final ByteBuffer value = dao.get(key).duplicate();
-            final byte[] body = new byte[value.remaining()];
-            value.get(body);
-            final Response response = new Response(Response.OK, body);
-            response.addHeader(PROXY_HEADER + cell.getValue().getTimestamp());
-            return response;
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("GET method failed on /v0/entity for id {}", key.get(), e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        });
     }
 
     /**
@@ -92,14 +96,16 @@ public class DaoHelper {
      * @param key - keu for key-value storage
      * @return - response of request
      */
-    public Response delEntity(final ByteBuffer key) {
-        try {
-            dao.remove(key);
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("DELETE Internal error with key = {}", key, e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    public CompletableFuture<Response> delEntity(final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                dao.remove(key);
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            } catch (IOException e) {
+                log.error("DELETE Internal error with key = {}", key, e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }
+        });
     }
 
     /**
@@ -109,13 +115,15 @@ public class DaoHelper {
      * @param value - value
      * @return - response of request
      */
-    public Response putEntity(final ByteBuffer key, final ByteBuffer value) {
-        try {
-            dao.upsert(key, value);
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("PUT Internal error.", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    public CompletableFuture<Response> putEntity(final ByteBuffer key, final ByteBuffer value) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                dao.upsert(key, value);
+                return new Response(Response.CREATED, Response.EMPTY);
+            } catch (IOException e) {
+                log.error("PUT Internal error.", e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }
+        });
     }
 }

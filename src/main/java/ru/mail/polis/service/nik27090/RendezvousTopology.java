@@ -1,11 +1,11 @@
 package ru.mail.polis.service.nik27090;
 
-import one.nio.http.HttpClient;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.apache.commons.codec.digest.MurmurHash3;
 import org.jetbrains.annotations.NotNull;
 
+import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -14,9 +14,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 public class RendezvousTopology implements Topology<String> {
+
     @NotNull
     private final String[] nodes;
     @NotNull
@@ -41,19 +44,31 @@ public class RendezvousTopology implements Topology<String> {
     }
 
     @Override
+    @SuppressWarnings("FutureReturnValueIgnored")
     public List<Response> getResponseFromNodes(final List<String> nodes,
                                                final Request request,
-                                               final Response localResponse,
-                                               final Map<String, HttpClient> nodeToClient) {
-        final List<Response> responses = new ArrayList<>(nodes.size());
+                                               final CompletableFuture<Response> localResponse,
+                                               final HttpClient httpClient) {
+        final List<CompletableFuture<Response>> responses = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (isCurrentNode(node)) {
                 responses.add(localResponse);
             } else {
-                responses.add(httpHelper.proxy(node, request, nodeToClient));
+                responses.add(httpHelper.proxy(node, request, httpClient));
             }
         }
-        return responses;
+
+        try {
+            return CompletableFuture.allOf(responses.toArray(new CompletableFuture<?>[0])).thenApply(
+                    v -> {
+                        return responses.stream()
+                                .map(CompletableFuture::join)
+                                .collect(Collectors.toList());
+                    }
+            ).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @NotNull
@@ -113,7 +128,7 @@ public class RendezvousTopology implements Topology<String> {
 
     @Override
     public boolean isProxyReq(final Request request) {
-        return request.getHeader("X-Proxy-For:") != null;
+        return request.getHeader("X-Proxy-For") != null;
     }
 
     private byte[] getBytes(final ByteBuffer byteBuffer) {

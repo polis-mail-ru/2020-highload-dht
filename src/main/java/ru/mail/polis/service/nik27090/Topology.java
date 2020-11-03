@@ -1,19 +1,19 @@
 package ru.mail.polis.service.nik27090;
 
-import one.nio.http.HttpClient;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
+import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public interface Topology<N> {
     List<Response> getResponseFromNodes(final List<String> nodes,
                                         final Request request,
-                                        final Response localResponse,
-                                        final Map<String, HttpClient> nodeToClient);
+                                        final CompletableFuture<Response> localResponse,
+                                        final HttpClient nodeToClient);
 
     @NotNull
     N[] getReplicas(@NotNull final ByteBuffer key, final int countReplicas);
