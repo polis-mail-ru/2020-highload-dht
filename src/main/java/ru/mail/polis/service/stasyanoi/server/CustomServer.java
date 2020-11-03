@@ -22,6 +22,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.RejectedExecutionException;
 
+import static ru.mail.polis.service.stasyanoi.Util.routeRequest;
+
 public class CustomServer extends FrameServer {
 
     /**
@@ -111,7 +113,7 @@ public class CustomServer extends FrameServer {
         if (node == nodeNum) {
             responseHttp = getResponseIfIdNotNull(id, dao);
         } else {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
@@ -193,15 +195,14 @@ public class CustomServer extends FrameServer {
         if (node == nodeNum) {
             responseHttp = putHere(request, Mapper.fromBytes(idArray));
         } else {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }
 
     @NotNull
-    private Response putHere(final Request request, final ByteBuffer byteBuffer) {
+    private Response putHere(final Request request, final ByteBuffer key) {
         Response responseHttp;
-        final ByteBuffer key = byteBuffer;
         final ByteBuffer value = Util.getByteBufferValue(request);
         try {
             dao.upsert(key, value);
@@ -297,7 +298,7 @@ public class CustomServer extends FrameServer {
                 responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
             }
         } else {
-            responseHttp = Util.routeRequest(request, node, nodeMapping);
+            responseHttp = routeRequest(request, node, nodeMapping);
         }
         return responseHttp;
     }

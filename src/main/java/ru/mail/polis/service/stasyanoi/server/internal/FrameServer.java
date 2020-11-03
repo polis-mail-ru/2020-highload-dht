@@ -1,29 +1,17 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.RequestMethod;
-import one.nio.http.Response;
+import one.nio.http.*;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 public class FrameServer extends PutGetDeleteMethodServer {
-
-    protected Map<Integer, String> nodeMapping;
-    protected int nodeCount;
-    protected int nodeNum;
-    protected DAO dao;
-    protected CustomExecutor executorService = CustomExecutor.getExecutor();
 
     /**
      * Server config without endpoints.
@@ -36,18 +24,7 @@ public class FrameServer extends PutGetDeleteMethodServer {
     public FrameServer(final DAO dao,
                        final HttpServerConfig config,
                        final Set<String> topology) throws IOException {
-        super(config);
-        this.nodeCount = topology.size();
-        final ArrayList<String> urls = new ArrayList<>(topology);
-        final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
-        for (int i = 0; i < urls.size(); i++) {
-            nodeMappingTemp.put(i, urls.get(i));
-            if (urls.get(i).contains(String.valueOf(super.port))) {
-                nodeNum = i;
-            }
-        }
-        this.nodeMapping = nodeMappingTemp;
-        this.dao = dao;
+        super(dao, config, topology);
     }
 
     @Override

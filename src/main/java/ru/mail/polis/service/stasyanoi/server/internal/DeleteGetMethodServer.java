@@ -5,18 +5,22 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
 public class DeleteGetMethodServer extends GetMethodServer {
 
-    public DeleteGetMethodServer(final HttpServerConfig config) throws IOException {
-        super(config);
+    public DeleteGetMethodServer(final DAO dao,
+                                 final HttpServerConfig config,
+                                 final Set<String> topology) throws IOException {
+        super(dao, config, topology);
     }
 
     /**

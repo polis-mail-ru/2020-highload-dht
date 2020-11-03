@@ -16,17 +16,15 @@ import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class GetMethodServer extends ConstantsServer {
 
-    public GetMethodServer(final HttpServerConfig config) throws IOException {
-        super(config);
+    public GetMethodServer(final DAO dao,
+                           final HttpServerConfig config,
+                           final Set<String> topology) throws IOException {
+        super(dao, config, topology);
     }
 
     /**
@@ -120,7 +118,6 @@ public class GetMethodServer extends ConstantsServer {
      * @param id - key.
      * @param dao - dao to use.
      * @return - response.
-     * @throws IOException - throw if problems with I|O occur.
      */
     public Response getResponseIfIdNotNull(final ByteBuffer id, final DAO dao) {
         try {

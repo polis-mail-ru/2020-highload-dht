@@ -4,17 +4,21 @@ import one.nio.http.HttpServerConfig;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.javatuples.Pair;
+import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class PutGetDeleteMethodServer extends DeleteGetMethodServer {
 
-    public PutGetDeleteMethodServer(final HttpServerConfig config) throws IOException {
-        super(config);
+    public PutGetDeleteMethodServer(final DAO dao,
+                                    final HttpServerConfig config,
+                                    final Set<String> topology) throws IOException {
+        super(dao, config, topology);
     }
 
     /**
