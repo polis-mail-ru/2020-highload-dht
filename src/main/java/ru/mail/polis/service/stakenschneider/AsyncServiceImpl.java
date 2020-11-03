@@ -36,12 +36,18 @@ import java.util.concurrent.TimeUnit;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    private static final String PROXY_HEADER = "X-OK-Proxy: True";
+    private static final String TIMEOUT = "100";
+    private static final int QUEUE_SIZE = 1024;
 
     @NotNull
     private final DAO dao;
     @NotNull
     private final Executor executor;
     private final Nodes nodes;
+    private final Coordinator clusterCoordinator;
+    private final Replica defaultReplicaFactor;
+    private final int clusterSize;
     private final Map<String, HttpClient> clusterClients;
 
     /**
@@ -53,17 +59,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param clusterClients - clusterClients
      * @throws IOException - exception
      */
-    private AsyncServiceImpl(final HttpServerConfig config,
-                             @NotNull final DAO dao,
-                             @NotNull final Nodes nodes,
-                             @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
+    public AsyncServiceImpl(final HttpServerConfig config,
+                            @NotNull final DAO dao,
+                            @NotNull final Nodes nodes,
+                            @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
         super(config);
         this.dao = dao;
         final int maxWorkers = Runtime.getRuntime().availableProcessors();
         this.executor = new ThreadPoolExecutor(
                 maxWorkers, maxWorkers,
                 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(1024),
+                new ArrayBlockingQueue<>(QUEUE_SIZE),
                 new ThreadFactoryBuilder()
                         .setUncaughtExceptionHandler((t, e) -> log.error("Exception {} in thread {}", e, t))
                         .setNameFormat("worker_%d")
@@ -71,7 +77,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy()
         );
         this.nodes = nodes;
+        this.defaultReplicaFactor = new Replica(nodes.getNodes().size() / 2 + 1, nodes.getNodes().size());
+        this.clusterSize = nodes.getNodes().size();
         this.clusterClients = clusterClients;
+        this.clusterCoordinator = new Coordinator(nodes, clusterClients, dao);
     }
 
     /**
@@ -87,8 +96,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final Map<String, HttpClient> clusterClients = new HashMap<>();
         for (final String it : nodes.getNodes()) {
             if (!nodes.getId().equals(it) && !clusterClients.containsKey(it)) {
-                final String timeout = "?timeout=100";
-                clusterClients.put(it, new HttpClient(new ConnectionString(it + timeout)));
+                clusterClients.put(it, new HttpClient(new ConnectionString(it + "?timeout=" + TIMEOUT)));
             }
         }
         return new AsyncServiceImpl(config, dao, nodes, clusterClients);
@@ -100,7 +108,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private void executeAsync(@NotNull final HttpSession session,
-                              @NotNull final Action action) {
+                              @NotNull final Action action) throws IOException {
         try {
             executor.execute(() -> {
                 final Response response = responseAct(session, action);
@@ -108,6 +116,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             });
         } catch (RejectedExecutionException e) {
             log.error("task cannot be accepted for execution", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
@@ -135,16 +144,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return null;
     }
 
-    private Response forwardRequestTo(@NotNull final String node,
-                                      final Request request) {
-        try {
-            return clusterClients.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException | IOException e) {
-            log.info("fail", e);
-        }
-        return null;
-    }
-
     @FunctionalInterface
     interface Action {
         Response act() throws IOException;
@@ -153,9 +152,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) throws IOException {
-        final var response = new Response(Response.BAD_REQUEST, Response.EMPTY);
+        final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         log.warn("Can't find handler for {}", request.getPath());
         session.sendResponse(response);
+    }
+
+    private Response forwardRequestTo(@NotNull final String node,
+                                      @NotNull final Request request) {
+        try {
+            return clusterClients.get(node).invoke(request);
+        } catch (InterruptedException | PoolException | HttpException | IOException e) {
+            log.info("fail", e);
+
+        }
+        return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
     }
 
     /**
@@ -176,10 +186,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param session - HttpSession
      */
     @Path("/v0/entity")
-    public void entity(@NotNull @Param("id") final String id,
+    public void entity(@Param("id") final String id,
                        @NotNull final Request request,
-                       @NotNull final HttpSession session) {
-        if (id.isEmpty()) {
+                       @NotNull final HttpSession session) throws IOException {
+        if (id == null || id.isEmpty()) {
             try {
                 log.info("id is empty");
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -190,6 +200,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
         final String keyClusterPartition = nodes.primaryFor(key);
 
         if (!nodes.getId().equals(keyClusterPartition)) {
@@ -197,23 +208,34 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        try {
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    executeAsync(session, () -> get(key));
-                    break;
-                case Request.METHOD_PUT:
-                    executeAsync(session, () -> put(key, request));
-                    break;
-                case Request.METHOD_DELETE:
-                    executeAsync(session, () -> delete(key));
-                    break;
-                default:
-                    session.sendError(Response.METHOD_NOT_ALLOWED, "Wrong method");
-                    break;
+        final boolean proxied = request.getHeader(PROXY_HEADER) != null;
+        final String replicas = request.getParameter("replicas");
+        final Replica replicaFactor =
+                Replica.calculateRF(replicas, session, defaultReplicaFactor, clusterSize);
+
+        if (proxied || nodes.getNodes().size() > 1) {
+            final String[] replicaClusters = proxied ? new String[]{nodes.getId()}
+                    : nodes.replicas(replicaFactor.getFrom(), key);
+            clusterCoordinator.coordinateRequest(replicaClusters, request, replicaFactor.getAck(), session);
+        } else {
+            try {
+                switch (request.getMethod()) {
+                    case Request.METHOD_GET:
+                        executeAsync(session, () -> get(key));
+                        break;
+                    case Request.METHOD_PUT:
+                        executeAsync(session, () -> put(key, request));
+                        break;
+                    case Request.METHOD_DELETE:
+                        executeAsync(session, () -> delete(key));
+                        break;
+                    default:
+                        session.sendError(Response.METHOD_NOT_ALLOWED, "Wrong method");
+                        break;
+                }
+            } catch (IOException e) {
+                log.error("Internal error", e);
             }
-        } catch (IOException e) {
-            log.error("Internal error", e);
         }
     }
 
