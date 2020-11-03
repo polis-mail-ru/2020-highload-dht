@@ -41,7 +41,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
-    private static final Duration TIMEOUT = Duration.ofSeconds(1);
+    private static final Duration TIMEOUT = Duration.ofMillis(500);
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
@@ -158,7 +158,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         if (request.getHeader("X-Proxy-For") != null) {
             ServiceUtils.selector(() -> handlePut(key, request),
                     () -> handleGet(key),
-                    () -> handleGet(key),
+                    () -> handleDel(key),
                     request.getMethod(),
                     session);
             return;
@@ -183,14 +183,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             responsesFuture.add(proxy(node, request));
         }
 
-        Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((t, v) -> {
-            if (v != null) {
-                log.error("Future complete error {}", v.getMessage());
-            }
-
-            final MergeResponses mergeResponses = new MergeResponses(t, replicasFactor.getAck());
-            t.removeIf((e) -> e.getStatus() == 500);
+        Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
             try {
+                if (v == null) {
+                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                    return;
+                }
+
+                final MergeResponses mergeResponses = new MergeResponses(v, replicasFactor.getAck());
+                v.removeIf((e) -> e.getStatus() == 500);
+
                 ServiceUtils.selector(mergeResponses::mergePutResponses,
                         mergeResponses::mergeGetResponses,
                         mergeResponses::mergeDeleteResponses,
@@ -261,8 +263,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                             executorService);
                 case Request.METHOD_GET:
                     return CompletableFuture.supplyAsync(
-                            () -> handleGet(key),
-                            executorService);
+                            () -> handleGet(key));
                 case Request.METHOD_DELETE:
                     return CompletableFuture.supplyAsync(
                             () -> handleDel(key),
@@ -271,8 +272,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     break;
             }
         }
-        HttpRequest requestForReplica = null;
-//        request.addHeader("X-Proxy-For: " + node);
+        HttpRequest requestForReplica;
         switch (request.getMethod()) {
             case Request.METHOD_PUT:
                 requestForReplica = requestForRepl(node, id).PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())).build();
@@ -289,16 +289,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             default:
                 break;
         }
-//        try {
-//            return nodeClients.get(node).invoke(requestForReplica);
-//        } catch (IOException | InterruptedException | PoolException | HttpException e) {
-//            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-//        }
 
-        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
-                .thenApplyAsync(HttpResponse::body, executorService);
-
-
+        return null;
     }
 
     /**
@@ -323,7 +315,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         super.stop();
         executorService.shutdown();
         try {
-            executorService.awaitTermination(1, TimeUnit.SECONDS);
+            executorService.awaitTermination(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             log.error("Cant stop executor service", e);
             Thread.currentThread().interrupt();
