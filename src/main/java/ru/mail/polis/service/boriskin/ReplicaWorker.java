@@ -59,27 +59,24 @@ final class ReplicaWorker {
         }
         final List<String> replicas =
                 topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
+                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)),
                         mir.getReplicaFactor().getFrom());
         final ArrayList<Value> values = new ArrayList<>();
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 values.add(
-                        Value.from(
-                                dao.getTableCell(
-                                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))));
+                        Value.from(dao.getTableCell(
+                                ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))));
             } catch (IOException ioException) {
                 logger.error("Нода: {}. Ошибка в GET {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled ->
-                getResponses(replicas, mir, topology, javaNetHttpClient)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
+            int statusCode = 200;
             for (final HttpResponse<byte[]> response : responses) {
                 if (response.statusCode() == 404) {
-                    resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
+                    statusCode = 404;
                 }
             }
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
@@ -87,7 +84,7 @@ final class ReplicaWorker {
                     getStartAcks(replicas), responses, success);
             final Response response = Value.transform(Value.merge(values), false);
             sendResponseIfExpectedAcksReached(
-                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
+                    acks, mir.getReplicaFactor().getAck(), response, httpSession, statusCode);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в GET: ", exception);
             return null;
@@ -105,9 +102,8 @@ final class ReplicaWorker {
         CompletableFuture.runAsync(() -> {
             try {
                 final Response response = Value.transform(
-                        Value.from(
-                                dao.getTableCell(
-                                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
+                        Value.from(dao.getTableCell(
+                                ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
                         true);
                 resp(httpSession, response);
             } catch (IOException ioException) {
@@ -128,8 +124,7 @@ final class ReplicaWorker {
         }
         final List<String> replicas =
                 topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
+                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)),
                         mir.getReplicaFactor().getFrom());
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
@@ -138,8 +133,7 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в PUT {}, {} ",
                         topology.recogniseMyself(), mir.getId(), mir.getValue(), ioException);
             }
-        }).thenComposeAsync(handled ->
-                getResponses(replicas, mir, topology, javaNetHttpClient)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 201)
         ).exceptionally(exception -> {
@@ -175,8 +169,7 @@ final class ReplicaWorker {
         }
         final List<String> replicas =
                 topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
+                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)),
                         mir.getReplicaFactor().getFrom());
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
@@ -185,8 +178,7 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в DELETE {}, {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled ->
-                getResponses(replicas, mir, topology, javaNetHttpClient)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 202)
         ).exceptionally(exception -> {
@@ -233,10 +225,10 @@ final class ReplicaWorker {
             final int statusCode) {
         final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == statusCode;
         final int acks = getNumberOfSuccessfulResponses(getStartAcks(replicas), responses, successPut);
-        final String response = statusCode == 201
-                ? Response.CREATED : Response.ACCEPTED;
+        final String response;
+        response = statusCode == 201 ? Response.CREATED : Response.ACCEPTED;
         sendResponseIfExpectedAcksReached(
-                acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession);
+                acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession, statusCode);
     }
 
     private static int getNumberOfSuccessfulResponses(
@@ -245,6 +237,10 @@ final class ReplicaWorker {
             @NotNull final Predicate<HttpResponse<byte[]>> ok) {
         int acks = startAcks;
         for (final HttpResponse<byte[]> response : responses) {
+            if (response.statusCode() == 404) {
+                acks++;
+                return acks;
+            }
             if (ok.test(response)) {
                 acks++;
             }
@@ -256,9 +252,14 @@ final class ReplicaWorker {
             final int myAcks,
             final int acksThreshold,
             @NotNull final Response response,
-            @NotNull final HttpSession httpSession) {
+            @NotNull final HttpSession httpSession,
+            final int statusCode) {
+        Response myResponse = response;
+        if (statusCode == 404) {
+            myResponse = new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
         if (myAcks >= acksThreshold) {
-            resp(httpSession, response);
+            resp(httpSession, myResponse);
         } else {
             resp(httpSession, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         }
