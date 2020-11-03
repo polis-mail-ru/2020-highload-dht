@@ -65,6 +65,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
 
     private final Map<String, HttpClient> nodesToClients;
     private final ReplicationFactor rf;
+
     private final String deletedMarker;
 
     /**
@@ -89,7 +90,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 new ThreadFactoryBuilder().setNameFormat("async_workers-%d").build()
         );
 
-        this.deletedMarker = UUID.randomUUID().toString();
+        deletedMarker = UUID.randomUUID().toString();
 
         this.nodesToClients = new HashMap<>();
         this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
@@ -230,12 +231,10 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
             final ByteBuffer response = dao.get(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)));
-            final byte[] result = Util.toByteArray(response);
-            if (Arrays.equals(result, this.deletedMarker.getBytes(StandardCharsets.UTF_8))) {
+            if (Value.isDeleted(response, deletedMarker)) {
                 return new Response(MESSAGE_MAP.get(ErrorNames.MOVED), Response.EMPTY);
             }
-
-            return Response.ok(result);
+            return Response.ok(Util.toByteArray(response));
         } catch (NoSuchElementException ex) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ex) {
@@ -257,7 +256,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
-            dao.upsert(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
+            dao.removeValue(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), ex);
@@ -277,7 +276,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
-            dao.upsert(Util.toByteBuffer(key), Util.toByteBuffer(this.deletedMarker));
+            dao.removeValue(Util.toByteBuffer(key), Util.toByteBuffer(deletedMarker));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), ex);

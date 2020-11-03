@@ -2,9 +2,12 @@ package ru.mail.polis.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public final class Value {
 
@@ -31,6 +34,12 @@ public final class Value {
 
     public static Value resolveDeletedValue(final long timestamp) {
         return new Value(true, timestamp, ByteBuffer.allocate(0));
+    }
+
+    static boolean isDeleted(final ByteBuffer buffer, final String marker) {
+        final byte[] value = Util.toByteArray(buffer);
+        final byte[] markerValue = marker.getBytes(StandardCharsets.UTF_8);
+        return Arrays.equals(value, markerValue);
     }
 
     static Value resolveMissingValue() {

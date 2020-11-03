@@ -7,6 +7,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
+import ru.mail.polis.service.AsyncClientServiceImpl;
 import ru.mail.polis.service.Value;
 import ru.mail.polis.util.Util;
 
@@ -132,6 +133,11 @@ public class DaoEngine implements DAO {
         } catch (RocksDBException e) {
             throw new IOException(e);
         }
+    }
+
+    @Override
+    public void removeValue(@NotNull final ByteBuffer key, @NotNull final ByteBuffer marker) throws IOException {
+        upsert(key, marker);
     }
 
     private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException {

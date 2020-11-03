@@ -114,6 +114,13 @@ public interface DAO extends Closeable {
     void removeValue(@NotNull ByteBuffer key) throws IOException;
 
     /**
+     * Marks value as deleted using special value.
+     * @param key    - key to remove
+     * @param marker - deleted special value
+     */
+    void removeValue(@NotNull ByteBuffer key, @NotNull ByteBuffer marker) throws IOException;
+
+    /**
      * Performs compaction.
      */
     default void compact() throws IOException {
