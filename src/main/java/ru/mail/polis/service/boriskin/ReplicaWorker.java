@@ -141,7 +141,7 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
-                httpSession, mir, replicas, responses, 201, Response.CREATED)
+                httpSession, mir, replicas, responses, 201)
         ).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в UPSERT: ", exception);
             return null;
@@ -188,7 +188,7 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
-                httpSession, mir, replicas, responses, 202, Response.ACCEPTED)
+                httpSession, mir, replicas, responses, 202)
         ).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в DELETE: ", exception);
             return null;
@@ -230,10 +230,11 @@ final class ReplicaWorker {
             @NotNull final MetaInfoRequest mir,
             @NotNull final List<String> replicas,
             @NotNull final List<HttpResponse<byte[]>> responses,
-            final int statusCode,
-            final String response) {
+            final int statusCode) {
         final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == statusCode;
         final int acks = getNumberOfSuccessfulResponses(getStartAcks(replicas), responses, successPut);
+        final String response = statusCode == 201
+                ? Response.CREATED : Response.ACCEPTED;
         sendResponseIfExpectedAcksReached(
                 acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession);
     }

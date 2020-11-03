@@ -108,7 +108,7 @@ final class FuturesWorker {
                 }
             }
         };
-        for (CompletableFuture<HttpResponse<byte[]>> future : futures) {
+        for (final CompletableFuture<HttpResponse<byte[]>> future : futures) {
             future
                     .orTimeout(1, TimeUnit.SECONDS)
                     .whenCompleteAsync(biConsumer)
