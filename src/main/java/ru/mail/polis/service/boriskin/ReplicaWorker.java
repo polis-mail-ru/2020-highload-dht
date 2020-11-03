@@ -73,9 +73,6 @@ final class ReplicaWorker {
             }
         }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
         ).whenCompleteAsync((responses, error) -> {
-            if (responses == null) {
-                return;
-            }
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
             final int acks = getNumberOfSuccessfulResponses(
                     getStartAcks(replicas), responses, success);

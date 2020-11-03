@@ -121,18 +121,15 @@ final class FuturesWorker {
                             logger.error("Ошибка при использовании Future: ", exception);
                             return null;
                         }));
-
         try {
             for (final HttpResponse<byte[]> response : result.get()) {
                 if (response.statusCode() == 404) {
                     resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return null;
                 }
             }
         } catch (InterruptedException | ExecutionException exception) {
-            logger.error("Ошибка при return 404: ", exception);
+            logger.error("Ошибка при проверке запросов: ", exception);
         }
-
         return result;
     }
 }
