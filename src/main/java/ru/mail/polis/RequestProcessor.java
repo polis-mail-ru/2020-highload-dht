@@ -21,14 +21,24 @@ import static java.util.stream.Collectors.toList;
 
 public abstract class RequestProcessor {
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
+
     @FunctionalInterface
     public interface MyConsumer<T, U, R, Y, C> {
         void accept(T t, U u, R r, Y y, C c);
     }
 
+    /**
+     * TODO
+     *
+     * @param uris
+     * @param rqst
+     * @param methodDefiner
+     * @return
+     */
     public static List<HttpRequest> createRequests(final List<String> uris,
                                                    final Request rqst,
-                                                   final Function<HttpRequest.Builder, HttpRequest.Builder> methodDefiner)  {
+                                                   final Function<HttpRequest.Builder,
+                                                           HttpRequest.Builder> methodDefiner)  {
         return uris.stream()
                 .map(x -> x + rqst.getURI())
                 .map(RequestProcessor::createURI)
@@ -55,13 +65,20 @@ public abstract class RequestProcessor {
         public final Integer neededAcks;
         public final List<String> uris;
         public final List<TimestampRecord> responses = Collections.synchronizedList(new ArrayList<>());
+
+        /**
+         * TODO
+         * @param replicaNodes
+         * @param rqst
+         * @param acks
+         */
         public ProcessRequestModel(final String[] replicaNodes,
                                    @NotNull final Request rqst,
                                    final int acks) {
             final String id = rqst.getParameter("id=");
             this.key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             this.proxied = rqst.getHeader(PROXY_HEADER) != null;
-            this.uris =  new ArrayList<>(Arrays.asList(replicaNodes));
+            this.uris = new ArrayList<>(Arrays.asList(replicaNodes));
             this.neededAcks = acks;
         }
     }

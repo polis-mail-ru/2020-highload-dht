@@ -14,7 +14,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -33,12 +34,13 @@ class Coordinator {
             AtomicInteger,
             Boolean> processError = (session, futureList, neededAcks, receivedAcks, proxied) -> {
         if (receivedAcks.getAcquire() < neededAcks
-                && !(proxied && receivedAcks.getAcquire() == 1))
+                && !(proxied && receivedAcks.getAcquire() == 1)) {
             try {
                 session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
             } catch (IOException e) {
                 session.close();
             }
+        }
     };
 
     private void checkResponses(final List<CompletableFuture<Void>> futureList,
@@ -73,7 +75,6 @@ class Coordinator {
         checkResponses(futureList, session, neededAcks, receivedAcks, proxied);
     }
 
-
     private void sendResult(final Supplier<Response> processResponse,
                             final Integer neededAcks,
                             final AtomicInteger receivedAcks,
@@ -90,17 +91,15 @@ class Coordinator {
 
     /**
      * Create the cluster coordinator instance.
-     *
      */
     Coordinator(@NotNull final Nodes nodes,
-                 @NotNull final DAO dao) {
+                @NotNull final DAO dao) {
         this.dao = (RocksDAO) dao;
         this.nodes = nodes;
     }
 
     /**
      * Coordinate the delete among all clusters.
-     *
      */
     private void coordinateDelete(final String[] replicaNodes,
                                   @NotNull final HttpSession session,
@@ -130,7 +129,6 @@ class Coordinator {
 
     /**
      * Coordinate the put among all clusters.
-     *
      */
     private void coordinatePut(final String[] replicaNodes,
                                @NotNull final HttpSession session,
@@ -161,12 +159,11 @@ class Coordinator {
 
     /**
      * Coordinate the get among all clusters.
-     *
      */
     private void coordinateGet(final String[] replicaNodes,
                                @NotNull final HttpSession session,
                                @NotNull final Request rqst,
-                               final int acks) throws IOException {
+                               final int acks) {
         final var model = new RequestProcessor.ProcessRequestModel(replicaNodes, rqst, acks);
         final Function<HttpRequest.Builder, HttpRequest.Builder> methodDefiner = HttpRequest.Builder::GET;
         if (model.uris.remove(nodes.getId())) {
@@ -181,14 +178,14 @@ class Coordinator {
                 }
             }
         }
-        this.sendResult(() -> processResponses(model.responses, model.proxied), acks, model.recievidAcks, session, model.proxied);
+
+        this.sendResult(() -> processResponses(model.responses, model.proxied),
+                acks, model.recievidAcks, session, model.proxied);
         if (!model.uris.isEmpty()) {
             final List<HttpRequest> requests = RequestProcessor.createRequests(model.uris, rqst, methodDefiner);
             final List<CompletableFuture<Void>> futureList = requests.stream()
                     .map(request -> client.sendAsync(request, ofByteArray())
-                            .thenAccept(response -> {
-                                checkGetProxiedResponses(response, model, session);
-                            }))
+                            .thenAccept(response -> checkGetProxiedResponses(response, model, session)))
                     .collect(Collectors.toList());
             checkResponses(futureList, session, acks, model.recievidAcks, model.proxied);
         }
@@ -213,7 +210,7 @@ class Coordinator {
     private void getTimestampRecordFromLocalDao(final ByteBuffer key,
                                                 final List<TimestampRecord> responses) throws IOException {
         try {
-            final var record = TimestampRecord.fromBytes(copyAndExtractWithTimestampFromByteBuffer(key));
+            final TimestampRecord record = TimestampRecord.fromBytes(copyAndExtractWithTimestampFromByteBuffer(key));
             responses.add(record);
         } catch (NoSuchElementException exp) {
             responses.add(TimestampRecord.getEmpty());
@@ -246,7 +243,6 @@ class Coordinator {
 
     /**
      * Coordinate the request among all clusters.
-     *
      */
     void coordinateRequest(final String[] replicaClusters,
                            final Request request,
