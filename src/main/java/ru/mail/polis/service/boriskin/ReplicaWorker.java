@@ -71,10 +71,9 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в GET {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
         ).whenCompleteAsync((responses, error) -> {
             if (responses == null) {
-                resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
                 return;
             }
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
@@ -131,7 +130,7 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в PUT {}, {} ",
                         topology.recogniseMyself(), mir.getId(), mir.getValue(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 201)
         ).exceptionally(exception -> {
@@ -176,7 +175,7 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в DELETE {}, {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient, httpSession)
         ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 202)
         ).exceptionally(exception -> {

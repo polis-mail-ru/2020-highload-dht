@@ -1,5 +1,7 @@
 package ru.mail.polis.service.boriskin;
 
+import one.nio.http.HttpSession;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
+import static ru.mail.polis.service.boriskin.NewService.resp;
 import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER_NAME;
 import static ru.mail.polis.service.boriskin.ReplicaWorker.PROXY_HEADER_VALUE;
 
@@ -39,7 +42,8 @@ final class FuturesWorker {
             @NotNull final List<String> replicas,
             @NotNull final MetaInfoRequest mir,
             @NotNull final Topology<String> topology,
-            @NotNull final HttpClient javaNetHttpClient) {
+            @NotNull final HttpClient javaNetHttpClient,
+            @NotNull final HttpSession httpSession) {
         final int acks;
         if (replicas.contains(topology.recogniseMyself())) {
             acks = mir.getReplicaFactor().getAck() - 1;
@@ -75,7 +79,7 @@ final class FuturesWorker {
                                     HttpResponse.BodyHandlers.ofByteArray()));
                 }
             }
-            return getListOfReceivedResponses(futures, acks);
+            return getListOfReceivedResponses(futures, acks, httpSession);
         }
 
         return CompletableFuture.completedFuture(Collections.emptyList());
@@ -83,7 +87,8 @@ final class FuturesWorker {
 
     private static CompletableFuture<List<HttpResponse<byte[]>>> getListOfReceivedResponses(
             @NotNull final List<CompletableFuture<HttpResponse<byte[]>>> futures,
-            final int acks) {
+            final int acks,
+            @NotNull final HttpSession httpSession) {
         if (futures.size() < acks) {
             throw new IllegalArgumentException(
                     "Запросов ожидалось: " + futures.size()
@@ -120,6 +125,7 @@ final class FuturesWorker {
         try {
             for (final HttpResponse<byte[]> response : result.get()) {
                 if (response.statusCode() == 404) {
+                    resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
                     return null;
                 }
             }
