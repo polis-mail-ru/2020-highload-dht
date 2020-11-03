@@ -87,9 +87,6 @@ public class ServiceImpl extends HttpServer implements Service {
                 executorService,
                 proxyExecutor,
                 topology,
-                proxyTimeoutValue,
-                proxyTimeoutValue,
-                proxyTimeoutValue,
                 proxyTimeoutValue
         );
         this.defaultAck = topology.getQuorumCount();
