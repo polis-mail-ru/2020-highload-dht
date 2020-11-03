@@ -3,6 +3,9 @@ package ru.mail.polis.service.kate.moreva;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 
+/**
+ * Utility class to use less parameters.
+ * */
 class Context {
     private final boolean isProxy;
     private final HttpSession session;

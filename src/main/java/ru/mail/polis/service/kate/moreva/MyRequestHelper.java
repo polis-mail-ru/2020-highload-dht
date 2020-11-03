@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
-    private static final String TIMESTAMP = "Timestamp:";
-    static final String PROXY_HEADER = "X-Proxy:";
+    private static final String TIMESTAMP = "Timestamp: ";
+    static final String PROXY_HEADER = "X-Proxy: ";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final Logger log = LoggerFactory.getLogger(MyRequestHelper.class);
 
@@ -129,12 +129,11 @@ public class MyRequestHelper {
                     }
                     return;
                 }
-                if (results.size() >= ack) {
-                    return;
-                }
-                results.add(v);
-                if (results.size() == ack) {
-                    resultsFuture.complete(results);
+                if (results.size() <= ack) {
+                    results.add(v);
+                    if (results.size() == ack) {
+                        resultsFuture.complete(results);
+                    }
                 }
             }).exceptionally(e -> {
                 log.error("Error while collecting futures ", e);

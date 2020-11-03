@@ -2,6 +2,9 @@ package ru.mail.polis.service.kate.moreva;
 
 import java.util.Arrays;
 
+/**
+ * Utility class to work with request results.
+ * */
 public class RequestValue {
     private final String status;
     private final byte[] body;
@@ -9,7 +12,7 @@ public class RequestValue {
 
     public RequestValue(final String status, final byte[] body, final long timestamp) {
         this.status = status;
-        this.body = Arrays.copyOf(body, body.length);
+        this.body = body.clone();
         this.timestamp = timestamp;
     }
 
@@ -18,7 +21,7 @@ public class RequestValue {
     }
 
     public byte[] getValue() {
-        return Arrays.copyOf(body, body.length);
+        return body.clone();
     }
 
     public long getTimestamp() {

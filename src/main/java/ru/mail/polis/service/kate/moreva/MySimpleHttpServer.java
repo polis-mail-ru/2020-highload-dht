@@ -182,7 +182,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         result.thenAccept(v -> requestHelper.sendLoggedResponse(
                 context.getSession(), new Response(v.getStatus(), v.getValue())))
                 .exceptionally(e -> {
-                    log.error("Execute method error", e);
+                    log.error("Error while executing method ", e);
                     return null;
                 });
     }
@@ -201,7 +201,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 final CompletableFuture<RequestValue> result = this.client
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                         .thenApply(r -> new RequestValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
-                                Long.parseLong(r.headers().firstValue(TIMESTAMP).orElse("-1"))));
+                                r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)));
                 results.add(result);
             }
         }
