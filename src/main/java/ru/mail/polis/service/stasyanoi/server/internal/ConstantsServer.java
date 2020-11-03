@@ -41,9 +41,8 @@ public class ConstantsServer extends HttpServer {
      * @param topology - topology.
      * @throws IOException - IOException.
      */
-    public ConstantsServer(final DAO dao,
-                           final HttpServerConfig config,
-                           final Set<String> topology) throws IOException {
+    public ConstantsServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
+            throws IOException {
         super(config);
         this.nodeCount = topology.size();
         final ArrayList<String> urls = new ArrayList<>(topology);

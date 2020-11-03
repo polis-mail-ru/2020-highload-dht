@@ -16,9 +16,8 @@ import java.util.Set;
 
 public class DeleteGetMethodServer extends GetMethodServer {
 
-    public DeleteGetMethodServer(final DAO dao,
-                           final HttpServerConfig config,
-                           final Set<String> topology) throws IOException {
+    public DeleteGetMethodServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
+            throws IOException {
         super(dao, config, topology);
     }
 

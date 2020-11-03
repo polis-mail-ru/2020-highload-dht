@@ -15,20 +15,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class GetMethodServer extends ConstantsServer {
 
-    public GetMethodServer(final DAO dao,
-                           final HttpServerConfig config,
-                           final Set<String> topology) throws IOException {
+    public GetMethodServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
+            throws IOException {
         super(dao, config, topology);
     }
 
@@ -47,7 +41,7 @@ public class GetMethodServer extends ConstantsServer {
                                                    final int from,
                                                    final Request request,
                                                    final int port) {
-        final List<Response> responses = new ArrayList<>();
+        final List<Response> responses = new CopyOnWriteArrayList<>();
         final var completableFutures = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
@@ -72,7 +66,6 @@ public class GetMethodServer extends ConstantsServer {
                             .thenAcceptAsync(responses::add);
                 })
                 .toArray(CompletableFuture[]::new);
-
         CompletableFuture.allOf(completableFutures).join();
         responses.add(responseHttpTemp);
         return responses;
@@ -119,9 +112,7 @@ public class GetMethodServer extends ConstantsServer {
     }
 
     @NotNull
-    private Request getCloneRequest(final Request request,
-                                           final String newPath,
-                                           final int thisServerPort) {
+    private Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         Arrays.stream(request.getHeaders())
                 .filter(Objects::nonNull)
@@ -137,7 +128,6 @@ public class GetMethodServer extends ConstantsServer {
      * @param id - key.
      * @param dao - dao to use.
      * @return - response.
-     * @throws IOException - throw if problems with I|O occur.
      */
     public Response getResponseIfIdNotNull(final ByteBuffer id, final DAO dao) {
         try {
