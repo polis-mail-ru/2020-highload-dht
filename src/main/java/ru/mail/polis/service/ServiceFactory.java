@@ -32,7 +32,7 @@ import java.util.Set;
  */
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-    private static final Duration TIMEOUT = Duration.ofMinutes(1);
+    private static final Duration TIMEOUT = Duration.ofMillis(4500);
 
     private ServiceFactory() {
         // Not supposed to be instantiated
