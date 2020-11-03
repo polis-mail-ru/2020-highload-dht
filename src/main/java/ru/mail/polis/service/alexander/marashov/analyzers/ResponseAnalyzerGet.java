@@ -56,19 +56,22 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
     @Override
     protected void privateAccept(final Value value) {
         answeredCount++;
-        if (value != null) {
-            if (value.isTombstone()) {
-                if (newestTombstone == null || value.compareTo(newestTombstone) < 0) {
-                    newestTombstone = value;
-                }
-                return;
-            }
+        if (value == null) {
+            return;
+        }
+
+        if (!value.isTombstone()) {
             answersMap.compute(value, (v, oldCount) -> {
                 if (oldCount == null) {
                     return 1;
                 }
                 return oldCount + 1;
             });
+            return;
+        }
+
+        if (newestTombstone == null || value.compareTo(newestTombstone) < 0) {
+            newestTombstone = value;
         }
     }
 
@@ -85,7 +88,6 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
         int maxCount = 0;
         for (final Map.Entry<Value, Integer> answerEntry : answersMap.entrySet()) {
             final Value value = answerEntry.getKey();
-            assert !value.isTombstone();
             final int count = answerEntry.getValue();
 
             if (correctValue == null) {
@@ -99,6 +101,8 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
                 }
             }
         }
+
+        assert correctValue != null;
 
         if (newestTombstone != null && newestTombstone.compareTo(correctValue) < 0) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
