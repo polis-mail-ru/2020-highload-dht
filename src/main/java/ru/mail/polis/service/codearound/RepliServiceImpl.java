@@ -8,22 +8,22 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
-import java.net.http.HttpClient;
 import java.io.IOException;
+import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.Logger;
 
 public class RepliServiceImpl extends HttpServer implements Service {
 
@@ -69,8 +69,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy()
         );
         this.topology = topology;
-        Map<String, HttpClient> nodesToClients = new HashMap<>();
-        ReplicationFactor repliFactor = new ReplicationFactor(
+        final Map<String, HttpClient> nodesToClients = new HashMap<>();
+        final ReplicationFactor repliFactor = new ReplicationFactor(
                 topology.getClusterSize() / 2 + 1,
                 topology.getClusterSize());
         this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor);
@@ -145,13 +145,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
         switch (req.getMethod()) {
             case Request.METHOD_GET:
                 runAsyncHandler(session, () -> lsm.getWithOnlyNode(key));
-                return;
+                break;
             case Request.METHOD_PUT:
                 runAsyncHandler(session, () -> lsm.upsertWithOnlyNode(key, req.getBody()));
-                return;
+                break;
             case Request.METHOD_DELETE:
                 runAsyncHandler(session, () -> lsm.deleteWithOnlyNode(key));
-                return;
+                break;
             default:
                 session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
         }

@@ -27,12 +27,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class FutureUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
-    public static final String GET_COMPLETION_ERROR_LOG = "Future return error when "
-            + "trying GET request, server response can't get complete";
-    public static final String UPSERT_COMPLETION_ERROR_LOG = "Future return error when "
-            + "trying UPSERT request, server response can't get complete";
-    public static final String DELETE_COMPLETION_ERROR_LOG = "Future return error when "
-            + "trying DELETE request, server response can't get complete";
+    public static final String GET_COMPLETION_ERROR_LOG = "Future return error when running GET request handler";
+    public static final String UPSERT_COMPLETION_ERROR_LOG = "Future return error when running PUT request handler";
+    public static final String DELETE_COMPLETION_ERROR_LOG = "Future return error when running DELETE request handler";
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
     private boolean isForwardedRequest;
     @NotNull
@@ -63,7 +60,7 @@ public final class FutureUtils {
     /**
      * request proxy status setter.
      *
-     * @param isForwardedRequest- true if incoming request header indicates
+     * @param isForwardedRequest - true if incoming request header indicates
      *                            invocation of proxy-providing method on a previous node
      */
     public void setForwardedRequest(final boolean isForwardedRequest) {
@@ -117,8 +114,7 @@ public final class FutureUtils {
         quant.set(incrementFutureCount(quant, 201, futures));
         if (quant.get() >= futures.size() || quant.get() >= count) {
             return new Response(Response.CREATED, Response.EMPTY);
-        }
-        else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
     /**
@@ -171,7 +167,8 @@ public final class FutureUtils {
             try {
                 if (future.isCompletedExceptionally()) {
                     continue;
-                } if (future.get().statusCode() == returnCode) {
+                }
+                if (future.get().statusCode() == returnCode) {
                     quant.incrementAndGet();
                 }
             } catch (ExecutionException | InterruptedException exc) {

@@ -2,8 +2,8 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.codearound.RepliServiceImpl;
 import ru.mail.polis.service.codearound.ModularTopology;
+import ru.mail.polis.service.codearound.RepliServiceImpl;
 import ru.mail.polis.service.codearound.Topology;
 
 import java.io.IOException;
