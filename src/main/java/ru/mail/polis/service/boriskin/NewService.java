@@ -119,7 +119,9 @@ public class NewService extends HttpServer implements Service {
             @Param("replicas") final String replicas,
             final HttpSession httpSession,
             final Request request) {
-        idValidation(id, httpSession);
+        if (idNotValid(id, httpSession)) {
+            return;
+        }
         final ReplicaFactor replicationFactor;
         try {
             replicationFactor = replicas == null
@@ -138,12 +140,14 @@ public class NewService extends HttpServer implements Service {
         runExecutorService(httpSession, request, replicationFactor);
     }
 
-    private void idValidation(
+    private boolean idNotValid(
             @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         if (id == null || id.isEmpty()) {
             resp(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return true;
         }
+        return false;
     }
 
     /**

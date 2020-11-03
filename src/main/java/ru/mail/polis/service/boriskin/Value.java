@@ -113,7 +113,10 @@ final class Value implements Comparable<Value> {
         Response result;
         switch (value.getState()) {
             case PRESENT:
-                result = new Response(Response.OK, value.getData());
+                result =
+                        value.getData() == null
+                                ? new Response(Response.NOT_FOUND, Response.EMPTY) :
+                                new Response(Response.OK, value.getData());
                 if (alreadyProxied) {
                     result.addHeader(TIMESTAMP_HEADER + ": " + value.getTimeStamp());
                 }
