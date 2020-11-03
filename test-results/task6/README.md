@@ -25,15 +25,15 @@ Transfer/sec:    654.36KB
 ```
 
 ## CPU
-![CPU](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task5/test-results/task6/cpu_put.svg)
+![CPU](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task6/test-results/task6/cpu_put.svg)
 
 ## ALLOC
 
-![ALLOC](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task5/test-results/task6/alloc_put.svg)
+![ALLOC](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task6/test-results/task6/alloc_put.svg)
 
 ## LOCK:
 
-![LOCK](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task5/test-results/task6/lock_put.svg)
+![LOCK](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task6/test-results/task6/lock_put.svg)
 
 # GET
 wrk2 -t64 -c64 -d30s -R* -s test-results/lua/wrk2-scripts/get-request.lua --latency\\
@@ -62,12 +62,12 @@ Transfer/sec:    654.43KB
 ```
 
 ## CPU
-![CPU](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task5/test-results/task6/cpu_get.svg)
+![CPU](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task6/test-results/task6/cpu_get.svg)
 
 ## ALLOC
 
-![ALLOC](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task5/test-results/task6/alloc_get.svg)
+![ALLOC](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task6/test-results/task6/alloc_get.svg)
 
 ## LOCK
 
-![LOCK](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task5/test-results/task6/lock_get.svg)
+![LOCK](https://raw.githubusercontent.com/s3ponia/2020-highload-dht/task6/test-results/task6/lock_get.svg)
