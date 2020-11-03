@@ -61,8 +61,7 @@ final class ReplicaWorker {
                 topology.replicas(
                         ByteBuffer.wrap(
                                 mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
+                        mir.getReplicaFactor().getFrom());
         final ArrayList<Value> values = new ArrayList<>();
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
@@ -83,11 +82,12 @@ final class ReplicaWorker {
                     return;
                 }
             }
-            final int startAcks = getStartAcks(replicas);
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
-            final int acks = getNumberOfSuccessfulResponses(startAcks, responses, success);
+            final int acks = getNumberOfSuccessfulResponses(
+                    getStartAcks(replicas), responses, success);
             final Response response = Value.transform(Value.merge(values), false);
-            sendResponseIfExpectedAcksReached(acks, mir.getReplicaFactor().getAck(), response, httpSession);
+            sendResponseIfExpectedAcksReached(
+                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в GET: ", exception);
             return null;
@@ -130,8 +130,7 @@ final class ReplicaWorker {
                 topology.replicas(
                         ByteBuffer.wrap(
                                 mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
+                        mir.getReplicaFactor().getFrom());
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
@@ -142,11 +141,12 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            final int startAcks = getStartAcks(replicas);
-            final Predicate<HttpResponse<byte[]>> success = r -> r.statusCode() == 201;
-            final int acks = getNumberOfSuccessfulResponses(startAcks, responses, success);
+            final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == 201;
+            final int acks = getNumberOfSuccessfulResponses(
+                    getStartAcks(replicas), responses, successPut);
             final Response response = new Response(Response.CREATED, Response.EMPTY);
-            sendResponseIfExpectedAcksReached(acks, mir.getReplicaFactor().getAck(), response, httpSession);
+            sendResponseIfExpectedAcksReached(
+                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в UPSERT: ", exception);
             return null;
@@ -182,8 +182,7 @@ final class ReplicaWorker {
                 topology.replicas(
                         ByteBuffer.wrap(
                                 mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
+                        mir.getReplicaFactor().getFrom());
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
@@ -194,11 +193,12 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            final int startAcks = getStartAcks(replicas);
-            final Predicate<HttpResponse<byte[]>> success = r -> r.statusCode() == 202;
-            final int acks = getNumberOfSuccessfulResponses(startAcks, responses, success);
+            final Predicate<HttpResponse<byte[]>> successDelete = r -> r.statusCode() == 202;
+            final int acks = getNumberOfSuccessfulResponses(
+                    getStartAcks(replicas), responses, successDelete);
             final Response response = new Response(Response.ACCEPTED, Response.EMPTY);
-            sendResponseIfExpectedAcksReached(acks, mir.getReplicaFactor().getAck(), response, httpSession);
+            sendResponseIfExpectedAcksReached(
+                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в DELETE: ", exception);
             return null;
