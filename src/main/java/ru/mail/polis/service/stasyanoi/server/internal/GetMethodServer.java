@@ -5,7 +5,6 @@ import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
@@ -54,7 +53,7 @@ public class GetMethodServer extends ConstantsServer {
                         httpClientMap.get(nodeHost.getValue()), getNewRequest(request, port)))
                 .map(clientRequest -> {
                     try {
-                        HttpClient client = clientRequest.getValue0();
+                        final HttpClient client = clientRequest.getValue0();
                         return client.invoke(clientRequest.getValue1());
                     } catch (InterruptedException | PoolException | IOException | HttpException e) {
                         return Util.responseWithNoBody(Response.INTERNAL_ERROR);
