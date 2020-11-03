@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -34,7 +35,6 @@ final class FuturesWorker {
      * @param mir mir info запроса
      * @return если acks = 0, то пустой набор. Иначе - набор фьюч
      */
-    @NotNull
     static CompletableFuture<List<HttpResponse<byte[]>>> getResponses(
             @NotNull final List<String> replicas,
             @NotNull final MetaInfoRequest mir,
@@ -116,6 +116,17 @@ final class FuturesWorker {
                             logger.error("Ошибка при использовании Future: ", exception);
                             return null;
                         }));
+
+        try {
+            for (final HttpResponse<byte[]> response : result.get()) {
+                if (response.statusCode() == 404) {
+                    return null;
+                }
+            }
+        } catch (InterruptedException | ExecutionException exception) {
+            logger.error("Ошибка при return 404: ", exception);
+        }
+
         return result;
     }
 }
