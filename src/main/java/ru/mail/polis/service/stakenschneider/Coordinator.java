@@ -67,8 +67,9 @@ class Coordinator {
         final List<CompletableFuture<Void>> futureList = requests.stream()
                 .map(request -> client.sendAsync(request, ofByteArray())
                         .thenAccept(response -> {
-                            if (response.statusCode() == successResponse.get().getStatus())
+                            if (response.statusCode() == successResponse.get().getStatus()) {
                                 receivedAcks.incrementAndGet();
+                            }
                             sendResult(successResponse, neededAcks, receivedAcks, session, false);
                         }))
                 .collect(Collectors.toList());

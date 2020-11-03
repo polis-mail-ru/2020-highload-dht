@@ -28,17 +28,17 @@ public abstract class RequestProcessor {
     }
 
     /**
-     * TODO
+     * Create list of requests.
      *
-     * @param uris
-     * @param rqst
-     * @param methodDefiner
-     * @return
+     * @param uris          - other nodes
+     * @param rqst          - http request
+     * @param methodDefiner - define http method of requests
+     * @return List<HttpRequest>
      */
     public static List<HttpRequest> createRequests(final List<String> uris,
                                                    final Request rqst,
                                                    final Function<HttpRequest.Builder,
-                                                           HttpRequest.Builder> methodDefiner)  {
+                                                           HttpRequest.Builder> methodDefiner) {
         return uris.stream()
                 .map(x -> x + rqst.getURI())
                 .map(RequestProcessor::createURI)
@@ -67,10 +67,11 @@ public abstract class RequestProcessor {
         public final List<TimestampRecord> responses = Collections.synchronizedList(new ArrayList<>());
 
         /**
-         * TODO
-         * @param replicaNodes
-         * @param rqst
-         * @param acks
+         * Process request model.
+         *
+         * @param replicaNodes - replicas nodes
+         * @param rqst - request
+         * @param acks - count of ack
          */
         public ProcessRequestModel(final String[] replicaNodes,
                                    @NotNull final Request rqst,
