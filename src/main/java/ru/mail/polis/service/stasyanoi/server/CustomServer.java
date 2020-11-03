@@ -8,6 +8,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.javatuples.Pair;
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.Util;
@@ -153,14 +154,7 @@ public class CustomServer extends FrameServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = Util.getKey(idParam);
-            final ByteBuffer value = Util.getByteBufferValue(request);
-            try {
-                dao.upsert(key, value);
-                responseHttp = Util.responseWithNoBody(Response.CREATED);
-            } catch (IOException e) {
-                responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
-            }
+            responseHttp = putHere(request, Util.getKey(idParam));
         }
         try {
             session.sendResponse(responseHttp);
@@ -197,16 +191,23 @@ public class CustomServer extends FrameServer {
     private Response putProxy(final Request request, final byte[] idArray, final int node) {
         Response responseHttp;
         if (node == nodeNum) {
-            final ByteBuffer key = Mapper.fromBytes(idArray);
-            final ByteBuffer value = Util.getByteBufferValue(request);
-            try {
-                dao.upsert(key, value);
-                responseHttp = Util.responseWithNoBody(Response.CREATED);
-            } catch (IOException e) {
-                responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
-            }
+            responseHttp = putHere(request, Mapper.fromBytes(idArray));
         } else {
             responseHttp = Util.routeRequest(request, node, nodeMapping);
+        }
+        return responseHttp;
+    }
+
+    @NotNull
+    private Response putHere(final Request request, final ByteBuffer byteBuffer) {
+        Response responseHttp;
+        final ByteBuffer key = byteBuffer;
+        final ByteBuffer value = Util.getByteBufferValue(request);
+        try {
+            dao.upsert(key, value);
+            responseHttp = Util.responseWithNoBody(Response.CREATED);
+        } catch (IOException e) {
+            responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
         return responseHttp;
     }
