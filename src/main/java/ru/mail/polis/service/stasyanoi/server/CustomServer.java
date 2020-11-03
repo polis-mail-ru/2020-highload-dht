@@ -55,8 +55,6 @@ public class CustomServer extends FrameServer {
             getInternal(idParam, session, request);
         } catch (IOException e) {
             Util.sendErrorInternal(session, e);
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
         }
     }
 
@@ -81,8 +79,6 @@ public class CustomServer extends FrameServer {
             getRepInternal(idParam, session);
         } catch (IOException e) {
             Util.sendErrorInternal(session, e);
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
         }
     }
 
@@ -147,8 +143,6 @@ public class CustomServer extends FrameServer {
             putInternal(idParam, request, session);
         } catch (IOException e) {
             Util.sendErrorInternal(session, e);
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
         }
     }
 
@@ -174,8 +168,6 @@ public class CustomServer extends FrameServer {
             putRepInternal(idParam, request, session);
         } catch (IOException e) {
             Util.sendErrorInternal(session, e);
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
         }
     }
 
@@ -233,8 +225,6 @@ public class CustomServer extends FrameServer {
             deleteInternal(idParam, request, session);
         } catch (IOException e) {
             Util.sendErrorInternal(session, e);
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
         }
     }
 
@@ -259,8 +249,6 @@ public class CustomServer extends FrameServer {
             deleteRepInternal(idParam, session);
         } catch (IOException e) {
             Util.sendErrorInternal(session, e);
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
         }
     }
 
