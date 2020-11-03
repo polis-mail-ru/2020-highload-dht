@@ -13,6 +13,11 @@ public final class FuturesUtils {
     private FuturesUtils() {
     }
 
+    /** Create future of all requests' results.
+     * @param futures - list of futures with requests' results.
+     * @param successes - necessary number of successful requests
+     * @param executor - thread pool of async executors
+     * */
     @SuppressWarnings("FutureReturnValueIgnored")
     @NotNull
     public static <T> CompletableFuture<Collection<T>> atLeastAsync(

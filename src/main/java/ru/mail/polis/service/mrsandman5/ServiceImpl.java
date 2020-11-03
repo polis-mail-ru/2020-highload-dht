@@ -26,18 +26,15 @@ import ru.mail.polis.utils.FuturesUtils;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -45,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 public final class ServiceImpl extends HttpServer implements Service {
 
+    private static final String runtimeError = "Error";
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
@@ -183,21 +181,19 @@ public final class ServiceImpl extends HttpServer implements Service {
     private CompletableFuture<Response> replicasGet(@NotNull final String id,
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
-        final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Entry>> result =
-                new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : nodes) {
+        final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
+        for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(CompletableFuture.supplyAsync(
                         () -> {
                             try {
                                 return Entry.entryFromBytes(key, dao);
                             } catch (IOException e) {
-                                throw new RuntimeException("Error", e);
+                                throw new RuntimeException(runtimeError, e);
                             }
                         }, executor));
             } else {
-                final HttpRequest request = requestForReplica(node, id).GET().build();
+                final HttpRequest request = ResponseUtils.requestForReplica(node, id).GET().build();
                 result.add(httpClients.get(node)
                         .sendAsync(request, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executor));
@@ -211,10 +207,8 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final byte[] value,
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
-        final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Response>> result =
-                new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : nodes) {
+        final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
+        for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(CompletableFuture.supplyAsync(
                         () -> {
@@ -223,11 +217,11 @@ public final class ServiceImpl extends HttpServer implements Service {
                                 dao.upsert(key, body);
                                 return ResponseUtils.emptyResponse(Response.CREATED);
                             } catch (IOException e) {
-                                throw new RuntimeException("Error", e);
+                                throw new RuntimeException(runtimeError, e);
                             }
                         }, executor));
             } else {
-                final HttpRequest request = requestForReplica(node, id)
+                final HttpRequest request = ResponseUtils.requestForReplica(node, id)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                         .build();
                 result.add(httpClients.get(node)
@@ -242,10 +236,8 @@ public final class ServiceImpl extends HttpServer implements Service {
     private CompletableFuture<Response> replicasDelete(@NotNull final String id,
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
-        final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Response>> result =
-                new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : nodes) {
+        final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
+        for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(CompletableFuture.supplyAsync(
                         () -> {
@@ -253,11 +245,11 @@ public final class ServiceImpl extends HttpServer implements Service {
                                 dao.remove(key);
                                 return ResponseUtils.emptyResponse(Response.ACCEPTED);
                             } catch (IOException e) {
-                                throw new RuntimeException("Error", e);
+                                throw new RuntimeException(runtimeError, e);
                             }
                         }, executor));
             } else {
-                final HttpRequest request = requestForReplica(node, id).DELETE().build();
+                final HttpRequest request = ResponseUtils.requestForReplica(node, id).DELETE().build();
                 result.add(httpClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor));
@@ -279,16 +271,6 @@ public final class ServiceImpl extends HttpServer implements Service {
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
         ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
-    }
-
-    @NotNull
-    private HttpRequest.Builder requestForReplica(@NotNull final String node,
-                                                  @NotNull final String id) {
-        final String uri = node + ResponseUtils.ENTITY + "?id=" + id;
-        return HttpRequest.newBuilder()
-                .uri(URI.create(uri))
-                .header(ResponseUtils.PROXY, "True")
-                .timeout(Duration.ofMillis(ResponseUtils.TIMEOUT_MILLIS));
     }
 
     @Override

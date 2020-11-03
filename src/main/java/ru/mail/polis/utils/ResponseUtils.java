@@ -9,6 +9,9 @@ import ru.mail.polis.service.mrsandman5.ServiceImpl;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.time.Duration;
 
 public final class ResponseUtils {
 
@@ -41,6 +44,16 @@ public final class ResponseUtils {
         }
     }
 
+    @NotNull
+    public static HttpRequest.Builder requestForReplica(@NotNull final String node,
+                                                        @NotNull final String id) {
+        final String uri = node + ENTITY + "?id=" + id;
+        return HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .header(PROXY, "True")
+                .timeout(Duration.ofMillis(TIMEOUT_MILLIS));
+    }
+
     public static void sendEmptyResponse(@NotNull final HttpSession session,
                                          @NotNull final String code) {
         sendResponse(session, emptyResponse(code));
@@ -61,10 +74,6 @@ public final class ResponseUtils {
     public static Response nonemptyResponse(@NotNull final String code,
                                             final byte[] values) {
         return new Response(code, values);
-    }
-
-    public static String getStatus(@NotNull final Response response) {
-        return response.getHeaders()[0];
     }
 
     public static String getTimestamp(@NotNull final Entry entry) {
