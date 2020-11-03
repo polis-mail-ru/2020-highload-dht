@@ -85,7 +85,7 @@ public class FrameServer extends PutGetDeleteMethodServer {
      */
     public Response routeRequest(final Request request, final int node,
                                         final Map<Integer, String> nodeMapping) {
-        HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
+        final HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
         try {
             return httpClient.invoke(request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
