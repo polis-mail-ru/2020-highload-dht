@@ -101,7 +101,7 @@ public class ServiceImpl extends HttpServer implements Service {
         session.sendResponse(response);
     }
 
-    private static HttpServerConfig getConfig(final int port) {
+    static HttpServerConfig getConfig(final int port) {
         final int portMin = 1024;
         final int portMax = 65536;
         if (port <= portMin || portMax <= port) {
