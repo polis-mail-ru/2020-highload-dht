@@ -146,7 +146,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader("X-Proxy-For") != null) {
-            ServiceUtils.selector(() -> handlePut(key, request),
+            ServiceUtils.selector(
+                    () -> handlePut(key, request),
                     () -> handleGet(key),
                     () -> handleDel(key),
                     request.getMethod(),
@@ -246,23 +247,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (topology.isMe(node)) {
-            switch (request.getMethod()) {
-                case Request.METHOD_PUT:
-                    return CompletableFuture.supplyAsync(
-                            () -> handlePut(key, request),
-                            executorService);
-                case Request.METHOD_GET:
-                    return CompletableFuture.supplyAsync(
-                            () -> handleGet(key),
-                            executorService);
-                case Request.METHOD_DELETE:
-                    return CompletableFuture.supplyAsync(
-                            () -> handleDel(key),
-                            executorService);
-                default:
-                    break;
-            }
+            return ServiceUtils.selector(
+                    () -> handlePut(key, request),
+                    () -> handleGet(key),
+                    () -> handleDel(key),
+                    request.getMethod(),
+                    executorService);
         }
+
         HttpRequest requestForReplica;
         switch (request.getMethod()) {
             case Request.METHOD_PUT:
@@ -284,10 +276,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             default:
-                break;
+                return null;
         }
-
-        return null;
     }
 
     /**

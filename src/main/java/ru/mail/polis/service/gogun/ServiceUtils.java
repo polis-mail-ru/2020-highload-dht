@@ -9,6 +9,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 final class ServiceUtils {
@@ -83,6 +85,23 @@ final class ServiceUtils {
                 break;
             default:
                 break;
+        }
+    }
+
+    public static CompletableFuture<Response> selector(final Supplier<Response> putRequest,
+                                                       final Supplier<Response> getRequest,
+                                                       final Supplier<Response> deleteRequest,
+                                                       final int method,
+                                                       final ExecutorService executorService) {
+        switch (method) {
+            case Request.METHOD_PUT:
+                return CompletableFuture.supplyAsync(putRequest, executorService);
+            case Request.METHOD_GET:
+                return CompletableFuture.supplyAsync(getRequest, executorService);
+            case Request.METHOD_DELETE:
+                return CompletableFuture.supplyAsync(deleteRequest, executorService);
+            default:
+                return null;
         }
     }
 }
