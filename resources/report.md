@@ -22,7 +22,7 @@ wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/put.lua -R5000 --latency http://1
 
 <ins><em>wrk2</em> / GET / primary replication</ins>
 ```
-wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R10000 --latency http://127.0.0.1:8080
+wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R5000 --latency http://127.0.0.1:8080
 ```
 
 <ins><em>wrk2</em> / PUT / async Java client</ins>
