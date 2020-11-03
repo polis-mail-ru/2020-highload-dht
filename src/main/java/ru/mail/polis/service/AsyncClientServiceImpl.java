@@ -148,6 +148,29 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
         handle(id, replicationFactor, req, httpSession);
     }
 
+    private void resolve(final CompletableFuture<?>[] results, @NotNull final HttpSession httpSession, final int ack) {
+        final CompletableFuture<Void> futures = CompletableFuture.allOf(results);
+        futures.thenAccept(ignored -> {
+            final ResponseAggregator aggregator = new ResponseAggregator();
+            for (final CompletableFuture<?> future : results) {
+                final Response response;
+                try {
+                    response = (Response) future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    logger.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                    continue;
+                }
+                aggregator.add(response, ack);
+            }
+            final Response result = aggregator.getResult();
+            sendResponse(httpSession, result);
+        }).exceptionally((ex) -> {
+            logger.error(MESSAGE_MAP.get(ErrorNames.CANNOT_SEND), ex);
+            sendResponse(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return null;
+        });
+    }
+
     private CompletableFuture<Response> proxy(final String to, final Request request) {
         final HttpRequest req = Util.convertRequest(request, to);
         final HttpClient client = nodesToClients.get(to);
@@ -177,26 +200,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
             }
         }
 
-        final CompletableFuture<Void> futures = CompletableFuture.allOf(results);
-        futures.thenAccept(ignored -> {
-            final ResponseAggregator aggregator = new ResponseAggregator();
-            for (final CompletableFuture<?> future : results) {
-                final Response response;
-                try {
-                    response = (Response) future.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    logger.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
-                    continue;
-                }
-                aggregator.add(response, replicas.getAck());
-            }
-            final Response result = aggregator.getResult();
-            sendResponse(httpSession, result);
-        }).exceptionally((ex) -> {
-            logger.error(MESSAGE_MAP.get(ErrorNames.CANNOT_SEND), ex);
-            sendResponse(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            return null;
-        });
+        resolve(results, httpSession, replicas.getAck());
     }
 
     private CompletableFuture<Response> handleLocal(
