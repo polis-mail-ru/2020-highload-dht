@@ -72,6 +72,8 @@ public class Replicas {
                     .orElse(new Response(Response.NOT_FOUND, Response.EMPTY));
 
         }
-        return responses.stream().findFirst().get();
+        return responses.stream()
+                .findFirst()
+                .orElse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 }

@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Futures {
+public final class Futures {
     private static final int STATUS_OK = 200;
     private static final int STATUS_CREATED = 201;
     private static final int STATUS_ACCEPTED = 202;
@@ -31,10 +31,10 @@ public class Futures {
     public static CompletableFuture<Collection<Response>> getAckResponses(
             final int ack,
             final Collection<CompletableFuture<Response>> futures) {
-        CompletableFuture<Collection<Response>> results = new CompletableFuture<>();
+        final CompletableFuture<Collection<Response>> results = new CompletableFuture<>();
         final AtomicInteger ackCounter = new AtomicInteger(ack);
         final AtomicInteger errorCounter = new AtomicInteger(futures.size() - ack + 1);
-        Collection<Response> result = new CopyOnWriteArrayList<>();
+        final Collection<Response> result = new CopyOnWriteArrayList<>();
 
         futures.forEach(f -> f.whenComplete((r,t) -> {
             if (t == null && isCorrectResponse(r.getStatus())) {

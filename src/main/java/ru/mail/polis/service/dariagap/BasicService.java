@@ -30,7 +30,7 @@ import static one.nio.http.Request.METHOD_PUT;
 
 public class BasicService {
     private final DAO dao;
-    private final java.net.http.HttpClient client;
+    private final HttpClient client;
     private final ExecutorService execPool;
 
     private final Logger log = LoggerFactory.getLogger(BasicService.class);
@@ -58,7 +58,7 @@ public class BasicService {
                 new ThreadFactoryBuilder()
                         .setNameFormat("Client-%d")
                         .build());
-        this.client = java.net.http.HttpClient.newBuilder()
+        this.client = HttpClient.newBuilder()
                 .connectTimeout(TIMEOUT)
                 .executor(exec)
                 .version(HttpClient.Version.HTTP_1_1)
@@ -164,7 +164,8 @@ public class BasicService {
 
     private HttpRequest formHttpRequest(final String node, final Request request)
             throws NoSuchMethodException, IllegalArgumentException {
-        HttpRequest.Builder builder = formHttpRequestBuilder(node, request.getParameter("id"));
+        final HttpRequest.Builder builder =
+                formHttpRequestBuilder(node, request.getParameter("id"));
         switch (request.getMethod()) {
             case METHOD_GET:
                 return builder.GET().build();
