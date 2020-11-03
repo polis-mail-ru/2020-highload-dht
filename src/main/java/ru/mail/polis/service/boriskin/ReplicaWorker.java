@@ -83,20 +83,20 @@ final class ReplicaWorker {
                     return;
                 }
             }
-            final int acks =
-                    getNumberOfSuccessfulResponses(
-                            replicas.contains(topology.recogniseMyself()) ? 1 : 0,
-                            responses,
-                            r -> values.add(Value.from(r)));
-            sendResponseIfExpectedAcksReached(
-                    acks,
-                    mir.getReplicaFactor().getAck(),
-                    Value.transform(Value.merge(values), false),
-                    httpSession);
+            final int startAcks = getStartAcks(replicas);
+            final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
+            final int acks = getNumberOfSuccessfulResponses(startAcks, responses, success);
+            final Response response = Value.transform(Value.merge(values), false);
+            sendResponseIfExpectedAcksReached(acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в GET: ", exception);
             return null;
         });
+    }
+
+    private int getStartAcks(
+            final List<String> replicas) {
+        return replicas.contains(topology.recogniseMyself()) ? 1 : 0;
     }
 
     private void doGet(
@@ -142,16 +142,11 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            final int acks =
-                    getNumberOfSuccessfulResponses(
-                            replicas.contains(topology.recogniseMyself()) ? 1 : 0,
-                            responses,
-                            r -> r.statusCode() == 201);
-            sendResponseIfExpectedAcksReached(
-                    acks,
-                    mir.getReplicaFactor().getAck(),
-                    new Response(Response.CREATED, Response.EMPTY),
-                    httpSession);
+            final int startAcks = getStartAcks(replicas);
+            final Predicate<HttpResponse<byte[]>> success = r -> r.statusCode() == 201;
+            final int acks = getNumberOfSuccessfulResponses(startAcks, responses, success);
+            final Response response = new Response(Response.CREATED, Response.EMPTY);
+            sendResponseIfExpectedAcksReached(acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в UPSERT: ", exception);
             return null;
@@ -199,16 +194,11 @@ final class ReplicaWorker {
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            final int acks =
-                    getNumberOfSuccessfulResponses(
-                            replicas.contains(topology.recogniseMyself()) ? 1 : 0,
-                            responses,
-                            r -> r.statusCode() == 202);
-            sendResponseIfExpectedAcksReached(
-                    acks,
-                    mir.getReplicaFactor().getAck(),
-                    new Response(Response.ACCEPTED, Response.EMPTY),
-                    httpSession);
+            final int startAcks = getStartAcks(replicas);
+            final Predicate<HttpResponse<byte[]>> success = r -> r.statusCode() == 202;
+            final int acks = getNumberOfSuccessfulResponses(startAcks, responses, success);
+            final Response response = new Response(Response.ACCEPTED, Response.EMPTY);
+            sendResponseIfExpectedAcksReached(acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в DELETE: ", exception);
             return null;
