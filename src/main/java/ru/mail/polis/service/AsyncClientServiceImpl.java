@@ -259,7 +259,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
-            dao.removeValue(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
+            dao.upsert(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), ex);
