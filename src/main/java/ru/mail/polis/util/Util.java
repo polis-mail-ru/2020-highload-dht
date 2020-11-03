@@ -137,7 +137,7 @@ public final class Util {
     }
 
     /**
-     * Wraps string to ByteBuffer
+     * Wraps string to ByteBuffer.
      * @param id - string to wrap
      * @return ByteBuffer
      */

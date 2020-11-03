@@ -161,8 +161,8 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
     private void handle(
             final @Param(value = "id", required = true) String key,
             @NotNull final ReplicationFactor replicas,
-            @NotNull final HttpSession session,
-            final @Param("request") Request request
+            final @Param("request") Request request,
+            @NotNull final HttpSession httpSession
     ) {
         final String[] nodes = topology.getReplicas(
                 ByteBuffer.wrap(key.getBytes(Charset.defaultCharset())), replicas.getFrom()
@@ -191,10 +191,10 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 aggregator.add(response, replicas.getAck());
             }
             final Response result = aggregator.getResult();
-            sendResponse(session, result);
+            sendResponse(httpSession, result);
         }).exceptionally((ex) -> {
             logger.error(MESSAGE_MAP.get(ErrorNames.CANNOT_SEND), ex);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            sendResponse(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             return null;
         });
     }
@@ -231,7 +231,6 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
             }
             final ByteBuffer response = dao.get(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)));
             final byte[] result = Util.toByteArray(response);
-
             if (Arrays.equals(result, this.deletedMarker.getBytes(StandardCharsets.UTF_8))) {
                 return new Response(MESSAGE_MAP.get(ErrorNames.MOVED), Response.EMPTY);
             }
@@ -258,8 +257,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
-            dao.upsert(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)),
-                    ByteBuffer.wrap(request.getBody()));
+            dao.upsert(ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8)), ByteBuffer.wrap(request.getBody()));
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), ex);
@@ -279,10 +277,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 logger.info(MESSAGE_MAP.get(ErrorNames.INVALID_KEY));
                 return new Response(Response.BAD_REQUEST, Response.EMPTY);
             }
-            dao.upsert(
-                    Util.toByteBuffer(key),
-                    Util.toByteBuffer(this.deletedMarker)
-            );
+            dao.upsert(Util.toByteBuffer(key), Util.toByteBuffer(this.deletedMarker));
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), ex);
