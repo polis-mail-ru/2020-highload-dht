@@ -15,7 +15,7 @@ import static ru.mail.polis.service.stasyanoi.Merger.getEndResponsePutAndDelete;
 
 public class DeleteGetMethodServer extends GetMethodServer {
 
-    public DeleteGetMethodServer(HttpServerConfig config) throws IOException {
+    public DeleteGetMethodServer(final HttpServerConfig config) throws IOException {
         super(config);
     }
 

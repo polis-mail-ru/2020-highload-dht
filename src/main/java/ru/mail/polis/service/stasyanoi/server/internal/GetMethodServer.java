@@ -1,6 +1,10 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.javatuples.Pair;
@@ -12,12 +16,16 @@ import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class GetMethodServer extends ConstantsServer {
 
-    public GetMethodServer(HttpServerConfig config) throws IOException {
+    public GetMethodServer(final HttpServerConfig config) throws IOException {
         super(config);
     }
 

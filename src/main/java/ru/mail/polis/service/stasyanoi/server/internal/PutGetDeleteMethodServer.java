@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class PutGetDeleteMethodServer extends DeleteGetMethodServer {
 
-    public PutGetDeleteMethodServer(HttpServerConfig config) throws IOException {
+    public PutGetDeleteMethodServer(final HttpServerConfig config) throws IOException {
         super(config);
     }
 
