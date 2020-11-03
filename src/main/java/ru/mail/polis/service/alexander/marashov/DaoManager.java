@@ -9,15 +9,19 @@ import ru.mail.polis.dao.alexander.marashov.Value;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 public class DaoManager {
 
     private static final Logger log = LoggerFactory.getLogger(DaoManager.class);
 
     private final DAO dao;
+    private final ExecutorService daoExecutor;
 
-    public DaoManager(final DAO dao) {
+    public DaoManager(final DAO dao, final ExecutorService daoExecutor) {
         this.dao = dao;
+        this.daoExecutor = daoExecutor;
     }
 
     /**
@@ -27,13 +31,17 @@ public class DaoManager {
      * @param value - ByteBuffer that contains the value data.
      * @return response to send.
      */
-    public Response put(final ByteBuffer key, final ByteBuffer value) {
-        try {
-            this.dao.upsert(key, value);
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (final IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    public CompletableFuture<Response> put(final ByteBuffer key, final ByteBuffer value) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        this.dao.upsert(key, value);
+                        return new Response(Response.CREATED, Response.EMPTY);
+                    } catch (final IOException e) {
+                        return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                    }
+                }
+        );
     }
 
     /**
@@ -42,13 +50,17 @@ public class DaoManager {
      * @param key - ByteBuffer that contains the key data.
      * @return response to send.
      */
-    public Response delete(final ByteBuffer key) {
-        try {
-            this.dao.remove(key);
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (final IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    public CompletableFuture<Response> delete(final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        this.dao.remove(key);
+                        return new Response(Response.ACCEPTED, Response.EMPTY);
+                    } catch (final IOException e) {
+                        return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                    }
+                }
+        );
     }
 
     /**
@@ -57,22 +69,23 @@ public class DaoManager {
      * @param key - ByteBuffer that contains key data.
      * @return response to send.
      */
-    public Response rowGet(final ByteBuffer key) {
-        final Value value;
-        try {
-            value = this.dao.rowGet(key);
-        } catch (final IOException | NoSuchElementException e) {
-            log.debug("Key not found", e);
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
-
-        try {
-            final byte[] serializedData = ValueSerializer.serialize(value);
-            return new Response(Response.OK, serializedData);
-        } catch (IOException e) {
-            log.error("Local get serialize error");
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+    public CompletableFuture<Value> rowGet(final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    final Value value;
+                    try {
+                        value = this.dao.rowGet(key);
+                        return value;
+                    } catch (final NoSuchElementException e) {
+                        log.debug("Key not found", e);
+                        return null;
+                    } catch (final IOException e) {
+                        log.error("Local get: DAO error", e);
+                        throw new RuntimeException(e);
+                    }
+                },
+                daoExecutor
+        );
     }
 
     /**

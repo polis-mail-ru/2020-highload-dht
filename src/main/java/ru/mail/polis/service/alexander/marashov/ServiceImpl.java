@@ -20,6 +20,7 @@ import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -32,6 +33,7 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     public static final String PROXY_HEADER = "Proxy-Header";
+    public static final String TIMESTAMP_HEADER_NAME = "Timestamp-Header";
     public static final String PROXY_HEADER_VALUE = "Proxy-Header: true";
 
     private final ExecutorService executorService;
@@ -81,7 +83,16 @@ public class ServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy()
         );
 
-        this.responseManager = new ResponseManager(dao, topology, proxyTimeoutValue, proxyExecutor);
+        this.responseManager = new ResponseManager(
+                dao,
+                executorService,
+                proxyExecutor,
+                topology,
+                proxyTimeoutValue,
+                proxyTimeoutValue,
+                proxyTimeoutValue,
+                proxyTimeoutValue
+        );
         this.defaultAck = topology.getQuorumCount();
         this.defaultFrom = topology.size();
         this.nodesCount = topology.size();
@@ -117,6 +128,19 @@ public class ServiceImpl extends HttpServer implements Service {
             httpSession.sendResponse(response);
         } catch (final IOException ioException) {
             log.error("Sending response error", ioException);
+        }
+    }
+
+    private void respond(final HttpSession httpSession, final CompletableFuture<Response> futureResponse) {
+        final boolean canceled = futureResponse.whenComplete((response, error) -> {
+            if (error == null) {
+                trySendAnswer(httpSession, response);
+            } else {
+                trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }).isCancelled();
+        if (canceled) {
+            throw new RuntimeException("Who canceled my future?!");
         }
     }
 
@@ -162,7 +186,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     try {
                         final ValidatedParameters validParams =
                                 validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
-                        trySendAnswer(httpSession, responseManager.get(validParams, request));
+                        final CompletableFuture<Response> future = responseManager.get(validParams, request);
+                        respond(httpSession, future);
                     } catch (final IllegalArgumentException e) {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     }
@@ -201,7 +226,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
-                    trySendAnswer(httpSession, responseManager.put(validParams, value, request));
+                    final CompletableFuture<Response> future = responseManager.put(validParams, value, request);
+                    respond(httpSession, future);
                 }
         );
     }
@@ -235,7 +261,8 @@ public class ServiceImpl extends HttpServer implements Service {
                         trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
                         return;
                     }
-                    trySendAnswer(httpSession, responseManager.delete(validParams, request));
+                    final CompletableFuture<Response> future = responseManager.delete(validParams, request);
+                    respond(httpSession, future);
                 }
         );
     }

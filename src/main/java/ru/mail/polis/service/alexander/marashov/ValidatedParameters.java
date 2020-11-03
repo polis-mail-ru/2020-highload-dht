@@ -7,17 +7,20 @@ public class ValidatedParameters {
     final int ack;
     final int from;
     final ByteBuffer key;
+    final String rowKey;
 
     /**
      * Object to store validated parameters.
      * @param ack - ack parameter.
      * @param from - from parameter.
      * @param key - key parameter.
+     * @param rowKey - key parameter as string.
      */
-    public ValidatedParameters(final int ack, final int from, final ByteBuffer key) {
+    public ValidatedParameters(final int ack, final int from, final ByteBuffer key, final String rowKey) {
         this.ack = ack;
         this.from = from;
         this.key = key;
+        this.rowKey = rowKey;
     }
 
     /**
@@ -52,7 +55,7 @@ public class ValidatedParameters {
         final byte[] bytes = id.getBytes(StandardCharsets.UTF_8);
         final ByteBuffer key = ByteBuffer.wrap(bytes);
 
-        return new ValidatedParameters(ack, from, key);
+        return new ValidatedParameters(ack, from, key, id);
     }
 
     private static boolean areParametersWrong(

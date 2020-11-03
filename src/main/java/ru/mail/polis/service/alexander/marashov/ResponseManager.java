@@ -1,37 +1,41 @@
 package ru.mail.polis.service.alexander.marashov;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzer;
-import ru.mail.polis.service.alexander.marashov.analyzers.ResponseAnalyzerGet;
-import ru.mail.polis.service.alexander.marashov.analyzers.SimpleResponseAnalyzer;
+import ru.mail.polis.dao.alexander.marashov.Value;
+import ru.mail.polis.service.alexander.marashov.analyzers.FutureAnalyzer;
+import ru.mail.polis.service.alexander.marashov.analyzers.ValuesAnalyzer;
+import ru.mail.polis.service.alexander.marashov.bodyHandlers.BodyHandlerGet;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
-import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.util.Map;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.PROXY_HEADER;
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.PROXY_HEADER_VALUE;
+import static ru.mail.polis.service.alexander.marashov.ServiceImpl.TIMESTAMP_HEADER_NAME;
 
 public class ResponseManager {
 
-    private static final Logger log = LoggerFactory.getLogger(ResponseManager.class);
-    private static final String WAITING_INTERRUPTED = "Responses waiting was interrupted";
-
     private final Topology<String> topology;
-    private final Map<String, HttpClient> nodeToClient;
+    private final java.net.http.HttpClient httpClient;
     private final DaoManager daoManager;
     private final ExecutorService proxyExecutor;
+
+    private final Duration getTimeout;
+    private final Duration putTimeout;
+    private final Duration deleteTimeout;
 
     /**
      * Object for managing responses.
@@ -42,14 +46,26 @@ public class ResponseManager {
      */
     public ResponseManager(
             final DAO dao,
+            final ExecutorService daoExecutor,
+            final ExecutorService proxyExecutor,
             final Topology<String> topology,
             final int proxyTimeoutValue,
-            final ExecutorService proxyExecutor
+            final int getTimeoutValue,
+            final int putTimeoutValue,
+            final int deleteTimeoutValue
     ) {
-        this.daoManager = new DaoManager(dao);
+        this.daoManager = new DaoManager(dao, daoExecutor);
         this.topology = topology;
-        this.nodeToClient = topology.clientsToOtherNodes(proxyTimeoutValue);
         this.proxyExecutor = proxyExecutor;
+        this.httpClient = java.net.http.HttpClient.newBuilder()
+                .executor(proxyExecutor)
+                .connectTimeout(Duration.ofMillis(proxyTimeoutValue))
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .build();
+
+        this.getTimeout = Duration.ofMillis(getTimeoutValue);
+        this.putTimeout = Duration.ofMillis(putTimeoutValue);
+        this.deleteTimeout = Duration.ofMillis(deleteTimeoutValue);
     }
 
     /**
@@ -58,43 +74,62 @@ public class ResponseManager {
      * @param request - original user's request.
      * @return response - the final result of the completed request.
      */
-    public Response get(final ValidatedParameters validParams, final Request request) {
+    public CompletableFuture<Response> get(final ValidatedParameters validParams, final Request request) {
+
         final String proxyHeader = request.getHeader(PROXY_HEADER);
         if (proxyHeader != null) {
-            return daoManager.rowGet(validParams.key);
+            return daoManager.rowGet(validParams.key).thenApplyAsync(
+                    value -> {
+                        if (value == null) {
+                            return new Response(Response.NOT_FOUND, Response.EMPTY);
+                        } else if (value.isTombstone()) {
+                            final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                            response.addHeader(TIMESTAMP_HEADER_NAME + ": " + value.getTimestamp());
+                            return response;
+                        } else {
+                            final Response response = new Response(Response.OK, value.getData().array());
+                            response.addHeader(TIMESTAMP_HEADER_NAME + ": " + value.getTimestamp());
+                            return response;
+                        }
+                    },
+                    proxyExecutor
+            );
         }
 
         request.addHeader(PROXY_HEADER_VALUE);
         final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
-        final ResponseAnalyzerGet valueAnalyzer =
-                new ResponseAnalyzerGet(validParams.ack, validParams.from);
 
-        iterateOverNodes(
-                primaries,
-                () -> {
-                    final Response response = daoManager.rowGet(validParams.key);
-                    valueAnalyzer.accept(response);
-                },
-                (String primary) -> {
-                    Response response;
-                    try {
-                        response = nodeToClient.get(primary).invoke(request);
-                    } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                        response = null;
-                        log.error("Get: Error sending request to node {}", primary, e);
-                    }
-                    valueAnalyzer.accept(response);
-                }
-        );
+        final List<CompletableFuture<Value>> list = new ArrayList<>(primaries.length);
+        for (final String node : primaries) {
+            if (topology.isLocal(node)) {
+                list.add(daoManager.rowGet(validParams.key));
+            } else {
+                final HttpRequest httpRequest = requestForReplicaBuilder(node, validParams.rowKey, getTimeout)
+                        .GET().build();
+                final CompletableFuture<Value> future = httpClient.sendAsync(httpRequest, BodyHandlerGet.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, proxyExecutor);
+                list.add(future);
+            }
+        }
+        return FutureAnalyzer.atLeastAsync(list, validParams.ack)
+                .thenApplyAsync(responses -> ValuesAnalyzer.analyze(responses, validParams.ack), proxyExecutor);
+    }
 
+    private static HttpRequest.Builder requestForReplicaBuilder(
+            final String node,
+            final String id,
+            final Duration timeout
+    ) {
+        final String uri = node + "/v0/entity?id=" + id;
         try {
-            valueAnalyzer.await(1000L, TimeUnit.MILLISECONDS);
-        } catch (final InterruptedException e) {
-            log.error(WAITING_INTERRUPTED, e);
-            Thread.currentThread().interrupt();
+            return HttpRequest.newBuilder()
+                    .uri(new URI(uri))
+                    .header(PROXY_HEADER, "True")
+                    .timeout(timeout);
+        } catch (final URISyntaxException e) {
+            throw new IllegalArgumentException("Malformed URI: " + uri, e);
         }
 
-        return valueAnalyzer.getResult();
     }
 
     /**
@@ -104,7 +139,7 @@ public class ResponseManager {
      * @param request - original user's request.
      * @return response - the final result of the completed request.
      */
-    public Response put(final ValidatedParameters validParams, final ByteBuffer value, final Request request) {
+    public CompletableFuture<Response> put(final ValidatedParameters validParams, final ByteBuffer value, final Request request) {
         final String proxyHeader = request.getHeader(PROXY_HEADER);
         if (proxyHeader != null) {
             return daoManager.put(validParams.key, value);
@@ -112,38 +147,30 @@ public class ResponseManager {
 
         request.addHeader(PROXY_HEADER_VALUE);
         final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
-        final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
-                validParams.ack,
-                validParams.from,
-                201,
-                Response.CREATED
-        );
 
-        iterateOverNodes(
+        return executeTasksAsync(
                 primaries,
-                () -> {
-                    final Response response = daoManager.put(validParams.key, value);
-                    responseAnalyzer.accept(response);
-                },
-                (primary) -> {
-                    Response response = null;
-                    try {
-                        response = nodeToClient.get(primary).invoke(request);
-                    } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                        log.error("Upsert: Error sending request to node {}", primary, e);
+                daoManager.put(validParams.key, value),
+                (final String primary) -> {
+                    if (value.hasRemaining()) {
+                        final byte[] array = new byte[value.remaining()];
+                        value.get(array);
+                        final HttpRequest httpRequest =
+                                requestForReplicaBuilder(primary, validParams.rowKey, putTimeout)
+                                        .PUT(HttpRequest.BodyPublishers.ofByteArray(array))
+                                        .build();
+                        return httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                                .thenApplyAsync(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
+                    } else {
+                        throw new RuntimeException("No array");
                     }
-                    responseAnalyzer.accept(response);
-                }
+                },
+                responses -> responses.size() >= validParams.ack
+                        ? new Response(Response.CREATED, Response.EMPTY)
+                        : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
+                validParams.ack
+
         );
-
-        try {
-            responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
-        } catch (final InterruptedException e) {
-            log.error(WAITING_INTERRUPTED);
-            Thread.currentThread().interrupt();
-        }
-        return responseAnalyzer.getResult();
-
     }
 
     /**
@@ -152,7 +179,7 @@ public class ResponseManager {
      * @param request - original user's request.
      * @return response - the final result of the completed request.
      */
-    public Response delete(final ValidatedParameters validParams, final Request request) {
+    public CompletableFuture<Response> delete(final ValidatedParameters validParams, final Request request) {
         final String proxyHeader = request.getHeader(PROXY_HEADER);
         if (proxyHeader != null) {
             return daoManager.delete(validParams.key);
@@ -160,57 +187,49 @@ public class ResponseManager {
 
         request.addHeader(PROXY_HEADER_VALUE);
         final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
-        final ResponseAnalyzer<Boolean> responseAnalyzer = new SimpleResponseAnalyzer(
-                validParams.ack,
-                validParams.from,
-                202,
-                Response.ACCEPTED
-        );
 
-        iterateOverNodes(
+        return executeTasksAsync(
                 primaries,
-                () -> {
-                    final Response response = daoManager.delete(validParams.key);
-                    responseAnalyzer.accept(response);
+                daoManager.delete(validParams.key),
+                (final String primary) -> {
+                    final HttpRequest httpRequest =
+                            requestForReplicaBuilder(primary, validParams.rowKey, deleteTimeout)
+                                    .DELETE()
+                                    .build();
+                    return httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                            .thenApplyAsync(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
                 },
-                (primary) -> {
-                    Response response = null;
-                    try {
-                        response = nodeToClient.get(primary).invoke(request);
-                    } catch (final InterruptedException | PoolException | IOException | HttpException e) {
-                        log.error("Delete: Error sending request to node {}", primary, e);
-                    }
-                    responseAnalyzer.accept(response);
-                }
+                responses -> responses.size() >= validParams.ack
+                        ? new Response(Response.ACCEPTED, Response.EMPTY)
+                        : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
+                validParams.ack
+
         );
-
-        try {
-            responseAnalyzer.await(1000, TimeUnit.MILLISECONDS);
-        } catch (final InterruptedException e) {
-            log.error(WAITING_INTERRUPTED);
-            Thread.currentThread().interrupt();
-        }
-
-        return responseAnalyzer.getResult();
     }
 
-    private void iterateOverNodes(final String[] nodes, final Runnable localTask, final Consumer<String> proxyTask) {
+    private CompletableFuture<Response> executeTasksAsync(
+            final String[] nodes,
+            final CompletableFuture<Response> localTask,
+            final Function<String, CompletableFuture<Response>> proxyTaskFunction,
+            final Function<Collection<Response>, Response> analyzer,
+            final int ack
+    ) {
+        final List<CompletableFuture<Response>> list = new ArrayList<>(nodes.length);
         for (final String node : nodes) {
             if (topology.isLocal(node)) {
-                proxyExecutor.execute(localTask);
+                list.add(localTask);
             } else {
-                proxyExecutor.execute(() -> proxyTask.accept(node));
+                list.add(proxyTaskFunction.apply(node));
             }
         }
+        return FutureAnalyzer.atLeastAsync(list, ack)
+                .thenApplyAsync(analyzer, proxyExecutor);
     }
 
     /**
-     * Closes the daoManager and other node's clients.
+     * Closes the daoManager.
      */
     public void clear() {
-        for (final HttpClient client : nodeToClient.values()) {
-            client.clear();
-        }
         daoManager.close();
     }
 }
