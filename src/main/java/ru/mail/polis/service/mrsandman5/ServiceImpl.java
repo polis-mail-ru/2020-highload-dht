@@ -42,7 +42,6 @@ import java.util.concurrent.TimeUnit;
 
 public final class ServiceImpl extends HttpServer implements Service {
 
-    private static final String runtimeError = "Error";
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
@@ -189,7 +188,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                             try {
                                 return Entry.entryFromBytes(key, dao);
                             } catch (IOException e) {
-                                throw new RuntimeException(runtimeError, e);
+                                throw new RuntimeException("Get future error", e);
                             }
                         }, executor));
             } else {
@@ -217,7 +216,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                 dao.upsert(key, body);
                                 return ResponseUtils.emptyResponse(Response.CREATED);
                             } catch (IOException e) {
-                                throw new RuntimeException(runtimeError, e);
+                                throw new RuntimeException("Put future error", e);
                             }
                         }, executor));
             } else {
@@ -245,7 +244,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                 dao.remove(key);
                                 return ResponseUtils.emptyResponse(Response.ACCEPTED);
                             } catch (IOException e) {
-                                throw new RuntimeException(runtimeError, e);
+                                throw new RuntimeException("Delete future error", e);
                             }
                         }, executor));
             } else {

@@ -26,7 +26,7 @@ public final class ResponseUtils {
     private ResponseUtils() {
     }
 
-    /** Send seesion response to service.
+    /** Send session response to service.
      * @param session - current HTTP session.
      * @param response - response to request.
      * */
@@ -44,6 +44,10 @@ public final class ResponseUtils {
         }
     }
 
+    /** Create request builder for current client.
+     * @param node - current client.
+     * @param id - request id.
+     * */
     @NotNull
     public static HttpRequest.Builder requestForReplica(@NotNull final String node,
                                                         @NotNull final String id) {
