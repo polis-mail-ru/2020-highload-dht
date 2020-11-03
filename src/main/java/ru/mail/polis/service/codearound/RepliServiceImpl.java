@@ -154,6 +154,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 break;
             default:
                 session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
+                break;
         }
     }
 
