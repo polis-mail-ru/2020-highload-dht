@@ -244,16 +244,13 @@ public final class Util {
                 .timeout(Duration.ofSeconds(1))
                 .uri(URI.create(uri));
         if ("GET".equalsIgnoreCase(methodName)) {
-            return requestBuilder.GET()
-                    .build();
+            return requestBuilder.GET().build();
         } else if ("PUT".equalsIgnoreCase(methodName)) {
-            final HttpRequest.BodyPublisher bodyPublisher =
-                    HttpRequest.BodyPublishers.ofByteArray(oneNioRequest.getBody());
-            return requestBuilder.PUT(bodyPublisher)
-                    .build();
+            final HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest
+                    .getBody());
+            return requestBuilder.PUT(bodyPublisher).build();
         } else {
-            return requestBuilder.DELETE()
-                    .build();
+            return requestBuilder.DELETE().build();
         }
     }
 }

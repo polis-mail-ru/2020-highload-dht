@@ -1,20 +1,19 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.pool.PoolException;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -29,9 +28,7 @@ public class FrameServer extends PutDeleteGetMethodServer {
      * @param topology - nodes.
      * @throws IOException - thrown when IO errors encountered.
      */
-    public FrameServer(final DAO dao,
-                       final HttpServerConfig config,
-                       final Set<String> topology) throws IOException {
+    public FrameServer(final DAO dao, final HttpServerConfig config, final Set<String> topology) throws IOException {
         super(dao, config, topology);
     }
 
@@ -80,14 +77,19 @@ public class FrameServer extends PutDeleteGetMethodServer {
         return Util.responseWithNoBody(Response.OK);
     }
 
-    protected Response routeRequest(final Request request,
-                                  final int node,
-                                  final Map<Integer, String> nodeMapping) {
+    /**
+     * Hash route request.
+     *
+     * @param request - request to route.
+     * @param node - node to route the request to.
+     * @param nodeMapping - node list.
+     * @return - returned response.
+     */
+    public Response routeRequest(final Request request, final int node, final Map<Integer, String> nodeMapping) {
+        final HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
         try {
-            final HttpRequest javaRequest = Util.getJavaRequest(request, nodeMapping.get(node));
-            return Util.getOneNioResponse(asyncHttpClient.send(javaRequest,
-                    HttpResponse.BodyHandlers.ofByteArray()));
-        } catch (InterruptedException | IOException e) {
+            return httpClient.invoke(request);
+        } catch (InterruptedException | PoolException | HttpException | IOException e) {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
