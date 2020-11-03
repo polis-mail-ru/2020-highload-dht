@@ -314,7 +314,7 @@ public class MoribundService extends HttpServer implements Service {
         final HttpRequest httpRequest = builder.build();
         return clients.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.ofByteArray())
             .whenComplete((a, t) -> a.request())
-            .handleAsync((a, t) ->
+            .handle((a, t) ->
             {
                 logger.debug("RESPONSE: {}", a);
                 final Response response = new Response(status(a.statusCode()), a.body());

@@ -33,18 +33,18 @@ public final class Consensus {
         AtomicReference<Response> okValue = new AtomicReference<>(new Response(Response.NOT_FOUND, Response.EMPTY));
         AtomicLong finalLastVersion = new AtomicLong(0);
         for (final CompletableFuture<Response> future : responses) {
-            if (future.whenCompleteAsync((response, t) -> {
+            if (future.whenComplete((response, t) -> {
                 final int status = response.getStatus();
                 if (status == 200) {
-                    count.getAndDecrement();
+                    count.getAndIncrement();
                     final AtomicLong version = new AtomicLong(Long.parseLong(response.getHeader(VERSION)));
                     if (version.get() > finalLastVersion.get()) {
                         finalLastVersion.getAndSet(version.get());
                         okValue.set(response);
                     }
                 } else if (status == 404) {
-                    count404.getAndDecrement();
-                    count.getAndDecrement();
+                    count404.getAndIncrement();
+                    count.getAndIncrement();
                 }
             }).isCancelled()) {
                 logger.error("Cancelled in GET");
@@ -90,9 +90,9 @@ public final class Consensus {
                                                 final String result) {
         AtomicInteger ackCount = new AtomicInteger(0);
         for (final CompletableFuture<Response> future : responses) {
-            if (future.whenCompleteAsync((response, t) -> {
+            if (future.whenComplete((response, t) -> {
                     if (response.getStatus() == status) {
-                        ackCount.getAndDecrement();
+                        ackCount.getAndIncrement();
                     }
                 }
             ).isCancelled()) {
