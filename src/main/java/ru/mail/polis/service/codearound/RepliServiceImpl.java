@@ -1,46 +1,43 @@
 package ru.mail.polis.service.codearound;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+
+import java.net.http.HttpClient;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
 
-/**
- *  class to determine request handler to run, DAO exchange method consistently with topology given.
- */
 public class RepliServiceImpl extends HttpServer implements Service {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
-    private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
-            + "Failed determining response";
     public static final String IO_ERROR_LOG = "IO exception raised";
-    public static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
-    public static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
-            + "Request failed as gateway closed past timeout";
+    public static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
+    public static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
+            + "Failed determining response";
+    @NotNull
     private final ExecutorService exec;
+    @NotNull
     private final Topology<String> topology;
-    private final Map<String, HttpClient> nodesToClients;
-    private final ReplicationFactor repliFactor;
+    @NotNull
     private final ReplicationLsm lsm;
 
     /**
@@ -72,14 +69,21 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy()
         );
         this.topology = topology;
-        this.nodesToClients = new HashMap<>();
-        this.repliFactor = new ReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
+        Map<String, HttpClient> nodesToClients = new HashMap<>();
+        ReplicationFactor repliFactor = new ReplicationFactor(
+                topology.getClusterSize() / 2 + 1,
+                topology.getClusterSize());
         this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor);
+
         for (final String node : topology.getNodes()) {
             if (topology.isThisNode(node)) {
                 continue;
             }
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
+            final HttpClient client = HttpClient.newBuilder()
+                    .executor(exec)
+                    .connectTimeout(Duration.ofSeconds(timeout))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .build();
             if (nodesToClients.put(node, client) != null) {
                 throw new IllegalStateException("Multiple nodes found by same ID");
             }
@@ -107,6 +111,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
     public void entity(@Param(value = "id", required = true) final String id,
                        @NotNull final Request req,
                        @NotNull final HttpSession session) throws IOException {
+
         if (id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request");
             return;
@@ -118,60 +123,44 @@ public class RepliServiceImpl extends HttpServer implements Service {
         }
 
         final boolean forwardedStatus = isForwardedRequest;
-        final ReplicationFactor repliFactorObj = ReplicationFactor
-                .getRepliFactor(req.getParameter("replicas"), repliFactor, session);
-        final ByteBuffer bufKey = DAOByteOnlyConverter.tuneArrayToBuf(id.getBytes(StandardCharsets.UTF_8));
-        if (topology.getClusterSize() > 1) {
-            try {
-                switch (req.getMethod()) {
-                    case Request.METHOD_GET:
-                        runAsyncHandler(session, () -> lsm.getWithMultipleNodes(
-                                id,
-                                repliFactorObj,
-                                forwardedStatus));
-                        break;
-                    case Request.METHOD_PUT:
-                        runAsyncHandler(session, () -> lsm.upsertWithMultipleNodes(
-                                id,
-                                req.getBody(),
-                                repliFactorObj.getAckValue(),
-                                forwardedStatus));
-                        break;
-                    case Request.METHOD_DELETE:
-                        runAsyncHandler(session, () -> lsm.deleteWithMultipleNodes(
-                                id,
-                                repliFactorObj.getAckValue(),
-                                forwardedStatus));
-                        break;
-                    default:
-                        session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
-                        break;
-                }
-            } catch (IOException exc) {
-                session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
-            }
+
+        if (isForwardedRequest || topology.getNodes().size() > 1) {
+            lsm.invokeHandlerByMethod(forwardedStatus, req, session);
         } else {
-            switch (req.getMethod()) {
-                case Request.METHOD_GET:
-                    runAsyncHandler(session, () -> lsm.getWithOnlyNode(bufKey, req));
-                    break;
-                case Request.METHOD_PUT:
-                    runAsyncHandler(session, () -> lsm.upsertWithOnlyNode(bufKey, req.getBody(), req));
-                    break;
-                case Request.METHOD_DELETE:
-                    runAsyncHandler(session, () -> lsm.deleteWithOnlyNode(bufKey, req));
-                    break;
-                default:
-                    session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
-                    break;
-            }
+            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+            executeAsync(req, key, session);
+        }
+    }
+
+    /**
+     * resolves async request processing in single-node cluster.
+     *
+     * @param req - HTTP request
+     * @param key - String object to be processed as a key in terms of data storage design
+     * @param session - ongoing session instance
+     */
+    private void executeAsync(@NotNull final Request req,
+                              @NotNull final ByteBuffer key,
+                              @NotNull final HttpSession session) throws IOException {
+        switch (req.getMethod()) {
+            case Request.METHOD_GET:
+                runAsyncHandler(session, () -> lsm.getWithOnlyNode(key));
+                return;
+            case Request.METHOD_PUT:
+                runAsyncHandler(session, () -> lsm.upsertWithOnlyNode(key, req.getBody()));
+                return;
+            case Request.METHOD_DELETE:
+                runAsyncHandler(session, () -> lsm.deleteWithOnlyNode(key));
+                return;
+            default:
+                session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
         }
     }
 
     /**
      * handler determined to run by default.
      *
-     * @param req - client host request
+     * @param req - HTTP request
      * @param session - ongoing session instance
      */
     @Override
@@ -183,7 +172,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
      * switches request handling to async-featured process.
      *
      * @param session ongoing HTTP session
-     * @param async interface design object to run async processing
+     * @param async interface design object to enable async handler execution
      */
     private void runAsyncHandler(@NotNull final HttpSession session, final AsyncExec async) {
         exec.execute(() -> {
@@ -198,23 +187,5 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 }
             }
         });
-    }
-
-    /**
-     * terminates ExecutorService process.
-     */
-    @Override
-    public synchronized void stop() {
-        super.stop();
-        exec.shutdown();
-        try {
-            exec.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            LOGGER.error("Failed executor termination");
-            Thread.currentThread().interrupt();
-        }
-        for (final HttpClient client : nodesToClients.values()) {
-            client.close();
-        }
     }
 }

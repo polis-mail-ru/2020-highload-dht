@@ -1,5 +1,7 @@
 package ru.mail.polis.service.codearound;
 
+import one.nio.http.Request;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;

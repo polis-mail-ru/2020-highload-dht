@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -14,7 +15,7 @@ import java.util.NoSuchElementException;
 
 public final class RepliServiceUtils {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceUtils.class);
 
     /**
      * class instance const.
@@ -66,20 +67,20 @@ public final class RepliServiceUtils {
      * issues some response for GET request upon processing replica (if any) pushed to external instance of storage.
      *
      * @param values - collection of values ever pushed to storage
-     * @param nodeReplicas - array of replicas
+     * @param replicas - array of replicas
      * @param isForwardedRequest - true if incoming request header indicates
      *                                 invocation of proxy-providing method on a previous node
      * @return HTTP response
      */
     public static Response issueExternalResponse(
             final List<Value> values,
-            final String[] nodeReplicas,
+            final String[] replicas,
             final boolean isForwardedRequest) throws IOException {
         final Value value = syncReplicaValues(values);
         if (value.isValueDeleted()) {
             return new Response(Response.NOT_FOUND, value.getBytesFromValue());
         } else {
-            if (nodeReplicas.length == 1 && isForwardedRequest) {
+            if (replicas.length == 1 && isForwardedRequest) {
                 return new Response(Response.OK, value.getBytesFromValue());
             } else {
                 return new Response(Response.OK, value.getBytes());
@@ -105,6 +106,35 @@ public final class RepliServiceUtils {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException exc) {
             LOGGER.error("No match key found on local node replica");
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
+    }
+
+    /**
+     * issues response once promised value received.
+     *
+     * @param nodes - array of node IDs the cluster is build upon
+     * @param responses - collection of values to send back
+     * @param isForwardedRequest - true if incoming request header indicates
+     *                            invocation of proxy-providing method on a previous node
+     * @return HTTP response
+     */
+    public static Response processResponses(final String[] nodes,
+                                     final List<Value> responses,
+                                     final boolean isForwardedRequest) throws IOException {
+
+        final Value value = syncReplicaValues(responses);
+        if (value.isValueExisting()) {
+            if (!isForwardedRequest && nodes.length == 1) {
+                return new Response(Response.OK, value.getBytes());
+            } else if (isForwardedRequest && nodes.length == 1) {
+                return new Response(Response.OK, value.getBytesFromValue());
+            } else {
+                return new Response(Response.OK, value.getBytes());
+            }
+        } else if (value.isValueDeleted()) {
+            return new Response(Response.NOT_FOUND, value.getBytesFromValue());
+        } else {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }

@@ -78,6 +78,15 @@ public final class Value {
     }
 
     /**
+     * evaluates target record status (whether that exists or not).
+     *
+     * @return true if actual status is the same as 'existing' (based on value not equal null)
+     */
+    boolean isValueExisting() {
+        return !isValueDeleted && buffer != null;
+    }
+
+    /**
      * timestamp getter.
      *
      * @return timestamp
