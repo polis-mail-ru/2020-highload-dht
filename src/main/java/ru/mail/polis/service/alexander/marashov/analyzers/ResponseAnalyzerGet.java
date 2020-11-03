@@ -14,7 +14,7 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
 
     private static final Logger log = LoggerFactory.getLogger(ResponseAnalyzerGet.class);
     private final Map<Value, Integer> answersMap;
-    private Value tombstoneValue;
+    private Value newestTombstone;
 
     /**
      * Response analyzer that accumulates responses from DAO's GET methods and analyzes them.
@@ -24,13 +24,12 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
     public ResponseAnalyzerGet(final int neededReplicasCount, final int totalReplicasCount) {
         super(neededReplicasCount, totalReplicasCount);
         this.answersMap = new HashMap<>();
-        this.tombstoneValue = null;
+        this.newestTombstone = null;
     }
 
     @Override
     protected boolean hasEnoughAnswers() {
-        return tombstoneValue != null
-                || this.answeredCount >= this.neededReplicasCount
+        return this.answeredCount >= this.neededReplicasCount
                 || super.hasEnoughAnswers();
     }
 
@@ -59,7 +58,9 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
         answeredCount++;
         if (value != null) {
             if (value.isTombstone()) {
-                tombstoneValue = value;
+                if (newestTombstone == null || value.compareTo(newestTombstone) < 0) {
+                    newestTombstone = value;
+                }
                 return;
             }
             answersMap.compute(value, (v, oldCount) -> {
@@ -73,9 +74,6 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
 
     @Override
     protected Response privateGetResult() {
-        if (tombstoneValue != null) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
         if (this.answeredCount < this.neededReplicasCount) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
@@ -87,20 +85,25 @@ public class ResponseAnalyzerGet extends ResponseAnalyzer<Value> {
         int maxCount = 0;
         for (final Map.Entry<Value, Integer> answerEntry : answersMap.entrySet()) {
             final Value value = answerEntry.getKey();
+            assert !value.isTombstone();
             final int count = answerEntry.getValue();
 
             if (correctValue == null) {
                 maxCount = count;
                 correctValue = value;
             } else {
-                final boolean flag = count == maxCount && value.compareTo(correctValue) > 0;
-                if (count > maxCount || flag) {
+                final boolean comparisonIfCountEquals = count == maxCount && value.compareTo(correctValue) < 0;
+                if (comparisonIfCountEquals || count > maxCount) {
                     correctValue = value;
                     maxCount = count;
                 }
             }
         }
-        assert correctValue != null;
+
+        if (newestTombstone != null && newestTombstone.compareTo(correctValue) < 0) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
+
         return new Response(Response.OK, correctValue.getData().array());
     }
 }

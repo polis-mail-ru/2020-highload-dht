@@ -1,10 +1,7 @@
 package ru.mail.polis.service.alexander.marashov;
 
-import com.google.common.base.Splitter;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 public class ValidatedParameters {
     final int ack;
@@ -71,13 +68,14 @@ public class ValidatedParameters {
         if (replicas == null) {
             return new int[0];
         }
-        final List<String> parameters = Splitter.on('/').splitToList(replicas);
-        if (parameters.size() != 2) {
+        final int firstSlashIndex = replicas.indexOf('/');
+        final int lastSlashIndex = replicas.lastIndexOf('/');
+        if (firstSlashIndex != lastSlashIndex || firstSlashIndex == -1) {
             return new int[0];
         }
 
-        final int ack = Integer.parseInt(parameters.get(0));
-        final int from = Integer.parseInt(parameters.get(1));
+        final int ack = Integer.parseInt(replicas.substring(0, firstSlashIndex));
+        final int from = Integer.parseInt(replicas.substring(firstSlashIndex + 1));
         return new int[]{ack, from};
     }
 }

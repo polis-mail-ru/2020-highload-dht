@@ -58,26 +58,21 @@ public class DaoManager {
      * @return response to send.
      */
     public Response rowGet(final ByteBuffer key) {
-        Value value = null;
+        final Value value;
         try {
             value = this.dao.rowGet(key);
         } catch (final IOException | NoSuchElementException e) {
             log.debug("Key not found", e);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
-        Response response;
-        if (value == null) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-        } else {
-            try {
-                final byte[] serializedData = ValueSerializer.serialize(value);
-                response = new Response(Response.OK, serializedData);
-            } catch (IOException e) {
-                response = new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                log.error("Local get SERIALIZE ERROR");
-            }
+        try {
+            final byte[] serializedData = ValueSerializer.serialize(value);
+            return new Response(Response.OK, serializedData);
+        } catch (IOException e) {
+            log.error("Local get serialize error");
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-        return response;
     }
 
     /**
@@ -87,7 +82,7 @@ public class DaoManager {
         try {
             dao.close();
         } catch (final IOException e) {
-            log.error("Error closing dao", e);
+            throw new RuntimeException("Error closing dao", e);
         }
     }
 }
