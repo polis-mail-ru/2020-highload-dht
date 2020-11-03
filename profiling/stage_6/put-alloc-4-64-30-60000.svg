@@ -1,0 +1,2049 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="1174" onload="init(evt)" viewBox="0 0 1200 1174" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+		}
+		else if (e.target.id == "unzoom") unzoom();
+		else if (e.target.id == "search") search_prompt();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	}, false)
+
+	// functions
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+		return;
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0" y="0" width="100%" height="100%" fill="rgb(240,240,220)"/>
+<text id="title" x="600" y="24">Flame Graph</text>
+<text id="details" x="10" y="1157"> </text>
+<text id="unzoom" x="10" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090" y="24">Search</text>
+<text id="matched" x="1090" y="1157"> </text>
+<g id="frames">
+<g>
+<title>all (152 samples, 100.00%)</title><rect x="10.0" y="1123.0" width="1180.0" height="15" fill="#fc7f7f" rx="2" ry="2"/>
+<text x="13.0" y="1134.0">all</text>
+</g>
+<g>
+<title>java/lang/Thread.run (152 samples, 100.00%)</title><rect x="10.0" y="1107.0" width="1180.0" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="13.0" y="1118.0">java/lang/Thread.run</text>
+</g>
+<g>
+<title>com/sun/jmx/remote/internal/ServerCommunicatorAdmin$Timeout.run (1 samples, 0.66%)</title><rect x="10.0" y="1091.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="13.0" y="1102.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/remote/internal/ServerCommunicatorAdmin.logtime (1 samples, 0.66%)</title><rect x="10.0" y="1075.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="13.0" y="1086.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/LambdaForm$MH/142555199.linkToTargetMethod (1 samples, 0.66%)</title><rect x="10.0" y="1059.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="13.0" y="1070.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/LambdaForm$MH/1092859154.invoke (1 samples, 0.66%)</title><rect x="10.0" y="1043.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="13.0" y="1054.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/DirectMethodHandle$Holder.invokeStatic (1 samples, 0.66%)</title><rect x="10.0" y="1027.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="13.0" y="1038.0"></text>
+</g>
+<g>
+<title>java/lang/StringConcatHelper.newString (1 samples, 0.66%)</title><rect x="10.0" y="1011.0" width="7.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="13.0" y="1022.0"></text>
+</g>
+<g>
+<title>java.lang.String (1 samples, 0.66%)</title><rect x="10.0" y="995.0" width="7.8" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="13.0" y="1006.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor$Worker.run (151 samples, 99.34%)</title><rect x="17.8" y="1091.0" width="1172.2" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="20.8" y="1102.0">java/util/concurrent/ThreadPoolExecutor$Worker.run</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.runWorker (151 samples, 99.34%)</title><rect x="17.8" y="1075.0" width="1172.2" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="20.8" y="1086.0">java/util/concurrent/ThreadPoolExecutor.runWorker</text>
+</g>
+<g>
+<title>java/util/concurrent/ThreadPoolExecutor.getTask (1 samples, 0.66%)</title><rect x="17.8" y="1059.0" width="7.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="20.8" y="1070.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ScheduledThreadPoolExecutor$DelayedWorkQueue.take (1 samples, 0.66%)</title><rect x="17.8" y="1043.0" width="7.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="20.8" y="1054.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ScheduledThreadPoolExecutor$DelayedWorkQueue.take (1 samples, 0.66%)</title><rect x="17.8" y="1027.0" width="7.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="20.8" y="1038.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.awaitNanos (1 samples, 0.66%)</title><rect x="17.8" y="1011.0" width="7.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="20.8" y="1022.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.transferAfterCancelledWait (1 samples, 0.66%)</title><rect x="17.8" y="995.0" width="7.7" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="20.8" y="1006.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.enq (1 samples, 0.66%)</title><rect x="17.8" y="979.0" width="7.7" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="20.8" y="990.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.initializeSyncQueue (1 samples, 0.66%)</title><rect x="17.8" y="963.0" width="7.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="20.8" y="974.0"></text>
+</g>
+<g>
+<title>java.util.concurrent.locks.AbstractQueuedSynchronizer$Node (1 samples, 0.66%)</title><rect x="17.8" y="947.0" width="7.7" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="20.8" y="958.0"></text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run (150 samples, 98.68%)</title><rect x="25.5" y="1059.0" width="1164.5" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="28.5" y="1070.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run</text>
+</g>
+<g>
+<title>java/security/AccessController.doPrivileged (150 samples, 98.68%)</title><rect x="25.5" y="1043.0" width="1164.5" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="28.5" y="1054.0">java/security/AccessController.doPrivileged</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler$$Lambda$147/1766691620.run (150 samples, 98.68%)</title><rect x="25.5" y="1027.0" width="1164.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="28.5" y="1038.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler$$Lambda$147/1766691620.run</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.lambda$run$0 (150 samples, 98.68%)</title><rect x="25.5" y="1011.0" width="1164.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="28.5" y="1022.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.lambda$run$0</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run0 (150 samples, 98.68%)</title><rect x="25.5" y="995.0" width="1164.5" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="28.5" y="1006.0">sun/rmi/transport/tcp/TCPTransport$ConnectionHandler.run0</text>
+</g>
+<g>
+<title>sun/rmi/transport/tcp/TCPTransport.handleMessages (150 samples, 98.68%)</title><rect x="25.5" y="979.0" width="1164.5" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="28.5" y="990.0">sun/rmi/transport/tcp/TCPTransport.handleMessages</text>
+</g>
+<g>
+<title>java.io.DataOutputStream (1 samples, 0.66%)</title><rect x="25.5" y="963.0" width="7.8" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="28.5" y="974.0"></text>
+</g>
+<g>
+<title>sun/rmi/transport/Transport.serviceCall (149 samples, 98.03%)</title><rect x="33.3" y="963.0" width="1156.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="36.3" y="974.0">sun/rmi/transport/Transport.serviceCall</text>
+</g>
+<g>
+<title>java/rmi/server/ObjID.read (1 samples, 0.66%)</title><rect x="33.3" y="947.0" width="7.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="36.3" y="958.0"></text>
+</g>
+<g>
+<title>java/rmi/server/UID.read (1 samples, 0.66%)</title><rect x="33.3" y="931.0" width="7.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="36.3" y="942.0"></text>
+</g>
+<g>
+<title>java.rmi.server.UID (1 samples, 0.66%)</title><rect x="33.3" y="915.0" width="7.8" height="15" fill="#61cfcf" rx="2" ry="2"/>
+<text x="36.3" y="926.0"></text>
+</g>
+<g>
+<title>java/security/AccessController.doPrivileged (138 samples, 90.79%)</title><rect x="41.1" y="947.0" width="1071.3" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="44.1" y="958.0">java/security/AccessController.doPrivileged</text>
+</g>
+<g>
+<title>sun/rmi/transport/Transport$1.run (138 samples, 90.79%)</title><rect x="41.1" y="931.0" width="1071.3" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="44.1" y="942.0">sun/rmi/transport/Transport$1.run</text>
+</g>
+<g>
+<title>sun/rmi/transport/Transport$1.run (138 samples, 90.79%)</title><rect x="41.1" y="915.0" width="1071.3" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="44.1" y="926.0">sun/rmi/transport/Transport$1.run</text>
+</g>
+<g>
+<title>sun/rmi/server/UnicastServerRef.dispatch (138 samples, 90.79%)</title><rect x="41.1" y="899.0" width="1071.3" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="44.1" y="910.0">sun/rmi/server/UnicastServerRef.dispatch</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (86 samples, 56.58%)</title><rect x="41.1" y="883.0" width="667.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="44.1" y="894.0">java/lang/reflect/Method.invoke</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (86 samples, 56.58%)</title><rect x="41.1" y="867.0" width="667.6" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="44.1" y="878.0">jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor33.invoke (4 samples, 2.63%)</title><rect x="41.1" y="851.0" width="31.0" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="44.1" y="862.0">jd..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.getAttribute (4 samples, 2.63%)</title><rect x="41.1" y="835.0" width="31.0" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="44.1" y="846.0">ja..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doPrivilegedOperation (4 samples, 2.63%)</title><rect x="41.1" y="819.0" width="31.0" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="44.1" y="830.0">ja..</text>
+</g>
+<g>
+<title>com/sun/jmx/remote/internal/ServerCommunicatorAdmin.rspOutgoing (3 samples, 1.97%)</title><rect x="41.1" y="803.0" width="23.2" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="44.1" y="814.0">c..</text>
+</g>
+<g>
+<title>com/sun/jmx/remote/internal/ServerCommunicatorAdmin.logtime (3 samples, 1.97%)</title><rect x="41.1" y="787.0" width="23.2" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="44.1" y="798.0">c..</text>
+</g>
+<g>
+<title>java/lang/invoke/LambdaForm$MH/142555199.linkToTargetMethod (3 samples, 1.97%)</title><rect x="41.1" y="771.0" width="23.2" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="44.1" y="782.0">j..</text>
+</g>
+<g>
+<title>java/lang/invoke/LambdaForm$MH/1092859154.invoke (3 samples, 1.97%)</title><rect x="41.1" y="755.0" width="23.2" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="44.1" y="766.0">j..</text>
+</g>
+<g>
+<title>java/lang/invoke/DirectMethodHandle$Holder.invokeStatic (3 samples, 1.97%)</title><rect x="41.1" y="739.0" width="23.2" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="44.1" y="750.0">j..</text>
+</g>
+<g>
+<title>java/lang/StringConcatHelper.newString (1 samples, 0.66%)</title><rect x="41.1" y="723.0" width="7.7" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="44.1" y="734.0"></text>
+</g>
+<g>
+<title>java.lang.String (1 samples, 0.66%)</title><rect x="41.1" y="707.0" width="7.7" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="44.1" y="718.0"></text>
+</g>
+<g>
+<title>java/lang/invoke/StringConcatFactory$MethodHandleInlineCopyStrategy.newArray (2 samples, 1.32%)</title><rect x="48.8" y="723.0" width="15.5" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="51.8" y="734.0"></text>
+</g>
+<g>
+<title>jdk/internal/misc/Unsafe.allocateUninitializedArray (2 samples, 1.32%)</title><rect x="48.8" y="707.0" width="15.5" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="51.8" y="718.0"></text>
+</g>
+<g>
+<title>byte[] (2 samples, 1.32%)</title><rect x="48.8" y="691.0" width="15.5" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="51.8" y="702.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$PrivilegedOperation.run (1 samples, 0.66%)</title><rect x="64.3" y="803.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="67.3" y="814.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doOperation (1 samples, 0.66%)</title><rect x="64.3" y="787.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="67.3" y="798.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/JmxMBeanServer.getAttribute (1 samples, 0.66%)</title><rect x="64.3" y="771.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="67.3" y="782.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.getAttribute (1 samples, 0.66%)</title><rect x="64.3" y="755.0" width="7.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="67.3" y="766.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.getMBean (1 samples, 0.66%)</title><rect x="64.3" y="739.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="67.3" y="750.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/Repository.retrieve (1 samples, 0.66%)</title><rect x="64.3" y="723.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="67.3" y="734.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/Repository.retrieveNamedObject (1 samples, 0.66%)</title><rect x="64.3" y="707.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="67.3" y="718.0"></text>
+</g>
+<g>
+<title>javax/management/ObjectName.getCanonicalKeyPropertyListString (1 samples, 0.66%)</title><rect x="64.3" y="691.0" width="7.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="67.3" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/String.substring (1 samples, 0.66%)</title><rect x="64.3" y="675.0" width="7.8" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="67.3" y="686.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (1 samples, 0.66%)</title><rect x="64.3" y="659.0" width="7.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="67.3" y="670.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOfRange (1 samples, 0.66%)</title><rect x="64.3" y="643.0" width="7.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="67.3" y="654.0"></text>
+</g>
+<g>
+<title>byte[] (1 samples, 0.66%)</title><rect x="64.3" y="627.0" width="7.8" height="15" fill="#6cdada" rx="2" ry="2"/>
+<text x="67.3" y="638.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor37.invoke (81 samples, 53.29%)</title><rect x="72.1" y="851.0" width="628.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="75.1" y="862.0">jdk/internal/reflect/GeneratedMethodAccessor37.invoke</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.invoke (81 samples, 53.29%)</title><rect x="72.1" y="835.0" width="628.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="75.1" y="846.0">javax/management/remote/rmi/RMIConnectionImpl.invoke</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doPrivilegedOperation (73 samples, 48.03%)</title><rect x="72.1" y="819.0" width="566.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="75.1" y="830.0">javax/management/remote/rmi/RMIConnectionImpl.doPrivilegedOperation</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$PrivilegedOperation.run (73 samples, 48.03%)</title><rect x="72.1" y="803.0" width="566.7" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="75.1" y="814.0">javax/management/remote/rmi/RMIConnectionImpl$PrivilegedOperation.run</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doOperation (73 samples, 48.03%)</title><rect x="72.1" y="787.0" width="566.7" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="75.1" y="798.0">javax/management/remote/rmi/RMIConnectionImpl.doOperation</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/JmxMBeanServer.invoke (73 samples, 48.03%)</title><rect x="72.1" y="771.0" width="566.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="75.1" y="782.0">com/sun/jmx/mbeanserver/JmxMBeanServer.invoke</text>
+</g>
+<g>
+<title>com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.invoke (73 samples, 48.03%)</title><rect x="72.1" y="755.0" width="566.7" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="75.1" y="766.0">com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.invoke</text>
+</g>
+<g>
+<title>com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.getMBean (1 samples, 0.66%)</title><rect x="72.1" y="739.0" width="7.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="75.1" y="750.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/Repository.retrieve (1 samples, 0.66%)</title><rect x="72.1" y="723.0" width="7.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="75.1" y="734.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/Repository.retrieveNamedObject (1 samples, 0.66%)</title><rect x="72.1" y="707.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="75.1" y="718.0"></text>
+</g>
+<g>
+<title>javax/management/ObjectName.getDomain (1 samples, 0.66%)</title><rect x="72.1" y="691.0" width="7.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="75.1" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/String.substring (1 samples, 0.66%)</title><rect x="72.1" y="675.0" width="7.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="75.1" y="686.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (1 samples, 0.66%)</title><rect x="72.1" y="659.0" width="7.8" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="75.1" y="670.0"></text>
+</g>
+<g>
+<title>java.lang.String (1 samples, 0.66%)</title><rect x="72.1" y="643.0" width="7.8" height="15" fill="#5bc9c9" rx="2" ry="2"/>
+<text x="75.1" y="654.0"></text>
+</g>
+<g>
+<title>javax/management/StandardMBean.invoke (72 samples, 47.37%)</title><rect x="79.9" y="739.0" width="558.9" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="82.9" y="750.0">javax/management/StandardMBean.invoke</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanSupport.invoke (72 samples, 47.37%)</title><rect x="79.9" y="723.0" width="558.9" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="82.9" y="734.0">com/sun/jmx/mbeanserver/MBeanSupport.invoke</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/PerInterface.invoke (72 samples, 47.37%)</title><rect x="79.9" y="707.0" width="558.9" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="82.9" y="718.0">com/sun/jmx/mbeanserver/PerInterface.invoke</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanIntrospector.invokeM (72 samples, 47.37%)</title><rect x="79.9" y="691.0" width="558.9" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="82.9" y="702.0">com/sun/jmx/mbeanserver/MBeanIntrospector.invokeM</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2 (72 samples, 47.37%)</title><rect x="79.9" y="675.0" width="558.9" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="82.9" y="686.0">com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2 (72 samples, 47.37%)</title><rect x="79.9" y="659.0" width="558.9" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="82.9" y="670.0">com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn (72 samples, 47.37%)</title><rect x="79.9" y="643.0" width="558.9" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="82.9" y="654.0">com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn (72 samples, 47.37%)</title><rect x="79.9" y="627.0" width="558.9" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="82.9" y="638.0">com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMapping.toOpenValue (66 samples, 43.42%)</title><rect x="79.9" y="611.0" width="512.3" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="82.9" y="622.0">com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMappin..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$ArrayMapping.toNonNullOpenValue (66 samples, 43.42%)</title><rect x="79.9" y="595.0" width="512.3" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="82.9" y="606.0">com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$ArrayMapping.toNonN..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMapping.toOpenValue (66 samples, 43.42%)</title><rect x="79.9" y="579.0" width="512.3" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="82.9" y="590.0">com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMappin..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$CompositeMapping.toNonNullOpenValue (66 samples, 43.42%)</title><rect x="79.9" y="563.0" width="512.3" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="82.9" y="574.0">com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$CompositeMapping.to..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMapping.toOpenValue (24 samples, 15.79%)</title><rect x="79.9" y="547.0" width="186.3" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="82.9" y="558.0">com/sun/jmx/mbeanserver/..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$ArrayMapping.toNonNullOpenValue (24 samples, 15.79%)</title><rect x="79.9" y="531.0" width="186.3" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="82.9" y="542.0">com/sun/jmx/mbeanserver/..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$NonNullMXBeanMapping.toOpenValue (23 samples, 15.13%)</title><rect x="79.9" y="515.0" width="178.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="82.9" y="526.0">com/sun/jmx/mbeanserver..</text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/DefaultMXBeanMappingFactory$CompositeMapping.toNonNullOpenValue (23 samples, 15.13%)</title><rect x="79.9" y="499.0" width="178.5" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="82.9" y="510.0">com/sun/jmx/mbeanserver..</text>
+</g>
+<g>
+<title>java.lang.Object[] (2 samples, 1.32%)</title><rect x="79.9" y="483.0" width="15.5" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="82.9" y="494.0"></text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.&lt;init&gt; (14 samples, 9.21%)</title><rect x="95.4" y="483.0" width="108.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="98.4" y="494.0">javax/managem..</text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.makeMap (14 samples, 9.21%)</title><rect x="95.4" y="467.0" width="108.7" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="98.4" y="478.0">javax/managem..</text>
+</g>
+<g>
+<title>java.util.TreeMap (3 samples, 1.97%)</title><rect x="95.4" y="451.0" width="23.3" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="98.4" y="462.0">j..</text>
+</g>
+<g>
+<title>java/util/TreeMap.put (11 samples, 7.24%)</title><rect x="118.7" y="451.0" width="85.4" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="121.7" y="462.0">java/util/..</text>
+</g>
+<g>
+<title>java.util.TreeMap$Entry (11 samples, 7.24%)</title><rect x="118.7" y="435.0" width="85.4" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="121.7" y="446.0">java.util...</text>
+</g>
+<g>
+<title>sun/reflect/misc/MethodUtil.invoke (7 samples, 4.61%)</title><rect x="204.1" y="483.0" width="54.3" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="207.1" y="494.0">sun/r..</text>
+</g>
+<g>
+<title>java.lang.Object[] (7 samples, 4.61%)</title><rect x="204.1" y="467.0" width="54.3" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="207.1" y="478.0">java...</text>
+</g>
+<g>
+<title>java/lang/reflect/Array.newInstance (1 samples, 0.66%)</title><rect x="258.4" y="515.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="261.4" y="526.0"></text>
+</g>
+<g>
+<title>javax.management.openmbean.CompositeData[] (1 samples, 0.66%)</title><rect x="258.4" y="499.0" width="7.8" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="261.4" y="510.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (2 samples, 1.32%)</title><rect x="266.2" y="547.0" width="15.5" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="269.2" y="558.0"></text>
+</g>
+<g>
+<title>javax.management.openmbean.CompositeDataSupport (2 samples, 1.32%)</title><rect x="281.7" y="547.0" width="15.5" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="284.7" y="558.0"></text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.&lt;init&gt; (27 samples, 17.76%)</title><rect x="297.2" y="547.0" width="209.6" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="300.2" y="558.0">javax/management/openmbean/..</text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.&lt;init&gt; (3 samples, 1.97%)</title><rect x="297.2" y="531.0" width="23.3" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="300.2" y="542.0">j..</text>
+</g>
+<g>
+<title>java/util/Collections$UnmodifiableCollection.iterator (1 samples, 0.66%)</title><rect x="297.2" y="515.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="300.2" y="526.0"></text>
+</g>
+<g>
+<title>java/util/Collections$UnmodifiableCollection$1.&lt;init&gt; (1 samples, 0.66%)</title><rect x="297.2" y="499.0" width="7.8" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="300.2" y="510.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap$KeySet.iterator (1 samples, 0.66%)</title><rect x="297.2" y="483.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="300.2" y="494.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.keyIterator (1 samples, 0.66%)</title><rect x="297.2" y="467.0" width="7.8" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="300.2" y="478.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$KeyIterator (1 samples, 0.66%)</title><rect x="297.2" y="451.0" width="7.8" height="15" fill="#60cece" rx="2" ry="2"/>
+<text x="300.2" y="462.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.keySet (1 samples, 0.66%)</title><rect x="305.0" y="515.0" width="7.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="308.0" y="526.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.navigableKeySet (1 samples, 0.66%)</title><rect x="305.0" y="499.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="308.0" y="510.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$KeySet (1 samples, 0.66%)</title><rect x="305.0" y="483.0" width="7.8" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="308.0" y="494.0"></text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeType.isValue (1 samples, 0.66%)</title><rect x="312.8" y="515.0" width="7.7" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="315.8" y="526.0"></text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeType.isAssignableFrom (1 samples, 0.66%)</title><rect x="312.8" y="499.0" width="7.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="315.8" y="510.0"></text>
+</g>
+<g>
+<title>java/util/Collections$UnmodifiableCollection.iterator (1 samples, 0.66%)</title><rect x="312.8" y="483.0" width="7.7" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="315.8" y="494.0"></text>
+</g>
+<g>
+<title>java.util.Collections$UnmodifiableCollection$1 (1 samples, 0.66%)</title><rect x="312.8" y="467.0" width="7.7" height="15" fill="#67d5d5" rx="2" ry="2"/>
+<text x="315.8" y="478.0"></text>
+</g>
+<g>
+<title>javax/management/openmbean/CompositeDataSupport.makeMap (24 samples, 15.79%)</title><rect x="320.5" y="531.0" width="186.3" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="323.5" y="542.0">javax/management/openmbe..</text>
+</g>
+<g>
+<title>java.util.TreeMap (3 samples, 1.97%)</title><rect x="320.5" y="515.0" width="23.3" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="323.5" y="526.0">j..</text>
+</g>
+<g>
+<title>java/util/TreeMap.put (21 samples, 13.82%)</title><rect x="343.8" y="515.0" width="163.0" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="346.8" y="526.0">java/util/TreeMap.put</text>
+</g>
+<g>
+<title>java.util.TreeMap$Entry (21 samples, 13.82%)</title><rect x="343.8" y="499.0" width="163.0" height="15" fill="#6bd9d9" rx="2" ry="2"/>
+<text x="346.8" y="510.0">java.util.TreeMap$Entry</text>
+</g>
+<g>
+<title>sun/reflect/misc/MethodUtil.invoke (11 samples, 7.24%)</title><rect x="506.8" y="547.0" width="85.4" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="509.8" y="558.0">sun/reflec..</text>
+</g>
+<g>
+<title>java.lang.Object[] (9 samples, 5.92%)</title><rect x="506.8" y="531.0" width="69.9" height="15" fill="#57c5c5" rx="2" ry="2"/>
+<text x="509.8" y="542.0">java.la..</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (2 samples, 1.32%)</title><rect x="576.7" y="531.0" width="15.5" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="579.7" y="542.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (2 samples, 1.32%)</title><rect x="576.7" y="515.0" width="15.5" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="579.7" y="526.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor3.invoke (2 samples, 1.32%)</title><rect x="576.7" y="499.0" width="15.5" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="579.7" y="510.0"></text>
+</g>
+<g>
+<title>sun/reflect/misc/Trampoline.invoke (2 samples, 1.32%)</title><rect x="576.7" y="483.0" width="15.5" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="579.7" y="494.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (2 samples, 1.32%)</title><rect x="576.7" y="467.0" width="15.5" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="579.7" y="478.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (2 samples, 1.32%)</title><rect x="576.7" y="451.0" width="15.5" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="579.7" y="462.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor15.invoke (2 samples, 1.32%)</title><rect x="576.7" y="435.0" width="15.5" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="579.7" y="446.0"></text>
+</g>
+<g>
+<title>java/lang/management/ThreadInfo.getStackTrace (2 samples, 1.32%)</title><rect x="576.7" y="419.0" width="15.5" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="579.7" y="430.0"></text>
+</g>
+<g>
+<title>java.lang.StackTraceElement[] (2 samples, 1.32%)</title><rect x="576.7" y="403.0" width="15.5" height="15" fill="#66d4d4" rx="2" ry="2"/>
+<text x="579.7" y="414.0"></text>
+</g>
+<g>
+<title>sun/reflect/misc/MethodUtil.invoke (6 samples, 3.95%)</title><rect x="592.2" y="611.0" width="46.6" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="595.2" y="622.0">sun/..</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (6 samples, 3.95%)</title><rect x="592.2" y="595.0" width="46.6" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="595.2" y="606.0">java..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (6 samples, 3.95%)</title><rect x="592.2" y="579.0" width="46.6" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="595.2" y="590.0">jdk/..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor3.invoke (6 samples, 3.95%)</title><rect x="592.2" y="563.0" width="46.6" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="595.2" y="574.0">jdk/..</text>
+</g>
+<g>
+<title>sun/reflect/misc/Trampoline.invoke (6 samples, 3.95%)</title><rect x="592.2" y="547.0" width="46.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="595.2" y="558.0">sun/..</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (6 samples, 3.95%)</title><rect x="592.2" y="531.0" width="46.6" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="595.2" y="542.0">java..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (6 samples, 3.95%)</title><rect x="592.2" y="515.0" width="46.6" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="595.2" y="526.0">jdk/..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor45.invoke (6 samples, 3.95%)</title><rect x="592.2" y="499.0" width="46.6" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="595.2" y="510.0">jdk/..</text>
+</g>
+<g>
+<title>sun/management/ThreadImpl.getThreadInfo (6 samples, 3.95%)</title><rect x="592.2" y="483.0" width="46.6" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="595.2" y="494.0">sun/..</text>
+</g>
+<g>
+<title>sun/management/ThreadImpl.getThreadInfo1 (6 samples, 3.95%)</title><rect x="592.2" y="467.0" width="46.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="595.2" y="478.0">sun/..</text>
+</g>
+<g>
+<title>java.lang.StackTraceElement (3 samples, 1.97%)</title><rect x="592.2" y="451.0" width="23.3" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="595.2" y="462.0">j..</text>
+</g>
+<g>
+<title>java.lang.management.ThreadInfo (3 samples, 1.97%)</title><rect x="615.5" y="451.0" width="23.3" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="618.5" y="462.0">j..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.getClassLoaderFor (2 samples, 1.32%)</title><rect x="638.8" y="819.0" width="15.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="641.8" y="830.0"></text>
+</g>
+<g>
+<title>javax.management.remote.rmi.RMIConnectionImpl$6 (1 samples, 0.66%)</title><rect x="638.8" y="803.0" width="7.8" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="641.8" y="814.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.withPermissions (1 samples, 0.66%)</title><rect x="646.6" y="803.0" width="7.7" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="649.6" y="814.0"></text>
+</g>
+<g>
+<title>java/security/Permissions.add (1 samples, 0.66%)</title><rect x="646.6" y="787.0" width="7.7" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="649.6" y="798.0"></text>
+</g>
+<g>
+<title>java/security/PermissionsHash.add (1 samples, 0.66%)</title><rect x="646.6" y="771.0" width="7.7" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="649.6" y="782.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ConcurrentHashMap.put (1 samples, 0.66%)</title><rect x="646.6" y="755.0" width="7.7" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="649.6" y="766.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ConcurrentHashMap.putVal (1 samples, 0.66%)</title><rect x="646.6" y="739.0" width="7.7" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="649.6" y="750.0"></text>
+</g>
+<g>
+<title>java/util/concurrent/ConcurrentHashMap.initTable (1 samples, 0.66%)</title><rect x="646.6" y="723.0" width="7.7" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="649.6" y="734.0"></text>
+</g>
+<g>
+<title>java.util.concurrent.ConcurrentHashMap$Node[] (1 samples, 0.66%)</title><rect x="646.6" y="707.0" width="7.7" height="15" fill="#5bc9c9" rx="2" ry="2"/>
+<text x="649.6" y="718.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.unwrap (6 samples, 3.95%)</title><rect x="654.3" y="819.0" width="46.6" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="657.3" y="830.0">java..</text>
+</g>
+<g>
+<title>java/security/AccessController.doPrivileged (3 samples, 1.97%)</title><rect x="654.3" y="803.0" width="23.3" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="657.3" y="814.0">j..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$7.run (3 samples, 1.97%)</title><rect x="654.3" y="787.0" width="23.3" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="657.3" y="798.0">j..</text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$7.run (3 samples, 1.97%)</title><rect x="654.3" y="771.0" width="23.3" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="657.3" y="782.0">j..</text>
+</g>
+<g>
+<title>com/sun/jmx/remote/util/OrderClassLoaders.&lt;init&gt; (1 samples, 0.66%)</title><rect x="654.3" y="755.0" width="7.8" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="657.3" y="766.0"></text>
+</g>
+<g>
+<title>java/lang/ClassLoader.&lt;init&gt; (1 samples, 0.66%)</title><rect x="654.3" y="739.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="657.3" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/ClassLoader.&lt;init&gt; (1 samples, 0.66%)</title><rect x="654.3" y="723.0" width="7.8" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="657.3" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/ClassLoader.nameAndId (1 samples, 0.66%)</title><rect x="654.3" y="707.0" width="7.8" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="657.3" y="718.0"></text>
+</g>
+<g>
+<title>java/lang/StringBuilder.append (1 samples, 0.66%)</title><rect x="654.3" y="691.0" width="7.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="657.3" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/AbstractStringBuilder.append (1 samples, 0.66%)</title><rect x="654.3" y="675.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="657.3" y="686.0"></text>
+</g>
+<g>
+<title>java/lang/AbstractStringBuilder.ensureCapacityInternal (1 samples, 0.66%)</title><rect x="654.3" y="659.0" width="7.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="657.3" y="670.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOf (1 samples, 0.66%)</title><rect x="654.3" y="643.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="657.3" y="654.0"></text>
+</g>
+<g>
+<title>byte[] (1 samples, 0.66%)</title><rect x="654.3" y="627.0" width="7.8" height="15" fill="#5ecccc" rx="2" ry="2"/>
+<text x="657.3" y="638.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$CombinedClassLoader.&lt;init&gt; (2 samples, 1.32%)</title><rect x="662.1" y="755.0" width="15.5" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="665.1" y="766.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$CombinedClassLoader$ClassLoaderWrapper.&lt;init&gt; (2 samples, 1.32%)</title><rect x="662.1" y="739.0" width="15.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="665.1" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/ClassLoader.&lt;init&gt; (2 samples, 1.32%)</title><rect x="662.1" y="723.0" width="15.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="665.1" y="734.0"></text>
+</g>
+<g>
+<title>java/lang/ClassLoader.&lt;init&gt; (2 samples, 1.32%)</title><rect x="662.1" y="707.0" width="15.5" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="665.1" y="718.0"></text>
+</g>
+<g>
+<title>java.lang.Module (1 samples, 0.66%)</title><rect x="662.1" y="691.0" width="7.8" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="665.1" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/ClassLoader.nameAndId (1 samples, 0.66%)</title><rect x="669.9" y="691.0" width="7.7" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="672.9" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/StringBuilder.append (1 samples, 0.66%)</title><rect x="669.9" y="675.0" width="7.7" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="672.9" y="686.0"></text>
+</g>
+<g>
+<title>java/lang/AbstractStringBuilder.append (1 samples, 0.66%)</title><rect x="669.9" y="659.0" width="7.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="672.9" y="670.0"></text>
+</g>
+<g>
+<title>java/lang/AbstractStringBuilder.ensureCapacityInternal (1 samples, 0.66%)</title><rect x="669.9" y="643.0" width="7.7" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="672.9" y="654.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOf (1 samples, 0.66%)</title><rect x="669.9" y="627.0" width="7.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="672.9" y="638.0"></text>
+</g>
+<g>
+<title>byte[] (1 samples, 0.66%)</title><rect x="669.9" y="611.0" width="7.7" height="15" fill="#67d5d5" rx="2" ry="2"/>
+<text x="672.9" y="622.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.unwrap (3 samples, 1.97%)</title><rect x="677.6" y="803.0" width="23.3" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="680.6" y="814.0">j..</text>
+</g>
+<g>
+<title>java/rmi/MarshalledObject.get (3 samples, 1.97%)</title><rect x="677.6" y="787.0" width="23.3" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="680.6" y="798.0">j..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (2 samples, 1.32%)</title><rect x="677.6" y="771.0" width="15.6" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="680.6" y="782.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (2 samples, 1.32%)</title><rect x="677.6" y="755.0" width="15.6" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="680.6" y="766.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (2 samples, 1.32%)</title><rect x="677.6" y="739.0" width="15.6" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="680.6" y="750.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readArray (2 samples, 1.32%)</title><rect x="677.6" y="723.0" width="15.6" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="680.6" y="734.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (2 samples, 1.32%)</title><rect x="677.6" y="707.0" width="15.6" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="680.6" y="718.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readArray (1 samples, 0.66%)</title><rect x="677.6" y="691.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="680.6" y="702.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Array.newInstance (1 samples, 0.66%)</title><rect x="677.6" y="675.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="680.6" y="686.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Array.newArray (1 samples, 0.66%)</title><rect x="677.6" y="659.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="680.6" y="670.0"></text>
+</g>
+<g>
+<title>long[] (1 samples, 0.66%)</title><rect x="677.6" y="643.0" width="7.8" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="680.6" y="654.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readOrdinaryObject (1 samples, 0.66%)</title><rect x="685.4" y="691.0" width="7.8" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="688.4" y="702.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDesc (1 samples, 0.66%)</title><rect x="685.4" y="675.0" width="7.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="688.4" y="686.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readNonProxyDesc (1 samples, 0.66%)</title><rect x="685.4" y="659.0" width="7.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="688.4" y="670.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.initNonProxy (1 samples, 0.66%)</title><rect x="685.4" y="643.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="688.4" y="654.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.lookup (1 samples, 0.66%)</title><rect x="685.4" y="627.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="688.4" y="638.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$WeakClassKey (1 samples, 0.66%)</title><rect x="685.4" y="611.0" width="7.8" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="688.4" y="622.0"></text>
+</g>
+<g>
+<title>java/rmi/MarshalledObject$MarshalledObjectInputStream.&lt;init&gt; (1 samples, 0.66%)</title><rect x="693.2" y="771.0" width="7.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="696.2" y="782.0"></text>
+</g>
+<g>
+<title>sun/rmi/server/MarshalInputStream.&lt;init&gt; (1 samples, 0.66%)</title><rect x="693.2" y="755.0" width="7.7" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="696.2" y="766.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.&lt;init&gt; (1 samples, 0.66%)</title><rect x="693.2" y="739.0" width="7.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="696.2" y="750.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream$BlockDataInputStream.&lt;init&gt; (1 samples, 0.66%)</title><rect x="693.2" y="723.0" width="7.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="696.2" y="734.0"></text>
+</g>
+<g>
+<title>byte[] (1 samples, 0.66%)</title><rect x="693.2" y="707.0" width="7.7" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="696.2" y="718.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor38.invoke (1 samples, 0.66%)</title><rect x="700.9" y="851.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="703.9" y="862.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.getAttributes (1 samples, 0.66%)</title><rect x="700.9" y="835.0" width="7.8" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="703.9" y="846.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doPrivilegedOperation (1 samples, 0.66%)</title><rect x="700.9" y="819.0" width="7.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="703.9" y="830.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl$PrivilegedOperation.run (1 samples, 0.66%)</title><rect x="700.9" y="803.0" width="7.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="703.9" y="814.0"></text>
+</g>
+<g>
+<title>javax/management/remote/rmi/RMIConnectionImpl.doOperation (1 samples, 0.66%)</title><rect x="700.9" y="787.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="703.9" y="798.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/JmxMBeanServer.getAttributes (1 samples, 0.66%)</title><rect x="700.9" y="771.0" width="7.8" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="703.9" y="782.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/interceptor/DefaultMBeanServerInterceptor.getAttributes (1 samples, 0.66%)</title><rect x="700.9" y="755.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="703.9" y="766.0"></text>
+</g>
+<g>
+<title>javax/management/StandardMBean.getAttributes (1 samples, 0.66%)</title><rect x="700.9" y="739.0" width="7.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="703.9" y="750.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanSupport.getAttributes (1 samples, 0.66%)</title><rect x="700.9" y="723.0" width="7.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="703.9" y="734.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanSupport.getAttribute (1 samples, 0.66%)</title><rect x="700.9" y="707.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="703.9" y="718.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/PerInterface.getAttribute (1 samples, 0.66%)</title><rect x="700.9" y="691.0" width="7.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="703.9" y="702.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MBeanIntrospector.invokeM (1 samples, 0.66%)</title><rect x="700.9" y="675.0" width="7.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="703.9" y="686.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2 (1 samples, 0.66%)</title><rect x="700.9" y="659.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="703.9" y="670.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/MXBeanIntrospector.invokeM2 (1 samples, 0.66%)</title><rect x="700.9" y="643.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="703.9" y="654.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn (1 samples, 0.66%)</title><rect x="700.9" y="627.0" width="7.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="703.9" y="638.0"></text>
+</g>
+<g>
+<title>com/sun/jmx/mbeanserver/ConvertingMethod.invokeWithOpenReturn (1 samples, 0.66%)</title><rect x="700.9" y="611.0" width="7.8" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="703.9" y="622.0"></text>
+</g>
+<g>
+<title>sun/reflect/misc/MethodUtil.invoke (1 samples, 0.66%)</title><rect x="700.9" y="595.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="703.9" y="606.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 0.66%)</title><rect x="700.9" y="579.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="703.9" y="590.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 0.66%)</title><rect x="700.9" y="563.0" width="7.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="703.9" y="574.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor3.invoke (1 samples, 0.66%)</title><rect x="700.9" y="547.0" width="7.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="703.9" y="558.0"></text>
+</g>
+<g>
+<title>sun/reflect/misc/Trampoline.invoke (1 samples, 0.66%)</title><rect x="700.9" y="531.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="703.9" y="542.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 0.66%)</title><rect x="700.9" y="515.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="703.9" y="526.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 0.66%)</title><rect x="700.9" y="499.0" width="7.8" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="703.9" y="510.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor39.invoke (1 samples, 0.66%)</title><rect x="700.9" y="483.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="703.9" y="494.0"></text>
+</g>
+<g>
+<title>sun/management/ThreadImpl.getAllThreadIds (1 samples, 0.66%)</title><rect x="700.9" y="467.0" width="7.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="703.9" y="478.0"></text>
+</g>
+<g>
+<title>long[] (1 samples, 0.66%)</title><rect x="700.9" y="451.0" width="7.8" height="15" fill="#56c4c4" rx="2" ry="2"/>
+<text x="703.9" y="462.0"></text>
+</g>
+<g>
+<title>sun/rmi/server/UnicastRef.marshalValue (29 samples, 19.08%)</title><rect x="708.7" y="883.0" width="225.1" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="711.7" y="894.0">sun/rmi/server/UnicastRef.mars..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject (29 samples, 19.08%)</title><rect x="708.7" y="867.0" width="225.1" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="711.7" y="878.0">java/io/ObjectOutputStream.wri..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (29 samples, 19.08%)</title><rect x="708.7" y="851.0" width="225.1" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="711.7" y="862.0">java/io/ObjectOutputStream.wri..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeArray (28 samples, 18.42%)</title><rect x="708.7" y="835.0" width="217.4" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="711.7" y="846.0">java/io/ObjectOutputStream.wr..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (28 samples, 18.42%)</title><rect x="708.7" y="819.0" width="217.4" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="711.7" y="830.0">java/io/ObjectOutputStream.wr..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (26 samples, 17.11%)</title><rect x="708.7" y="803.0" width="201.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="711.7" y="814.0">java/io/ObjectOutputStream..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (26 samples, 17.11%)</title><rect x="708.7" y="787.0" width="201.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="711.7" y="798.0">java/io/ObjectOutputStream..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (26 samples, 17.11%)</title><rect x="708.7" y="771.0" width="201.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="711.7" y="782.0">java/io/ObjectOutputStream..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (26 samples, 17.11%)</title><rect x="708.7" y="755.0" width="201.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="711.7" y="766.0">java/io/ObjectOutputStream..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (26 samples, 17.11%)</title><rect x="708.7" y="739.0" width="201.8" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="711.7" y="750.0">java/io/ObjectOutputStream..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (26 samples, 17.11%)</title><rect x="708.7" y="723.0" width="201.8" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="711.7" y="734.0">java/io/ObjectOutputStream..</text>
+</g>
+<g>
+<title>java.io.SerialCallbackContext (1 samples, 0.66%)</title><rect x="708.7" y="707.0" width="7.7" height="15" fill="#62d0d0" rx="2" ry="2"/>
+<text x="711.7" y="718.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (2 samples, 1.32%)</title><rect x="716.4" y="707.0" width="15.6" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="719.4" y="718.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (2 samples, 1.32%)</title><rect x="716.4" y="691.0" width="15.6" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="719.4" y="702.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (2 samples, 1.32%)</title><rect x="716.4" y="675.0" width="15.6" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="719.4" y="686.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (2 samples, 1.32%)</title><rect x="716.4" y="659.0" width="15.6" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="719.4" y="670.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeWriteObject (2 samples, 1.32%)</title><rect x="716.4" y="643.0" width="15.6" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="719.4" y="654.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (2 samples, 1.32%)</title><rect x="716.4" y="627.0" width="15.6" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="719.4" y="638.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (2 samples, 1.32%)</title><rect x="716.4" y="611.0" width="15.6" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="719.4" y="622.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor30.invoke (2 samples, 1.32%)</title><rect x="716.4" y="595.0" width="15.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="719.4" y="606.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.writeObject (2 samples, 1.32%)</title><rect x="716.4" y="579.0" width="15.6" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="719.4" y="590.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject (2 samples, 1.32%)</title><rect x="716.4" y="563.0" width="15.6" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="719.4" y="574.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (2 samples, 1.32%)</title><rect x="716.4" y="547.0" width="15.6" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="719.4" y="558.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (2 samples, 1.32%)</title><rect x="716.4" y="531.0" width="15.6" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="719.4" y="542.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (2 samples, 1.32%)</title><rect x="716.4" y="515.0" width="15.6" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="719.4" y="526.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (2 samples, 1.32%)</title><rect x="716.4" y="499.0" width="15.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="719.4" y="510.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (2 samples, 1.32%)</title><rect x="716.4" y="483.0" width="15.6" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="719.4" y="494.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="716.4" y="467.0" width="7.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="719.4" y="478.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (1 samples, 0.66%)</title><rect x="716.4" y="451.0" width="7.8" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="719.4" y="462.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (1 samples, 0.66%)</title><rect x="716.4" y="435.0" width="7.8" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="719.4" y="446.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (1 samples, 0.66%)</title><rect x="716.4" y="419.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="719.4" y="430.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="716.4" y="403.0" width="7.8" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="719.4" y="414.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (1 samples, 0.66%)</title><rect x="716.4" y="387.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="719.4" y="398.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeWriteObject (1 samples, 0.66%)</title><rect x="716.4" y="371.0" width="7.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="719.4" y="382.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 0.66%)</title><rect x="716.4" y="355.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="719.4" y="366.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 0.66%)</title><rect x="716.4" y="339.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="719.4" y="350.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor30.invoke (1 samples, 0.66%)</title><rect x="716.4" y="323.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="719.4" y="334.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.writeObject (1 samples, 0.66%)</title><rect x="716.4" y="307.0" width="7.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="719.4" y="318.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject (1 samples, 0.66%)</title><rect x="716.4" y="291.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="719.4" y="302.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (1 samples, 0.66%)</title><rect x="716.4" y="275.0" width="7.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="719.4" y="286.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="716.4" y="259.0" width="7.8" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="719.4" y="270.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (1 samples, 0.66%)</title><rect x="716.4" y="243.0" width="7.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="719.4" y="254.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (1 samples, 0.66%)</title><rect x="716.4" y="227.0" width="7.8" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="719.4" y="238.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (1 samples, 0.66%)</title><rect x="716.4" y="211.0" width="7.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="719.4" y="222.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="716.4" y="195.0" width="7.8" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="719.4" y="206.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (1 samples, 0.66%)</title><rect x="716.4" y="179.0" width="7.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="719.4" y="190.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeWriteObject (1 samples, 0.66%)</title><rect x="716.4" y="163.0" width="7.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="719.4" y="174.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 0.66%)</title><rect x="716.4" y="147.0" width="7.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="719.4" y="158.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 0.66%)</title><rect x="716.4" y="131.0" width="7.8" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="719.4" y="142.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor30.invoke (1 samples, 0.66%)</title><rect x="716.4" y="115.0" width="7.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="719.4" y="126.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.writeObject (1 samples, 0.66%)</title><rect x="716.4" y="99.0" width="7.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="719.4" y="110.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject (1 samples, 0.66%)</title><rect x="716.4" y="83.0" width="7.8" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="719.4" y="94.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (1 samples, 0.66%)</title><rect x="716.4" y="67.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="719.4" y="78.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.lookup (1 samples, 0.66%)</title><rect x="716.4" y="51.0" width="7.8" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="719.4" y="62.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$WeakClassKey (1 samples, 0.66%)</title><rect x="716.4" y="35.0" width="7.8" height="15" fill="#5dcbcb" rx="2" ry="2"/>
+<text x="719.4" y="46.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.lookup (1 samples, 0.66%)</title><rect x="724.2" y="467.0" width="7.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="727.2" y="478.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$WeakClassKey (1 samples, 0.66%)</title><rect x="724.2" y="451.0" width="7.8" height="15" fill="#58c6c6" rx="2" ry="2"/>
+<text x="727.2" y="462.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeWriteObject (23 samples, 15.13%)</title><rect x="732.0" y="707.0" width="178.5" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="735.0" y="718.0">java/io/ObjectStreamCla..</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (23 samples, 15.13%)</title><rect x="732.0" y="691.0" width="178.5" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="735.0" y="702.0">java/lang/reflect/Metho..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (23 samples, 15.13%)</title><rect x="732.0" y="675.0" width="178.5" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="735.0" y="686.0">jdk/internal/reflect/De..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor30.invoke (23 samples, 15.13%)</title><rect x="732.0" y="659.0" width="178.5" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="735.0" y="670.0">jdk/internal/reflect/Ge..</text>
+</g>
+<g>
+<title>java/util/TreeMap.writeObject (23 samples, 15.13%)</title><rect x="732.0" y="643.0" width="178.5" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="735.0" y="654.0">java/util/TreeMap.write..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject (21 samples, 13.82%)</title><rect x="732.0" y="627.0" width="163.0" height="15" fill="#68f968" rx="2" ry="2"/>
+<text x="735.0" y="638.0">java/io/ObjectOutputS..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (21 samples, 13.82%)</title><rect x="732.0" y="611.0" width="163.0" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="735.0" y="622.0">java/io/ObjectOutputS..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeArray (12 samples, 7.89%)</title><rect x="732.0" y="595.0" width="93.1" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="735.0" y="606.0">java/io/Obj..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.assign (6 samples, 3.95%)</title><rect x="732.0" y="579.0" width="46.6" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="735.0" y="590.0">java..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.growEntries (5 samples, 3.29%)</title><rect x="732.0" y="563.0" width="38.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="735.0" y="574.0">jav..</text>
+</g>
+<g>
+<title>int[] (3 samples, 1.97%)</title><rect x="732.0" y="547.0" width="23.3" height="15" fill="#65d3d3" rx="2" ry="2"/>
+<text x="735.0" y="558.0">i..</text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="755.3" y="547.0" width="7.7" height="15" fill="#61cfcf" rx="2" ry="2"/>
+<text x="758.3" y="558.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="763.0" y="547.0" width="7.8" height="15" fill="#f38f00" rx="2" ry="2"/>
+<text x="766.0" y="558.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.growSpine (1 samples, 0.66%)</title><rect x="770.8" y="563.0" width="7.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="773.8" y="574.0"></text>
+</g>
+<g>
+<title>int[] (1 samples, 0.66%)</title><rect x="770.8" y="547.0" width="7.8" height="15" fill="#50bebe" rx="2" ry="2"/>
+<text x="773.8" y="558.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (6 samples, 3.95%)</title><rect x="778.6" y="579.0" width="46.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="781.6" y="590.0">java..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (6 samples, 3.95%)</title><rect x="778.6" y="563.0" width="46.5" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="781.6" y="574.0">java..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.assign (1 samples, 0.66%)</title><rect x="778.6" y="547.0" width="7.7" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="781.6" y="558.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.growSpine (1 samples, 0.66%)</title><rect x="778.6" y="531.0" width="7.7" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="781.6" y="542.0"></text>
+</g>
+<g>
+<title>int[] (1 samples, 0.66%)</title><rect x="778.6" y="515.0" width="7.7" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<text x="781.6" y="526.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (5 samples, 3.29%)</title><rect x="786.3" y="547.0" width="38.8" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="789.3" y="558.0">jav..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (5 samples, 3.29%)</title><rect x="786.3" y="531.0" width="38.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="789.3" y="542.0">jav..</text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="786.3" y="515.0" width="7.8" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="789.3" y="526.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (4 samples, 2.63%)</title><rect x="794.1" y="515.0" width="31.0" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="797.1" y="526.0">ja..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (3 samples, 1.97%)</title><rect x="794.1" y="499.0" width="23.3" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="797.1" y="510.0">j..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (3 samples, 1.97%)</title><rect x="794.1" y="483.0" width="23.3" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="797.1" y="494.0">j..</text>
+</g>
+<g>
+<title>java.io.SerialCallbackContext (1 samples, 0.66%)</title><rect x="794.1" y="467.0" width="7.7" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="797.1" y="478.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeWriteObject (2 samples, 1.32%)</title><rect x="801.8" y="467.0" width="15.6" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="804.8" y="478.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (2 samples, 1.32%)</title><rect x="801.8" y="451.0" width="15.6" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="804.8" y="462.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (2 samples, 1.32%)</title><rect x="801.8" y="435.0" width="15.6" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="804.8" y="446.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor30.invoke (2 samples, 1.32%)</title><rect x="801.8" y="419.0" width="15.6" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="804.8" y="430.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.writeObject (2 samples, 1.32%)</title><rect x="801.8" y="403.0" width="15.6" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="804.8" y="414.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteObject (1 samples, 0.66%)</title><rect x="801.8" y="387.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="804.8" y="398.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.defaultWriteFields (1 samples, 0.66%)</title><rect x="801.8" y="371.0" width="7.8" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="804.8" y="382.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="801.8" y="355.0" width="7.8" height="15" fill="#5ac8c8" rx="2" ry="2"/>
+<text x="804.8" y="366.0"></text>
+</g>
+<g>
+<title>java/util/TreeMap.entrySet (1 samples, 0.66%)</title><rect x="809.6" y="387.0" width="7.8" height="15" fill="#67f867" rx="2" ry="2"/>
+<text x="812.6" y="398.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$EntrySet (1 samples, 0.66%)</title><rect x="809.6" y="371.0" width="7.8" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="812.6" y="382.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.lookup (1 samples, 0.66%)</title><rect x="817.4" y="499.0" width="7.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="820.4" y="510.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$WeakClassKey (1 samples, 0.66%)</title><rect x="817.4" y="483.0" width="7.7" height="15" fill="#60cece" rx="2" ry="2"/>
+<text x="820.4" y="494.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="825.1" y="595.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="828.1" y="606.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.assign (1 samples, 0.66%)</title><rect x="825.1" y="579.0" width="7.8" height="15" fill="#56e756" rx="2" ry="2"/>
+<text x="828.1" y="590.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.growEntries (1 samples, 0.66%)</title><rect x="825.1" y="563.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="828.1" y="574.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="825.1" y="547.0" width="7.8" height="15" fill="#5fcdcd" rx="2" ry="2"/>
+<text x="828.1" y="558.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.lookup (8 samples, 5.26%)</title><rect x="832.9" y="595.0" width="62.1" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="835.9" y="606.0">java/i..</text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$WeakClassKey (8 samples, 5.26%)</title><rect x="832.9" y="579.0" width="62.1" height="15" fill="#62d0d0" rx="2" ry="2"/>
+<text x="835.9" y="590.0">java.i..</text>
+</g>
+<g>
+<title>java/util/TreeMap.entrySet (2 samples, 1.32%)</title><rect x="895.0" y="627.0" width="15.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="898.0" y="638.0"></text>
+</g>
+<g>
+<title>java.util.TreeMap$EntrySet (2 samples, 1.32%)</title><rect x="895.0" y="611.0" width="15.5" height="15" fill="#67d5d5" rx="2" ry="2"/>
+<text x="898.0" y="622.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.lookup (2 samples, 1.32%)</title><rect x="910.5" y="803.0" width="15.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="913.5" y="814.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$WeakClassKey (2 samples, 1.32%)</title><rect x="910.5" y="787.0" width="15.6" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="913.5" y="798.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="926.1" y="835.0" width="7.7" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="929.1" y="846.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeSerialData (1 samples, 0.66%)</title><rect x="926.1" y="819.0" width="7.7" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="929.1" y="830.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeWriteObject (1 samples, 0.66%)</title><rect x="926.1" y="803.0" width="7.7" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="929.1" y="814.0"></text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (1 samples, 0.66%)</title><rect x="926.1" y="787.0" width="7.7" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="929.1" y="798.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (1 samples, 0.66%)</title><rect x="926.1" y="771.0" width="7.7" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="929.1" y="782.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor40.invoke (1 samples, 0.66%)</title><rect x="926.1" y="755.0" width="7.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="929.1" y="766.0"></text>
+</g>
+<g>
+<title>java/util/ArrayList.writeObject (1 samples, 0.66%)</title><rect x="926.1" y="739.0" width="7.7" height="15" fill="#52e352" rx="2" ry="2"/>
+<text x="929.1" y="750.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject (1 samples, 0.66%)</title><rect x="926.1" y="723.0" width="7.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="929.1" y="734.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeObject0 (1 samples, 0.66%)</title><rect x="926.1" y="707.0" width="7.7" height="15" fill="#6afb6a" rx="2" ry="2"/>
+<text x="929.1" y="718.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.writeOrdinaryObject (1 samples, 0.66%)</title><rect x="926.1" y="691.0" width="7.7" height="15" fill="#59ea59" rx="2" ry="2"/>
+<text x="929.1" y="702.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.assign (1 samples, 0.66%)</title><rect x="926.1" y="675.0" width="7.7" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="929.1" y="686.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.growEntries (1 samples, 0.66%)</title><rect x="926.1" y="659.0" width="7.7" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="929.1" y="670.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="926.1" y="643.0" width="7.7" height="15" fill="#63d1d1" rx="2" ry="2"/>
+<text x="929.1" y="654.0"></text>
+</g>
+<g>
+<title>sun/rmi/server/UnicastRef.unmarshalValue (10 samples, 6.58%)</title><rect x="933.8" y="883.0" width="77.6" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="936.8" y="894.0">sun/rmi/s..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (10 samples, 6.58%)</title><rect x="933.8" y="867.0" width="77.6" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="936.8" y="878.0">java/io/O..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (10 samples, 6.58%)</title><rect x="933.8" y="851.0" width="77.6" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="936.8" y="862.0">java/io/O..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (10 samples, 6.58%)</title><rect x="933.8" y="835.0" width="77.6" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="936.8" y="846.0">java/io/O..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readArray (2 samples, 1.32%)</title><rect x="933.8" y="819.0" width="15.5" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="936.8" y="830.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDesc (1 samples, 0.66%)</title><rect x="933.8" y="803.0" width="7.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="936.8" y="814.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readNonProxyDesc (1 samples, 0.66%)</title><rect x="933.8" y="787.0" width="7.8" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="936.8" y="798.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDescriptor (1 samples, 0.66%)</title><rect x="933.8" y="771.0" width="7.8" height="15" fill="#57e857" rx="2" ry="2"/>
+<text x="936.8" y="782.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass (1 samples, 0.66%)</title><rect x="933.8" y="755.0" width="7.8" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="936.8" y="766.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (1 samples, 0.66%)</title><rect x="941.6" y="803.0" width="7.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="944.6" y="814.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readString (1 samples, 0.66%)</title><rect x="941.6" y="787.0" width="7.7" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="944.6" y="798.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (1 samples, 0.66%)</title><rect x="941.6" y="771.0" width="7.7" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="944.6" y="782.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (1 samples, 0.66%)</title><rect x="941.6" y="755.0" width="7.7" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="944.6" y="766.0"></text>
+</g>
+<g>
+<title>java/lang/StringBuilder.toString (1 samples, 0.66%)</title><rect x="941.6" y="739.0" width="7.7" height="15" fill="#62f362" rx="2" ry="2"/>
+<text x="944.6" y="750.0"></text>
+</g>
+<g>
+<title>java/lang/StringLatin1.newString (1 samples, 0.66%)</title><rect x="941.6" y="723.0" width="7.7" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="944.6" y="734.0"></text>
+</g>
+<g>
+<title>java/util/Arrays.copyOfRange (1 samples, 0.66%)</title><rect x="941.6" y="707.0" width="7.7" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="944.6" y="718.0"></text>
+</g>
+<g>
+<title>byte[] (1 samples, 0.66%)</title><rect x="941.6" y="691.0" width="7.7" height="15" fill="#65d3d3" rx="2" ry="2"/>
+<text x="944.6" y="702.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readOrdinaryObject (8 samples, 5.26%)</title><rect x="949.3" y="819.0" width="62.1" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="952.3" y="830.0">java/i..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDesc (3 samples, 1.97%)</title><rect x="949.3" y="803.0" width="23.3" height="15" fill="#5aeb5a" rx="2" ry="2"/>
+<text x="952.3" y="814.0">j..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readNonProxyDesc (3 samples, 1.97%)</title><rect x="949.3" y="787.0" width="23.3" height="15" fill="#5bec5b" rx="2" ry="2"/>
+<text x="952.3" y="798.0">j..</text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass (1 samples, 0.66%)</title><rect x="949.3" y="771.0" width="7.8" height="15" fill="#52c0c0" rx="2" ry="2"/>
+<text x="952.3" y="782.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDescriptor (1 samples, 0.66%)</title><rect x="957.1" y="771.0" width="7.8" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="960.1" y="782.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.readNonProxy (1 samples, 0.66%)</title><rect x="957.1" y="755.0" width="7.8" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="960.1" y="766.0"></text>
+</g>
+<g>
+<title>java/lang/Long.valueOf (1 samples, 0.66%)</title><rect x="957.1" y="739.0" width="7.8" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="960.1" y="750.0"></text>
+</g>
+<g>
+<title>java.lang.Long (1 samples, 0.66%)</title><rect x="957.1" y="723.0" width="7.8" height="15" fill="#59c7c7" rx="2" ry="2"/>
+<text x="960.1" y="734.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.initNonProxy (1 samples, 0.66%)</title><rect x="964.9" y="771.0" width="7.7" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="967.9" y="782.0"></text>
+</g>
+<g>
+<title>java/lang/Long.valueOf (1 samples, 0.66%)</title><rect x="964.9" y="755.0" width="7.7" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="967.9" y="766.0"></text>
+</g>
+<g>
+<title>java.lang.Long (1 samples, 0.66%)</title><rect x="964.9" y="739.0" width="7.7" height="15" fill="#6ad8d8" rx="2" ry="2"/>
+<text x="967.9" y="750.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readSerialData (5 samples, 3.29%)</title><rect x="972.6" y="803.0" width="38.8" height="15" fill="#5ff05f" rx="2" ry="2"/>
+<text x="975.6" y="814.0">jav..</text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.getClassDataLayout (1 samples, 0.66%)</title><rect x="972.6" y="787.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="975.6" y="798.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.getClassDataLayout0 (1 samples, 0.66%)</title><rect x="972.6" y="771.0" width="7.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="975.6" y="782.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass$ClassDataSlot[] (1 samples, 0.66%)</title><rect x="972.6" y="755.0" width="7.8" height="15" fill="#5ecccc" rx="2" ry="2"/>
+<text x="975.6" y="766.0"></text>
+</g>
+<g>
+<title>java/io/ObjectStreamClass.invokeReadObject (4 samples, 2.63%)</title><rect x="980.4" y="787.0" width="31.0" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="983.4" y="798.0">ja..</text>
+</g>
+<g>
+<title>java/lang/reflect/Method.invoke (4 samples, 2.63%)</title><rect x="980.4" y="771.0" width="31.0" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="983.4" y="782.0">ja..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke (4 samples, 2.63%)</title><rect x="980.4" y="755.0" width="31.0" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="983.4" y="766.0">jd..</text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor2.invoke (2 samples, 1.32%)</title><rect x="980.4" y="739.0" width="15.5" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="983.4" y="750.0"></text>
+</g>
+<g>
+<title>javax/management/ObjectName.readObject (2 samples, 1.32%)</title><rect x="980.4" y="723.0" width="15.5" height="15" fill="#53e453" rx="2" ry="2"/>
+<text x="983.4" y="734.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (1 samples, 0.66%)</title><rect x="980.4" y="707.0" width="7.8" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="983.4" y="718.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject (1 samples, 0.66%)</title><rect x="980.4" y="691.0" width="7.8" height="15" fill="#51e251" rx="2" ry="2"/>
+<text x="983.4" y="702.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (1 samples, 0.66%)</title><rect x="980.4" y="675.0" width="7.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="983.4" y="686.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readString (1 samples, 0.66%)</title><rect x="980.4" y="659.0" width="7.8" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="983.4" y="670.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTF (1 samples, 0.66%)</title><rect x="980.4" y="643.0" width="7.8" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="983.4" y="654.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream$BlockDataInputStream.readUTFBody (1 samples, 0.66%)</title><rect x="980.4" y="627.0" width="7.8" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="983.4" y="638.0"></text>
+</g>
+<g>
+<title>java/lang/StringBuilder.&lt;init&gt; (1 samples, 0.66%)</title><rect x="980.4" y="611.0" width="7.8" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="983.4" y="622.0"></text>
+</g>
+<g>
+<title>java/lang/AbstractStringBuilder.&lt;init&gt; (1 samples, 0.66%)</title><rect x="980.4" y="595.0" width="7.8" height="15" fill="#60f160" rx="2" ry="2"/>
+<text x="983.4" y="606.0"></text>
+</g>
+<g>
+<title>byte[] (1 samples, 0.66%)</title><rect x="980.4" y="579.0" width="7.8" height="15" fill="#53c1c1" rx="2" ry="2"/>
+<text x="983.4" y="590.0"></text>
+</g>
+<g>
+<title>javax/management/ObjectName.construct (1 samples, 0.66%)</title><rect x="988.2" y="707.0" width="7.7" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="991.2" y="718.0"></text>
+</g>
+<g>
+<title>javax/management/ObjectName.setCanonicalName (1 samples, 0.66%)</title><rect x="988.2" y="691.0" width="7.7" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="991.2" y="702.0"></text>
+</g>
+<g>
+<title>java.lang.String (1 samples, 0.66%)</title><rect x="988.2" y="675.0" width="7.7" height="15" fill="#63d1d1" rx="2" ry="2"/>
+<text x="991.2" y="686.0"></text>
+</g>
+<g>
+<title>jdk/internal/reflect/GeneratedMethodAccessor36.invoke (2 samples, 1.32%)</title><rect x="995.9" y="739.0" width="15.5" height="15" fill="#63f463" rx="2" ry="2"/>
+<text x="998.9" y="750.0"></text>
+</g>
+<g>
+<title>java/rmi/MarshalledObject.readObject (2 samples, 1.32%)</title><rect x="995.9" y="723.0" width="15.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="998.9" y="734.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.defaultReadObject (2 samples, 1.32%)</title><rect x="995.9" y="707.0" width="15.5" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="998.9" y="718.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.defaultReadFields (2 samples, 1.32%)</title><rect x="995.9" y="691.0" width="15.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="998.9" y="702.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readObject0 (2 samples, 1.32%)</title><rect x="995.9" y="675.0" width="15.5" height="15" fill="#54e554" rx="2" ry="2"/>
+<text x="998.9" y="686.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readArray (2 samples, 1.32%)</title><rect x="995.9" y="659.0" width="15.5" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="998.9" y="670.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDesc (2 samples, 1.32%)</title><rect x="995.9" y="643.0" width="15.5" height="15" fill="#6dfe6d" rx="2" ry="2"/>
+<text x="998.9" y="654.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readNonProxyDesc (2 samples, 1.32%)</title><rect x="995.9" y="627.0" width="15.5" height="15" fill="#61f261" rx="2" ry="2"/>
+<text x="998.9" y="638.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.readClassDescriptor (2 samples, 1.32%)</title><rect x="995.9" y="611.0" width="15.5" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="998.9" y="622.0"></text>
+</g>
+<g>
+<title>java.io.ObjectStreamClass (2 samples, 1.32%)</title><rect x="995.9" y="595.0" width="15.5" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<text x="998.9" y="606.0"></text>
+</g>
+<g>
+<title>sun/rmi/transport/StreamRemoteCall.getResultStream (13 samples, 8.55%)</title><rect x="1011.4" y="883.0" width="101.0" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="1014.4" y="894.0">sun/rmi/tran..</text>
+</g>
+<g>
+<title>sun/rmi/transport/StreamRemoteCall.getOutputStream (13 samples, 8.55%)</title><rect x="1011.4" y="867.0" width="101.0" height="15" fill="#6cfd6c" rx="2" ry="2"/>
+<text x="1014.4" y="878.0">sun/rmi/tran..</text>
+</g>
+<g>
+<title>sun/rmi/transport/ConnectionOutputStream.&lt;init&gt; (13 samples, 8.55%)</title><rect x="1011.4" y="851.0" width="101.0" height="15" fill="#5eef5e" rx="2" ry="2"/>
+<text x="1014.4" y="862.0">sun/rmi/tran..</text>
+</g>
+<g>
+<title>sun/rmi/server/MarshalOutputStream.&lt;init&gt; (13 samples, 8.55%)</title><rect x="1011.4" y="835.0" width="101.0" height="15" fill="#58e958" rx="2" ry="2"/>
+<text x="1014.4" y="846.0">sun/rmi/serv..</text>
+</g>
+<g>
+<title>sun/rmi/server/MarshalOutputStream.&lt;init&gt; (13 samples, 8.55%)</title><rect x="1011.4" y="819.0" width="101.0" height="15" fill="#5dee5d" rx="2" ry="2"/>
+<text x="1014.4" y="830.0">sun/rmi/serv..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream.&lt;init&gt; (13 samples, 8.55%)</title><rect x="1011.4" y="803.0" width="101.0" height="15" fill="#5ced5c" rx="2" ry="2"/>
+<text x="1014.4" y="814.0">java/io/Obje..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$BlockDataOutputStream.&lt;init&gt; (9 samples, 5.92%)</title><rect x="1011.4" y="787.0" width="69.9" height="15" fill="#69fa69" rx="2" ry="2"/>
+<text x="1014.4" y="798.0">java/io..</text>
+</g>
+<g>
+<title>byte[] (8 samples, 5.26%)</title><rect x="1011.4" y="771.0" width="62.2" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1014.4" y="782.0">byte[]</text>
+</g>
+<g>
+<title>char[] (1 samples, 0.66%)</title><rect x="1073.6" y="771.0" width="7.7" height="15" fill="#5bc9c9" rx="2" ry="2"/>
+<text x="1076.6" y="782.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.&lt;init&gt; (1 samples, 0.66%)</title><rect x="1081.3" y="787.0" width="7.8" height="15" fill="#66f766" rx="2" ry="2"/>
+<text x="1084.3" y="798.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (1 samples, 0.66%)</title><rect x="1081.3" y="771.0" width="7.8" height="15" fill="#68d6d6" rx="2" ry="2"/>
+<text x="1084.3" y="782.0"></text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$ReplaceTable.&lt;init&gt; (3 samples, 1.97%)</title><rect x="1089.1" y="787.0" width="23.3" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1092.1" y="798.0">j..</text>
+</g>
+<g>
+<title>java/io/ObjectOutputStream$HandleTable.&lt;init&gt; (3 samples, 1.97%)</title><rect x="1089.1" y="771.0" width="23.3" height="15" fill="#65f665" rx="2" ry="2"/>
+<text x="1092.1" y="782.0">j..</text>
+</g>
+<g>
+<title>int[] (1 samples, 0.66%)</title><rect x="1089.1" y="755.0" width="7.7" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="1092.1" y="766.0"></text>
+</g>
+<g>
+<title>java.lang.Object[] (2 samples, 1.32%)</title><rect x="1096.8" y="755.0" width="15.6" height="15" fill="#59c7c7" rx="2" ry="2"/>
+<text x="1099.8" y="766.0"></text>
+</g>
+<g>
+<title>sun/rmi/transport/StreamRemoteCall.getInputStream (10 samples, 6.58%)</title><rect x="1112.4" y="947.0" width="77.6" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="1115.4" y="958.0">sun/rmi/t..</text>
+</g>
+<g>
+<title>sun/rmi/transport/ConnectionInputStream.&lt;init&gt; (10 samples, 6.58%)</title><rect x="1112.4" y="931.0" width="77.6" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1115.4" y="942.0">sun/rmi/t..</text>
+</g>
+<g>
+<title>sun/rmi/server/MarshalInputStream.&lt;init&gt; (10 samples, 6.58%)</title><rect x="1112.4" y="915.0" width="77.6" height="15" fill="#6bfc6b" rx="2" ry="2"/>
+<text x="1115.4" y="926.0">sun/rmi/s..</text>
+</g>
+<g>
+<title>java.util.HashMap (2 samples, 1.32%)</title><rect x="1112.4" y="899.0" width="15.5" height="15" fill="#54c2c2" rx="2" ry="2"/>
+<text x="1115.4" y="910.0"></text>
+</g>
+<g>
+<title>java/io/ObjectInputStream.&lt;init&gt; (8 samples, 5.26%)</title><rect x="1127.9" y="899.0" width="62.1" height="15" fill="#50e150" rx="2" ry="2"/>
+<text x="1130.9" y="910.0">java/i..</text>
+</g>
+<g>
+<title>java/io/ObjectInputStream$BlockDataInputStream.&lt;init&gt; (8 samples, 5.26%)</title><rect x="1127.9" y="883.0" width="62.1" height="15" fill="#55e655" rx="2" ry="2"/>
+<text x="1130.9" y="894.0">java/i..</text>
+</g>
+<g>
+<title>byte[] (3 samples, 1.97%)</title><rect x="1127.9" y="867.0" width="23.3" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1130.9" y="878.0">b..</text>
+</g>
+<g>
+<title>char[] (4 samples, 2.63%)</title><rect x="1151.2" y="867.0" width="31.0" height="15" fill="#55c3c3" rx="2" ry="2"/>
+<text x="1154.2" y="878.0">ch..</text>
+</g>
+<g>
+<title>java/io/DataInputStream.&lt;init&gt; (1 samples, 0.66%)</title><rect x="1182.2" y="867.0" width="7.8" height="15" fill="#64f564" rx="2" ry="2"/>
+<text x="1185.2" y="878.0"></text>
+</g>
+<g>
+<title>char[] (1 samples, 0.66%)</title><rect x="1182.2" y="851.0" width="7.8" height="15" fill="#64d2d2" rx="2" ry="2"/>
+<text x="1185.2" y="862.0"></text>
+</g>
+</g>
+</svg>
