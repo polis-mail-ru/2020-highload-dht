@@ -19,7 +19,6 @@ package ru.mail.polis.service;
 import one.nio.http.Response;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.Files;
 import ru.mail.polis.dao.DAO;
@@ -33,7 +32,9 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /**
  * Unit tests for a three node replicated {@link Service} cluster.
@@ -117,8 +118,7 @@ class ThreeNodeTest extends ClusterTestBase {
         });
     }
 
-//    @Test
-    @RepeatedTest(100)
+    @Test
     void overlapRead() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();

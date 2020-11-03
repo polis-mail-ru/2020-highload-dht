@@ -230,7 +230,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
                     final byte[] body = request.getBody();
                     final ByteBuffer value = ByteBuffer.wrap(body);
-                    final CompletableFuture<Response> future = responseManager.put(validParams, value, request);
+                    final CompletableFuture<Response> future = responseManager.put(validParams, value, body, request);
                     respond(httpSession, future);
                 }
         );

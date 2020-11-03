@@ -72,10 +72,8 @@ public class DaoManager {
     public CompletableFuture<Value> rowGet(final ByteBuffer key) {
         return CompletableFuture.supplyAsync(
                 () -> {
-                    final Value value;
                     try {
-                        value = this.dao.rowGet(key);
-                        return value;
+                        return this.dao.rowGet(key);
                     } catch (final NoSuchElementException e) {
                         log.debug("Key not found", e);
                         return null;

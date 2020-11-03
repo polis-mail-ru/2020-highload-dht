@@ -16,12 +16,9 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.PROXY_HEADER;
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.TIMESTAMP_HEADER_NAME;
@@ -82,15 +79,12 @@ public class ResponseManager {
             return daoManager.rowGet(validParams.key).thenApplyAsync(
                     value -> {
                         if (value == null) {
-                            log.debug("Local get: Value not found");
                             return new Response(Response.NOT_FOUND, Response.EMPTY);
                         } else if (value.isTombstone()) {
-                            log.debug("Local get: value is tombstone");
                             final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
                             response.addHeader(TIMESTAMP_HEADER_NAME + ": " + value.getTimestamp());
                             return response;
                         } else {
-                            log.debug("Local get: value is present");
                             final Response response = new Response(Response.OK, value.getData().array());
                             response.addHeader(TIMESTAMP_HEADER_NAME + ": " + value.getTimestamp());
                             return response;
@@ -126,7 +120,6 @@ public class ResponseManager {
             final Duration timeout
     ) {
         final String uri = node + "/v0/entity?id=" + id;
-        log.debug("Proxy to {}", uri);
         try {
             return HttpRequest.newBuilder()
                     .timeout(timeout)
@@ -147,42 +140,38 @@ public class ResponseManager {
     public CompletableFuture<Response> put(
             final ValidatedParameters validParams,
             final ByteBuffer value,
+            final byte[] rowValue,
             final Request request
     ) {
         final String proxyHeader = request.getHeader(PROXY_HEADER);
-        log.debug(Arrays.toString(request.getHeaders()));
 
         if (proxyHeader != null) {
-            ServiceImpl.log.debug("PUT: proxy for me!");
             return daoManager.put(validParams.key, value);
         }
-        ServiceImpl.log.debug("PUT: it's not proxy");
         final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
 
-        return executeTasksAsync(
-                primaries,
-                daoManager.put(validParams.key, value),
-                (final String primary) -> {
-                    final byte[] array;
-                    if (value.hasRemaining()) {
-                        array = new byte[value.remaining()];
-                        value.get(array);
-                    } else {
-                        array = new byte[0];
-                    }
-                    final HttpRequest httpRequest =
-                            requestForReplicaBuilder(primary, validParams.rowKey, putTimeout)
-                                    .PUT(HttpRequest.BodyPublishers.ofByteArray(array))
-                                    .header(PROXY_HEADER, "true")
-                                    .build();
-                    return httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
-                            .thenApplyAsync(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
-                },
-                responses -> responses.size() >= validParams.ack
-                        ? new Response(Response.CREATED, Response.EMPTY)
-                        : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
-                validParams.ack
-        );
+        final List<CompletableFuture<Response>> list = new ArrayList<>(primaries.length);
+        for (final String node : primaries) {
+            if (topology.isLocal(node)) {
+                list.add(daoManager.put(validParams.key, value));
+            } else {
+                final HttpRequest httpRequest =
+                        requestForReplicaBuilder(node, validParams.rowKey, putTimeout)
+                                .PUT(HttpRequest.BodyPublishers.ofByteArray(rowValue))
+                                .header(PROXY_HEADER, "true")
+                                .build();
+                final CompletableFuture<Response> future = httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                        .thenApplyAsync(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
+                list.add(future);
+            }
+        }
+        return FutureAnalyzer.atLeastAsync(list, validParams.ack)
+                .thenApplyAsync(
+                        responses -> responses.size() >= validParams.ack
+                            ? new Response(Response.CREATED, Response.EMPTY)
+                            : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
+                        proxyExecutor
+                );
     }
 
     /**
@@ -199,43 +188,28 @@ public class ResponseManager {
 
         final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
 
-        return executeTasksAsync(
-                primaries,
-                daoManager.delete(validParams.key),
-                (final String primary) -> {
-                    final HttpRequest httpRequest =
-                            requestForReplicaBuilder(primary, validParams.rowKey, deleteTimeout)
-                                    .DELETE()
-                                    .header(PROXY_HEADER, "true")
-                                    .build();
-                    return httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
-                            .thenApplyAsync(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
-                },
-                responses -> responses.size() >= validParams.ack
-                        ? new Response(Response.ACCEPTED, Response.EMPTY)
-                        : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
-                validParams.ack
-
-        );
-    }
-
-    private CompletableFuture<Response> executeTasksAsync(
-            final String[] nodes,
-            final CompletableFuture<Response> localTask,
-            final Function<String, CompletableFuture<Response>> proxyTaskFunction,
-            final Function<Collection<Response>, Response> analyzer,
-            final int ack
-    ) {
-        final List<CompletableFuture<Response>> list = new ArrayList<>(nodes.length);
-        for (final String node : nodes) {
+        final List<CompletableFuture<Response>> list = new ArrayList<>(primaries.length);
+        for (final String node : primaries) {
             if (topology.isLocal(node)) {
-                list.add(localTask);
+                list.add(daoManager.delete(validParams.key));
             } else {
-                list.add(proxyTaskFunction.apply(node));
+                final HttpRequest httpRequest =
+                        requestForReplicaBuilder(node, validParams.rowKey, deleteTimeout)
+                                .DELETE()
+                                .header(PROXY_HEADER, "true")
+                                .build();
+                final CompletableFuture<Response> future = httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                        .thenApplyAsync(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
+                list.add(future);
             }
         }
-        return FutureAnalyzer.atLeastAsync(list, ack)
-                .thenApplyAsync(analyzer, proxyExecutor);
+        return FutureAnalyzer.atLeastAsync(list, validParams.ack)
+                .thenApplyAsync(
+                        responses -> responses.size() >= validParams.ack
+                                ? new Response(Response.ACCEPTED, Response.EMPTY)
+                                : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
+                        proxyExecutor
+                );
     }
 
     /**
