@@ -165,7 +165,7 @@ public class MyRequestHelper {
             case 504:
                 return NOT_ENOUGH_REPLICAS;
             default:
-                throw new UnsupportedOperationException(status + "not available");
+                throw new UnsupportedOperationException(status + Response.SERVICE_UNAVAILABLE);
         }
     }
 
