@@ -108,14 +108,15 @@ final class FuturesWorker {
                 }
             }
         };
-        futures.forEach(future ->
-                future
-                        .orTimeout(1, TimeUnit.SECONDS)
-                        .whenCompleteAsync(biConsumer)
-                        .exceptionally(exception -> {
-                            logger.error("Ошибка при использовании Future: ", exception);
-                            return null;
-                        }));
+        for (CompletableFuture<HttpResponse<byte[]>> future : futures) {
+            future
+                    .orTimeout(1, TimeUnit.SECONDS)
+                    .whenCompleteAsync(biConsumer)
+                    .exceptionally(exception -> {
+                        logger.error("Ошибка при использовании Future: ", exception);
+                        return null;
+                    });
+        }
         return result;
     }
 }

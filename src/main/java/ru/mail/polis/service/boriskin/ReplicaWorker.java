@@ -140,14 +140,9 @@ final class ReplicaWorker {
             }
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
-        ).whenCompleteAsync((responses, error) -> {
-            final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == 201;
-            final int acks = getNumberOfSuccessfulResponses(
-                    getStartAcks(replicas), responses, successPut);
-            final Response response = new Response(Response.CREATED, Response.EMPTY);
-            sendResponseIfExpectedAcksReached(
-                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
-        }).exceptionally(exception -> {
+        ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
+                httpSession, mir, replicas, responses, 201, Response.CREATED)
+        ).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в UPSERT: ", exception);
             return null;
         });
@@ -192,14 +187,9 @@ final class ReplicaWorker {
             }
         }).thenComposeAsync(handled ->
                 getResponses(replicas, mir, topology, javaNetHttpClient)
-        ).whenCompleteAsync((responses, error) -> {
-            final Predicate<HttpResponse<byte[]>> successDelete = r -> r.statusCode() == 202;
-            final int acks = getNumberOfSuccessfulResponses(
-                    getStartAcks(replicas), responses, successDelete);
-            final Response response = new Response(Response.ACCEPTED, Response.EMPTY);
-            sendResponseIfExpectedAcksReached(
-                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
-        }).exceptionally(exception -> {
+        ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
+                httpSession, mir, replicas, responses, 202, Response.ACCEPTED)
+        ).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в DELETE: ", exception);
             return null;
         });
@@ -233,6 +223,19 @@ final class ReplicaWorker {
             }
             return false;
         });
+    }
+
+    private void getSuccessAndSendIfReachedExpected(
+            @NotNull final HttpSession httpSession,
+            @NotNull final MetaInfoRequest mir,
+            @NotNull final List<String> replicas,
+            @NotNull final List<HttpResponse<byte[]>> responses,
+            final int statusCode,
+            final String response) {
+        final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == statusCode;
+        final int acks = getNumberOfSuccessfulResponses(getStartAcks(replicas), responses, successPut);
+        sendResponseIfExpectedAcksReached(
+                acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession);
     }
 
     private static int getNumberOfSuccessfulResponses(
