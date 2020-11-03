@@ -11,7 +11,7 @@ public interface Topology<N> {
     N primaryFor(@NotNull ByteBuffer key);
 
     @NotNull
-    Set<N> primaryFor(@NotNull ByteBuffer key, @NotNull Replicas replicas);
+    Set<N> primaryFor(@NotNull ByteBuffer key, @NotNull Replicas replicas, int asks);
 
     int size();
 

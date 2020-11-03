@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -191,7 +192,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                                                               final ByteBuffer key,
                                                               final Topology<String> topology,
                                                               final Context context) {
-        final Set<String> nodes = topology.primaryFor(key, context.getReplicaFactor());
+        Set<String> nodes = Collections.emptySet();
+        try {
+            nodes = topology.primaryFor(key, context.getReplicaFactor(), context.getReplicaFactor().getAck());
+        } catch (IllegalArgumentException e) {
+            requestHelper.sendLoggedResponse(context.getSession(), new Response(Response.BAD_REQUEST, Response.EMPTY));
+        }
         final List<CompletableFuture<RequestValue>> results = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -218,11 +224,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     }
 
     private HttpRequest requestForReplica(final Request request, ByteBuffer key, Context context, String node) {
-        URI uri = URI.create(node
-                + "/v0/entity?id="
+        URI uri = URI.create(node + "/v0/entity?id="
                 + StandardCharsets.UTF_8.decode(key.duplicate()).toString()
-                + "&replicas="
-                + context.getReplicaFactor().toString());
+                + "&replicas=" + context.getReplicaFactor().toString());
         final HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .timeout(MySimpleHttpServer.timeout)
                 .uri(uri)

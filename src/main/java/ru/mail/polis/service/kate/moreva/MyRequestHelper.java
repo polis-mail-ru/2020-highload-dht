@@ -37,9 +37,8 @@ public class MyRequestHelper {
      * {@code 500} (internal server error occurred).
      */
     public Response getEntity(final ByteBuffer key) {
-        final Cell cell;
         try {
-            cell = dao.getCell(key);
+            final Cell cell = dao.getCell(key);
             final Response response;
             if (cell.getValue().isTombstone()) {
                 response = new Response(Response.NOT_FOUND, Response.EMPTY);
