@@ -93,22 +93,6 @@ public final class Util {
     }
 
     /**
-     * Send the 500 status error.
-     *
-     * @param session - session to use.
-     * @param e - the error that casued the 500 error.
-     */
-    public static void sendErrorInternal(final HttpSession session,
-                                   final IOException e) {
-        try {
-            logger.error(e.getMessage(), e);
-            session.sendError("500", e.getMessage());
-        } catch (IOException exception) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    /**
      * Add timestamp to body.
      *
      * @param body - body value.
