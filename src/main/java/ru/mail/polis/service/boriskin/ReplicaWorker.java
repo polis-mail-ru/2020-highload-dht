@@ -73,10 +73,10 @@ final class ReplicaWorker {
             }
         }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            int statusCode = 200;
             for (final HttpResponse<byte[]> response : responses) {
                 if (response.statusCode() == 404) {
-                    statusCode = 404;
+                    resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
+                    return;
                 }
             }
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
@@ -84,7 +84,7 @@ final class ReplicaWorker {
                     getStartAcks(replicas), responses, success);
             final Response response = Value.transform(Value.merge(values), false);
             sendResponseIfExpectedAcksReached(
-                    acks, mir.getReplicaFactor().getAck(), response, httpSession, statusCode);
+                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
         }).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в GET: ", exception);
             return null;
@@ -225,22 +225,18 @@ final class ReplicaWorker {
             final int statusCode) {
         final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == statusCode;
         final int acks = getNumberOfSuccessfulResponses(getStartAcks(replicas), responses, successPut);
-        final String response;
-        response = statusCode == 201 ? Response.CREATED : Response.ACCEPTED;
+        final String response = statusCode == 201
+                ? Response.CREATED : Response.ACCEPTED;
         sendResponseIfExpectedAcksReached(
-                acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession, statusCode);
+                acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession);
     }
 
-    private static int getNumberOfSuccessfulResponses(
+    private int getNumberOfSuccessfulResponses(
             final int startAcks,
             @NotNull final List<HttpResponse<byte[]>> responses,
             @NotNull final Predicate<HttpResponse<byte[]>> ok) {
         int acks = startAcks;
         for (final HttpResponse<byte[]> response : responses) {
-            if (response.statusCode() == 404) {
-                acks++;
-                return acks;
-            }
             if (ok.test(response)) {
                 acks++;
             }
@@ -248,18 +244,13 @@ final class ReplicaWorker {
         return acks;
     }
 
-    private static void sendResponseIfExpectedAcksReached(
+    private void sendResponseIfExpectedAcksReached(
             final int myAcks,
             final int acksThreshold,
             @NotNull final Response response,
-            @NotNull final HttpSession httpSession,
-            final int statusCode) {
-        Response myResponse = response;
-        if (statusCode == 404) {
-            myResponse = new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
+            @NotNull final HttpSession httpSession) {
         if (myAcks >= acksThreshold) {
-            resp(httpSession, myResponse);
+            resp(httpSession, response);
         } else {
             resp(httpSession, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         }
