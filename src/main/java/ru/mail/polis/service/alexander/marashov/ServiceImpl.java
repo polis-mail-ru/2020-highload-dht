@@ -30,7 +30,7 @@ import static ru.mail.polis.service.alexander.marashov.ValidatedParameters.valid
 
 public class ServiceImpl extends HttpServer implements Service {
 
-    public static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     public static final String PROXY_HEADER = "Proxy_Header";
     public static final String TIMESTAMP_HEADER_NAME = "Timestamp_Header";

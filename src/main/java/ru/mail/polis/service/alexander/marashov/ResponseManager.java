@@ -6,7 +6,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.alexander.marashov.Value;
 import ru.mail.polis.service.alexander.marashov.analyzers.FutureAnalyzer;
 import ru.mail.polis.service.alexander.marashov.analyzers.ValuesAnalyzer;
-import ru.mail.polis.service.alexander.marashov.bodyHandlers.BodyHandlerGet;
+import ru.mail.polis.service.alexander.marashov.bodyhandlers.BodyHandlerGet;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.net.URI;
@@ -22,7 +22,6 @@ import java.util.concurrent.ExecutorService;
 
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.PROXY_HEADER;
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.TIMESTAMP_HEADER_NAME;
-import static ru.mail.polis.service.alexander.marashov.ServiceImpl.log;
 
 public class ResponseManager {
 
@@ -31,9 +30,7 @@ public class ResponseManager {
     private final DaoManager daoManager;
     private final ExecutorService proxyExecutor;
 
-    private final Duration getTimeout;
-    private final Duration putTimeout;
-    private final Duration deleteTimeout;
+    private final Duration timeout;
 
     /**
      * Object for managing responses.
@@ -47,23 +44,17 @@ public class ResponseManager {
             final ExecutorService daoExecutor,
             final ExecutorService proxyExecutor,
             final Topology<String> topology,
-            final int proxyTimeoutValue,
-            final int getTimeoutValue,
-            final int putTimeoutValue,
-            final int deleteTimeoutValue
+            final int proxyTimeoutValue
     ) {
         this.daoManager = new DaoManager(dao, daoExecutor);
         this.topology = topology;
         this.proxyExecutor = proxyExecutor;
+        this.timeout = Duration.ofMillis(proxyTimeoutValue);
         this.httpClient = java.net.http.HttpClient.newBuilder()
                 .executor(proxyExecutor)
-                .connectTimeout(Duration.ofMillis(proxyTimeoutValue))
+                .connectTimeout(timeout)
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
                 .build();
-
-        this.getTimeout = Duration.ofMillis(getTimeoutValue);
-        this.putTimeout = Duration.ofMillis(putTimeoutValue);
-        this.deleteTimeout = Duration.ofMillis(deleteTimeoutValue);
     }
 
     /**
@@ -101,7 +92,7 @@ public class ResponseManager {
             if (topology.isLocal(node)) {
                 list.add(daoManager.rowGet(validParams.key));
             } else {
-                final HttpRequest httpRequest = requestForReplicaBuilder(node, validParams.rowKey, getTimeout)
+                final HttpRequest httpRequest = requestForReplicaBuilder(node, validParams.rowKey, timeout)
                         .GET()
                         .header(PROXY_HEADER, "true")
                         .build();
@@ -111,7 +102,7 @@ public class ResponseManager {
             }
         }
         return FutureAnalyzer.atLeastAsync(list, validParams.ack)
-                .thenApplyAsync(responses -> ValuesAnalyzer.analyze(responses, validParams.ack), proxyExecutor);
+                .thenApplyAsync(ValuesAnalyzer::analyze, proxyExecutor);
     }
 
     private static HttpRequest.Builder requestForReplicaBuilder(
@@ -127,7 +118,6 @@ public class ResponseManager {
         } catch (final URISyntaxException e) {
             throw new IllegalArgumentException("Malformed URI: " + uri, e);
         }
-
     }
 
     /**
@@ -156,12 +146,13 @@ public class ResponseManager {
                 list.add(daoManager.put(validParams.key, value));
             } else {
                 final HttpRequest httpRequest =
-                        requestForReplicaBuilder(node, validParams.rowKey, putTimeout)
+                        requestForReplicaBuilder(node, validParams.rowKey, timeout)
                                 .PUT(HttpRequest.BodyPublishers.ofByteArray(rowValue))
                                 .header(PROXY_HEADER, "true")
                                 .build();
-                final CompletableFuture<Response> future = httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
-                        .thenApplyAsync(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
+                final CompletableFuture<Response> future =
+                        httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                                .thenApplyAsync(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
                 list.add(future);
             }
         }
@@ -194,12 +185,13 @@ public class ResponseManager {
                 list.add(daoManager.delete(validParams.key));
             } else {
                 final HttpRequest httpRequest =
-                        requestForReplicaBuilder(node, validParams.rowKey, deleteTimeout)
+                        requestForReplicaBuilder(node, validParams.rowKey, timeout)
                                 .DELETE()
                                 .header(PROXY_HEADER, "true")
                                 .build();
-                final CompletableFuture<Response> future = httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
-                        .thenApplyAsync(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
+                final CompletableFuture<Response> future =
+                        httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
+                                .thenApplyAsync(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
                 list.add(future);
             }
         }

@@ -1,4 +1,4 @@
-package ru.mail.polis.service.alexander.marashov.bodyHandlers;
+package ru.mail.polis.service.alexander.marashov.bodyhandlers;
 
 import ru.mail.polis.dao.alexander.marashov.Value;
 
@@ -9,7 +9,7 @@ import java.util.concurrent.RejectedExecutionException;
 
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.TIMESTAMP_HEADER_NAME;
 
-public class BodyHandlerGet implements HttpResponse.BodyHandler<Value> {
+public final class BodyHandlerGet implements HttpResponse.BodyHandler<Value> {
     public static final BodyHandlerGet INSTANCE = new BodyHandlerGet();
 
     private BodyHandlerGet() {
@@ -17,7 +17,7 @@ public class BodyHandlerGet implements HttpResponse.BodyHandler<Value> {
     }
 
     @Override
-    public HttpResponse.BodySubscriber<Value> apply(HttpResponse.ResponseInfo responseInfo) {
+    public HttpResponse.BodySubscriber<Value> apply(final HttpResponse.ResponseInfo responseInfo) {
         switch (responseInfo.statusCode()) {
             case 200:
                 final OptionalLong timestamp = responseInfo.headers().firstValueAsLong(TIMESTAMP_HEADER_NAME);
