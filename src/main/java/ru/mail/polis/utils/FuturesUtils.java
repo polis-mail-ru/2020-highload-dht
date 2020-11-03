@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class FuturesUtils {
@@ -16,12 +17,13 @@ public final class FuturesUtils {
     @NotNull
     public static <T> CompletableFuture<Collection<T>> atLeastAsync(
             @NotNull final Collection<CompletableFuture<T>> futures,
-            final int successes) {
+            final int successes,
+            @NotNull final ExecutorService executor) {
         final AtomicInteger successesLeft = new AtomicInteger(successes);
         final AtomicInteger errorsLeft = new AtomicInteger(futures.size() - successes + 1);
         final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> future = new CompletableFuture<>();
-        futures.forEach(f -> f.whenComplete((v, t) -> {
+        futures.forEach(f -> f.whenCompleteAsync((v, t) -> {
             if (t == null) {
                 results.add(v);
                 if (successesLeft.decrementAndGet() == 0) {
@@ -32,7 +34,7 @@ public final class FuturesUtils {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
                 }
             }
-        }));
+        }, executor));
         return future;
     }
 

@@ -9,7 +9,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -42,13 +41,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static ru.mail.polis.utils.ResponseUtils.NOT_ENOUGH_REPLICAS;
-import static ru.mail.polis.utils.ResponseUtils.PROXY;
-import static ru.mail.polis.utils.ResponseUtils.emptyResponse;
 
 public final class ServiceImpl extends HttpServer implements Service {
 
@@ -127,7 +122,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
-        final boolean proxied = request.getHeader(PROXY) != null;
+        final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
         final ReplicasFactor replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
         if (replicasFactor.getAck() < 1
                 || replicasFactor.getFrom() < replicasFactor.getAck()
@@ -208,7 +203,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                 result.add(entry);
             }
         }
-        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck())
+        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
                 .thenApplyAsync(Entry::entriesToResponse, executor);
     }
 
@@ -217,7 +212,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Integer>> result =
+        final Collection<CompletableFuture<Void>> result =
                 new ArrayList<>(replicasFactor.getFrom());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -235,22 +230,21 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                         .build();
-                final CompletableFuture<Integer> entry = httpClients.get(node)
+                final CompletableFuture<Void> entry = httpClients.get(node)
                         .sendAsync(request, PutBodyHandler.INSTANCE)
-                        .handleAsync((r, ex) -> r.statusCode(), executor);
+                        .thenApplyAsync(x -> null, executor);
                 result.add(entry);
             }
         }
-        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck())
-                .handleAsync((r, ex) -> handleResponses(r, ex, (__) -> emptyResponse(Response.CREATED)),
-                        executor);
+        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
     }
 
     private CompletableFuture<Response> replicasDelete(@NotNull final String id,
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Integer>> result =
+        final Collection<CompletableFuture<Void>> result =
                 new ArrayList<>(replicasFactor.getFrom());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -267,15 +261,14 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .DELETE()
                         .build();
-                final CompletableFuture<Integer> entry = httpClients.get(node)
+                final CompletableFuture<Void> entry = httpClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
-                        .handleAsync((r, ex) -> r.statusCode(), executor);
+                        .thenApplyAsync(x -> null, executor);
                 result.add(entry);
             }
         }
-        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck())
-                .handleAsync((r, ex) -> handleResponses(r, ex, (__) -> emptyResponse(Response.ACCEPTED)),
-                        executor);
+        return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
     }
 
     /** Request method for status return.
@@ -283,7 +276,7 @@ public final class ServiceImpl extends HttpServer implements Service {
      * */
     @Path("/v0/status")
     public Response status(@NotNull final HttpSession session) {
-        return emptyResponse(Response.OK);
+        return ResponseUtils.emptyResponse(Response.OK);
     }
 
     @NotNull
@@ -306,17 +299,8 @@ public final class ServiceImpl extends HttpServer implements Service {
         final String uri = node + ResponseUtils.ENTITY + "?id=" + id;
         return HttpRequest.newBuilder()
                 .uri(URI.create(uri))
-                .header(PROXY, "True")
+                .header(ResponseUtils.PROXY, "True")
                 .timeout(Duration.ofMillis(ResponseUtils.TIMEOUT_MILLIS));
-    }
-
-    private <T> Response handleResponses(@Nullable final Collection<T> responses,
-                                         @Nullable final Throwable error,
-                                         @NotNull final Function<Collection<T>, Response> response) {
-        if (responses != null && error == null) {
-            return response.apply(responses);
-        }
-        return emptyResponse(NOT_ENOUGH_REPLICAS);
     }
 
     @Override
