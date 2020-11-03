@@ -13,7 +13,9 @@ final class Futures {
     }
 
     @NotNull
-    static <T> CompletableFuture<Collection<T>> atLeastAsync(final int successes, @NotNull final Collection<CompletableFuture<T>> futures) {
+    static <T> CompletableFuture<Collection<T>> atLeastAsync(
+            final int successes,
+            @NotNull final Collection<CompletableFuture<T>> futures) {
         final CompletableFuture<Collection<T>> future = new CompletableFuture<>();
         final AtomicInteger successesLeft = new AtomicInteger(successes);
         final AtomicInteger failuresLeft = new AtomicInteger(futures.size() - successes + 1);

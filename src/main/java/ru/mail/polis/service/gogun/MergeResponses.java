@@ -25,7 +25,7 @@ public class MergeResponses {
             if (response.getStatus() == 404) {
                 numNotFoundResponses++;
             } else if (response.getStatus() == 200) {
-                String head = response.getHeader("timestamp: ");
+                final String head = response.getHeader("timestamp: ");
                 final long generation = Long.parseLong(head);
                 if (lastGeneration > generation || lastGeneration == 0) {
                     lastGeneration = generation;

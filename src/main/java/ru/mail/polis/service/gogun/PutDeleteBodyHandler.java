@@ -7,13 +7,13 @@ import java.util.concurrent.RejectedExecutionException;
 
 final class PutDeleteBodyHandler implements HttpResponse.BodyHandler<Response> {
 
-    final static HttpResponse.BodyHandler<Response> INSTANCE = new PutDeleteBodyHandler();
+    static final HttpResponse.BodyHandler<Response> INSTANCE = new PutDeleteBodyHandler();
 
     private PutDeleteBodyHandler() {
     }
 
     @Override
-    public HttpResponse.BodySubscriber<Response> apply(HttpResponse.ResponseInfo responseInfo) {
+    public HttpResponse.BodySubscriber<Response> apply(final HttpResponse.ResponseInfo responseInfo) {
         Response response;
         switch (responseInfo.statusCode()) {
             case 201:

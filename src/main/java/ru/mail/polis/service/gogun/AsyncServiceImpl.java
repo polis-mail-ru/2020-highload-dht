@@ -266,15 +266,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         HttpRequest requestForReplica;
         switch (request.getMethod()) {
             case Request.METHOD_PUT:
-                requestForReplica = requestForRepl(node, id).PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())).build();
+                requestForReplica = requestForRepl(node, id)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
+                        .build();
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             case Request.METHOD_GET:
-                requestForReplica = requestForRepl(node, id).GET().build();
+                requestForReplica = requestForRepl(node, id)
+                        .GET()
+                        .build();
                 return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             case Request.METHOD_DELETE:
-                requestForReplica = requestForRepl(node, id).DELETE().build();
+                requestForReplica = requestForRepl(node, id)
+                        .DELETE()
+                        .build();
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             default:
