@@ -215,7 +215,7 @@ public class AsyncService extends HttpServer implements Service {
 
     private void respond(@NotNull final HttpSession session,
                          @NotNull final CompletableFuture<Response> future) {
-        if (future.whenCompleteAsync((r, t) -> {
+        if (future.whenComplete((r, t) -> {
             try {
                 if (t == null) {
                     session.sendResponse(r);

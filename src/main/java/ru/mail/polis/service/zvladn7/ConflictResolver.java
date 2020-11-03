@@ -41,7 +41,7 @@ final class ConflictResolver {
         final AtomicInteger successes = new AtomicInteger(ack);
         final AtomicInteger failures = new AtomicInteger(futures.size() - ack + 1);
         futures.forEach(nextFuture -> {
-            if (nextFuture.whenCompleteAsync((v, t) -> {
+            if (nextFuture.whenComplete((v, t) -> {
                 if (t == null) {
                     results.add(v);
                     if (successes.decrementAndGet() == 0) {

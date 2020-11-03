@@ -140,7 +140,6 @@ class ServiceHelper {
         if (localResponse != null) {
             responses.add(localResponse);
         }
-        log.info("Resolve GET");
         return resolver.resolve(replicasHolder.ack, responses);
     }
 
@@ -230,7 +229,6 @@ class ServiceHelper {
         if (localResponse != null) {
             responses.add(localResponse);
         }
-        log.info("Resolve PUT");
         return resolver.resolve(replicasHolder.ack, responses);
     }
 
