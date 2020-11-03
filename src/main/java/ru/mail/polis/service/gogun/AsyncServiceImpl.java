@@ -1,14 +1,12 @@
 package ru.mail.polis.service.gogun;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +22,7 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -41,12 +37,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
-    private static final Duration TIMEOUT = Duration.ofMillis(500);
+    private static final Duration TIMEOUT = Duration.ofSeconds(1);
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
     private final ExecutorService executorService;
-    private final Map<String, HttpClient> nodeClients;
     @NotNull
     private final java.net.http.HttpClient client;
 
@@ -75,16 +70,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error {} in {}", e, t))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
-        this.nodeClients = new HashMap<>();
-        for (final String node : topology.all()) {
-            final HttpClient client = new HttpClient(new ConnectionString(node));
-            nodeClients.put(node, client);
-        }
 
         final Executor clientExecutor = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
                 new ThreadFactoryBuilder()
-                        .setNameFormat("client-%d")
+                        .setNameFormat("Client_%d")
                         .build());
         this.client =
                 java.net.http.HttpClient.newBuilder()
@@ -140,7 +130,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     .header("X-Proxy-For", "true")
                     .timeout(TIMEOUT);
         } catch (URISyntaxException e) {
-//            log.error("uri error", e);
+            log.error("uri error", e);
             throw new IllegalStateException("uri error", e);
         }
     }
@@ -232,10 +222,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             response.addHeader("tombstone: " + true);
         } else {
             response = Response.ok(ServiceUtils.getArray(value.getData()));
+            response.addHeader("tombstone: " + false);
         }
 
         response.addHeader("timestamp: " + value.getTimestamp());
-        response.addHeader("tombstone: " + false);
         return response;
     }
 
@@ -263,7 +253,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                             executorService);
                 case Request.METHOD_GET:
                     return CompletableFuture.supplyAsync(
-                            () -> handleGet(key));
+                            () -> handleGet(key),
+                            executorService);
                 case Request.METHOD_DELETE:
                     return CompletableFuture.supplyAsync(
                             () -> handleDel(key),
@@ -319,9 +310,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         } catch (InterruptedException e) {
             log.error("Cant stop executor service", e);
             Thread.currentThread().interrupt();
-        }
-        for (final HttpClient client : nodeClients.values()) {
-            client.clear();
         }
     }
 }

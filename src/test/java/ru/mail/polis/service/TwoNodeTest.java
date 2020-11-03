@@ -185,8 +185,8 @@ class TwoNodeTest extends ClusterTestBase {
     }
 
     @Test
-    void missedDelete() {
-        assertTimeoutPreemptively(TIMEOUT, () -> {
+    void missedDelete() throws Exception {
+
             final String key = randomId();
             final byte[] value = randomValue();
 
@@ -209,7 +209,7 @@ class TwoNodeTest extends ClusterTestBase {
             // Check
             final Response response = get(0, key, 2, 2);
             assertEquals(404, response.getStatus());
-        });
+
     }
 
     @Test

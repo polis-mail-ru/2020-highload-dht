@@ -16,10 +16,15 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Response> {
     @Override
     public HttpResponse.BodySubscriber<Response> apply(HttpResponse.ResponseInfo responseInfo) {
         final Optional<String> timestamp = responseInfo.headers().firstValue("timestamp");
+        final Optional<String> isTombstone = responseInfo.headers().firstValue("tombstone");
         switch (responseInfo.statusCode()) {
             case 200:
                 if (timestamp.isEmpty()) {
                     throw new IllegalStateException("No timestamp");
+                }
+
+                if (isTombstone.isEmpty()) {
+                    throw new IllegalStateException("No tombstone");
                 }
 
                 return HttpResponse.BodySubscribers.mapping(
@@ -27,7 +32,7 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Response> {
                         bytes -> {
                             final Response response = Response.ok(bytes);
                             response.addHeader("timestamp: " + timestamp.get());
-                            response.addHeader("tombstone: " + false);
+                            response.addHeader("tombstone: " + isTombstone.get());
                             return response;
                         }
                 );
