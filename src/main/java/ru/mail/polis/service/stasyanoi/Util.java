@@ -88,15 +88,13 @@ public final class Util {
      * @return - returned response.
      * @throws IOException - for errors with the net.
      */
-    public static Response routeRequest(final Request request,
-                                        final int node,
-                                        final Map<Integer, String> nodeMapping)
-            throws IOException {
+    public static Response routeRequest(final Request request, final int node,
+                                        final Map<Integer, String> nodeMapping) {
 
         final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
         try (HttpClient httpClient = new HttpClient(connectionString)) {
             return httpClient.invoke(request);
-        } catch (InterruptedException | PoolException | HttpException e) {
+        } catch (InterruptedException | PoolException | HttpException | IOException e) {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }

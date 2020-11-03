@@ -81,8 +81,7 @@ public class GetMethodServer extends ConstantsServer {
      * @return - new request.
      */
     @NotNull
-    public Request getNoRepRequest(final Request request,
-                                          final int port) {
+    public Request getNoRepRequest(final Request request, final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
         final String newPath;
@@ -97,9 +96,7 @@ public class GetMethodServer extends ConstantsServer {
     }
 
     @NotNull
-    private Request getCloneRequest(final Request request,
-                                           final String newPath,
-                                           final int thisServerPort) {
+    private Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         Arrays.stream(request.getHeaders())
                 .filter(Objects::nonNull)
@@ -117,8 +114,7 @@ public class GetMethodServer extends ConstantsServer {
      * @return - response.
      * @throws IOException - throw if problems with I|O occur.
      */
-    public Response getResponseIfIdNotNull(final ByteBuffer id,
-                                                  final DAO dao) throws IOException {
+    public Response getResponseIfIdNotNull(final ByteBuffer id, final DAO dao) {
         try {
             final ByteBuffer body = dao.get(id);
             final byte[] bytes = Mapper.toBytes(body);
@@ -128,7 +124,7 @@ public class GetMethodServer extends ConstantsServer {
             final Response okResponse = Response.ok(newBody);
             Util.addTimestampHeader(time, okResponse);
             return okResponse;
-        } catch (NoSuchElementException e) {
+        } catch (NoSuchElementException | IOException e) {
             final byte[] deleteTime = dao.getDeleteTime(id);
             if (deleteTime.length == 0) {
                 return Util.responseWithNoBody(Response.NOT_FOUND);
