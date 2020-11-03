@@ -33,7 +33,7 @@ public abstract class RequestProcessor {
      * @param uris          - other nodes
      * @param rqst          - http request
      * @param methodDefiner - define http method of requests
-     * @return List<HttpRequest>
+     * @return list of HttpRequest
      */
     public static List<HttpRequest> createRequests(final List<String> uris,
                                                    final Request rqst,
