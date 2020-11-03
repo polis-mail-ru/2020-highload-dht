@@ -168,7 +168,6 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
                 ByteBuffer.wrap(key.getBytes(Charset.defaultCharset())), replicas.getFrom()
         );
         final CompletableFuture<?>[] results = new CompletableFuture<?>[nodes.length];
-
         for (int i = 0; i < nodes.length; i++) {
             final String node = nodes[i];
             if (topology.isSelfId(node)) {
@@ -179,7 +178,8 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
         }
 
         final CompletableFuture<Void> futures = CompletableFuture.allOf(results);
-        futures.thenApply(ignored -> new ResponseAggregator()).thenAccept(aggregator -> {
+        futures.thenAccept(ignored -> {
+            final ResponseAggregator aggregator = new ResponseAggregator();
             for (final CompletableFuture<?> future : results) {
                 final Response response;
                 try {
