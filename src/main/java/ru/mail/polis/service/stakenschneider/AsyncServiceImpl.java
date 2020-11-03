@@ -2,7 +2,6 @@ package ru.mail.polis.service.stakenschneider;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -12,7 +11,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -48,7 +46,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final Coordinator clusterCoordinator;
     private final Replica defaultReplicaFactor;
     private final int clusterSize;
-    private final Map<String, HttpClient> clusterClients;
 
     /**
      * Simple Async HTTP server.
@@ -56,13 +53,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      * @param config         - config
      * @param dao            - storage interface
      * @param nodes          - topology
-     * @param clusterClients - clusterClients
      * @throws IOException - exception
      */
     public AsyncServiceImpl(final HttpServerConfig config,
                             @NotNull final DAO dao,
-                            @NotNull final Nodes nodes,
-                            @NotNull final Map<String, HttpClient> clusterClients) throws IOException {
+                            @NotNull final Nodes nodes) throws IOException {
         super(config);
         this.dao = dao;
         final int maxWorkers = Runtime.getRuntime().availableProcessors();
@@ -79,8 +74,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         this.nodes = nodes;
         this.defaultReplicaFactor = new Replica(nodes.getNodes().size() / 2 + 1, nodes.getNodes().size());
         this.clusterSize = nodes.getNodes().size();
-        this.clusterClients = clusterClients;
-        this.clusterCoordinator = new Coordinator(nodes, clusterClients, dao);
+        this.clusterCoordinator = new Coordinator(nodes, dao);
     }
 
     /**
@@ -99,7 +93,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 clusterClients.put(it, new HttpClient(new ConnectionString(it + "?timeout=" + TIMEOUT)));
             }
         }
-        return new AsyncServiceImpl(config, dao, nodes, clusterClients);
+        return new AsyncServiceImpl(config, dao, nodes);
     }
 
     @Override
@@ -112,6 +106,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             executor.execute(() -> {
                 final Response response = responseAct(session, action);
+                assert response != null;
                 separateMethodForCodeClimate(session, response);
             });
         } catch (RejectedExecutionException e) {
@@ -157,17 +152,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         session.sendResponse(response);
     }
 
-    private Response forwardRequestTo(@NotNull final String node,
-                                      @NotNull final Request request) {
-        try {
-            return clusterClients.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException | IOException e) {
-            log.info("fail", e);
-
-        }
-        return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-    }
-
     /**
      * Standard response for successful HTTP requests.
      *
@@ -188,31 +172,22 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(@Param("id") final String id,
                        @NotNull final Request request,
-                       @NotNull final HttpSession session) throws IOException {
+                       final HttpSession session) throws IOException {
+
         if (id == null || id.isEmpty()) {
             try {
-                log.info("id is empty");
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException e) {
-                log.error("something has gone terribly wrong", e);
+                log.info("something has gone terribly wrong " + e);
             }
             return;
         }
-
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-
-        final String keyClusterPartition = nodes.primaryFor(key);
-
-        if (!nodes.getId().equals(keyClusterPartition)) {
-            executeAsync(session, () -> forwardRequestTo(keyClusterPartition, request));
-            return;
-        }
-
         final boolean proxied = request.getHeader(PROXY_HEADER) != null;
         final String replicas = request.getParameter("replicas");
         final Replica replicaFactor =
                 Replica.calculateRF(replicas, session, defaultReplicaFactor, clusterSize);
 
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         if (proxied || nodes.getNodes().size() > 1) {
             final String[] replicaClusters = proxied ? new String[]{nodes.getId()}
                     : nodes.replicas(replicaFactor.getFrom(), key);
@@ -234,7 +209,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         break;
                 }
             } catch (IOException e) {
-                log.error("Internal error", e);
+                session.sendError(Response.INTERNAL_ERROR, e.getMessage());
             }
         }
     }

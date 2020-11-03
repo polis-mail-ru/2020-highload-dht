@@ -85,12 +85,19 @@ public class TimestampRecord {
         if (isValue()) {
             byteBuff.put(value.duplicate());
         }
-        return byteBuff.array();
+        byteBuff.rewind();
+        final byte[] result = new byte[byteBuff.remaining()];
+        byteBuff.get(result);
+        return result;
     }
 
     public static TimestampRecord fromValue(@NotNull final ByteBuffer value,
                                             final long timestamp) {
         return new TimestampRecord(timestamp, value, RecordType.VALUE);
+    }
+
+    public static boolean isEmptyRecord(@NotNull final byte[] bytes) {
+        return bytes[0] != RecordType.VALUE.value;
     }
 
     public static TimestampRecord tombstone(final long timestamp) {
@@ -118,10 +125,7 @@ public class TimestampRecord {
      *
      * @return value of the timestamp instance
      */
-    public ByteBuffer getValue() throws NoSuchElementLiteException {
-        if (!isValue()) {
-            throw new NoSuchElementLiteException("Failed to get value from TimestampRecord!");
-        }
+    public ByteBuffer getValue() {
         return value;
     }
 
@@ -130,7 +134,7 @@ public class TimestampRecord {
      *
      * @return value of the timestamp instance as bytes
      */
-    public byte[] getValueAsBytes() throws NoSuchElementLiteException {
+    public byte[] getValueAsBytes() {
         final ByteBuffer val = getValue().duplicate();
         final byte[] ret = new byte[val.remaining()];
         val.get(ret);
