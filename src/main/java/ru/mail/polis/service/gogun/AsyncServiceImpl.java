@@ -119,8 +119,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-
-
     private void handleRequest(final String id, final Request request,
                                final HttpSession session) throws IOException {
         log.debug("{} request with id: {}", request.getMethodName(), id);
