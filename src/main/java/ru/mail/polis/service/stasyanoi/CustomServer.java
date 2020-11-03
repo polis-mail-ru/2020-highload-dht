@@ -45,9 +45,7 @@ public class CustomServer extends HttpServer {
      * @param topology - topology of services.
      * @throws IOException - if an IO exception occurs.
      */
-    public CustomServer(final DAO dao,
-                        final HttpServerConfig config,
-                        final Set<String> topology) throws IOException {
+    public CustomServer(final DAO dao, final HttpServerConfig config, final Set<String> topology) throws IOException {
         super(config);
         this.nodeCount = topology.size();
         final ArrayList<String> urls = new ArrayList<>(topology);
@@ -90,9 +88,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_GET)
-    public void get(final @Param("id") String idParam,
-                    final HttpSession session,
-                    final Request request) {
+    public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         try {
             executorService.execute(() -> {
                 try {
@@ -106,9 +102,8 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private void getInternal(final String idParam,
-                             final HttpSession session,
-                             final Request request) throws IOException {
+    private void getInternal(final String idParam, final HttpSession session, final Request request)
+            throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -121,9 +116,7 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response getThisOrProxy(final Request request,
-                                    final int node,
-                                    final ByteBuffer id) throws IOException {
+    private Response getThisOrProxy(final Request request, final int node, final ByteBuffer id) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             responseHttp = getResponseIfIdNotNull(id);
@@ -152,9 +145,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void put(final @Param("id") String idParam,
-                    final Request request,
-                    final HttpSession session) {
+    public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
             executorService.execute(() -> {
                 try {
@@ -168,9 +159,8 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private void putInternal(final String idParam,
-                             final Request request,
-                             final HttpSession session) throws IOException {
+    private void putInternal(final String idParam, final Request request, final HttpSession session)
+            throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -188,9 +178,7 @@ public class CustomServer extends HttpServer {
         return responseHttp;
     }
 
-    private Response putProxy(final Request request,
-                              final byte[] idArray,
-                              final int node) throws IOException {
+    private Response putProxy(final Request request, final byte[] idArray, final int node) throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
@@ -210,9 +198,7 @@ public class CustomServer extends HttpServer {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void delete(final @Param("id") String idParam,
-                       final Request request,
-                       final HttpSession session) {
+    public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
             executorService.execute(() -> {
                 try {
@@ -226,9 +212,8 @@ public class CustomServer extends HttpServer {
         }
     }
 
-    private void deleteInternal(final String idParam,
-                                final Request request,
-                                final HttpSession session) throws IOException {
+    private void deleteInternal(final String idParam, final Request request, final HttpSession session)
+            throws IOException {
         final Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = Util.getResponseWithNoBody(Response.BAD_REQUEST);
@@ -240,9 +225,8 @@ public class CustomServer extends HttpServer {
         session.sendResponse(responseHttp);
     }
 
-    private Response deleteProxy(final Request request,
-                                 final byte[] idArray,
-                                 final int node) throws IOException {
+    private Response deleteProxy(final Request request, final byte[] idArray, final int node)
+            throws IOException {
         final Response responseHttp;
         if (node == nodeNum) {
             final ByteBuffer key = Mapper.fromBytes(idArray);
