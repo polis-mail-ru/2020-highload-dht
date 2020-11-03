@@ -317,28 +317,28 @@ Running 7m test @ http://127.0.0.1:8080
 Requests/sec:    399.50
 Transfer/sec:     26.14KB
 ```
-Выводы нагрузочного тестирования в режиме симуляции PUT-запросов демонстрируют многократное ухудшение быстродействия на уровне узла кластера с асинхронным клиентом. Увеличение средней задержки более чем на 27% наблюдается даже при 12-кратном снижении интенсивности обращений к узлу в текущей конфигурации сервера (в то же время интенсивность обработки запросов упала в 12,5 раз). Статистика времён отклика подчёркивает негативную динамику последних изменений: максимальный интервал ожидания для 3/4 поступивших запросов возрос приблизительно в 15 раз, в случае с абсолютно худшими случаями в каждом из вариантов продолжительность обмена данными с клиентом оказалась выше в 3,5 раза.<br/>  
+Выводы нагрузочного тестирования в режиме симуляции PUT-запросов демонстрируют многократное ухудшение быстродействия на уровне узла кластера с асинхронным клиентом. Увеличение средней задержки более чем на 27% наблюдается даже при 12-кратном снижении интенсивности обращений к узлу в текущей конфигурации сервера (в то же время интенсивность обработки запросов упала в 12,5 раз). Статистика времён отклика подчёркивает негативную динамику последних изменений: максимальный интервал ожидания для 3/4 поступивших запросов возрос приблизительно в 15 раз, в случае с абсолютно худшими случаями в каждом из вариантов продолжительность обмена данными с клиентом превысила показанную на предыдущем этапе в 3,5 раза.<br/>  
 
-![put_cpu_basic_shards](resources/flamegraphs/put_cpu_replicas.svg)
+![put_cpu_replicas](resources/flamegraphs/put_cpu_replicas.svg)
 <p align="center">Рис.1. Выделение ресурса CPU при симулировании PUT-запросов (<em>replicas</em>)</p>
 
-![put_cpu_replicas](resources/flamegraphs/put_cpu_async.svg)
+![put_cpu_async](resources/flamegraphs/put_cpu_async.svg)
 <p align="center">Рис.2. Выделение ресурса CPU при симулировании PUT-запросов (<em>async client</em>)</p>
 
 В реализации кластера с асинхронным клиентом структура задач процессора, выполняемых на уровне потоков, расширяется за счёт обработчиков сценариев с отложенными проверкой и возвратом результатов. Профилирование выбранного узла в ходе тестирования текущей конфигурации позволяет зафиксировать поэтапное совершение операций с объектами <em>CompletableFuture<Value></em> посредством методов <em>execUpsertWithFutures</em>, <em>execLocalRequest</em> и <em>upsertValue</em> (в рамках вызова асинхронного обработчика). Как следует из той же визуализации, операции с future-объектами преобладают в разрезе задач, выполняемых с применением средств <em>Java Concurrency</em> в потоках <em>ThreadPoolExecutor</em>.         
 
-![put_alloc_basic_shards](resources/flamegraphs/put_alloc_replicas.svg)
+![put_alloc_replicas](resources/flamegraphs/put_alloc_replicas.svg)
 <p align="center">Рис.3. Выделение ресурса RAM при симулировании PUT-запросов (<em>replicas</em>)</p>
 
-![put_alloc_replicas](resources/flamegraphs/put_alloc_async.svg)
+![put_alloc_async](resources/flamegraphs/put_alloc_async.svg)
 <p align="center">Рис.4. Выделение ресурса RAM при симулировании PUT-запросов (<em>async client</em>)</p>
 
 Используя приведённый профиль, ключевыми факторами, определяющими структурные особенности аллокаций в варианте с асинхронным клиентом, следует назвать вызовы основных и вспомогательных методов работы с экземплярами <em>CompletableFuture</em>, прежде всего определённых в utility-классе <em>FutureUtils</em>. Как и в представлении задач в рамках распределения процессорного времени, в текущей визуализации отмечаются существенное расширение и усложнение цепочки вызовов, обеспечивающих асинхронное добавление (обновление) данных с возвратом результата операции клиенту.                 
 
-![put_lock_basic_shards](resources/flamegraphs/put_lock_replicas.svg)
+![put_lock_replicas](resources/flamegraphs/put_lock_replicas.svg)
 <p align="center">Рис.5. Профиль lock/monitor при симулировании PUT-запросов (<em>replicas</em>)</p>
 
-![put_lock_replicas](resources/flamegraphs/put_lock_async.svg)
+![put_lock_async](resources/flamegraphs/put_lock_async.svg)
 <p align="center">Рис.6. Профиль lock/monitor при симулировании PUT-запросов (<em>async client</em>)</p>
 
 Профиль событий параллелизма показывает, что контроль взаимоисключений в реализации с асинхронным клиентом осуществляется вне контекста операций, связанных с исполнением основного кода на Java, т.е. в активности текущего клиента, как и предполагалось в процессе проектирования, отсутствуют указания на синхронизацию работы потоков путём примененения блокировок. В этой связи экстремальное ухудшение результатов по всем performance-метрикам вступает в определённое противоречие с прогнозируемыми эффектами поддержки асинхронности на уровне клиента. В качестве объяснения подобного результата возможно привести как существующий потенциал оптимизации кода через средства <em>Java Concurrency</em>, так и незначительные аппаратные ресурсы под управлением локальной системы.<br/>               
@@ -607,22 +607,22 @@ Transfer/sec:     26.09KB
 Сравнение конфигураций в режиме чтения воспроизводит результаты, полученные в ходе заполнения БД записями. Повышение средней задержки по итогам настройки асинхронного клиента достигло 60-кратной разницы с данными, актуальными к завершению нагрузочных испытаний на предыдущем этапе. Наибольшая оценка времени отклика в 90% сеансов обмена данными увеличилась примерно в 54 раза, для крайних случаев установлена 15-кратная дельта результатов.<br/>                  
 <ins>Flamegraph-анализ</ins><br/>  
 
-![get_cpu_basic_shards](resources/flamegraphs/get_cpu_replicas.svg)
+![get_cpu_replicas](resources/flamegraphs/get_cpu_replicas.svg)
 <p align="center">Рис.7. Выделение ресурса CPU при симулировании GET-запросов (<em>replicas</em>)</p>
 
-![get_cpu_replication](resources/flamegraphs/get_cpu_async.svg)
+![get_cpu_async](resources/flamegraphs/get_cpu_async.svg)
 <p align="center">Рис.8. Выделение ресурса CPU при симулировании GET-запросов (<em>async client</em>)</p>                        
 
-![get_alloc_basic_shards](resources/flamegraphs/get_alloc_replicas.svg)
+![get_alloc_replicas](resources/flamegraphs/get_alloc_replicas.svg)
 <p align="center">Рис.9. Выделение ресурса RAM при симулировании GET-запросов (<em>replicas</em>)</p>
 
-![get_alloc_replicas](resources/flamegraphs/get_alloc_async.svg)
+![get_alloc_async](resources/flamegraphs/get_alloc_async.svg)
 <p align="center">Рис.10. Выделение ресурса RAM при симулировании GET-запросов (<em>async client</em>)</p>
 
-![get_lock_basic_shards](resources/flamegraphs/get_lock_replicas.svg)
+![get_lock_replicas](resources/flamegraphs/get_lock_replicas.svg)
 <p align="center">Рис.11. Профиль lock/monitor при симулировании GET-запросов (<em>replicas</em>)</p>
 
-![get_lock_replicas](resources/flamegraphs/get_lock_async.svg)
+![get_lock_async](resources/flamegraphs/get_lock_async.svg)
 <p align="center">Рис.12. Профиль lock/monitor при симулировании GET-запросов (<em>async client</em>)</p>
 
 Профили, сформированные в режиме чтения, подтверждают влияние методов, поддерживающих операции с futures на базе <em>Java Concurrency</em>. В соответствии с релевантной логикой, окончание цепочки вызовов для извлечения значений из БД установлено за методами <em>execGetWithFutures</em> и <em>getValue</em> при обработке запроса на текущем узле.  
