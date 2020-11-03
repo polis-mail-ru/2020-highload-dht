@@ -1,8 +1,6 @@
 package ru.mail.polis.service.suhova;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,8 +8,6 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,14 +17,23 @@ import ru.mail.polis.dao.suhova.Topology;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 public class MoribundService extends HttpServer implements Service {
     private static final String PROXY_HEADER = "PROXY";
@@ -40,7 +45,7 @@ public class MoribundService extends HttpServer implements Service {
     @NotNull
     private final Topology<String> topology;
     @NotNull
-    private final Map<String, HttpClient> clients;
+    private final Map<String, java.net.http.HttpClient> clients;
     private final int ackDefault;
     private final int fromDefault;
 
@@ -66,11 +71,20 @@ public class MoribundService extends HttpServer implements Service {
         this.fromDefault = topology.size();
         this.ackDefault = topology.quorumSize();
         this.clients = new HashMap<>();
+        final Executor clientExecutor = Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder()
+                .setNameFormat("client_%d")
+                .build());
         for (final String node : topology.allNodes()) {
             if (topology.isMe(node)) {
                 continue;
             }
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
+            final java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .executor(clientExecutor)
+                .connectTimeout(Duration.ofSeconds(1))
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .build();
             if (clients.put(node, client) != null) {
                 throw new IllegalArgumentException("Duplicate node: " + node);
             }
@@ -118,6 +132,19 @@ public class MoribundService extends HttpServer implements Service {
         });
     }
 
+    private void executeAsync(@NotNull final HttpSession session,
+                              @NotNull final Supplier<Response> method) {
+
+        executor.execute(() -> {
+                try {
+                    session.sendResponse(method.get());
+                } catch (IOException ioException) {
+                    logger.error("Can't send response.", ioException);
+                }
+            }
+        );
+    }
+
     /**
      * Send a response to a proxied request from another node.
      *
@@ -145,10 +172,10 @@ public class MoribundService extends HttpServer implements Service {
         }
     }
 
-    private List<Response> getAllResponses(final String[] nodes,
-                                           final Response currentNodeResponse,
-                                           final Request request) {
-        final List<Response> responses = new ArrayList<>();
+    private Collection<CompletableFuture<Response>> getAllResponses(final String[] nodes,
+                                                                    final CompletableFuture<Response> currentNodeResponse,
+                                                                    final Request request) {
+        final Collection<CompletableFuture<Response>> responses = new ConcurrentLinkedQueue<>();
         for (final String node : nodes) {
             if (topology.isMe(node)) {
                 responses.add(currentNodeResponse);
@@ -191,27 +218,30 @@ public class MoribundService extends HttpServer implements Service {
             }
         }
         final String[] nodes = topology.getNodesByKey(id, from);
-        try {
-            final List<Response> responses;
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    responses = getAllResponses(nodes, daoServiceMethods.get(id), request);
-                    session.sendResponse(Consensus.get(responses, ack));
-                    break;
-                case Request.METHOD_PUT:
-                    responses = getAllResponses(nodes, daoServiceMethods.put(id, request), request);
-                    session.sendResponse(Consensus.put(responses, ack));
-                    break;
-                case Request.METHOD_DELETE:
-                    responses = getAllResponses(nodes, daoServiceMethods.delete(id), request);
-                    session.sendResponse(Consensus.delete(responses, ack));
-                    break;
-                default:
-                    break;
-            }
-        } catch (
-            IOException ioException) {
-            logger.error("Can't send resulting response.", ioException);
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                executeAsync(session,
+                    () -> Consensus.get(getAllResponses(nodes,
+                        CompletableFuture.supplyAsync(() -> daoServiceMethods.get(id), executor), request),
+                        ack));
+                break;
+            case Request.METHOD_PUT:
+                executeAsync(session,
+                    () -> Consensus.get(getAllResponses(nodes,
+                        CompletableFuture.supplyAsync(() -> daoServiceMethods.put(id, request), executor), request),
+                        ack)
+                );
+                break;
+            case Request.METHOD_DELETE:
+                executeAsync(session,
+                    () -> Consensus.get(
+                        getAllResponses(nodes,
+                            CompletableFuture.supplyAsync(() -> daoServiceMethods.delete(id), executor), request),
+                        ack)
+                );
+                break;
+            default:
+                break;
         }
     }
 
@@ -258,19 +288,48 @@ public class MoribundService extends HttpServer implements Service {
             logger.error("Can't shutdown execution");
             Thread.currentThread().interrupt();
         }
-        for (final HttpClient client : clients.values()) {
-            client.close();
-        }
     }
 
     @NotNull
-    private Response proxy(@NotNull final String node,
-                           @NotNull final Request request) {
-        try {
-            return clients.get(node).invoke(request);
-        } catch (IOException | InterruptedException | PoolException | HttpException e) {
-            logger.error("Can't proxy request! ", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+    private CompletableFuture<Response> proxy(@NotNull final String node,
+                                              @NotNull final Request request) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+            .method(request.getMethodName(), HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
+            .timeout(Duration.ofSeconds(1))
+            .uri(URI.create(node + "/v0/entity?id=" + request.getParameter("id")));
+        builder.header(PROXY_HEADER, "1");
+        final HttpRequest httpRequest = builder.build();
+        return clients.get(node).sendAsync(httpRequest, HttpResponse.BodyHandlers.ofByteArray())
+            .thenApplyAsync(a -> {
+                final Response response = new Response(status(a.statusCode()), a.body());
+                final Map<String, List<String>> headers = a.headers().map();
+                for (Map.Entry<String, List<String>> header : headers.entrySet()) {
+                    response.addHeader(header.getKey() + header.getValue());
+                }
+                return response;
+            });
+    }
+
+    private String status(final int code) {
+        switch (code) {
+            case 200:
+                return Response.OK;
+            case 201:
+                return Response.CREATED;
+            case 202:
+                return Response.ACCEPTED;
+            case 404:
+                return Response.NOT_FOUND;
+            case 400:
+                return Response.BAD_REQUEST;
+            case 502:
+                return Response.BAD_GATEWAY;
+            case 504:
+                return Response.GATEWAY_TIMEOUT;
+            case 505:
+                return Response.HTTP_VERSION_NOT_SUPPORTED;
+            default:
+                return Response.INTERNAL_ERROR;
         }
     }
 }
