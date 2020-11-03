@@ -22,22 +22,27 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
             case 200:
                 final Optional<String> okTimestamp =
                         responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);
+                final String ofTimestampValue;
                 if (okTimestamp.isEmpty()) {
                     throw new IllegalArgumentException("No timestamp header");
+                } else {
+                    ofTimestampValue = okTimestamp.get();
                 }
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
-                        bytes -> Entry.present(Long.parseLong(okTimestamp.get()), bytes));
+                        bytes -> Entry.present(Long.parseLong(ofTimestampValue), bytes));
             case 404:
                 final Optional<String> notFoundTimestamp =
                         responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);
+                final String notFoundTimestampValue;
                 if (notFoundTimestamp.isEmpty()) {
                     return HttpResponse.BodySubscribers.replacing(
                             Entry.absent());
                 } else {
-                    return HttpResponse.BodySubscribers.replacing(
-                            Entry.removed(Long.parseLong(notFoundTimestamp.get())));
+                    notFoundTimestampValue = notFoundTimestamp.get();
                 }
+                return HttpResponse.BodySubscribers.replacing(
+                        Entry.removed(Long.parseLong(notFoundTimestampValue)));
             default:
                 throw new RejectedExecutionException("Can't get response");
         }

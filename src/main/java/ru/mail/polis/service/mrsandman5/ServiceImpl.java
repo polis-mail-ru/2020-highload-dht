@@ -14,10 +14,10 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.mrsandman5.clustering.Topology;
 import ru.mail.polis.service.mrsandman5.handlers.DeleteBodyHandler;
 import ru.mail.polis.service.mrsandman5.handlers.GetBodyHandler;
 import ru.mail.polis.service.mrsandman5.handlers.PutBodyHandler;
-import ru.mail.polis.service.mrsandman5.clustering.Topology;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 import ru.mail.polis.service.mrsandman5.replication.SimpleRequests;
@@ -35,15 +35,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 
 public final class ServiceImpl extends HttpServer implements Service {
 
@@ -99,9 +97,14 @@ public final class ServiceImpl extends HttpServer implements Service {
         this.executor = executor;
         this.simpleRequests = new SimpleRequests(this.dao, executor);
         this.quorum = ReplicasFactor.quorum(topology.all().size());
-        this.httpClients = topology.others()
-                .stream()
-                .collect(toMap(identity(), this::createHttpClient));
+        final Map<String, HttpClient> temp = new HashMap<>();
+        for (final String node : topology.others()) {
+            temp.put(node, HttpClient.newBuilder()
+                    .executor(executor)
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .build());
+        }
+        this.httpClients = temp;
     }
 
     /** Interact with service.
@@ -194,13 +197,10 @@ public final class ServiceImpl extends HttpServer implements Service {
                             }
                         }, executor));
             } else {
-                final HttpRequest request = requestForReplica(node, id)
-                        .GET()
-                        .build();
-                final CompletableFuture<Entry> entry = httpClients.get(node)
+                final HttpRequest request = requestForReplica(node, id).GET().build();
+                result.add(httpClients.get(node)
                         .sendAsync(request, GetBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executor);
-                result.add(entry);
+                        .thenApplyAsync(HttpResponse::body, executor));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
@@ -230,10 +230,9 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                         .build();
-                final CompletableFuture<Response> entry = httpClients.get(node)
+                result.add(httpClients.get(node)
                         .sendAsync(request, PutBodyHandler.INSTANCE)
-                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
-                result.add(entry);
+                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
@@ -258,13 +257,10 @@ public final class ServiceImpl extends HttpServer implements Service {
                             }
                         }, executor));
             } else {
-                final HttpRequest request = requestForReplica(node, id)
-                        .DELETE()
-                        .build();
-                final CompletableFuture<Response> entry = httpClients.get(node)
+                final HttpRequest request = requestForReplica(node, id).DELETE().build();
+                result.add(httpClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
-                result.add(entry);
+                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
@@ -277,14 +273,6 @@ public final class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/status")
     public Response status(@NotNull final HttpSession session) {
         return ResponseUtils.emptyResponse(Response.OK);
-    }
-
-    @NotNull
-    private HttpClient createHttpClient(@NotNull final String node) {
-        return HttpClient.newBuilder()
-                .executor(executor)
-                .version(HttpClient.Version.HTTP_1_1)
-                .build();
     }
 
     @Override
@@ -317,5 +305,4 @@ public final class ServiceImpl extends HttpServer implements Service {
             Thread.currentThread().interrupt();
         }
     }
-
 }
