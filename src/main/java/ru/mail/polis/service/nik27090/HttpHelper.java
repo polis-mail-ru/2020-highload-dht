@@ -57,7 +57,7 @@ public class HttpHelper {
     }
 
     /**
-     * Convert CompletableFuture<Response> to Response, when complete
+     * Convert to Response, when complete.
      *
      * @param session  - session
      * @param response - response
