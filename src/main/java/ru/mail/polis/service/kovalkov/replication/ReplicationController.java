@@ -22,8 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static java.util.Objects.nonNull;
-
 public class ReplicationController {
     private static final Logger log = LoggerFactory.getLogger(ReplicationController.class);
     private static final String HEADER = "/v0/entity?id=";
@@ -91,18 +89,14 @@ public class ReplicationController {
     private Response choseRelevant(@NotNull final List<TimestampDataWrapper> tdws, @NotNull final String[] nodes,
                                 final boolean isForwarded) throws IOException {
         final TimestampDataWrapper relevantTs = TimestampDataWrapper.getRelevantTs(tdws);
-        if (relevantTs.getState() == RecordState.EXIST) {
-            if (!isForwarded && nodes.length == 1) {
-                return new Response(Response.OK, relevantTs.getBytes());
-            } else if (isForwarded && nodes.length == 1) {
+        if (relevantTs.getState()) {
+            return new Response(Response.NOT_FOUND, relevantTs.toBytes());
+        } else {
+            if (isForwarded && nodes.length == 1) {
                 return new Response(Response.OK, relevantTs.toBytes());
             } else {
                 return new Response(Response.OK, relevantTs.getBytes());
             }
-        } else if (relevantTs.getState() == RecordState.DELETED) {
-            return new Response(Response.NOT_FOUND, relevantTs.toBytes());
-        } else {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
@@ -139,7 +133,7 @@ public class ReplicationController {
                 log.error("Cant proxying response to other node in replPut", e);
             }
         }
-        if (ack >= a) {
+        if (ack >= a || isForwarded) {
             return new Response(Response.CREATED, Response.EMPTY)   ;
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
