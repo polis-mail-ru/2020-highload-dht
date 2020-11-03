@@ -212,7 +212,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Void>> result =
+        final Collection<CompletableFuture<String>> result =
                 new ArrayList<>(replicasFactor.getFrom());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -221,7 +221,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                             try {
                                 final ByteBuffer body = ByteBuffer.wrap(value);
                                 dao.upsert(key, body);
-                                return null;
+                                return Response.CREATED;
                             } catch (IOException e) {
                                 throw new RuntimeException("Error", e);
                             }
@@ -230,21 +230,21 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                         .build();
-                final CompletableFuture<Void> entry = httpClients.get(node)
+                final CompletableFuture<String> entry = httpClients.get(node)
                         .sendAsync(request, PutBodyHandler.INSTANCE)
-                        .thenApplyAsync(x -> null, executor);
+                        .thenApplyAsync(HttpResponse::body, executor);
                 result.add(entry);
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(r.iterator().next()), executor);
     }
 
     private CompletableFuture<Response> replicasDelete(@NotNull final String id,
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Set<String> nodes = topology.replicasFor(key, replicasFactor);
-        final Collection<CompletableFuture<Void>> result =
+        final Collection<CompletableFuture<String>> result =
                 new ArrayList<>(replicasFactor.getFrom());
         for (final String node : nodes) {
             if (topology.isMe(node)) {
@@ -252,7 +252,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                         () -> {
                             try {
                                 dao.remove(key);
-                                return null;
+                                return Response.ACCEPTED;
                             } catch (IOException e) {
                                 throw new RuntimeException("Error", e);
                             }
@@ -261,14 +261,14 @@ public final class ServiceImpl extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(node, id)
                         .DELETE()
                         .build();
-                final CompletableFuture<Void> entry = httpClients.get(node)
+                final CompletableFuture<String> entry = httpClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(x -> null, executor);
+                        .thenApplyAsync(HttpResponse::body, executor);
                 result.add(entry);
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(r.iterator().next()), executor);
     }
 
     /** Request method for status return.
@@ -281,9 +281,9 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private HttpClient createHttpClient(@NotNull final String node) {
-        return java.net.http.HttpClient.newBuilder()
+        return HttpClient.newBuilder()
                 .executor(executor)
-                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
     }
 

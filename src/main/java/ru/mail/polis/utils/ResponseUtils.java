@@ -15,7 +15,7 @@ public final class ResponseUtils {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     public static final String ENTITY = "/v0/entity";
-    public static final int TIMEOUT_MILLIS = 1000;
+    public static final int TIMEOUT_MILLIS = 2000;
     public static final String PROXY = "X-Proxy-For";
     public static final String TIMESTAMP = "Timestamp";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
