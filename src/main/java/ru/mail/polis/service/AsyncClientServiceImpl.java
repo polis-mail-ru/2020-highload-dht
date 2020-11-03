@@ -145,7 +145,7 @@ public class AsyncClientServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        handle(id, replicationFactor, httpSession, req);
+        handle(id, replicationFactor, req, httpSession);
     }
 
     private CompletableFuture<Response> proxy(final String to, final Request request) {
