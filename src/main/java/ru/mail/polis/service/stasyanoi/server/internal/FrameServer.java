@@ -1,15 +1,13 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.RequestMethod;
-import one.nio.http.Response;
+import one.nio.http.*;
+import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -69,5 +67,23 @@ public class FrameServer extends PutGetDeleteMethodServer {
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
         return Util.responseWithNoBody(Response.OK);
+    }
+
+    /**
+     * Hash route request.
+     *
+     * @param request - request to route.
+     * @param node - node to route the request to.
+     * @param nodeMapping - node list.
+     * @return - returned response.
+     */
+    public Response routeRequest(final Request request, final int node,
+                                        final Map<Integer, String> nodeMapping) {
+        final ConnectionString connectionString = new ConnectionString(nodeMapping.get(node));
+        try (HttpClient httpClient = new HttpClient(connectionString)) {
+            return httpClient.invoke(request);
+        } catch (InterruptedException | PoolException | HttpException | IOException e) {
+            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
     }
 }

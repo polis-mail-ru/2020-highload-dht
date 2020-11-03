@@ -22,8 +22,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.RejectedExecutionException;
 
-import static ru.mail.polis.service.stasyanoi.Util.routeRequest;
-
 public class CustomServer extends FrameServer {
 
     /**
