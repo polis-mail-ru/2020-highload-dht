@@ -63,7 +63,9 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final var nodes = new ConsistentHashingTopology<>(topology, "http://localhost:" + port, VNODE_COUNT);
+        final var nodes = new ConsistentHashingTopology<>(topology,
+                "http://localhost:" + port,
+                VNODE_COUNT);
         final ExecutorService executor = new ThreadPoolExecutor(WORKERS,
                 WORKERS,
                 0L,

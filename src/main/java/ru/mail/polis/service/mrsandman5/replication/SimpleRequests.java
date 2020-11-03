@@ -9,15 +9,15 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 public final class SimpleRequests {
 
     private final DAOImpl dao;
-    private final Executor executor;
+    private final ExecutorService executor;
 
     public SimpleRequests(@NotNull final DAOImpl dao,
-                          @NotNull final Executor executor) {
+                          @NotNull final ExecutorService executor) {
         this.dao = dao;
         this.executor = executor;
     }
