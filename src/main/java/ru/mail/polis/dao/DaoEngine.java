@@ -7,7 +7,6 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
-import ru.mail.polis.service.AsyncClientServiceImpl;
 import ru.mail.polis.service.Value;
 import ru.mail.polis.util.Util;
 
