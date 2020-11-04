@@ -121,8 +121,15 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
         final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final ReplicationFactor replicationFactor = ReplicationFactor
-                .createReplicationFactor(replicas);
+        final ReplicationFactor replicationFactor;
+
+        try {
+            replicationFactor = ReplicationFactor
+                    .getReplicationFactor(replicas, this.rf);
+        } catch (IllegalArgumentException ex) {
+            session.sendError(Response.BAD_REQUEST, ex.getMessage());
+            return;
+        }
 
         if (topology.getSize() > 1) {
             try {

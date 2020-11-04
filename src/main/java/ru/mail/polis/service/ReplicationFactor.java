@@ -1,9 +1,5 @@
 package ru.mail.polis.service;
 
-import one.nio.http.HttpSession;
-import one.nio.http.Response;
-
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -19,9 +15,9 @@ class ReplicationFactor {
         this.from = from;
     }
 
-    static ReplicationFactor createReplicationFactor(
+    private static ReplicationFactor createReplicationFactor(
             final String values
-    ) {
+    ) throws IllegalArgumentException {
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
 
         final int ack = Integer.parseInt(delimitValues.get(0));
@@ -33,6 +29,15 @@ class ReplicationFactor {
         }
 
         return new ReplicationFactor(ack, from);
+    }
+
+    static ReplicationFactor getReplicationFactor(
+            final String nodeReplicas,
+            final ReplicationFactor replicationFactor
+    ) throws IllegalArgumentException {
+        return nodeReplicas == null ? replicationFactor : ReplicationFactor.createReplicationFactor(
+                nodeReplicas
+        );
     }
 
     int getAck() {
