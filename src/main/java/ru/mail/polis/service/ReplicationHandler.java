@@ -86,7 +86,7 @@ class ReplicationHandler {
                          @NotNull final ReplicationFactor repliFactor,
                          final boolean isForwardedRequest) throws IOException {
         int replCounter = 0;
-        Set<String> nodes = getNodeReplica(
+        final Set<String> nodes = getNodeReplica(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 repliFactor,
                 isForwardedRequest,
