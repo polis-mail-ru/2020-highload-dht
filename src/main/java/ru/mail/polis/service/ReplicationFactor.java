@@ -3,7 +3,7 @@ package ru.mail.polis.service;
 import java.util.Arrays;
 import java.util.List;
 
-class ReplicationFactor {
+final class ReplicationFactor {
 
     private static final String RF_ERROR = "Invalid replication factor";
 
