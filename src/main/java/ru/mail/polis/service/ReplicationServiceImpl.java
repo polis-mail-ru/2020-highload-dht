@@ -49,7 +49,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private final ExecutorService exec;
     private final Topology topology;
     private final Map<String, HttpClient> nodesToClients;
-    private final ReplicationFactor rf;
     private final ReplicationHandler handler;
 
     ReplicationServiceImpl(
@@ -72,7 +71,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         );
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
-        this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
         this.handler = new ReplicationHandler(dao, topology, nodesToClients, rf);
 
         for (final String node : topology.getNodes()) {
@@ -114,15 +112,19 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) throws IOException {
 
         if (id.isEmpty()) {
-            session.sendError(Response.BAD_REQUEST, "Identifier is required as parameter. Error handling request");
+            session.sendError(
+                    Response.BAD_REQUEST, "Identifier is required as parameter. Error handling request"
+            );
             return;
         }
 
         final ReplicationFactor replicationFactor;
 
         try {
-            replicationFactor = ReplicationFactor
-                    .getReplicationFactor(replicas, this.rf);
+            replicationFactor = replicas == null ? ReplicationFactor.getQuorum(topology.getSize()) :
+                    ReplicationFactor.createReplicationFactor(
+                            replicas
+                    );
         } catch (IllegalArgumentException ex) {
             session.sendError(Response.BAD_REQUEST, ex.getMessage());
             return;

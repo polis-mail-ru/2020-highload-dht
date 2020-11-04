@@ -15,7 +15,11 @@ class ReplicationFactor {
         this.from = from;
     }
 
-    private static ReplicationFactor createReplicationFactor(
+    static ReplicationFactor getQuorum(final int topologySize) {
+        return new ReplicationFactor(topologySize / 2 + 1, topologySize);
+    }
+
+    static ReplicationFactor createReplicationFactor(
             final String values
     ) throws IllegalArgumentException {
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
@@ -29,15 +33,6 @@ class ReplicationFactor {
         }
 
         return new ReplicationFactor(ack, from);
-    }
-
-    static ReplicationFactor getReplicationFactor(
-            final String nodeReplicas,
-            final ReplicationFactor replicationFactor
-    ) throws IllegalArgumentException {
-        return nodeReplicas == null ? replicationFactor : ReplicationFactor.createReplicationFactor(
-                nodeReplicas
-        );
     }
 
     int getAck() {
