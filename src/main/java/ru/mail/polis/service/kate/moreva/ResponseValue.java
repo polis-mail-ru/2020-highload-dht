@@ -25,7 +25,7 @@ public class ResponseValue {
         return status;
     }
 
-    public byte[] getValue() {
+    public byte[] getBody() {
         return body.clone();
     }
 

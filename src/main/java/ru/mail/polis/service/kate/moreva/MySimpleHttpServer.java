@@ -134,12 +134,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 final boolean isProxy = requestHelper.isProxied(request);
                 final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
 
-                if (replicasFactor.getFrom() > this.topology.size()) {
-                    requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
-                }
-
-                if (replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
+                if (replicasFactor.getFrom() > this.topology.size() ||
+                        replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
@@ -181,7 +177,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 context.getReplicaFactor().getAck());
         final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
         result.thenAccept(v -> requestHelper.sendLoggedResponse(
-                context.getSession(), new Response(v.getStatus(), v.getValue())))
+                context.getSession(), new Response(v.getStatus(), v.getBody())))
                 .exceptionally(e -> {
                     log.error("Error while executing method ", e);
                     return null;

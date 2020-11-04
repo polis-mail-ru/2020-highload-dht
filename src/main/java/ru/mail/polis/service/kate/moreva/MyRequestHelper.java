@@ -11,6 +11,7 @@ import ru.mail.polis.dao.kate.moreva.Cell;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -99,8 +100,9 @@ public class MyRequestHelper {
                 return;
             }
             ResponseValue response = new ResponseValue(Response.NOT_FOUND, Response.EMPTY, -1);
+            final List<ResponseValue> responseValues = new ArrayList<>(r);
             long time = Long.MIN_VALUE;
-            for (final ResponseValue resp : r) {
+            for (final ResponseValue resp : responseValues) {
                 if (resp.getTimestamp() > time) {
                     time = resp.getTimestamp();
                     response = resp;
@@ -109,7 +111,7 @@ public class MyRequestHelper {
             result.complete(response);
         }).exceptionally(e -> {
             log.error("Error while merge ", e);
-            return null;
+            return Collections.emptyList();
         });
         return result;
     }
@@ -117,16 +119,16 @@ public class MyRequestHelper {
     /**
      * Collects responses.
      */
-    public CompletableFuture<List<ResponseValue>> collect(final List<CompletableFuture<ResponseValue>> values,
+    public CompletableFuture<List<ResponseValue>> collect(final List<CompletableFuture<ResponseValue>> responseValues,
                                                           final int ack) {
         final AtomicInteger numberOfErrors = new AtomicInteger(-1);
         final List<ResponseValue> results = new ArrayList<>();
         final CompletableFuture<List<ResponseValue>> resultsFuture = new CompletableFuture<>();
 
-        for (final CompletableFuture<ResponseValue> value : values) {
-            value.whenComplete((v, t) -> {
+        for (final CompletableFuture<ResponseValue> resp : responseValues) {
+            resp.whenComplete((v, t) -> {
                 if (t != null) {
-                    if (numberOfErrors.incrementAndGet() == (values.size() - ack)) {
+                    if (numberOfErrors.incrementAndGet() == (responseValues.size() - ack)) {
                         resultsFuture.completeExceptionally(new RejectedExecutionException(t));
                     }
                     return;
@@ -147,7 +149,7 @@ public class MyRequestHelper {
 
     /**
      * Parses int status code into String Response.Status
-     * */
+     */
     public String parseStatusCode(final int status) {
         switch (status) {
             case 200:
@@ -176,6 +178,9 @@ public class MyRequestHelper {
         return request.getHeader(PROXY_HEADER) != null;
     }
 
+    /**
+     * Takes timestamp from header or -1 if null.
+     */
     public long getTimestamp(final Response response) {
         final String timestamp = response.getHeader(TIMESTAMP);
         return timestamp == null ? -1 : Long.parseLong(timestamp);
