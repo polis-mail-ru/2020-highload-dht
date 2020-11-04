@@ -128,25 +128,16 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
-        if (topology.getSize() > 1) {
-            try {
-                handleMultipleCase(req, session, id, replicationFactor, isForwardedRequest);
-            } catch (IOException exc) {
-                session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
-            }
-        } else {
-            try {
-                handleSingleCase(req, session, byteBuffer);
-            } catch (IOException exc) {
-                session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
-            }
+        try {
+            handle(req, session, id, replicationFactor, isForwardedRequest);
+        } catch (IOException exc) {
+            session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
         }
     }
 
-    private void handleSingleCase(
+    private void handleLocal(
             final Request request,
             final HttpSession session,
             final ByteBuffer key
@@ -173,7 +164,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void handleMultipleCase(
+    private void handle(
             final Request request,
             final HttpSession session,
             final String id,
@@ -181,6 +172,11 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             final boolean isForwardedRequest
     ) throws IOException {
         try {
+            if (topology.getSize() == 1) {
+                final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                handleLocal(request, session, byteBuffer);
+                return;
+            }
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
                     session.sendResponse(
