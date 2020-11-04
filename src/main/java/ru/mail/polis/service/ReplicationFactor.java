@@ -10,7 +10,7 @@ class ReplicationFactor {
     private final int ack;
     private final int from;
 
-    ReplicationFactor(final int ack, final int from) {
+    private ReplicationFactor(final int ack, final int from) {
         this.ack = ack;
         this.from = from;
     }
