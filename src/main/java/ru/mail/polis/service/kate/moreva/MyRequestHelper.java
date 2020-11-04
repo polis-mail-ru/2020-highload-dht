@@ -6,7 +6,7 @@ import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.kate.moreva.Cell;
+import ru.mail.polis.dao.kate.moreva.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,17 +40,17 @@ public class MyRequestHelper {
      */
     public Response getEntity(final ByteBuffer key) {
         try {
-            final Cell cell = dao.getCell(key);
+            final Value value = dao.getCell(key).getValue();
             final Response response;
-            if (cell.getValue().isTombstone()) {
+            if (value.isTombstone()) {
                 response = new Response(Response.NOT_FOUND, Response.EMPTY);
             } else {
-                final ByteBuffer value = dao.get(key);
-                final byte[] body = new byte[value.remaining()];
-                value.get(body);
+                final ByteBuffer valueData = value.getData().duplicate();
+                final byte[] body = new byte[valueData.remaining()];
+                valueData.get(body);
                 response = new Response(Response.OK, body);
             }
-            response.addHeader(TIMESTAMP + cell.getValue().getTimestamp());
+            response.addHeader(TIMESTAMP + value.getTimestamp());
             return response;
         } catch (NoSuchElementException e) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -92,7 +93,8 @@ public class MyRequestHelper {
     /**
      * Merges responses for GET request.
      */
-    public CompletableFuture<ResponseValue> merge(final CompletableFuture<List<ResponseValue>> future) {
+    public CompletableFuture<ResponseValue> merge(final CompletableFuture<List<ResponseValue>> future,
+                                                  final Executor clientExecutor) {
         final CompletableFuture<ResponseValue> result = new CompletableFuture<>();
         future.whenCompleteAsync((r, t) -> {
             if (t != null) {
@@ -109,7 +111,7 @@ public class MyRequestHelper {
                 }
             }
             result.complete(response);
-        }).exceptionally(e -> {
+        }, clientExecutor).exceptionally(e -> {
             log.error("Error while merge ", e);
             return Collections.emptyList();
         });
@@ -120,13 +122,13 @@ public class MyRequestHelper {
      * Collects responses.
      */
     public CompletableFuture<List<ResponseValue>> collect(final List<CompletableFuture<ResponseValue>> responseValues,
-                                                          final int ack) {
+                                                          final int ack, final Executor clientExecutor) {
         final AtomicInteger numberOfErrors = new AtomicInteger(-1);
         final List<ResponseValue> results = new ArrayList<>();
         final CompletableFuture<List<ResponseValue>> resultsFuture = new CompletableFuture<>();
 
         for (final CompletableFuture<ResponseValue> resp : responseValues) {
-            resp.whenComplete((v, t) -> {
+            resp.whenCompleteAsync((v, t) -> {
                 if (t != null) {
                     if (numberOfErrors.incrementAndGet() == (responseValues.size() - ack)) {
                         resultsFuture.completeExceptionally(new RejectedExecutionException(t));
@@ -139,7 +141,7 @@ public class MyRequestHelper {
                         resultsFuture.complete(results);
                     }
                 }
-            }).exceptionally(e -> {
+            }, clientExecutor).exceptionally(e -> {
                 log.error("Error while collecting futures ", e);
                 return null;
             });

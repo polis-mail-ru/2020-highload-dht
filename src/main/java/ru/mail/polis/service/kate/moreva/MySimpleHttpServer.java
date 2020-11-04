@@ -47,6 +47,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
     static final Duration timeout = Duration.ofSeconds(1);
     private final ExecutorService executorService;
+    private final Executor clientExecutor;
     private final Topology<String> topology;
     private final MyRequestHelper requestHelper;
     private final Replicas quorum;
@@ -76,8 +77,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
         this.quorum = Replicas.quorum(this.topology.size());
-        final Executor clientExecutor =
-                Executors.newFixedThreadPool(
+        this.clientExecutor = Executors.newFixedThreadPool(
                         Runtime.getRuntime().availableProcessors(),
                         new ThreadFactoryBuilder().setNameFormat("client-%d").build());
         this.client = java.net.http.HttpClient.newBuilder()
@@ -174,10 +174,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
                 replication(action, key, topology, context),
-                context.getReplicaFactor().getAck());
-        final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
-        result.thenAccept(v -> requestHelper.sendLoggedResponse(
-                context.getSession(), new Response(v.getStatus(), v.getBody())))
+                context.getReplicaFactor().getAck(), clientExecutor);
+        final CompletableFuture<ResponseValue> result = requestHelper.merge(future, clientExecutor);
+        result.thenAcceptAsync(v -> requestHelper.sendLoggedResponse(
+                context.getSession(), new Response(v.getStatus(), v.getBody())), clientExecutor)
                 .exceptionally(e -> {
                     log.error("Error while executing method ", e);
                     return null;
@@ -202,8 +202,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 final HttpRequest request = requestForReplica(context.getRequest(), key, context, node);
                 final CompletableFuture<ResponseValue> result = this.client
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                        .thenApply(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
-                                r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)));
+                        .thenApplyAsync(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
+                                r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)), clientExecutor);
                 results.add(result);
             }
         }
