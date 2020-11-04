@@ -1,5 +1,6 @@
 package ru.mail.polis.service;
 
+import com.google.common.collect.ImmutableSet;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
@@ -7,8 +8,10 @@ import ru.mail.polis.dao.DAO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 final class ReplicationServiceUtils {
     private ReplicationServiceUtils() {
@@ -27,20 +30,20 @@ final class ReplicationServiceUtils {
                 .orElseGet(Value::resolveMissingValue);
     }
 
-    static String[] getNodeReplica(
+    static Set<String> getNodeReplica(
             @NotNull final ByteBuffer key,
             @NotNull final ReplicationFactor replicationFactor,
             final boolean isForwardedRequest,
-            @NotNull final Topology topology) {
+            @NotNull final Topology topology) throws Exception {
 
-        return isForwardedRequest ? new String[]{
+        return isForwardedRequest ? new HashSet<>(ImmutableSet.of(
                 topology.getCurrentNode()
-        } : topology.getReplicas(key, replicationFactor.getFrom());
+        )) : topology.getReplicas(key, replicationFactor.getFrom());
     }
 
     static Response handleExternal(
             final List<Value> values,
-            final String[] nodeReplicas,
+            final Set<String> nodeReplicas,
             final boolean isForwardedRequest) throws IOException {
 
         final Value value = syncValues(values);
@@ -49,7 +52,7 @@ final class ReplicationServiceUtils {
             return new Response(Response.NOT_FOUND, value.getValueBytes());
         }
 
-        if (nodeReplicas.length == 1 && isForwardedRequest) {
+        if (nodeReplicas.size() == 1 && isForwardedRequest) {
             return new Response(Response.OK, value.getValueBytes());
         }
 

@@ -19,37 +19,20 @@ class ReplicationFactor {
         this.from = from;
     }
 
-    private static ReplicationFactor createReplicationFactor(
-            final String values,
-            final HttpSession session
-    ) throws IOException {
-
+    static ReplicationFactor createReplicationFactor(
+            final String values
+    ) {
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
-
-        if (delimitValues.size() != 2) {
-            session.sendError(Response.BAD_REQUEST, RF_ERROR);
-        }
-        if (Integer.parseInt(delimitValues.get(0)) < 1 || Integer.parseInt(delimitValues.get(1)) < 1) {
-            session.sendError(Response.BAD_REQUEST, RF_ERROR);
-        }
-        if (Integer.parseInt(delimitValues.get(0)) > Integer.parseInt(delimitValues.get(1))) {
-            session.sendError(Response.BAD_REQUEST, RF_ERROR);
-        }
 
         final int ack = Integer.parseInt(delimitValues.get(0));
         final int from = Integer.parseInt(delimitValues.get(1));
+        final boolean negativeValuesPresent = ack < 1 || from < 1;
+
+        if (delimitValues.size() != 2 || negativeValuesPresent || ack > from) {
+            throw new IllegalArgumentException(RF_ERROR);
+        }
 
         return new ReplicationFactor(ack, from);
-    }
-
-    static ReplicationFactor getReplicationFactor(
-            final String nodeReplicas,
-            final ReplicationFactor replicationFactor,
-            final HttpSession session
-    ) throws IOException {
-        return nodeReplicas == null ? replicationFactor : ReplicationFactor.createReplicationFactor(
-                nodeReplicas, session
-        );
     }
 
     int getAck() {

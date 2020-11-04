@@ -1,15 +1,9 @@
 package ru.mail.polis.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public final class Value {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(Value.class);
-
     private final boolean isValueDeleted;
     private final long timestamp;
     private final ByteBuffer buffer;
@@ -51,8 +45,7 @@ public final class Value {
 
     private ByteBuffer getValue() throws IOException {
         if (isValueDeleted) {
-            LOGGER.info("Record was removed");
-            throw new IOException();
+            throw new IOException("Record was removed");
         } else {
             return buffer;
         }

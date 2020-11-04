@@ -4,9 +4,14 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
+
+import static java.util.Collections.emptySet;
 
 class Topology {
 
@@ -15,11 +20,12 @@ class Topology {
 
     Topology(@NotNull final Set<String> nodes, @NotNull final String id) {
         this.clusterNodes = new ArrayList<>(nodes);
+        this.clusterNodes.sort(String::compareTo);
         this.id = id;
     }
 
     Set<String> getNodes() {
-        return new HashSet<>(this.clusterNodes);
+        return new HashSet<>(clusterNodes);
     }
 
     String getCurrentNode() {
@@ -27,7 +33,7 @@ class Topology {
     }
 
     int getSize() {
-        return this.clusterNodes.size();
+        return clusterNodes.size();
     }
 
     boolean isSelfId(@NotNull final String nodeId) {
@@ -38,13 +44,22 @@ class Topology {
         return clusterNodes.get((key.hashCode() & Integer.MAX_VALUE) % clusterNodes.size());
     }
 
-    String[] getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) {
+    Set<String> getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) throws Exception {
+
+        if (numOfReplicas > clusterNodes.size()) {
+            throw new Exception(
+                    String.format(
+                            "Not enough nodes in cluster. Requested %d, though only %d exists in cluster",
+                            numOfReplicas, clusterNodes.size()
+                    )
+            );
+        }
 
         int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % clusterNodes.size();
-        final String[] nodeReplicas = new String[numOfReplicas];
+        final Set<String> nodeReplicas = new HashSet<>();
 
         for (int i = 0; i < numOfReplicas; i++) {
-            nodeReplicas[i] = clusterNodes.get(nodeIndex);
+            nodeReplicas.add(clusterNodes.get(nodeIndex));
             nodeIndex = (nodeIndex + 1) % clusterNodes.size();
         }
 
