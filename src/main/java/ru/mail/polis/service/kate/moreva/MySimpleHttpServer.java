@@ -134,8 +134,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 final boolean isProxy = requestHelper.isProxied(request);
                 final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
 
-                if (replicasFactor.getFrom() > this.topology.size() ||
-                        replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
+                if (replicasFactor.getFrom() > this.topology.size()
+                        || replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
                     return;
                 }
