@@ -2,16 +2,12 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.SortedSet;
-
-import static java.util.Collections.emptySet;
 
 class Topology {
 
@@ -44,10 +40,10 @@ class Topology {
         return clusterNodes.get((key.hashCode() & Integer.MAX_VALUE) % clusterNodes.size());
     }
 
-    Set<String> getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) throws Exception {
+    Set<String> getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) throws IOException {
 
         if (numOfReplicas > clusterNodes.size()) {
-            throw new Exception(
+            throw new IOException(
                     String.format(
                             "Not enough nodes in cluster. Requested %d, though only %d exists in cluster",
                             numOfReplicas, clusterNodes.size()

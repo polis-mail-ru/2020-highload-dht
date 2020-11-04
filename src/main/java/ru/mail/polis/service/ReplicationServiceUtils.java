@@ -34,7 +34,7 @@ final class ReplicationServiceUtils {
             @NotNull final ByteBuffer key,
             @NotNull final ReplicationFactor replicationFactor,
             final boolean isForwardedRequest,
-            @NotNull final Topology topology) throws Exception {
+            @NotNull final Topology topology) throws IOException {
 
         return isForwardedRequest ? new HashSet<>(ImmutableSet.of(
                 topology.getCurrentNode()

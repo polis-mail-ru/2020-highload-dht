@@ -84,9 +84,9 @@ class ReplicationHandler {
 
     Response multipleGet(final String id,
                          @NotNull final ReplicationFactor repliFactor,
-                         final boolean isForwardedRequest) throws Exception {
+                         final boolean isForwardedRequest) throws IOException {
         int replCounter = 0;
-        Set<String> nodes = nodes = getNodeReplica(
+        Set<String> nodes = getNodeReplica(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 repliFactor,
                 isForwardedRequest,
@@ -151,7 +151,7 @@ class ReplicationHandler {
             final String id,
             final byte[] value,
             final int ackValue,
-            final boolean isForwardedRequest) throws Exception {
+            final boolean isForwardedRequest) throws IOException {
         if (isForwardedRequest) {
             try {
                 dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
@@ -212,7 +212,7 @@ class ReplicationHandler {
     Response multipleDelete(
             final String id,
             final int ackValue,
-            final boolean isForwardedRequest) throws Exception {
+            final boolean isForwardedRequest) throws IOException {
         if (isForwardedRequest) {
             try {
                 dao.removeValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));

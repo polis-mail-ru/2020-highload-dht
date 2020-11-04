@@ -118,9 +118,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
-
-        final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final ReplicationFactor replicationFactor;
 
         try {
@@ -130,6 +127,9 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             session.sendError(Response.BAD_REQUEST, ex.getMessage());
             return;
         }
+
+        final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
         if (topology.getSize() > 1) {
             try {
@@ -163,7 +163,9 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                     runExecutor(session, () -> handler.singleDelete(key, request));
                     break;
                 default:
-                    session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR));
+                    session.sendError(
+                            Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR)
+                    );
                     break;
             }
         } catch (RejectedExecutionException e) {
@@ -207,10 +209,12 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                     );
                     break;
                 default:
-                    session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR));
+                    session.sendError(
+                            Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR)
+                    );
                     break;
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
@@ -220,7 +224,9 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    private void runExecutor(@NotNull final HttpSession session, final Runner runner) throws RejectedExecutionException {
+    private void runExecutor(
+            @NotNull final HttpSession session, final Runner runner
+    ) throws RejectedExecutionException {
         exec.execute(() -> {
             try {
                 session.sendResponse(runner.execute());
