@@ -15,6 +15,8 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class HttpHelper {
     private static final Logger log = LoggerFactory.getLogger(HttpHelper.class);
     private static final String TIMESTAMP = "timestamp";
@@ -36,7 +38,8 @@ public class HttpHelper {
                                   final Response goodResponse) {
         if (sizeNotFailedResponse < ackFrom.getAck()) {
             log.error(NOT_ENOUGH_REPLICAS, ackFrom.getAck(), ackFrom.getFrom());
-            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, ("Not enough replicas error with ack: "
+                    + ackFrom.getAck() + ", from: " + ackFrom.getFrom()).getBytes(UTF_8)));
         } else {
             sendResponse(session, goodResponse);
         }

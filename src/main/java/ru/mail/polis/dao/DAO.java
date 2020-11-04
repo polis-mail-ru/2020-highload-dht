@@ -105,5 +105,12 @@ public interface DAO extends Closeable {
         // Implement me when you get to stage 3
     }
 
+    /**
+     * If you need value with timestamp use this method.
+     *
+     * @param key - key
+     * @return - cell
+     * @throws IOException - if IOException
+     */
     Cell getCell(@NotNull final ByteBuffer key) throws IOException;
 }
