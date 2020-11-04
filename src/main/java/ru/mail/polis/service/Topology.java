@@ -40,16 +40,16 @@ class Topology {
         return clusterNodes.get((key.hashCode() & Integer.MAX_VALUE) % clusterNodes.size());
     }
 
-    Set<String> getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) throws IOException {
+    Set<String> getReplicas(@NotNull final ByteBuffer id, final int numOfReplicas) throws NotEnoughNodesException {
 
-//        if (numOfReplicas > clusterNodes.size()) {
-//            throw new IOException(
-//                    String.format(
-//                            "Not enough nodes in cluster. Requested %d, though only %d exists in cluster",
-//                            numOfReplicas, clusterNodes.size()
-//                    )
-//            );
-//        }
+        if (numOfReplicas > clusterNodes.size()) {
+            throw new NotEnoughNodesException(
+                    String.format(
+                            "Not enough nodes in cluster. Requested %d, though only %d exists in cluster",
+                            numOfReplicas, clusterNodes.size()
+                    )
+            );
+        }
 
         int nodeIndex = (id.hashCode() & Integer.MAX_VALUE) % clusterNodes.size();
         final Set<String> nodeReplicas = new HashSet<>();

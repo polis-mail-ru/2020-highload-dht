@@ -214,7 +214,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                     );
                     break;
             }
-        } catch (IOException e) {
+        } catch (NotEnoughNodesException e) {
             log.error(e.getMessage());
         }
     }

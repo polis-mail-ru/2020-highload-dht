@@ -82,9 +82,11 @@ class ReplicationHandler {
         }
     }
 
-    Response multipleGet(final String id,
-                         @NotNull final ReplicationFactor repliFactor,
-                         final boolean isForwardedRequest) throws IOException {
+    Response multipleGet(
+            final String id,
+            @NotNull final ReplicationFactor repliFactor,
+            final boolean isForwardedRequest
+    ) throws NotEnoughNodesException, IOException {
         int replCounter = 0;
         final Set<String> nodes = getNodeReplica(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
@@ -113,7 +115,7 @@ class ReplicationHandler {
                     values.add(Value.composeFromBytes(response.getBody()));
                 }
                 replCounter++;
-            } catch (HttpException | PoolException | InterruptedException exc) {
+            } catch (HttpException | PoolException | InterruptedException | IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }
         }
@@ -151,7 +153,7 @@ class ReplicationHandler {
             final String id,
             final byte[] value,
             final int ackValue,
-            final boolean isForwardedRequest) throws IOException {
+            final boolean isForwardedRequest) throws NotEnoughNodesException {
         if (isForwardedRequest) {
             try {
                 dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
@@ -212,7 +214,7 @@ class ReplicationHandler {
     Response multipleDelete(
             final String id,
             final int ackValue,
-            final boolean isForwardedRequest) throws IOException {
+            final boolean isForwardedRequest) throws NotEnoughNodesException {
         if (isForwardedRequest) {
             try {
                 dao.removeValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
