@@ -31,7 +31,11 @@ final class MemTable implements Table {
         if (valueToCheck == null) {
             this.sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
         } else {
-            this.sizeInBytes.addAndGet(value.remaining() - valueToCheck.getData().remaining());
+            if (valueToCheck.isTombstone()) {
+                sizeInBytes.addAndGet(value.remaining());
+            } else {
+                sizeInBytes.addAndGet(value.remaining() - valueToCheck.getData().remaining());
+            }
         }
     }
 

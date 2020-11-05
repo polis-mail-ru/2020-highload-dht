@@ -43,7 +43,7 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Response> {
                 }
                 return HttpResponse.BodySubscribers.replacing(response);
             default:
-                throw new RejectedExecutionException("cant");
+                throw new RejectedExecutionException("cant handle");
         }
     }
 }

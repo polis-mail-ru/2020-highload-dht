@@ -16,23 +16,10 @@
 
 package ru.mail.polis.service;
 
-import one.nio.http.Response;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import ru.mail.polis.Files;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.DAOFactory;
 
-import java.io.File;
-import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
@@ -43,39 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
  */
 class TwoNodeTest extends ClusterTestBase {
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
-    private int port0;
-    private int port1;
-    private File data0;
-    private File data1;
-    private DAO dao0;
-    private DAO dao1;
-    private Service storage0;
-    private Service storage1;
 
-    @BeforeEach
-    void beforeEach() throws Exception {
-        port0 = randomPort();
-        port1 = randomPort();
-        endpoints = new LinkedHashSet<>(Arrays.asList(endpoint(port0), endpoint(port1)));
-        data0 = Files.createTempDirectory();
-        dao0 = DAOFactory.create(data0);
-        storage0 = ServiceFactory.create(port0, dao0, endpoints);
-        storage0.start();
-        data1 = Files.createTempDirectory();
-        dao1 = DAOFactory.create(data1);
-        storage1 = ServiceFactory.create(port1, dao1, endpoints);
-        start(1, storage1);
-    }
-
-    @AfterEach
-    void afterEach() throws IOException {
-        stop(0, storage0);
-        dao0.close();
-        Files.recursiveDelete(data0);
-        stop(1, storage1);
-        dao1.close();
-        Files.recursiveDelete(data1);
-        endpoints = Collections.emptySet();
+    @Override
+    int getClusterSize() {
+        return 2;
     }
 
     @Test
@@ -99,7 +57,7 @@ class TwoNodeTest extends ClusterTestBase {
     @Test
     void unreachableRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            stop(0, storage0);
+            stop(0);
             assertEquals(504, get(1, randomId(), 2, 2).getStatus());
             assertEquals(504, upsert(1, randomId(), randomValue(), 2, 2).getStatus());
             assertEquals(504, delete(1, randomId(), 2, 2).getStatus());
@@ -110,15 +68,25 @@ class TwoNodeTest extends ClusterTestBase {
     void overlapRead() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value = randomValue();
 
-            // Insert
-            assertEquals(201, upsert(0, key, value, 1, 2).getStatus());
+            // Insert value1
+            final byte[] value1 = randomValue();
+            assertEquals(201, upsert(0, key, value1, 1, 2).getStatus());
 
             // Check
-            final Response response = get(1, key, 2, 2);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+            checkResponse(200, value1, get(0, key, 2, 2));
+            checkResponse(200, value1, get(1, key, 2, 2));
+
+            // Help implementors with ms precision for conflict resolution
+            waitForVersionAdvancement();
+
+            // Insert value2
+            final byte[] value2 = randomValue();
+            assertEquals(201, upsert(1, key, value2, 1, 2).getStatus());
+
+            // Check
+            checkResponse(200, value2, get(0, key, 2, 2));
+            checkResponse(200, value2, get(1, key, 2, 2));
         });
     }
 
@@ -126,15 +94,25 @@ class TwoNodeTest extends ClusterTestBase {
     void overlapWrite() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value = randomValue();
 
-            // Insert
-            assertEquals(201, upsert(0, key, value, 2, 2).getStatus());
+            // Insert value1
+            final byte[] value1 = randomValue();
+            assertEquals(201, upsert(0, key, value1, 2, 2).getStatus());
 
             // Check
-            final Response response = get(1, key, 1, 2);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+            checkResponse(200, value1, get(0, key, 1, 2));
+            checkResponse(200, value1, get(1, key, 1, 2));
+
+            // Help implementors with ms precision for conflict resolution
+            waitForVersionAdvancement();
+
+            // Insert value2
+            final byte[] value2 = randomValue();
+            assertEquals(201, upsert(1, key, value2, 2, 2).getStatus());
+
+            // Check
+            checkResponse(200, value2, get(0, key, 1, 2));
+            checkResponse(200, value2, get(1, key, 1, 2));
         });
     }
 
@@ -144,20 +122,23 @@ class TwoNodeTest extends ClusterTestBase {
             final String key = randomId();
             final byte[] value = randomValue();
 
-            // Insert
+            // Insert & delete at 0
             assertEquals(201, upsert(0, key, value, 2, 2).getStatus());
-
-            // Check
-            Response response = get(1, key, 1, 2);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
-
-            // Delete
+            waitForVersionAdvancement();
             assertEquals(202, delete(0, key, 2, 2).getStatus());
 
             // Check
-            response = get(1, key, 1, 2);
-            assertEquals(404, response.getStatus());
+            assertEquals(404, get(0, key, 1, 2).getStatus());
+            assertEquals(404, get(1, key, 1, 2).getStatus());
+
+            // Insert & delete at 1
+            assertEquals(201, upsert(1, key, value, 2, 2).getStatus());
+            waitForVersionAdvancement();
+            assertEquals(202, delete(1, key, 2, 2).getStatus());
+
+            // Check
+            assertEquals(404, get(0, key, 1, 2).getStatus());
+            assertEquals(404, get(1, key, 1, 2).getStatus());
         });
     }
 
@@ -165,22 +146,27 @@ class TwoNodeTest extends ClusterTestBase {
     void missedWrite() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value = randomValue();
 
-            // Stop node 1
-            stop(1, storage1);
+            for (int node = 0; node < getClusterSize(); node++) {
+                // Reinitialize
+                restartAllNodes();
 
-            // Insert
-            assertEquals(201, upsert(0, key, value, 1, 2).getStatus());
+                // Stop node
+                stop(node);
 
-            // Start node 1
-            storage1 = ServiceFactory.create(port1, dao1, endpoints);
-            start(1, storage1);
+                // Insert
+                final byte[] value = randomValue();
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value, 1, 2).getStatus());
 
-            // Check
-            final Response response = get(1, key, 2, 2);
-            assertEquals(200, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+                // Start node 1
+                createAndStart(node);
+
+                // Check
+                checkResponse(200, value, get(node, key, 2, 2));
+
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
+            }
         });
     }
 
@@ -188,27 +174,33 @@ class TwoNodeTest extends ClusterTestBase {
     void missedDelete() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value = randomValue();
 
-            // Insert
-            assertEquals(201, upsert(0, key, value, 2, 2).getStatus());
+            for (int node = 0; node < getClusterSize(); node++) {
+                // Reinitialize
+                restartAllNodes();
 
-            // Stop node 0
-            stop(0, storage0);
+                // Insert
+                final byte[] value = randomValue();
+                assertEquals(201, upsert(node, key, value, 2, 2).getStatus());
 
-            // Help implementors with second precision for conflict resolution
-            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+                // Stop node 0
+                stop(node);
 
-            // Delete
-            assertEquals(202, delete(1, key, 1, 2).getStatus());
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
 
-            // Start node 0
-            storage0 = ServiceFactory.create(port0, dao0, endpoints);
-            start(0, storage0);
+                // Delete
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, 1, 2).getStatus());
 
-            // Check
-            final Response response = get(0, key, 2, 2);
-            assertEquals(404, response.getStatus());
+                // Start node 0
+                createAndStart(node);
+
+                // Check
+                assertEquals(404, get(node, key, 2, 2).getStatus());
+
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
+            }
         });
     }
 
@@ -216,34 +208,34 @@ class TwoNodeTest extends ClusterTestBase {
     void missedOverwrite() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value1 = randomValue();
-            final byte[] value2 = randomValue();
 
-            // Insert value1
-            assertEquals(201, upsert(0, key, value1, 2, 2).getStatus());
+            for (int node = 0; node < getClusterSize(); node++) {
+                // Reinitialize
+                restartAllNodes();
 
-            // Check value1
-            final Response response1 = get(1, key, 2, 2);
-            assertEquals(200, response1.getStatus());
-            assertArrayEquals(value1, response1.getBody());
+                // Insert value1
+                final byte[] value1 = randomValue();
+                assertEquals(201, upsert(node, key, value1, 2, 2).getStatus());
 
-            // Stop node 1
-            stop(1, storage1);
+                // Stop node
+                stop(node);
 
-            // Help implementors with second precision for conflict resolution
-            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
 
-            // Insert value2
-            assertEquals(201, upsert(0, key, value2, 1, 2).getStatus());
+                // Insert value2
+                final byte[] value2 = randomValue();
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value2, 1, 2).getStatus());
 
-            // Start node 1
-            storage1 = ServiceFactory.create(port1, dao1, endpoints);
-            start(1, storage1);
+                // Start node
+                createAndStart(node);
 
-            // Check value2
-            final Response response2 = get(1, key, 2, 2);
-            assertEquals(200, response2.getStatus());
-            assertArrayEquals(value2, response2.getBody());
+                // Check value2
+                checkResponse(200, value2, get(node, key, 2, 2));
+
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
+            }
         });
     }
 
@@ -251,38 +243,70 @@ class TwoNodeTest extends ClusterTestBase {
     void missedRecreate() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
-            final byte[] value1 = randomValue();
-            final byte[] value2 = randomValue();
 
-            // Insert value1
-            assertEquals(201, upsert(0, key, value1, 2, 2).getStatus());
+            for (int node = 0; node < getClusterSize(); node++) {
+                // Reinitialize
+                restartAllNodes();
 
-            // Check value1
-            final Response response1 = get(1, key, 2, 2);
-            assertEquals(200, response1.getStatus());
-            assertArrayEquals(value1, response1.getBody());
+                // Insert & delete value1
+                final byte[] value1 = randomValue();
+                assertEquals(201, upsert(node, key, value1, 2, 2).getStatus());
+                waitForVersionAdvancement();
+                assertEquals(202, delete(node, key, 2, 2).getStatus());
 
-            // Delete value1
-            assertEquals(202, delete(0, key, 2, 2).getStatus());
-            assertEquals(404, get(0, key, 2, 2).getStatus());
+                // Stop node
+                stop(node);
 
-            // Stop node 1
-            stop(1, storage1);
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
 
-            // Help implementors with second precision for conflict resolution
-            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+                // Insert value2
+                final byte[] value2 = randomValue();
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value2, 1, 2).getStatus());
 
-            // Insert value2
-            assertEquals(201, upsert(0, key, value2, 1, 2).getStatus());
+                // Start node
+                createAndStart(node);
 
-            // Start node 1
-            storage1 = ServiceFactory.create(port1, dao1, endpoints);
-            start(1, storage1);
+                // Check value2
+                checkResponse(200, value2, get(node, key, 2, 2));
 
-            // Check value2
-            final Response response2 = get(1, key, 2, 2);
-            assertEquals(200, response2.getStatus());
-            assertArrayEquals(value2, response2.getBody());
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
+            }
+        });
+    }
+
+    @Test
+    void tolerateFailure() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            final String key = randomId();
+
+            for (int node = 0; node < getClusterSize(); node++) {
+                // Reinitialize
+                restartAllNodes();
+
+                // Insert into node
+                final byte[] value = randomValue();
+                assertEquals(201, upsert(node, key, value, 2, 2).getStatus());
+
+                // Stop node
+                stop(node);
+
+                // Check
+                checkResponse(200, value, get((node + 1) % getClusterSize(), key, 1, 2));
+
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
+
+                // Delete
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, 1, 2).getStatus());
+
+                // Check
+                assertEquals(404, get((node + 1) % getClusterSize(), key, 1, 2).getStatus());
+
+                // Help implementors with ms precision for conflict resolution
+                waitForVersionAdvancement();
+            }
         });
     }
 
@@ -295,33 +319,25 @@ class TwoNodeTest extends ClusterTestBase {
             // Insert
             assertEquals(201, upsert(0, key, value, 1, 1).getStatus());
 
+            // Stop all
+            for (int node = 0; node < getClusterSize(); node++) {
+                stop(node);
+            }
+
+            // Check each
             int copies = 0;
+            for (int node = 0; node < getClusterSize(); node++) {
+                // Start node
+                createAndStart(node);
 
-            // Stop node 0
-            stop(0, storage0);
+                // Check
+                if (get(node, key, 1, 1).getStatus() == 200) {
+                    copies++;
+                }
 
-            // Check
-            if (get(1, key, 1, 1).getStatus() == 200) {
-                copies++;
+                // Stop node
+                stop(node);
             }
-
-            // Start node 0
-            storage0 = ServiceFactory.create(port0, dao0, endpoints);
-            start(0, storage0);
-
-            // Stop node 1
-            stop(1, storage1);
-
-            // Check
-            if (get(0, key, 1, 1).getStatus() == 200) {
-                copies++;
-            }
-
-            // Start node 1
-            storage1 = ServiceFactory.create(port1, dao1, endpoints);
-            start(1, storage1);
-
-            // Check
             assertEquals(1, copies);
         });
     }
