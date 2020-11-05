@@ -39,7 +39,6 @@ public class MergeResponses {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
-
         if (responses.size() == notFoundResponsesCount || latestResponse.getHeader("tombstone: ").equals("true")) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
