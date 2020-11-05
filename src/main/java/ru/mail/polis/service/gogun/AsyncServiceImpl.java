@@ -190,10 +190,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             response.addHeader("tombstone: " + true);
         } else {
             response = Response.ok(ServiceUtils.getArray(value.getData()));
+            response.addHeader("tombstone: " + false);
         }
 
         response.addHeader("timestamp: " + value.getTimestamp());
-        response.addHeader("tombstone: " + false);
         return response;
     }
 

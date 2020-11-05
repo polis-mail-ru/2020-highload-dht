@@ -17,32 +17,33 @@ public class MergeResponses {
     }
 
     Response mergeGetResponses() {
-        int numNotFoundResponses = 0;
-        boolean hasTombstone = false;
-        long lastGeneration = 0;
-        Response last = new Response(Response.NOT_FOUND, Response.EMPTY);
+        int notFoundResponsesCount = 0;
+        long latestTimestamp = Long.MIN_VALUE;
+        Response latestResponse = new Response("");
         for (final Response response : responses) {
-            if (response.getStatus() == 404) {
-                numNotFoundResponses++;
-            } else if (response.getStatus() == 200) {
-                final long generation = Long.parseLong(response.getHeader("timestamp: "));
-                if (lastGeneration > generation || lastGeneration == 0) {
-                    lastGeneration = generation;
-                    last = response;
-                }
-                if (response.getHeader("tombstone: ").equals("true")) {
-                    hasTombstone = true;
-                }
+            switch (response.getStatus()) {
+                case 404:
+                    notFoundResponsesCount++;
+                    break;
+                case 200:
+                    final long timestamp = Long.parseLong(response.getHeader("timestamp: "));
+                    if (timestamp > latestTimestamp) {
+                        latestTimestamp = timestamp;
+                        latestResponse = response;
+                    }
+                    break;
+                default:
+                    break;
             }
         }
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
-        if (hasTombstone || responses.size() == numNotFoundResponses) {
+        if (latestResponse.getHeader("tombstone: ").equals("true") || responses.size() == notFoundResponsesCount) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
-        return Response.ok(last.getBody());
 
+        return Response.ok(latestResponse.getBody());
     }
 
     Response mergePutResponses() {
