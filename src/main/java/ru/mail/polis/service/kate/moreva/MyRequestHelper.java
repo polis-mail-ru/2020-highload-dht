@@ -95,10 +95,10 @@ public class MyRequestHelper {
      */
     public CompletableFuture<ResponseValue> merge(final CompletableFuture<List<ResponseValue>> future,
                                                   final Executor clientExecutor) {
-        final CompletableFuture<ResponseValue> result = new CompletableFuture<>();
+        final CompletableFuture<ResponseValue> resultsFuture = new CompletableFuture<>();
         future.whenCompleteAsync((r, t) -> {
             if (t != null) {
-                result.complete(new ResponseValue(NOT_ENOUGH_REPLICAS, Response.EMPTY, -1));
+                resultsFuture.complete(new ResponseValue(NOT_ENOUGH_REPLICAS, Response.EMPTY, -1));
                 return;
             }
             ResponseValue response = new ResponseValue(Response.NOT_FOUND, Response.EMPTY, -1);
@@ -110,12 +110,12 @@ public class MyRequestHelper {
                     response = resp;
                 }
             }
-            result.complete(response);
+            resultsFuture.complete(response);
         }, clientExecutor).exceptionally(e -> {
             log.error("Error while merge ", e);
             return Collections.emptyList();
         });
-        return result;
+        return resultsFuture;
     }
 
     /**
