@@ -50,7 +50,11 @@ public class MemoryTable implements Table {
         if (val == null) {
             currentAmountOfBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
         } else {
-            currentAmountOfBytes.addAndGet(value.remaining() - val.getData().remaining());
+            if (val.isTombstone()) {
+                currentAmountOfBytes.addAndGet(value.remaining());
+            } else {
+                currentAmountOfBytes.addAndGet(value.remaining() - val.getData().remaining());
+            }
         }
     }
 
