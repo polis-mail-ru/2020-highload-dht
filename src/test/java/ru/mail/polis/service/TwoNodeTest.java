@@ -213,6 +213,80 @@ class TwoNodeTest extends ClusterTestBase {
     }
 
     @Test
+    void missedOverwrite() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            final String key = randomId();
+            final byte[] value1 = randomValue();
+            final byte[] value2 = randomValue();
+
+            // Insert value1
+            assertEquals(201, upsert(0, key, value1, 2, 2).getStatus());
+
+            // Check value1
+            final Response response1 = get(1, key, 2, 2);
+            assertEquals(200, response1.getStatus());
+            assertArrayEquals(value1, response1.getBody());
+
+            // Stop node 1
+            stop(1, storage1);
+
+            // Help implementors with second precision for conflict resolution
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+
+            // Insert value2
+            assertEquals(201, upsert(0, key, value2, 1, 2).getStatus());
+
+            // Start node 1
+            storage1 = ServiceFactory.create(port1, dao1, endpoints);
+            start(1, storage1);
+
+            // Check value2
+            final Response response2 = get(1, key, 2, 2);
+            assertEquals(200, response2.getStatus());
+            assertArrayEquals(value2, response2.getBody());
+        });
+    }
+
+    @Test
+    void missedRecreate() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            final String key = randomId();
+            final byte[] value1 = randomValue();
+            final byte[] value2 = randomValue();
+
+            // Insert value1
+            assertEquals(201, upsert(0, key, value1, 2, 2).getStatus());
+
+            // Check value1
+            final Response response1 = get(1, key, 2, 2);
+            assertEquals(200, response1.getStatus());
+            assertArrayEquals(value1, response1.getBody());
+
+            // Delete value1
+            assertEquals(202, delete(0, key, 2, 2).getStatus());
+            assertEquals(404, get(0, key, 2, 2).getStatus());
+
+            // Stop node 1
+            stop(1, storage1);
+
+            // Help implementors with second precision for conflict resolution
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+
+            // Insert value2
+            assertEquals(201, upsert(0, key, value2, 1, 2).getStatus());
+
+            // Start node 1
+            storage1 = ServiceFactory.create(port1, dao1, endpoints);
+            start(1, storage1);
+
+            // Check value2
+            final Response response2 = get(1, key, 2, 2);
+            assertEquals(200, response2.getStatus());
+            assertArrayEquals(value2, response2.getBody());
+        });
+    }
+
+    @Test
     void respectRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
