@@ -3,7 +3,17 @@ package ru.mail.polis.service.s3ponia;
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class ReplicationConfiguration {
+    public static final List<ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
+            new ReplicationConfiguration(1, 1),
+            new ReplicationConfiguration(2, 2),
+            new ReplicationConfiguration(2, 3),
+            new ReplicationConfiguration(3, 4),
+            new ReplicationConfiguration(3, 5)
+    );
     public final int acks;
     public final int replicas;
 
@@ -18,17 +28,26 @@ public class ReplicationConfiguration {
      * @param s String for parsing
      * @return ReplicationConfiguration on null
      */
+    @NotNull
     public static ReplicationConfiguration parse(@NotNull final String s) {
         final var splitStrings = Splitter.on('/').splitToList(s);
         if (splitStrings.size() != 2) {
-            return null;
+            throw new IllegalArgumentException("Bad replica string");
         }
 
-        try {
-            return new ReplicationConfiguration(Integer.parseInt(splitStrings.get(0)),
-                    Integer.parseInt(splitStrings.get(1)));
-        } catch (NumberFormatException e) {
-            return null;
+        final var temp = new ReplicationConfiguration(Integer.parseInt(splitStrings.get(0)),
+                Integer.parseInt(splitStrings.get(1)));
+        if (temp.acks > temp.replicas || temp.acks == 0) {
+            throw new IllegalArgumentException("Bad replica string");
+        }
+        return temp;
+    }
+
+    public static ReplicationConfiguration parseOrDefault(final String s, final int sz) {
+        if (s == null) {
+            return DEFAULT_CONFIGURATIONS.get(sz - 1);
+        } else {
+            return parse(s);
         }
     }
 

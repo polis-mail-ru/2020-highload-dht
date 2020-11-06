@@ -1,21 +1,26 @@
 package ru.mail.polis.s3ponia;
 
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.service.s3ponia.Header;
 import ru.mail.polis.service.s3ponia.ReplicationConfiguration;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
@@ -105,6 +110,51 @@ public final class Utility {
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
         return config;
+    }
+
+    private static Response proxy(
+            @NotNull final Request request,
+            @NotNull final HttpClient client) {
+        try {
+            request.addHeader(Utility.PROXY_HEADER + ":" + "proxied");
+            return client.invoke(request);
+        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Get list of success responses from nodes.
+     * @param request proxying request
+     * @param toHTTPClient function for mapping url to HttpClient
+     * @param skipNode node that should be skipped
+     * @param nodes array of nodes for proxy dest
+     * @return list of sucess responses
+     */
+    @NotNull
+    public static List<Response> proxyReplicas(@NotNull final Request request,
+                                                @NotNull Function<String, HttpClient> toHTTPClient,
+                                                @NotNull final String skipNode,
+                                                @NotNull final String... nodes) {
+        final List<Response> futureResponses = new ArrayList<>(nodes.length);
+
+        for (final var node : nodes) {
+
+            if (!node.equals(skipNode)) {
+                final var response = proxy(request, toHTTPClient.apply(node));
+                if (response == null) {
+                    continue;
+                }
+                if (response.getStatus() != 202 /* ACCEPTED */
+                        && response.getStatus() != 201 /* CREATED */
+                        && response.getStatus() != 200 /* OK */
+                        && response.getStatus() != 404 /* NOT FOUND */) {
+                    continue;
+                }
+                futureResponses.add(response);
+            }
+        }
+        return futureResponses;
     }
     
     /**
