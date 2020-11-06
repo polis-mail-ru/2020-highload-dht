@@ -8,11 +8,13 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Value;
+import ru.mail.polis.s3ponia.Proxy;
 import ru.mail.polis.s3ponia.RunnableWithException;
 import ru.mail.polis.s3ponia.SupplierWithException;
 import ru.mail.polis.s3ponia.Utility;
@@ -23,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -31,11 +34,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static ru.mail.polis.s3ponia.Utility.badRequestResponse;
-import static ru.mail.polis.s3ponia.Utility.sendResponse;
 
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
-    public static final byte[] EMPTY = Response.EMPTY;
     private final DAO dao;
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
@@ -57,6 +58,7 @@ public final class AsyncService extends HttpServer implements Service {
         super(Utility.configFrom(port));
         assert 0 < workers;
         assert 0 < queueSize;
+        BasicConfigurator.configure();
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
         this.dao = dao;
@@ -93,7 +95,7 @@ public final class AsyncService extends HttpServer implements Service {
             throw new RuntimeException("Empty id");
         }
 
-        final var proxyHeader = Header.getHeader(Utility.PROXY_HEADER, request);
+        final var proxyHeader = Header.getHeader(Proxy.PROXY_HEADER, request);
         final ByteBuffer value;
         if (request.getBody() == null) {
             value = ByteBuffer.allocate(0);
@@ -123,14 +125,22 @@ public final class AsyncService extends HttpServer implements Service {
         final var key = Utility.byteBufferFromString(id);
         final Supplier<CompletableFuture<Response>> proxyHandler;
         try {
-            proxyHandler = proxyHandler(key, value, time, request.getMethod());
+            proxyHandler = noReplicaHandler(key, value, time, request.getMethod());
         } catch (IllegalArgumentException e) {
             badRequestResponse(
                     session, String.format("Bad request's method %s", request.getMethodName()), e, logger);
             throw new RuntimeException("Bad request's method", e);
         }
         if (proxyHeader != null) {
-            proxyHandle(session, proxyHandler);
+            try {
+                Proxy.proxyHandle(session, proxyHandler);
+            } catch (CancellationException e) {
+                logger.error("Canceled task", e);
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (RejectedExecutionException e) {
+                logger.error("Rejected task", e);
+                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+            }
             return;
         }
         final ReplicationConfiguration parsedReplica;
@@ -147,119 +157,86 @@ public final class AsyncService extends HttpServer implements Service {
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
         final var replicaResponses =
-                Utility.proxyReplicas(request, urlToClient::get, policy.homeNode(), nodes);
+                Proxy.proxyReplicas(request, urlToClient::get, policy.homeNode(), nodes);
         final Map<Integer, RunnableWithException> mapDAOOp =
                 Map.of(Request.METHOD_DELETE, () -> dao.removeWithTimeStamp(key, currTime),
                         Request.METHOD_PUT, () -> dao.upsertWithTimeStamp(key, value, currTime),
                         Request.METHOD_GET, () -> dao.getRaw(key));
         final Map<Integer, Response> mapResponses =
-                Map.of(Request.METHOD_DELETE, new Response(Response.ACCEPTED, EMPTY),
-                        Request.METHOD_PUT, new Response(Response.CREATED, EMPTY),
-                        Request.METHOD_GET, Response.ok(EMPTY));
+                Map.of(Request.METHOD_DELETE, new Response(Response.ACCEPTED, Response.EMPTY),
+                        Request.METHOD_PUT, new Response(Response.CREATED, Response.EMPTY),
+                        Request.METHOD_GET, Response.ok(Response.EMPTY));
         final RunnableWithException daoOp = mapDAOOp.get(request.getMethod());
         final Response responseSucc = mapResponses.get(request.getMethod());
         if (request.getMethod() == Request.METHOD_GET) {
-            resolveGetProxyResult(session, parsedReplica, homeInReplicas, replicaResponses, () -> dao.getRaw(key));
-        } else {
-            final int counter = homeInReplicasProcess(homeInReplicas, daoOp, replicaResponses.size());
-            resolvePutDeleteProxyResult(session, parsedReplica, responseSucc, counter);
-        }
-    }
-
-    private void proxyHandle(@NotNull final HttpSession session,
-                             @NotNull final Supplier<CompletableFuture<Response>> proxyHandler) throws IOException {
-        try {
-            if (proxyHandler.get()
-                    .whenComplete((r, t) -> proxyWhenCompleteHandler(session, r, t))
-                    .isCancelled()) {
-                logger.error("Canceled task");
-                session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+            try {
+                resolveGetProxyResult(session, parsedReplica, homeInReplicas, replicaResponses, () -> dao.getRaw(key));
+            } catch (ReplicaException e) {
+                logger.error("Not enough replicas response");
+                session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
             }
-        } catch (RejectedExecutionException e) {
-            logger.error("Rejected task", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+        } else {
+            final int counter = replicaResponses.size() + daoOp.returnPlusCountIfNoException(homeInReplicas);
+            try {
+                resolvePutDeleteProxyResult(session, parsedReplica, responseSucc, counter);
+            } catch (ReplicaException e) {
+                logger.error("Not enough replica");
+                session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            }
         }
     }
 
     private static void resolvePutDeleteProxyResult(@NotNull final HttpSession session,
                                                     @NotNull final ReplicationConfiguration parsedReplica,
                                                     @NotNull final Response succResp,
-                                                    final int counter) throws IOException {
+                                                    final int counter) throws IOException, ReplicaException {
         if (counter < parsedReplica.acks) {
-            logger.error("Not enough replicas response");
-            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
+            throw new ReplicaException("Not enough replicas");
         } else {
             session.sendResponse(succResp);
         }
-    }
-
-    private static int homeInReplicasProcess(final boolean homeInReplicas,
-                                             @NotNull final RunnableWithException daoOp,
-                                             final int counter) {
-        if (homeInReplicas) {
-            try {
-                daoOp.run();
-                return counter + 1;
-            } catch (IOException e) {
-                logger.error("Error in local dao", e);
-            }
-        }
-        return counter;
     }
 
     private static void resolveGetProxyResult(@NotNull final HttpSession session,
                                               @NotNull final ReplicationConfiguration parsedReplica,
                                               final boolean homeInReplicas,
                                               @NotNull final List<Response> replicaResponses,
-                                              @NotNull final SupplierWithException<Value> daoOp) throws IOException {
+                                              @NotNull final SupplierWithException<Value> daoOp) throws IOException,
+            ReplicaException {
         final var values = Utility.getValuesFromResponses(parsedReplica, replicaResponses);
         if (homeInReplicas) {
             try {
                 values.add(daoOp.get());
-            } catch (IOException e) {
-                logger.error("Error in getting from local dao");
+            } catch (IOException ignored) {
             }
         }
         if (values.size() < parsedReplica.acks) {
-            logger.error("Not enough replicas response");
-            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-            return;
+            throw new ReplicaException("Not enough replicas");
         }
 
         values.sort(Value.valueResponseComparator());
 
         final var bestVal = values.get(0);
         if (bestVal.isDead()) {
-            session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
+            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
         } else {
             session.sendResponse(Response.ok(Utility.fromByteBuffer(bestVal.getValue())));
         }
     }
 
-    private void proxyWhenCompleteHandler(@NotNull final HttpSession session,
-                                          @NotNull final Response r,
-                                          final Throwable t) {
-        if (t == null) {
-            sendResponse(session, r);
-        } else {
-            logger.error("Logic error. t must be null", t);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-
-    private Supplier<CompletableFuture<Response>> proxyHandler(@NotNull final ByteBuffer key,
-                                                               @NotNull final ByteBuffer value,
-                                                               final long time,
-                                                               final int method) {
+    private Supplier<CompletableFuture<Response>> noReplicaHandler(@NotNull final ByteBuffer key,
+                                                                   @NotNull final ByteBuffer value,
+                                                                   final long time,
+                                                                   final int method) {
         final Map<Integer, Supplier<CompletableFuture<Response>>> map =
-                Map.of(Request.METHOD_GET, proxyHandlerGet(key),
-                        Request.METHOD_PUT, proxyHandlerPut(key, value, time),
-                        Request.METHOD_DELETE, proxyHandlerDelete(key, time));
+                Map.of(Request.METHOD_GET, handleNoReplicaGet(key),
+                        Request.METHOD_PUT, handleNoReplicaPut(key, value, time),
+                        Request.METHOD_DELETE, handleNoReplicaDelete(key, time));
         return map.get(method);
     }
 
-    private Supplier<CompletableFuture<Response>> proxyHandlerDelete(@NotNull final ByteBuffer key,
-                                                                     final long time) {
+    private Supplier<CompletableFuture<Response>> handleNoReplicaDelete(@NotNull final ByteBuffer key,
+                                                                        final long time) {
         return () -> CompletableFuture.<Void>supplyAsync(() -> {
             try {
                 dao.removeWithTimeStamp(key, time);
@@ -274,9 +251,9 @@ public final class AsyncService extends HttpServer implements Service {
                 });
     }
 
-    private Supplier<CompletableFuture<Response>> proxyHandlerPut(@NotNull final ByteBuffer key,
-                                                                  @NotNull final ByteBuffer value,
-                                                                  final long time) {
+    private Supplier<CompletableFuture<Response>> handleNoReplicaPut(@NotNull final ByteBuffer key,
+                                                                     @NotNull final ByteBuffer value,
+                                                                     final long time) {
         return () -> CompletableFuture.<Void>supplyAsync(() -> {
             try {
                 dao.upsertWithTimeStamp(key, value, time);
@@ -291,7 +268,7 @@ public final class AsyncService extends HttpServer implements Service {
                 });
     }
 
-    private Supplier<CompletableFuture<Response>> proxyHandlerGet(@NotNull final ByteBuffer key) {
+    private Supplier<CompletableFuture<Response>> handleNoReplicaGet(@NotNull final ByteBuffer key) {
         return () -> CompletableFuture.supplyAsync(() -> {
             try {
                 return dao.getRaw(key);
@@ -318,7 +295,7 @@ public final class AsyncService extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         logger.error("Unhandled request: {}", request);
-        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override

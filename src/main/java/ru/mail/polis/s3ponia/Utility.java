@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.service.s3ponia.Header;
+import ru.mail.polis.service.s3ponia.ReplicaException;
 import ru.mail.polis.service.s3ponia.ReplicationConfiguration;
 
 import java.io.IOException;
@@ -26,7 +27,6 @@ import java.util.function.Function;
 
 public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
-    public static final String PROXY_HEADER = "X-Proxy-From";
     public static final String TIME_HEADER = "XTime";
 
     private Utility() {
@@ -114,17 +114,6 @@ public final class Utility {
         return config;
     }
 
-    private static Response proxy(
-            @NotNull final Request request,
-            @NotNull final HttpClient client) {
-        try {
-            request.addHeader(Utility.PROXY_HEADER + ":" + "proxied");
-            return client.invoke(request);
-        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            return null;
-        }
-    }
-
     public static void badRequestResponse(@NotNull final HttpSession session,
                                           @NotNull final String logString,
                                           @NotNull final Logger logger) throws IOException {
@@ -138,41 +127,6 @@ public final class Utility {
                                           @NotNull final Logger logger) throws IOException {
         logger.error(logString, e);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    /**
-     * Get list of success responses from nodes.
-     *
-     * @param request      proxying request
-     * @param toHttpClient function for mapping url to HttpClient
-     * @param skipNode     node that should be skipped
-     * @param nodes        array of nodes for proxy dest
-     * @return list of sucess responses
-     */
-    @NotNull
-    public static List<Response> proxyReplicas(@NotNull final Request request,
-                                               @NotNull final Function<String, HttpClient> toHttpClient,
-                                               @NotNull final String skipNode,
-                                               @NotNull final String... nodes) {
-        final List<Response> futureResponses = new ArrayList<>(nodes.length);
-
-        for (final var node : nodes) {
-
-            if (!node.equals(skipNode)) {
-                final var response = proxy(request, toHttpClient.apply(node));
-                if (response == null) {
-                    continue;
-                }
-                if (response.getStatus() != 202 /* ACCEPTED */
-                        && response.getStatus() != 201 /* CREATED */
-                        && response.getStatus() != 200 /* OK */
-                        && response.getStatus() != 404 /* NOT FOUND */) {
-                    continue;
-                }
-                futureResponses.add(response);
-            }
-        }
-        return futureResponses;
     }
 
     /**
