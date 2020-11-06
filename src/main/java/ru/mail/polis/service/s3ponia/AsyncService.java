@@ -99,6 +99,14 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Entity requests handler.
+     * @param id dao's key
+     * @param replicas replica configuration param
+     * @param request handling request
+     * @param session current session
+     * @throws IOException rethrow session exception
+     */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
                        @Param(value = "replicas") final String replicas,
@@ -111,7 +119,6 @@ public final class AsyncService extends HttpServer implements Service {
         }
 
         final var proxyHeader = Header.getHeader(Utility.PROXY_HEADER, request);
-        final var key = Utility.byteBufferFromString(id);
         final ByteBuffer value;
         if (request.getBody() == null) {
             value = ByteBuffer.allocate(0);
@@ -119,32 +126,33 @@ public final class AsyncService extends HttpServer implements Service {
             value = ByteBuffer.wrap(request.getBody());
         }
 
-        final Supplier<CompletableFuture<Response>> proxyHandler;
         final var header = Header.getHeader(Utility.TIME_HEADER, request);
-        final long time;
 
         if (header == null && request.getMethod() != Request.METHOD_GET && proxyHeader != null) {
             badRequestResponse(session, "Mismatch headers");
             throw new RuntimeException("Mismatch headers");
         }
 
-        if (header != null) {
+        final long time;
+        if (header == null) {
+            time = 0;
+        } else {
             try {
                 time = Long.parseLong(header.value);
             } catch (NumberFormatException e) {
                 badRequestResponse(
                         session, String.format("FormatException in time header %s", header.value), e);
-                throw new RuntimeException("FormatException");
+                throw new RuntimeException("FormatException", e);
             }
-        } else {
-            time = 0;
         }
+        final var key = Utility.byteBufferFromString(id);
+        final Supplier<CompletableFuture<Response>> proxyHandler;
         try {
             proxyHandler = proxyHandler(key, value, time, request.getMethod());
         } catch (IllegalArgumentException e) {
             badRequestResponse(
                     session, String.format("Bad request's method %s", request.getMethodName()), e);
-            throw new RuntimeException("Bad request's method");
+            throw new RuntimeException("Bad request's method", e);
         }
         if (proxyHeader != null) {
             proxyHandle(session, proxyHandler);
@@ -194,16 +202,13 @@ public final class AsyncService extends HttpServer implements Service {
         } catch (RejectedExecutionException e) {
             logger.error("Rejected task", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        } catch (RuntimeException e) {
-            logger.error("Runtime error in proxyHandler", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
 
     private static void resolvePutDeleteProxyResult(@NotNull final HttpSession session,
                                                     @NotNull final ReplicationConfiguration parsedReplica,
                                                     @NotNull final Response succResp,
-                                                    int counter) throws IOException {
+                                                    final int counter) throws IOException {
         if (counter < parsedReplica.acks) {
             logger.error("Not enough replicas response");
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
@@ -212,11 +217,13 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private static int homeInReplicasProcess(boolean homeInReplicas, @NotNull RunnableWithException daoOp, int counter) {
+    private static int homeInReplicasProcess(boolean homeInReplicas,
+                                             @NotNull final RunnableWithException daoOp,
+                                             final int counter) {
         if (homeInReplicas) {
             try {
                 daoOp.run();
-                counter += 1;
+                return counter + 1;
             } catch (IOException e) {
                 logger.error("Error in local dao", e);
             }
@@ -270,13 +277,13 @@ public final class AsyncService extends HttpServer implements Service {
                                                               final int method) {
         switch (method) {
             case Request.METHOD_GET: {
-                return proxyHandlerGET(key);
+                return proxyHandlerGet(key);
             }
             case Request.METHOD_PUT: {
-                return proxyHandlerPUT(key, value, time);
+                return proxyHandlerPut(key, value, time);
             }
             case Request.METHOD_DELETE: {
-                return proxyHandlerDELETE(key, time);
+                return proxyHandlerDelete(key, time);
             }
             default: {
                 throw new IllegalArgumentException("Unhandled method");
@@ -284,14 +291,14 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private Supplier<CompletableFuture<Response>> proxyHandlerDELETE(@NotNull final ByteBuffer key,
-                                                                    final long time) {
+    private Supplier<CompletableFuture<Response>> proxyHandlerDelete(@NotNull final ByteBuffer key,
+                                                                     final long time) {
         return () -> CompletableFuture.<Void>supplyAsync(() -> {
             try {
                 dao.removeWithTimeStamp(key, time);
                 return null;
             } catch (IOException e) {
-                throw new RuntimeException("IOException in dao.removeWithTimeStamp");
+                throw new RuntimeException("IOException in dao.removeWithTimeStamp", e);
             }
         }, es).thenApply((v) -> new Response(Response.CREATED, Response.EMPTY))
                 .exceptionally((t) -> {
@@ -300,15 +307,15 @@ public final class AsyncService extends HttpServer implements Service {
                 });
     }
 
-    private Supplier<CompletableFuture<Response>> proxyHandlerPUT(@NotNull final ByteBuffer key,
-                                                                 @NotNull final ByteBuffer value,
-                                                                 final long time) {
+    private Supplier<CompletableFuture<Response>> proxyHandlerPut(@NotNull final ByteBuffer key,
+                                                                  @NotNull final ByteBuffer value,
+                                                                  final long time) {
         return () -> CompletableFuture.<Void>supplyAsync(() -> {
             try {
                 dao.upsertWithTimeStamp(key, value, time);
                 return null;
             } catch (IOException e) {
-                throw new RuntimeException("IOException in dao.upsertWithTimeStamp");
+                throw new RuntimeException("IOException in dao.upsertWithTimeStamp", e);
             }
         }, es).thenApply((v) -> new Response(Response.CREATED, Response.EMPTY))
                 .exceptionally((t) -> {
@@ -317,12 +324,12 @@ public final class AsyncService extends HttpServer implements Service {
                 });
     }
 
-    private Supplier<CompletableFuture<Response>> proxyHandlerGET(@NotNull final ByteBuffer key) {
+    private Supplier<CompletableFuture<Response>> proxyHandlerGet(@NotNull final ByteBuffer key) {
         return () -> CompletableFuture.supplyAsync(() -> {
             try {
                 return dao.getRaw(key);
             } catch (IOException e) {
-                throw new RuntimeException("IOException in dao.getRAW");
+                throw new RuntimeException("IOException in dao.getRAW", e);
             }
         }, es).thenApply((v) -> {
             final var resp = Response.ok(Utility.fromByteBuffer(v.getValue()));

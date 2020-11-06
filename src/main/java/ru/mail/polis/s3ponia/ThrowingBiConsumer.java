@@ -9,6 +9,11 @@ import java.util.function.BiConsumer;
 public interface ThrowingBiConsumer<T, U> {
     void accept(T t, U u) throws IOException;
 
+    /**
+     * Method that convert ThrowingBiConsumer to BiConsumer by adding IOException handler.
+     * @param handler IOException handler
+     * @return BiConsumer
+     */
     default BiConsumer<T, U> toBiConsumer(@NotNull final BiConsumer<T, U> handler) {
         return (t, u) -> {
             try {

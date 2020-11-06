@@ -26,10 +26,10 @@ public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
     public static final String PROXY_HEADER = "X-Proxy-From";
     public static final String TIME_HEADER = "XTime";
-    
+
     private Utility() {
     }
-    
+
     public static boolean validateId(@NotNull final String id) {
         return !id.isEmpty();
     }
@@ -37,7 +37,7 @@ public final class Utility {
     public static ByteBuffer byteBufferFromString(@NotNull final String s) {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
-    
+
     /**
      * Checks is homeNode in nodeReplicas.
      *
@@ -58,7 +58,7 @@ public final class Utility {
         }
         return homeInReplicas;
     }
-    
+
     /**
      * Getting DeadFlagTimeStamp from Table.Value.
      *
@@ -70,12 +70,12 @@ public final class Utility {
         assert header != null;
         return Long.parseLong(header.value);
     }
-    
+
     /**
      * Get Future values and store to list.
      *
-     * @param configuration   replication configuration
-     * @param responses list of future responses
+     * @param configuration replication configuration
+     * @param responses     list of future responses
      * @return list of Table.Value
      */
     @NotNull
@@ -105,7 +105,7 @@ public final class Utility {
     public static HttpServerConfig configFrom(final int port) {
         final AcceptorConfig ac = new AcceptorConfig();
         ac.port = port;
-        
+
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
@@ -125,23 +125,24 @@ public final class Utility {
 
     /**
      * Get list of success responses from nodes.
-     * @param request proxying request
-     * @param toHTTPClient function for mapping url to HttpClient
-     * @param skipNode node that should be skipped
-     * @param nodes array of nodes for proxy dest
+     *
+     * @param request      proxying request
+     * @param toHttpClient function for mapping url to HttpClient
+     * @param skipNode     node that should be skipped
+     * @param nodes        array of nodes for proxy dest
      * @return list of sucess responses
      */
     @NotNull
     public static List<Response> proxyReplicas(@NotNull final Request request,
-                                                @NotNull Function<String, HttpClient> toHTTPClient,
-                                                @NotNull final String skipNode,
-                                                @NotNull final String... nodes) {
+                                               @NotNull final Function<String, HttpClient> toHttpClient,
+                                               @NotNull final String skipNode,
+                                               @NotNull final String... nodes) {
         final List<Response> futureResponses = new ArrayList<>(nodes.length);
 
         for (final var node : nodes) {
 
             if (!node.equals(skipNode)) {
-                final var response = proxy(request, toHTTPClient.apply(node));
+                final var response = proxy(request, toHttpClient.apply(node));
                 if (response == null) {
                     continue;
                 }
@@ -156,7 +157,7 @@ public final class Utility {
         }
         return futureResponses;
     }
-    
+
     /**
      * Make map String to HttpClient from nodes list.
      *
@@ -177,7 +178,7 @@ public final class Utility {
         }
         return result;
     }
-    
+
     /**
      * Make byte array from ByteBuffer.
      *

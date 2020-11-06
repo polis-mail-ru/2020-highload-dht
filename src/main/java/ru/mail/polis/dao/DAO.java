@@ -20,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.s3ponia.ICell;
-import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.dao.s3ponia.Value;
 
 import java.io.Closeable;

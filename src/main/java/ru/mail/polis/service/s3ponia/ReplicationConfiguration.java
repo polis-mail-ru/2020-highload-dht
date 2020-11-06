@@ -43,6 +43,12 @@ public class ReplicationConfiguration {
         return temp;
     }
 
+    /**
+     * Returning default configuration for passed nodes' count if null passed or parse string.
+     * @param s replica's string config
+     * @param sz node's count
+     * @return ReplicationConfiguration
+     */
     public static ReplicationConfiguration parseOrDefault(final String s, final int sz) {
         if (s == null) {
             return DEFAULT_CONFIGURATIONS.get(sz - 1);
