@@ -175,7 +175,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
                 replication(action, key, topology, context),
                 context.getReplicaFactor().getAck(), clientExecutor);
-        final CompletableFuture<ResponseValue> result = requestHelper.merge(future, clientExecutor);
+        final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
         result.thenAccept(v -> requestHelper.sendLoggedResponse(
                 context.getSession(), new Response(v.getStatus(), v.getBody())))
                 .exceptionally(e -> {
