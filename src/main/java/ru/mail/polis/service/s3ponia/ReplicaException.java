@@ -3,7 +3,7 @@ package ru.mail.polis.service.s3ponia;
 import org.jetbrains.annotations.NotNull;
 
 @SuppressWarnings("serial")
-public class ReplicaException extends Throwable {
+public class ReplicaException extends Exception {
 
     public ReplicaException(@NotNull final String s,
                      final Throwable cause) {

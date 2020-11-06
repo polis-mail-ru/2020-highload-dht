@@ -41,6 +41,10 @@ public final class AsyncService extends HttpServer implements Service {
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
+    private final Map<Integer, Response> mapResponseOnSuccess =
+            Map.of(Request.METHOD_DELETE, new Response(Response.ACCEPTED, Response.EMPTY),
+            Request.METHOD_PUT, new Response(Response.CREATED, Response.EMPTY),
+            Request.METHOD_GET, Response.ok(Response.EMPTY));
 
     /**
      * AsyncService's constructor.
@@ -119,7 +123,7 @@ public final class AsyncService extends HttpServer implements Service {
             } catch (NumberFormatException e) {
                 badRequestResponse(
                         session, String.format("FormatException in time header %s", header.value), e, logger);
-                throw new RuntimeException("FormatException", e);
+                throw e;
             }
         }
         final var key = Utility.byteBufferFromString(id);
@@ -158,16 +162,8 @@ public final class AsyncService extends HttpServer implements Service {
 
         final var replicaResponses =
                 Proxy.proxyReplicas(request, urlToClient::get, policy.homeNode(), nodes);
-        final Map<Integer, RunnableWithException> mapDAOOp =
-                Map.of(Request.METHOD_DELETE, () -> dao.removeWithTimeStamp(key, currTime),
-                        Request.METHOD_PUT, () -> dao.upsertWithTimeStamp(key, value, currTime),
-                        Request.METHOD_GET, () -> dao.getRaw(key));
-        final Map<Integer, Response> mapResponses =
-                Map.of(Request.METHOD_DELETE, new Response(Response.ACCEPTED, Response.EMPTY),
-                        Request.METHOD_PUT, new Response(Response.CREATED, Response.EMPTY),
-                        Request.METHOD_GET, Response.ok(Response.EMPTY));
-        final RunnableWithException daoOp = mapDAOOp.get(request.getMethod());
-        final Response responseSucc = mapResponses.get(request.getMethod());
+        final RunnableWithException daoOp = getMapDaoOp(value, key, currTime).get(request.getMethod());
+        final Response responseSucc = mapResponseOnSuccess.get(request.getMethod());
         if (request.getMethod() == Request.METHOD_GET) {
             try {
                 resolveGetProxyResult(session, parsedReplica, homeInReplicas, replicaResponses, () -> dao.getRaw(key));
@@ -184,6 +180,13 @@ public final class AsyncService extends HttpServer implements Service {
                 session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
             }
         }
+    }
+
+    @NotNull
+    private Map<Integer, RunnableWithException> getMapDaoOp(ByteBuffer value, ByteBuffer key, long currTime) {
+        return Map.of(Request.METHOD_DELETE, () -> dao.removeWithTimeStamp(key, currTime),
+                Request.METHOD_PUT, () -> dao.upsertWithTimeStamp(key, value, currTime),
+                Request.METHOD_GET, () -> dao.getRaw(key));
     }
 
     private static void resolvePutDeleteProxyResult(@NotNull final HttpSession session,

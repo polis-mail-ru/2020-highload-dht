@@ -7,8 +7,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.s3ponia.ReplicaException;
-import ru.mail.polis.service.s3ponia.ReplicationConfiguration;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,7 +24,8 @@ import static ru.mail.polis.s3ponia.Utility.sendResponse;
 public final class Proxy {
     public static final String PROXY_HEADER = "X-Proxy-From";
 
-    private Proxy() {}
+    private Proxy() {
+    }
 
     private static Response proxy(
             @NotNull final Request request,
