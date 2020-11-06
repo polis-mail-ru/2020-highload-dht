@@ -248,10 +248,10 @@ public final class AsyncService extends HttpServer implements Service {
                                           @NotNull final Response r,
                                           final Throwable t) {
         if (t == null) {
-            sendResponse(session, r, logger);
+            sendResponse(session, r);
         } else {
             logger.error("Logic error. t must be null", t);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, EMPTY), logger);
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, EMPTY));
         }
     }
 

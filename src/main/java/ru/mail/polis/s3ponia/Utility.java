@@ -125,7 +125,6 @@ public final class Utility {
         }
     }
 
-
     public static void badRequestResponse(@NotNull final HttpSession session,
                                           @NotNull final String logString,
                                           @NotNull final Logger logger) throws IOException {
@@ -197,13 +196,17 @@ public final class Utility {
         return result;
     }
 
+    /**
+     * Send response with catching IOException and rethrowing it as RuntimeException.
+     * @param session session for sending response
+     * @param response response that sended
+     */
     public static void sendResponse(@NotNull final HttpSession session,
-                                    @NotNull final Response response,
-                                    @NotNull final Logger logger) {
+                                    @NotNull final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
-            logger.error("IOException in sending response", e);
+            throw new RuntimeException("IOException in sending response", e);
         }
     }
 
