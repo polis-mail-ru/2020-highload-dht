@@ -43,8 +43,8 @@ public final class AsyncService extends HttpServer implements Service {
     private final Map<String, HttpClient> urlToClient;
     private final Map<Integer, Response> mapResponseOnSuccess =
             Map.of(Request.METHOD_DELETE, new Response(Response.ACCEPTED, Response.EMPTY),
-            Request.METHOD_PUT, new Response(Response.CREATED, Response.EMPTY),
-            Request.METHOD_GET, Response.ok(Response.EMPTY));
+                    Request.METHOD_PUT, new Response(Response.CREATED, Response.EMPTY),
+                    Request.METHOD_GET, Response.ok(Response.EMPTY));
 
     /**
      * AsyncService's constructor.
@@ -114,10 +114,8 @@ public final class AsyncService extends HttpServer implements Service {
             throw new RuntimeException("Mismatch headers");
         }
 
-        final long time;
-        if (header == null) {
-            time = 0;
-        } else {
+        long time = 0;
+        if (header != null) {
             try {
                 time = Long.parseLong(header.value);
             } catch (NumberFormatException e) {
@@ -136,15 +134,7 @@ public final class AsyncService extends HttpServer implements Service {
             throw new RuntimeException("Bad request's method", e);
         }
         if (proxyHeader != null) {
-            try {
-                Proxy.proxyHandle(session, proxyHandler);
-            } catch (CancellationException e) {
-                logger.error("Canceled task", e);
-                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            } catch (RejectedExecutionException e) {
-                logger.error("Rejected task", e);
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            }
+            handleNoReplicaOperation(session, proxyHandler);
             return;
         }
         final ReplicationConfiguration parsedReplica;
@@ -179,6 +169,20 @@ public final class AsyncService extends HttpServer implements Service {
                 logger.error("Not enough replica");
                 session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
             }
+        }
+    }
+
+    private void handleNoReplicaOperation(@NotNull final HttpSession session,
+                                          @NotNull final Supplier<CompletableFuture<Response>> proxyHandler)
+            throws IOException {
+        try {
+            Proxy.proxyHandle(session, proxyHandler);
+        } catch (CancellationException e) {
+            logger.error("Canceled task", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        } catch (RejectedExecutionException e) {
+            logger.error("Rejected task", e);
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 
