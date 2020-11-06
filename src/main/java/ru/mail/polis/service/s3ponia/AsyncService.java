@@ -31,6 +31,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static ru.mail.polis.s3ponia.Utility.badRequestResponse;
+import static ru.mail.polis.s3ponia.Utility.sendResponse;
+
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     public static final byte[] EMPTY = Response.EMPTY;
@@ -77,34 +80,13 @@ public final class AsyncService extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
-    private static void badRequestResponse(@NotNull final HttpSession session,
-                                           @NotNull final String logString) throws IOException {
-        AsyncService.logger.error(logString);
-        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-    }
-
-    private static void badRequestResponse(@NotNull final HttpSession session,
-                                           @NotNull final String logString,
-                                           @NotNull final Throwable e) throws IOException {
-        AsyncService.logger.error(logString, e);
-        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-    }
-
-    private static void sendResponse(@NotNull final HttpSession session,
-                                     @NotNull final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException e) {
-            logger.error("IOException in sending response", e);
-        }
-    }
-
     /**
      * Entity requests handler.
-     * @param id dao's key
+     *
+     * @param id       dao's key
      * @param replicas replica configuration param
-     * @param request handling request
-     * @param session current session
+     * @param request  handling request
+     * @param session  current session
      * @throws IOException rethrow session exception
      */
     @Path("/v0/entity")
@@ -114,7 +96,8 @@ public final class AsyncService extends HttpServer implements Service {
                        @NotNull final HttpSession session) throws IOException {
         if (!Utility.validateId(id)) {
             badRequestResponse(session,
-                    String.format("Empty id in request %s with method %s", request.getURI(), request.getMethodName()));
+                    String.format("Empty id in request %s with method %s", request.getURI(), request.getMethodName()),
+                    logger);
             throw new RuntimeException("Empty id");
         }
 
@@ -129,7 +112,7 @@ public final class AsyncService extends HttpServer implements Service {
         final var header = Header.getHeader(Utility.TIME_HEADER, request);
 
         if (header == null && request.getMethod() != Request.METHOD_GET && proxyHeader != null) {
-            badRequestResponse(session, "Mismatch headers");
+            badRequestResponse(session, "Mismatch headers", logger);
             throw new RuntimeException("Mismatch headers");
         }
 
@@ -141,7 +124,7 @@ public final class AsyncService extends HttpServer implements Service {
                 time = Long.parseLong(header.value);
             } catch (NumberFormatException e) {
                 badRequestResponse(
-                        session, String.format("FormatException in time header %s", header.value), e);
+                        session, String.format("FormatException in time header %s", header.value), e, logger);
                 throw new RuntimeException("FormatException", e);
             }
         }
@@ -151,7 +134,7 @@ public final class AsyncService extends HttpServer implements Service {
             proxyHandler = proxyHandler(key, value, time, request.getMethod());
         } catch (IllegalArgumentException e) {
             badRequestResponse(
-                    session, String.format("Bad request's method %s", request.getMethodName()), e);
+                    session, String.format("Bad request's method %s", request.getMethodName()), e, logger);
             throw new RuntimeException("Bad request's method", e);
         }
         if (proxyHeader != null) {
@@ -162,7 +145,7 @@ public final class AsyncService extends HttpServer implements Service {
         try {
             parsedReplica = ReplicationConfiguration.parseOrDefault(replicas, policy.all().length);
         } catch (IllegalArgumentException e) {
-            badRequestResponse(session, "Bad replica param", e);
+            badRequestResponse(session, "Bad replica param", e, logger);
             return;
         }
         final var currTime = System.currentTimeMillis();
@@ -171,7 +154,8 @@ public final class AsyncService extends HttpServer implements Service {
         final var nodes = policy.getNodeReplicas(key, parsedReplica.replicas);
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
-        final var replicaResponses = Utility.proxyReplicas(request, urlToClient::get, policy.homeNode(), nodes);
+        final var replicaResponses =
+                Utility.proxyReplicas(request, urlToClient::get, policy.homeNode(), nodes);
         final Map<Integer, RunnableWithException> mapDAOOp =
                 Map.of(Request.METHOD_DELETE, () -> dao.removeWithTimeStamp(key, currTime),
                         Request.METHOD_PUT, () -> dao.upsertWithTimeStamp(key, value, currTime),
@@ -217,7 +201,7 @@ public final class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private static int homeInReplicasProcess(boolean homeInReplicas,
+    private static int homeInReplicasProcess(final boolean homeInReplicas,
                                              @NotNull final RunnableWithException daoOp,
                                              final int counter) {
         if (homeInReplicas) {
@@ -264,31 +248,22 @@ public final class AsyncService extends HttpServer implements Service {
                                           @NotNull final Response r,
                                           final Throwable t) {
         if (t == null) {
-            sendResponse(session, r);
+            sendResponse(session, r, logger);
         } else {
             logger.error("Logic error. t must be null", t);
-            sendResponse(session, new Response(Response.INTERNAL_ERROR, EMPTY));
+            sendResponse(session, new Response(Response.INTERNAL_ERROR, EMPTY), logger);
         }
     }
 
     private Supplier<CompletableFuture<Response>> proxyHandler(@NotNull final ByteBuffer key,
-                                                              @NotNull final ByteBuffer value,
-                                                              final long time,
-                                                              final int method) {
-        switch (method) {
-            case Request.METHOD_GET: {
-                return proxyHandlerGet(key);
-            }
-            case Request.METHOD_PUT: {
-                return proxyHandlerPut(key, value, time);
-            }
-            case Request.METHOD_DELETE: {
-                return proxyHandlerDelete(key, time);
-            }
-            default: {
-                throw new IllegalArgumentException("Unhandled method");
-            }
-        }
+                                                               @NotNull final ByteBuffer value,
+                                                               final long time,
+                                                               final int method) {
+        final Map<Integer, Supplier<CompletableFuture<Response>>> map =
+                Map.of(Request.METHOD_GET, proxyHandlerGet(key),
+                        Request.METHOD_PUT, proxyHandlerPut(key, value, time),
+                        Request.METHOD_DELETE, proxyHandlerDelete(key, time));
+        return map.get(method);
     }
 
     private Supplier<CompletableFuture<Response>> proxyHandlerDelete(@NotNull final ByteBuffer key,

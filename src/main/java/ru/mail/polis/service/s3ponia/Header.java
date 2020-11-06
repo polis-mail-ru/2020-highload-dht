@@ -4,7 +4,7 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
-final public class Header {
+public final class Header {
     public final String key;
     public final String value;
 

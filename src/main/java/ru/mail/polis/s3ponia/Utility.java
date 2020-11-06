@@ -3,12 +3,14 @@ package ru.mail.polis.s3ponia;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.service.s3ponia.Header;
 import ru.mail.polis.service.s3ponia.ReplicationConfiguration;
@@ -123,6 +125,22 @@ public final class Utility {
         }
     }
 
+
+    public static void badRequestResponse(@NotNull final HttpSession session,
+                                          @NotNull final String logString,
+                                          @NotNull final Logger logger) throws IOException {
+        logger.error(logString);
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    public static void badRequestResponse(@NotNull final HttpSession session,
+                                          @NotNull final String logString,
+                                          @NotNull final Throwable e,
+                                          @NotNull final Logger logger) throws IOException {
+        logger.error(logString, e);
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
     /**
      * Get list of success responses from nodes.
      *
@@ -177,6 +195,16 @@ public final class Utility {
             }
         }
         return result;
+    }
+
+    public static void sendResponse(@NotNull final HttpSession session,
+                                    @NotNull final Response response,
+                                    @NotNull final Logger logger) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            logger.error("IOException in sending response", e);
+        }
     }
 
     /**
