@@ -208,6 +208,7 @@ public final class AsyncService extends HttpServer implements Service {
             try {
                 values.add(daoOp.get());
             } catch (IOException ignored) {
+                logger.error("Error in getting from dao");
             }
         }
         if (values.size() < parsedReplica.acks) {

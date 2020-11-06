@@ -1,19 +1,15 @@
 package ru.mail.polis.s3ponia;
 
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
-import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.service.s3ponia.Header;
-import ru.mail.polis.service.s3ponia.ReplicaException;
 import ru.mail.polis.service.s3ponia.ReplicationConfiguration;
 
 import java.io.IOException;
@@ -23,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
