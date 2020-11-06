@@ -199,7 +199,7 @@ public class MyDAO implements DAO {
         memTablePool.close();
         executorService.shutdown();
         try {
-            if (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
                 executorService.shutdownNow();
             }
         } catch (InterruptedException e) {

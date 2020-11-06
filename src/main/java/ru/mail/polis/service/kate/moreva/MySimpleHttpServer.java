@@ -45,7 +45,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private static final String TIMESTAMP = "Timestamp";
     static final String PROXY_HEADER_KEY = "X-Proxy";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
-    static final Duration timeout = Duration.ofSeconds(1);
+    private final Duration timeout = Duration.ofSeconds(1);
     private final ExecutorService executorService;
     private final Executor clientExecutor;
     private final Topology<String> topology;
@@ -180,6 +180,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 context.getSession(), new Response(v.getStatus(), v.getBody())), clientExecutor)
                 .exceptionally(e -> {
                     log.error("Error while executing method ", e);
+                    requestHelper.sendLoggedResponse(context.getSession(),
+                            new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
                     return null;
                 });
     }
@@ -225,7 +227,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 + StandardCharsets.UTF_8.decode(key.duplicate()).toString()
                 + "&replicas=" + context.getReplicaFactor().toString());
         final HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .timeout(MySimpleHttpServer.timeout)
+                .timeout(this.timeout)
                 .uri(uri)
                 .headers(PROXY_HEADER_KEY, "true");
         switch (request.getMethod()) {
@@ -245,7 +247,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         super.stop();
         executorService.shutdown();
         try {
-            executorService.awaitTermination(20, TimeUnit.SECONDS);
+            executorService.awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             log.error("Error can't shutdown execution service");
             Thread.currentThread().interrupt();

@@ -11,7 +11,6 @@ import ru.mail.polis.dao.kate.moreva.Value;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -113,7 +112,7 @@ public class MyRequestHelper {
             resultsFuture.complete(response);
         }, clientExecutor).exceptionally(e -> {
             log.error("Error while merge ", e);
-            return Collections.emptyList();
+            return null;
         });
         return resultsFuture;
     }
