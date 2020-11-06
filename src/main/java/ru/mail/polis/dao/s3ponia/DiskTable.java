@@ -24,7 +24,7 @@ public class DiskTable implements Closeable, Table {
         return filePath;
     }
     
-    private class DiskTableIterator implements Iterator<Table.ICell> {
+    private class DiskTableIterator implements Iterator<ICell> {
         private int elementIndex;
         
         private LazyCell getLazyCell(final int index) {
@@ -75,12 +75,12 @@ public class DiskTable implements Closeable, Table {
         }
     }
     
-    private class LazyCell implements Table.ICell {
+    private class LazyCell implements ICell {
         final long position;
         final int size;
         static final int CACHE_SIZE = 100;
         ByteBuffer keyCache;
-        Table.Value valueCache;
+        Value valueCache;
         
         public LazyCell(final long position, final int size) {
             this.position = position;
@@ -113,7 +113,7 @@ public class DiskTable implements Closeable, Table {
         
         @Override
         @NotNull
-        public Table.Value getValue() {
+        public Value getValue() {
             if (valueCache != null) {
                 return valueCache;
             }
@@ -128,20 +128,20 @@ public class DiskTable implements Closeable, Table {
                 final var valueBuf = ByteBuffer.allocate(size - Integer.BYTES - Long.BYTES - keySize);
                 fileChannel.read(valueBuf, position + Long.BYTES + Integer.BYTES + keySize);
                 
-                final var value = Table.Value.of(valueBuf.flip(), deadFlagTimeStamp, generation);
+                final var value = Value.of(valueBuf.flip(), deadFlagTimeStamp, generation);
                 if (valueBuf.limit() < CACHE_SIZE) {
                     valueCache = value;
                 }
                 return value;
             } catch (IOException e) {
                 logger.warning(e.toString());
-                return Table.Value.of(ByteBuffer.allocate(0), -1);
+                return Value.of(ByteBuffer.allocate(0), -1);
             }
         }
         
         @Override
-        public int compareTo(@NotNull final Table.ICell o) {
-            return Comparator.comparing(Table.ICell::getKey).thenComparing(Table.ICell::getValue).compare(this, o);
+        public int compareTo(@NotNull final ICell o) {
+            return Comparator.comparing(ICell::getKey).thenComparing(ICell::getValue).compare(this, o);
         }
     }
     
@@ -203,12 +203,12 @@ public class DiskTable implements Closeable, Table {
     }
     
     @Override
-    public Iterator<Table.ICell> iterator() {
+    public Iterator<ICell> iterator() {
         return new DiskTableIterator();
     }
     
     @Override
-    public Iterator<Table.ICell> iterator(@NotNull final ByteBuffer from) {
+    public Iterator<ICell> iterator(@NotNull final ByteBuffer from) {
         return new DiskTableIterator(from);
     }
     

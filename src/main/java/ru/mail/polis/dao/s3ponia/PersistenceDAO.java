@@ -94,7 +94,7 @@ public final class PersistenceDAO implements DAO {
     
     @NotNull
     @Override
-    public Iterator<Table.ICell> iteratorRaw(@NotNull final ByteBuffer from) {
+    public Iterator<ICell> iteratorRaw(@NotNull final ByteBuffer from) {
         final TableSet snapshot;
         readWriteLock.readLock().lock();
         try {
@@ -103,13 +103,13 @@ public final class PersistenceDAO implements DAO {
             readWriteLock.readLock().unlock();
         }
     
-        final var diskIterators = new ArrayList<Iterator<Table.ICell>>();
+        final var diskIterators = new ArrayList<Iterator<ICell>>();
         diskIterators.add(snapshot.memTable.iterator(from));
         snapshot.diskTables.forEach((a, table) -> diskIterators.add(table.iterator(from)));
         snapshot.flushingTables.forEach(table -> diskIterators.add(table.iterator(from)));
-        final var merge = Iterators.mergeSorted(diskIterators, Table.ICell::compareTo);
+        final var merge = Iterators.mergeSorted(diskIterators, ICell::compareTo);
     
-        return Iters.collapseEquals(merge, Table.ICell::getKey);
+        return Iters.collapseEquals(merge, ICell::getKey);
     }
     
     @Override
@@ -177,11 +177,11 @@ public final class PersistenceDAO implements DAO {
         }
 
         final var point = ByteBuffer.allocate(0);
-        final var iterators = new ArrayList<Iterator<Table.ICell>>();
+        final var iterators = new ArrayList<Iterator<ICell>>();
         iterators.add(snapshot.memTable.iterator(point));
         snapshot.diskTables.forEach((a, table) -> iterators.add(table.iterator(point)));
-        final var merge = Iterators.mergeSorted(iterators, Table.ICell::compareTo);
-        final var newest = Iters.collapseEquals(merge, Table.ICell::getKey);
+        final var merge = Iterators.mergeSorted(iterators, ICell::compareTo);
+        final var newest = Iters.collapseEquals(merge, ICell::getKey);
 
         readWriteLock.writeLock().lock();
         try {
