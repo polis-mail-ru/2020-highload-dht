@@ -175,13 +175,13 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
                 replication(action, key, topology, context),
                 context.getReplicaFactor().getAck(), clientExecutor);
-        final CompletableFuture<ResponseValue> result = requestHelper.merge(future, clientExecutor);
+        final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
         result.thenAcceptAsync(v -> requestHelper.sendLoggedResponse(
                 context.getSession(), new Response(v.getStatus(), v.getBody())), clientExecutor)
                 .exceptionally(e -> {
                     log.error("Error while executing method ", e);
-//                    requestHelper.sendLoggedResponse(context.getSession(),
-//                            new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                    requestHelper.sendLoggedResponse(context.getSession(),
+                            new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
                     return null;
                 });
     }
@@ -201,11 +201,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 getLocalResults(action, results);
             } else {
-                final HttpRequest request = requestForReplica(context.getRequest(), key, context, node);
+                final HttpRequest request = requestForReplica(context.getRequest(), key, node);
                 final CompletableFuture<ResponseValue> result = this.client
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                        .thenApplyAsync(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
-                                r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)), clientExecutor);
+                        .thenApply(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
+                                r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)));
                 results.add(result);
             }
         }
@@ -221,11 +221,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         results.add(future);
     }
 
-    private HttpRequest requestForReplica(final Request request, final ByteBuffer key,
-                                          final Context context, final String node) {
+    private HttpRequest requestForReplica(final Request request, final ByteBuffer key, final String node) {
         final URI uri = URI.create(node + "/v0/entity?id="
-                + StandardCharsets.UTF_8.decode(key.duplicate()).toString()
-                + "&replicas=" + context.getReplicaFactor().toString());
+                + StandardCharsets.UTF_8.decode(key.duplicate()).toString());
         final HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .timeout(this.timeout)
                 .uri(uri)
@@ -247,7 +245,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         super.stop();
         executorService.shutdown();
         try {
-            executorService.awaitTermination(5, TimeUnit.SECONDS);
+            executorService.awaitTermination(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             log.error("Error can't shutdown execution service");
             Thread.currentThread().interrupt();
