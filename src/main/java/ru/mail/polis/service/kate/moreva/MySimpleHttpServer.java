@@ -180,8 +180,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 context.getSession(), new Response(v.getStatus(), v.getBody())), clientExecutor)
                 .exceptionally(e -> {
                     log.error("Error while executing method ", e);
-                    requestHelper.sendLoggedResponse(context.getSession(),
-                            new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+//                    requestHelper.sendLoggedResponse(context.getSession(),
+//                            new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
                     return null;
                 });
     }
