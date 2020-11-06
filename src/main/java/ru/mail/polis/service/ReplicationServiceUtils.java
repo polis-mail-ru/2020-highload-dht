@@ -14,6 +14,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 final class ReplicationServiceUtils {
+    private static final String TIMESTAMP = "Timestamp: ";
+
     private ReplicationServiceUtils() {
 
     }
@@ -49,14 +51,28 @@ final class ReplicationServiceUtils {
         final Value value = syncValues(values);
 
         if (value.isValueDeleted()) {
-            return new Response(Response.NOT_FOUND, value.getValueBytes());
+            Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            return addTimestampHeader(response, value.getTimestamp());
         }
 
         if (nodeReplicas.size() == 1 && isForwardedRequest) {
-            return new Response(Response.OK, value.getValueBytes());
+            Response response = new Response(Response.OK, value.getValueBytes());
+            return addTimestampHeader(response, value.getTimestamp());
         }
 
-        return new Response(Response.OK, value.getBytes());
+
+        Response response = new Response(Response.OK, value.getBytes());
+        return addTimestampHeader(response, value.getTimestamp());
+    }
+
+    static long getTimestamp(final Response response) {
+        final String timestamp = response.getHeader(TIMESTAMP);
+        return timestamp == null ? -1 : Long.parseLong(timestamp);
+    }
+
+    private static Response addTimestampHeader(final Response response, final long timestamp) {
+        response.addHeader(TIMESTAMP + timestamp);
+        return response;
     }
 
     static Response handleInternal(
@@ -65,7 +81,8 @@ final class ReplicationServiceUtils {
 
         try {
             final Value value = dao.getValue(key);
-            return new Response(Response.OK, value.getValueBytes());
+            final Response response = new Response(Response.OK, value.getValueBytes());
+            return addTimestampHeader(response, value.getTimestamp());
         } catch (IOException exc) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException exc) {

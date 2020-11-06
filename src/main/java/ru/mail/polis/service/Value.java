@@ -19,12 +19,16 @@ public final class Value {
         this.buffer = buffer;
     }
 
+    private static ByteBuffer getEmptyBuffer() {
+        return ByteBuffer.allocate(0);
+    }
+
     public static Value resolveExistingValue(final ByteBuffer buffer, final long timestamp) {
         return new Value(false, timestamp, buffer);
     }
 
     public static Value resolveDeletedValue(final long timestamp) {
-        return new Value(true, timestamp, ByteBuffer.allocate(0));
+        return new Value(true, timestamp, getEmptyBuffer());
     }
 
     static Value resolveMissingValue() {

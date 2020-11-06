@@ -107,8 +107,13 @@ class ReplicationHandler {
                     response = nodesToClients.get(node)
                             .get(NORMAL_REQUEST_HEADER + id, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
                 }
-                if (response.getStatus() == 404 && response.getBody().length == 0) {
-                    values.add(Value.resolveMissingValue());
+                final long timestamp = ReplicationServiceUtils.getTimestamp(response);
+                if (response.getStatus() == 404) {
+                    if (timestamp > 0) {
+                        values.add(Value.resolveDeletedValue(timestamp));
+                    } else  {
+                        values.add(Value.resolveMissingValue());
+                    }
                 } else if (response.getStatus() == 500) {
                     continue;
                 } else {
