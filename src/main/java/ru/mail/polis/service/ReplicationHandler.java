@@ -100,20 +100,14 @@ class ReplicationHandler {
             try {
                 Response response;
                 if (topology.isSelfId(node)) {
-                    response = handleInternal(
-                            ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)),
-                            dao);
+                    response = handleInternal(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), dao);
                 } else {
                     response = nodesToClients.get(node)
                             .get(NORMAL_REQUEST_HEADER + id, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
                 }
                 final long timestamp = ReplicationServiceUtils.getTimestamp(response);
                 if (response.getStatus() == 404) {
-                    if (timestamp > 0) {
-                        values.add(Value.resolveDeletedValue(timestamp));
-                    } else  {
-                        values.add(Value.resolveMissingValue());
-                    }
+                    values.add(timestamp > 0 ? Value.resolveDeletedValue(timestamp) : Value.resolveMissingValue());
                 } else if (response.getStatus() == 500) {
                     continue;
                 } else {

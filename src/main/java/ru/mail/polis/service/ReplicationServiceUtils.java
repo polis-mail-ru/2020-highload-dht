@@ -51,17 +51,16 @@ final class ReplicationServiceUtils {
         final Value value = syncValues(values);
 
         if (value.isValueDeleted()) {
-            Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
             return addTimestampHeader(response, value.getTimestamp());
         }
 
         if (nodeReplicas.size() == 1 && isForwardedRequest) {
-            Response response = new Response(Response.OK, value.getValueBytes());
+            final Response response = new Response(Response.OK, value.getValueBytes());
             return addTimestampHeader(response, value.getTimestamp());
         }
 
-
-        Response response = new Response(Response.OK, value.getBytes());
+        final Response response = new Response(Response.OK, value.getBytes());
         return addTimestampHeader(response, value.getTimestamp());
     }
 
