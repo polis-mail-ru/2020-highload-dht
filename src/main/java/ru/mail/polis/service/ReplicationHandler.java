@@ -83,9 +83,7 @@ class ReplicationHandler {
     }
 
     Response multipleGet(
-            final String id,
-            @NotNull final ReplicationFactor repliFactor,
-            final boolean isForwardedRequest
+            final String id, @NotNull final ReplicationFactor repliFactor, final boolean isForwardedRequest
     ) throws NotEnoughNodesException, IOException {
         int replCounter = 0;
         final Set<String> nodes = getNodeReplica(
