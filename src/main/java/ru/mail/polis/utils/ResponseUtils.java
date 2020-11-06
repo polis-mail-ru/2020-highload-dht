@@ -58,4 +58,11 @@ public final class ResponseUtils {
     public static String getStatus(@NotNull final Response response) {
         return response.getHeaders()[0];
     }
+
+    @FunctionalInterface
+    public interface Action {
+        @NotNull
+        Response act() throws IOException;
+    }
+
 }

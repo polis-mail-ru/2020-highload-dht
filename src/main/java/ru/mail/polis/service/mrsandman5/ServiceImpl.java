@@ -43,7 +43,9 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private final Topology<String> topology;
+    @NotNull
     private final ReplicasFactor quorum;
+    @NotNull
     private final Map<String, HttpClient> httpClients;
     @NotNull
     private final SimpleRequests simpleRequests;
@@ -105,7 +107,6 @@ public final class ServiceImpl extends HttpServer implements Service {
                          @Param(value = "replicas") final String replicas,
                          @NotNull final Request request,
                          @NotNull final HttpSession session) {
-        log.debug("Request handling : {}", id);
         if (id == null || id.isEmpty()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
@@ -136,7 +137,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private List<Response> replication(@NotNull final Action action,
+    private List<Response> replication(@NotNull final ResponseUtils.Action action,
                                        @NotNull final Request request,
                                        @NotNull final ByteBuffer key,
                                        @NotNull final ReplicasFactor replicasFactor) {
@@ -263,7 +264,7 @@ public final class ServiceImpl extends HttpServer implements Service {
     }
 
     private void asyncExecute(@NotNull final HttpSession session,
-                              @NotNull final Action action) {
+                              @NotNull final ResponseUtils.Action action) {
         executor.execute(() -> {
             try {
                 ResponseUtils.sendResponse(session, action.act());
@@ -272,12 +273,6 @@ public final class ServiceImpl extends HttpServer implements Service {
                 ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
             }
         });
-    }
-
-    @FunctionalInterface
-    private interface Action {
-        @NotNull
-        Response act() throws IOException;
     }
 
     @Override
