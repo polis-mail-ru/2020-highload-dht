@@ -20,7 +20,6 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -37,13 +36,6 @@ import static ru.mail.polis.s3ponia.Utility.sendResponse;
 public final class AsyncService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     public static final byte[] EMPTY = Response.EMPTY;
-    public static final List<ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
-            new ReplicationConfiguration(1, 1),
-            new ReplicationConfiguration(2, 2),
-            new ReplicationConfiguration(2, 3),
-            new ReplicationConfiguration(3, 4),
-            new ReplicationConfiguration(3, 5)
-    );
     private final DAO dao;
     private final ExecutorService es;
     private final ShardingPolicy<ByteBuffer, String> policy;
