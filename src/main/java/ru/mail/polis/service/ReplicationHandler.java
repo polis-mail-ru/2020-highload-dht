@@ -116,6 +116,14 @@ class ReplicationHandler {
                 log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }
         }
+
+        return processGet(isForwardedRequest, repliFactor, replCounter, nodes, values);
+    }
+
+    private Response processGet(
+            final boolean isForwardedRequest, final ReplicationFactor repliFactor, final int replCounter,
+            final Set<String> nodes, final List<Value> values
+    ) throws IOException {
         if (isForwardedRequest || replCounter >= repliFactor.getAck()) {
             return handleExternal(values, nodes, isForwardedRequest);
         } else {
@@ -147,10 +155,8 @@ class ReplicationHandler {
     }
 
     Response multipleUpsert(
-            final String id,
-            final byte[] value,
-            final int ackValue,
-            final boolean isForwardedRequest) throws NotEnoughNodesException {
+            final String id, final byte[] value, final int ackValue, final boolean isForwardedRequest
+    ) throws NotEnoughNodesException {
         if (isForwardedRequest) {
             try {
                 dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
@@ -189,8 +195,7 @@ class ReplicationHandler {
     Response singleDelete(
             @NotNull final ByteBuffer key,
             @NotNull final Request req
-    ) throws IOException {
-
+    ) {
         final String target = topology.primaryFor(key);
         if (topology.isSelfId(target)) {
             try {
