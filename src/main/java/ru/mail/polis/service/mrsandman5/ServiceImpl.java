@@ -30,6 +30,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static java.util.function.Function.identity;
@@ -45,18 +47,20 @@ public final class ServiceImpl extends HttpServer implements Service {
     private final Map<String, HttpClient> httpClients;
     @NotNull
     private final SimpleRequests simpleRequests;
+    @NotNull
+    private final ExecutorService executor;
 
     /** Create new ServiceImpl instance.
      * @param port - target port.
      * @param topology - cluster topology
      * @param dao - custom LSM DAO.
-     * @param workersCount - thread workers.
+     * @param executor - thread pool executor.
      * */
     @NotNull
     public static Service create(final int port,
                                  @NotNull final Topology<String> topology,
                                  @NotNull final DAO dao,
-                                 final int workersCount) throws IOException {
+                                 @NotNull final ExecutorService executor) throws IOException {
         final AcceptorConfig acceptor = new AcceptorConfig();
         acceptor.port = port;
         acceptor.deferAccept = true;
@@ -64,9 +68,8 @@ public final class ServiceImpl extends HttpServer implements Service {
 
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-        config.selectors = workersCount;
 
-        return new ServiceImpl(config, topology, dao);
+        return new ServiceImpl(config, topology, dao, executor);
     }
 
     /** Service constructor.
@@ -75,12 +78,14 @@ public final class ServiceImpl extends HttpServer implements Service {
      * @param dao - custom LSM DAO.
      * */
     private ServiceImpl(@NotNull final HttpServerConfig config,
-                       @NotNull final Topology<String> topology,
-                       @NotNull final DAO dao) throws IOException {
+                        @NotNull final Topology<String> topology,
+                        @NotNull final DAO dao,
+                        @NotNull final ExecutorService executor) throws IOException {
         super(config);
         this.topology = topology;
         final DAOImpl serviceDao = (DAOImpl) dao;
         this.simpleRequests = new SimpleRequests(serviceDao);
+        this.executor = executor;
         this.quorum = ReplicasFactor.quorum(topology.all().size());
         this.httpClients = topology.others()
                 .stream()
@@ -259,7 +264,7 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     private void asyncExecute(@NotNull final HttpSession session,
                               @NotNull final Action action) {
-        asyncExecute(() -> {
+        executor.execute(() -> {
             try {
                 ResponseUtils.sendResponse(session, action.act());
             } catch (IOException e) {
@@ -273,6 +278,21 @@ public final class ServiceImpl extends HttpServer implements Service {
     private interface Action {
         @NotNull
         Response act() throws IOException;
+    }
+
+    @Override
+    public synchronized void stop() {
+        super.stop();
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException ie) {
+            log.error("Can't stop the executor", ie);
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
 }
