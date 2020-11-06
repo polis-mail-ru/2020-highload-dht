@@ -129,7 +129,6 @@ class ShardingTest extends ClusterTestBase {
             assertEquals(201, upsert(1, key, value2).getStatus());
 
             // Check value 2
-
             for (int i = 0; i < getClusterSize(); i++) {
                 checkResponse(200, value2, get(i, key));
             }
@@ -207,5 +206,4 @@ class ShardingTest extends ClusterTestBase {
             assertEquals(1, copies);
         });
     }
->>>>>>>upstream/master
 }
