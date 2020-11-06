@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -103,20 +102,22 @@ public final class AsyncService extends HttpServer implements Service {
         return futureResponses;
     }
 
-    static private void badRequestResponse(@NotNull final HttpSession session,
+    private static void badRequestResponse(@NotNull Logger logger,
+                                           @NotNull final HttpSession session,
                                            @NotNull final String logString) throws IOException {
         logger.error(logString);
         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
     }
 
-    static private void badRequestResponse(@NotNull final HttpSession session,
+    private static void badRequestResponse(@NotNull Logger logger,
+                                           @NotNull final HttpSession session,
                                            @NotNull final String logString,
                                            @NotNull final Throwable e) throws IOException {
         logger.error(logString, e);
         session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
     }
 
-    static private void sendResponse(@NotNull final HttpSession session,
+    private static void sendResponse(@NotNull final HttpSession session,
                                      @NotNull final Response response) {
         try {
             session.sendResponse(response);
@@ -131,7 +132,7 @@ public final class AsyncService extends HttpServer implements Service {
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
         if (!Utility.validateId(id)) {
-            badRequestResponse(session,
+            badRequestResponse(logger, session,
                     String.format("Empty id in request %s with method %s", request.getURI(), request.getMethodName()));
             return;
         }
@@ -157,7 +158,7 @@ public final class AsyncService extends HttpServer implements Service {
         final long time;
 
         if (parsedReplica == null || parsedReplica.acks == 0 || parsedReplica.acks > parsedReplica.replicas) {
-            badRequestResponse(session, String.format("Bad replicas param %s", parsedReplica));
+            badRequestResponse(logger, session, String.format("Bad replicas param %s", parsedReplica));
             return;
         }
 
@@ -165,13 +166,14 @@ public final class AsyncService extends HttpServer implements Service {
             try {
                 time = Long.parseLong(header.value);
             } catch (NumberFormatException e) {
-                badRequestResponse(session, String.format("FormatException in time header %s", header.value), e);
+                badRequestResponse(logger,
+                        session, String.format("FormatException in time header %s", header.value), e);
                 return;
             }
         } else {
             time = 0;
             if (request.getMethod() != Request.METHOD_GET && proxyHeader != null) {
-                badRequestResponse(session, "Mismatch headers");
+                badRequestResponse(logger, session, "Mismatch headers");
                 return;
             }
         }
@@ -180,7 +182,8 @@ public final class AsyncService extends HttpServer implements Service {
         try {
             proxyHandler = proxyHandler(key, value, time, request.getMethod());
         } catch (IllegalArgumentException e) {
-            badRequestResponse(session, String.format("Bad request's method %s", request.getMethodName()), e);
+            badRequestResponse(logger,
+                    session, String.format("Bad request's method %s", request.getMethodName()), e);
             return;
         }
 
