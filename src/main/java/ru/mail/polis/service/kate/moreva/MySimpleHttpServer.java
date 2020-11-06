@@ -150,6 +150,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private void defineMethod(final Request request, final HttpSession session, final ByteBuffer key,
                               final Replicas replicasFactor, final boolean isProxy) {
         final Context context = new Context(session, isProxy, request, replicasFactor);
+        CompletableFuture.runAsync(() -> {
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 executeMethod(context, key, () -> requestHelper.getEntity(key));
@@ -165,6 +166,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 requestHelper.sendLoggedResponse(session, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                 break;
         }
+        }, clientExecutor).exceptionally(e -> {
+            log.error("Error while executing method ", e);
+            requestHelper.sendLoggedResponse(context.getSession(),
+                    new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+            return null;
+        });
     }
 
     void executeMethod(final Context context, final ByteBuffer key, final Action action) {

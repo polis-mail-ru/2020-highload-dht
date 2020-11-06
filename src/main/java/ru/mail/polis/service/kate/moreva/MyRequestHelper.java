@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
-    private static final String TIMESTAMP = "Timestamp: ";
-    static final String PROXY_HEADER = "X-Proxy: ";
+    private static final String TIMESTAMP = "Timestamp:";
+    static final String PROXY_HEADER = "X-Proxy:";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
     private static final Logger log = LoggerFactory.getLogger(MyRequestHelper.class);
 
