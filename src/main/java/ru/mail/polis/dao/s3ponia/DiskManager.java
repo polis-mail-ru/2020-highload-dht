@@ -24,7 +24,7 @@ public class DiskManager implements Closeable {
     private final List<DiskTable> diskTables;
     private int generation;
 
-    private void saveTo(final Iterator<Table.ICell> it, final Path file) throws IOException {
+    private void saveTo(final Iterator<ICell> it, final Path file) throws IOException {
         Files.createFile(file);
         try (FileChannel writer = FileChannel.open(file, StandardOpenOption.WRITE)) {
             final var shifts = new ArrayList<Integer>();
@@ -141,7 +141,7 @@ public class DiskManager implements Closeable {
         }
     }
 
-    void save(final Iterator<Table.ICell> it, final int generation) throws IOException {
+    void save(final Iterator<ICell> it, final int generation) throws IOException {
         final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         final var fileName = filePath.toString();
         saveFileNameToMeta(fileName);
