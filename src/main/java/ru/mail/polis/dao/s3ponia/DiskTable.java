@@ -8,7 +8,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.logging.Logger;
 
@@ -27,7 +26,7 @@ public class DiskTable implements Closeable, Table {
     private class DiskTableIterator implements Iterator<ICell> {
         private int elementIndex;
         
-        private LazyCell getLazyCell(final int index) {
+        private DiskCell getLazyCell(final int index) {
             if (index >= shifts.length - 1) {
                 throw new ArrayIndexOutOfBoundsException("Out of bound");
             }
@@ -68,55 +67,28 @@ public class DiskTable implements Closeable, Table {
         }
         
         @Override
-        public LazyCell next() {
+        public DiskCell next() {
             final var result = getLazyCell(elementIndex);
             ++elementIndex;
             return result;
         }
     }
     
-    private class LazyCell implements ICell {
+    private class DiskCell implements ICell {
         final long position;
         final int size;
-        static final int CACHE_SIZE = 100;
-        ByteBuffer keyCache;
-        Value valueCache;
+        final ByteBuffer key;
+        final Value value;
         
-        public LazyCell(final long position, final int size) {
+        public DiskCell(final long position, final int size) {
             this.position = position;
             this.size = size;
+            this.value = readValue();
+            this.key = readKey();
         }
-        
-        @Override
+
         @NotNull
-        public ByteBuffer getKey() {
-            if (keyCache != null) {
-                return keyCache;
-            }
-            try {
-                final var buffer = ByteBuffer.allocate(Integer.BYTES);
-                assert fileChannel != null;
-                fileChannel.read(buffer, position + Long.BYTES);
-                final var keySize = buffer.flip().getInt();
-                final var key = ByteBuffer.allocate(keySize);
-                fileChannel.read(key, position + Long.BYTES + Integer.BYTES);
-                if (keySize < CACHE_SIZE) {
-                    keyCache = key.flip();
-                    return keyCache;
-                }
-                return key.flip();
-            } catch (IOException e) {
-                logger.warning(e.toString());
-                return ByteBuffer.allocate(0);
-            }
-        }
-        
-        @Override
-        @NotNull
-        public Value getValue() {
-            if (valueCache != null) {
-                return valueCache;
-            }
+        private Value readValue() {
             try {
                 final var valueSizeBuf = ByteBuffer.allocate(Long.BYTES);
                 assert fileChannel != null;
@@ -127,21 +99,40 @@ public class DiskTable implements Closeable, Table {
                 final var keySize = buffer.flip().getInt();
                 final var valueBuf = ByteBuffer.allocate(size - Integer.BYTES - Long.BYTES - keySize);
                 fileChannel.read(valueBuf, position + Long.BYTES + Integer.BYTES + keySize);
-                
-                final var value = Value.of(valueBuf.flip(), deadFlagTimeStamp, generation);
-                if (valueBuf.limit() < CACHE_SIZE) {
-                    valueCache = value;
-                }
-                return value;
+
+                return Value.of(valueBuf.flip(), deadFlagTimeStamp, generation);
             } catch (IOException e) {
                 logger.warning(e.toString());
                 return Value.of(ByteBuffer.allocate(0), -1);
             }
         }
+
+        @NotNull
+        private ByteBuffer readKey() {
+            try {
+                final var buffer = ByteBuffer.allocate(Integer.BYTES);
+                assert fileChannel != null;
+                fileChannel.read(buffer, position + Long.BYTES);
+                final var keySize = buffer.flip().getInt();
+                final var key = ByteBuffer.allocate(keySize);
+                fileChannel.read(key, position + Long.BYTES + Integer.BYTES);
+                return key.flip();
+            } catch (IOException e) {
+                logger.warning(e.toString());
+                return ByteBuffer.allocate(0);
+            }
+        }
         
         @Override
-        public int compareTo(@NotNull final ICell o) {
-            return Comparator.comparing(ICell::getKey).thenComparing(ICell::getValue).compare(this, o);
+        @NotNull
+        public ByteBuffer getKey() {
+            return key;
+        }
+        
+        @Override
+        @NotNull
+        public Value getValue() {
+            return value;
         }
     }
     
@@ -161,8 +152,8 @@ public class DiskTable implements Closeable, Table {
         return shifts[index];
     }
     
-    private LazyCell readLazyCell(final long position, final int size) {
-        return new LazyCell(position, size);
+    private DiskCell readLazyCell(final long position, final int size) {
+        return new DiskCell(position, size);
     }
     
     /**

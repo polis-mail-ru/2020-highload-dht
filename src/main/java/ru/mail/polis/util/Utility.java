@@ -8,19 +8,16 @@ import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
-import ru.mail.polis.dao.s3ponia.Value;
-import ru.mail.polis.service.s3ponia.Header;
-import ru.mail.polis.service.s3ponia.ReplicationConfiguration;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public final class Utility {
+    private static final Logger logger = LoggerFactory.getLogger(Utility.class);
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
     public static final String TIME_HEADER = "XTime";
 
@@ -44,52 +41,13 @@ public final class Utility {
      */
     public static boolean isHomeInReplicas(@NotNull final String homeNode,
                                            @NotNull final String... nodeReplicas) {
-        boolean homeInReplicas = false;
-
         for (final var node :
                 nodeReplicas) {
             if (node.equals(homeNode)) {
-                homeInReplicas = true;
-                break;
+                return true;
             }
         }
-        return homeInReplicas;
-    }
-
-    /**
-     * Getting DeadFlagTimeStamp from Table.Value.
-     *
-     * @param response response
-     * @return DeadFlagTimeStamp
-     */
-    private static long getDeadFlagTimeStamp(@NotNull final Response response) {
-        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
-        assert header != null;
-        return Long.parseLong(header.value);
-    }
-
-    /**
-     * Get Future values and store to list.
-     *
-     * @param configuration replication configuration
-     * @param responses     list of future responses
-     * @return list of Table.Value
-     */
-    @NotNull
-    public static List<Value> getValuesFromResponses(@NotNull final ReplicationConfiguration configuration,
-                                                     @NotNull final List<Response> responses) {
-        final List<Value> values = new ArrayList<>(configuration.replicas);
-        for (final var resp :
-                responses) {
-            final Response response;
-            response = resp;
-            if (response != null && response.getStatus() == 200 /* OK */) {
-                final var val = Value.of(ByteBuffer.wrap(response.getBody()),
-                        getDeadFlagTimeStamp(response), -1);
-                values.add(val);
-            }
-        }
-        return values;
+        return false;
     }
 
     /**
@@ -107,21 +65,6 @@ public final class Utility {
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
         return config;
-    }
-
-    public static void badRequestResponse(@NotNull final HttpSession session,
-                                          @NotNull final String logString,
-                                          @NotNull final Logger logger) throws IOException {
-        logger.error(logString);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    public static void badRequestResponse(@NotNull final HttpSession session,
-                                          @NotNull final String logString,
-                                          @NotNull final Throwable e,
-                                          @NotNull final Logger logger) throws IOException {
-        logger.error(logString, e);
-        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     /**
@@ -147,7 +90,8 @@ public final class Utility {
 
     /**
      * Send response with catching IOException and rethrowing it as RuntimeException.
-     * @param session session for sending response
+     *
+     * @param session  session for sending response
      * @param response response that sended
      */
     public static void sendResponse(@NotNull final HttpSession session,

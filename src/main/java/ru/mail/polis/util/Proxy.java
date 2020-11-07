@@ -7,6 +7,7 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.s3ponia.ProxyException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,14 +27,20 @@ public final class Proxy {
     private Proxy() {
     }
 
-    private static Response proxy(
+    /**
+     * Proxying request.
+     * @param request request to proxy
+     * @param client destination point
+     * @return Response from server
+     */
+    public static Response proxy(
             @NotNull final Request request,
-            @NotNull final HttpClient client) {
+            @NotNull final HttpClient client) throws ProxyException {
         try {
             request.addHeader(PROXY_HEADER + ":" + "proxied");
             return client.invoke(request);
-        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            return null;
+        } catch (InterruptedException | HttpException | PoolException | IOException e) {
+            throw new ProxyException("Error in proxying");
         }
     }
 
@@ -51,8 +58,10 @@ public final class Proxy {
 
         for (final var httpClient : httpClients) {
 
-            final var response = proxy(request, httpClient);
-            if (response == null) {
+            final Response response;
+            try {
+                response = proxy(request, httpClient);
+            } catch (ProxyException e) {
                 continue;
             }
             if (response.getStatus() != 202 /* ACCEPTED */

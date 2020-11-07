@@ -86,7 +86,7 @@ public final class PersistenceDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
-        final var newest = iteratorRaw(from);
+        final var newest = cellsIterator(from);
         final var removeDead = Iterators.filter(newest, el -> !el.getValue().isDead());
 
         return Iterators.transform(removeDead, c -> Record.of(c.getKey(), c.getValue().getValue()));
@@ -94,7 +94,7 @@ public final class PersistenceDAO implements DAO {
     
     @NotNull
     @Override
-    public Iterator<ICell> iteratorRaw(@NotNull final ByteBuffer from) {
+    public Iterator<ICell> cellsIterator(@NotNull final ByteBuffer from) {
         final TableSet snapshot;
         readWriteLock.readLock().lock();
         try {

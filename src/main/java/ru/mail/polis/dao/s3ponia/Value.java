@@ -1,11 +1,15 @@
 package ru.mail.polis.dao.s3ponia;
 
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.s3ponia.Header;
+import ru.mail.polis.util.Utility;
 
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 
 public class Value implements Comparable<Value> {
+    public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
     public static final Value ABSENT = Value.dead(-1, Integer.MAX_VALUE);
     private final ByteBuffer byteBuffer;
     private static final long DEAD_FLAG = 1L << 63;
@@ -87,6 +91,30 @@ public class Value implements Comparable<Value> {
                 .thenComparing(Value::getGeneration)
                 .reversed()
                 .compare(this, o);
+    }
+
+    private static Long getDeadFlagTimeStamp(@NotNull final Response response) {
+        final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
+        assert header != null;
+        try {
+            return Long.parseLong(header.value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Parse response to Value.
+     * @param response parsed response
+     * @return Value
+     */
+    public static Value fromResponse(final Response response) {
+        final var timeStamp = getDeadFlagTimeStamp(response);
+        if (timeStamp != null) {
+            return Value.of(ByteBuffer.wrap(response.getBody()),
+                    timeStamp, -1);
+        }
+        throw new IllegalArgumentException("Bad response");
     }
 
     /**

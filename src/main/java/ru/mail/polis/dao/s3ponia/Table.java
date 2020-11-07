@@ -36,11 +36,6 @@ public interface Table extends Closeable {
         public Value getValue() {
             return value;
         }
-        
-        @Override
-        public int compareTo(@NotNull final ICell o) {
-            return Comparator.comparing(ICell::getKey).thenComparing(ICell::getValue).compare(this, o);
-        }
     }
     
     int size();
