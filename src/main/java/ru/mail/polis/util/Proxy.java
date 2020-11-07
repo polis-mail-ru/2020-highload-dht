@@ -66,6 +66,11 @@ public final class Proxy {
         return futureResponses;
     }
 
+    /**
+     * Handle CompletableFuture Response on responding to proxy request.
+     * @param session session for responding
+     * @param proxyHandler asynchronous response on proxy request
+     */
     public static void proxyHandle(@NotNull final HttpSession session,
                                    @NotNull final CompletableFuture<Response> proxyHandler) {
         if (proxyHandler

@@ -132,7 +132,7 @@ public final class AsyncService extends HttpServer implements Service {
 
         final var replicaResponses =
                 Proxy.proxyReplicas(request, urlToClient.values());
-        final RunnableWithException daoOp = getMapDaoOp(value, key, System.currentTimeMillis()).get(request.getMethod());
+        final var daoOp = getMapDaoOp(value, key, System.currentTimeMillis()).get(request.getMethod());
         final Response responseSucc = mapResponseOnSuccess.get(request.getMethod());
 
         try {
@@ -267,7 +267,7 @@ public final class AsyncService extends HttpServer implements Service {
      * @param session current Session
      */
     @Path("/v0/status")
-    public void status(final HttpSession session) throws IOException {
+    public void status(@NotNull final HttpSession session) throws IOException {
         session.sendResponse(Response.ok("OK"));
     }
 
