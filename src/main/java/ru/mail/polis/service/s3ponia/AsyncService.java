@@ -115,7 +115,7 @@ public final class AsyncService implements HttpEntityHandler {
                 daoService.delete(key, time);
                 return null;
             } catch (DaoOperationException e) {
-                throw new RuntimeException("IOException in dao.removeWithTimeStamp", e);
+                throw new FutureResponseException("IOException in dao.removeWithTimeStamp", e);
             }
         }, es).thenApply(v -> new Response(Response.ACCEPTED, Response.EMPTY));
     }
@@ -135,7 +135,7 @@ public final class AsyncService implements HttpEntityHandler {
                 daoService.put(key, value, time);
                 return null;
             } catch (DaoOperationException e) {
-                throw new RuntimeException("IOException in dao.upsertWithTimeStamp", e);
+                throw new FutureResponseException("IOException in dao.upsertWithTimeStamp", e);
             }
         }, es).thenApply(v -> new Response(Response.CREATED, Response.EMPTY));
     }
@@ -150,7 +150,7 @@ public final class AsyncService implements HttpEntityHandler {
             try {
                 return daoService.get(key);
             } catch (DaoOperationException e) {
-                throw new RuntimeException("IOException in dao.getRAW", e);
+                throw new FutureResponseException("IOException in dao.getRAW", e);
             }
         }, es);
     }
@@ -160,9 +160,9 @@ public final class AsyncService implements HttpEntityHandler {
         this.es.shutdown();
         try {
             this.es.awaitTermination(3, TimeUnit.SECONDS);
-            daoService.close();
         } catch (InterruptedException e) {
             logger.error("Error in waiting es", e);
+            Thread.currentThread().interrupt();
         }
     }
 }

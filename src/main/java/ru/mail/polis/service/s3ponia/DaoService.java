@@ -2,8 +2,6 @@ package ru.mail.polis.service.s3ponia;
 
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.Utility;
@@ -15,7 +13,7 @@ import java.nio.ByteBuffer;
 public class DaoService implements Closeable {
     private final DAO dao;
 
-    public DaoService(DAO dao) {
+    public DaoService(@NotNull final DAO dao) {
         this.dao = dao;
     }
 

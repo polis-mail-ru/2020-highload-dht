@@ -119,7 +119,7 @@ public class DiskTable implements Closeable, Table {
                 fileChannel.read(tempKey, position + Long.BYTES + Integer.BYTES);
                 return tempKey.flip();
             } catch (IOException e) {
-                logger.error("Getting error in reading from disk table" , e);
+                logger.error("Getting error in reading from disk table", e);
                 return ByteBuffer.allocate(0);
             }
         }

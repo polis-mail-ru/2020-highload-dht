@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class ReplicatedService implements HttpEntityHandler {
@@ -87,12 +90,14 @@ public class ReplicatedService implements HttpEntityHandler {
                 }
                 case Request.METHOD_DELETE: {
                     resultResponse =
-                            resolveDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses, key, time);
+                            resolveDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses,
+                                    () -> asyncService.deleteAsync(key, time));
                     break;
                 }
                 case Request.METHOD_PUT: {
                     resultResponse =
-                            resolvePutProxyResult(parsedReplica, homeInReplicas, replicaResponses, key, value, time);
+                            resolvePutProxyResult(parsedReplica, homeInReplicas, replicaResponses,
+                                    () -> asyncService.putAsync(key, value, time));
                     break;
                 }
                 default: {
@@ -108,12 +113,12 @@ public class ReplicatedService implements HttpEntityHandler {
         }
     }
 
-    private static Response fromFutureResponse(CompletableFuture<Response> future) {
+    private static Response fromFutureResponse(@NotNull final CompletableFuture<Response> future) {
         try {
-            return future.get();
-        } catch (InterruptedException | ExecutionException | RuntimeException e) {
+            return future.get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error in getting future", e);
-            throw new FutureResponseException("Error in getting from future");
+            throw new FutureResponseException("Error in getting from future", e);
         }
     }
 
@@ -154,12 +159,11 @@ public class ReplicatedService implements HttpEntityHandler {
     private Response resolvePutProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
                                            final boolean homeInReplicas,
                                            @NotNull final List<Response> replicaResponses,
-                                           @NotNull final ByteBuffer key,
-                                           @NotNull final ByteBuffer value,
-                                           final long time) throws ReplicaException {
+                                           @NotNull final Supplier<CompletableFuture<Response>> future)
+            throws ReplicaException {
         if (homeInReplicas) {
             try {
-                replicaResponses.add(fromFutureResponse(asyncService.putAsync(key, value, time)));
+                replicaResponses.add(fromFutureResponse(future.get()));
             } catch (FutureResponseException e) {
                 logger.error("Error in deleting from dao", e);
             }
@@ -174,12 +178,11 @@ public class ReplicatedService implements HttpEntityHandler {
     private Response resolveDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
                                               final boolean homeInReplicas,
                                               @NotNull final List<Response> replicaResponses,
-                                              @NotNull final ByteBuffer key,
-                                              final long time)
+                                              @NotNull final Supplier<CompletableFuture<Response>> future)
             throws ReplicaException {
         if (homeInReplicas) {
             try {
-                replicaResponses.add(fromFutureResponse(asyncService.deleteAsync(key, time)));
+                replicaResponses.add(fromFutureResponse(future.get()));
             } catch (FutureResponseException e) {
                 logger.error("Error in deleting from dao", e);
             }
