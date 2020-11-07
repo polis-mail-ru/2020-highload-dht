@@ -59,7 +59,7 @@ application {
 // Fail on warnings
 tasks.withType<JavaCompile> {
     val compilerArgs = options.compilerArgs
-//    compilerArgs.add("-Werror")
+    compilerArgs.add("-Werror")
     compilerArgs.add("-Xlint:all")
 }
 

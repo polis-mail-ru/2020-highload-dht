@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 public class ReplicatedService implements HttpEntityHandler {
@@ -26,7 +28,7 @@ public class ReplicatedService implements HttpEntityHandler {
     /**
      * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
      *
-     * @param service {@link AsyncService} base service for proxy handle
+     * @param service {@link HttpEntityHandler} base service for proxy handle
      * @param policy  {@link ShardingPolicy} replica policy
      */
     public ReplicatedService(@NotNull final AsyncService service,
@@ -69,7 +71,10 @@ public class ReplicatedService implements HttpEntityHandler {
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
         final var replicaResponses =
-                Proxy.proxyReplicas(request, urlToClient.values());
+                Proxy.proxyReplicas(request, urlToClient.values()
+                        .stream()
+                        .limit(parsedReplica.replicas)
+                        .collect(Collectors.toList()));
 
         final Response resultResponse;
 
@@ -81,21 +86,13 @@ public class ReplicatedService implements HttpEntityHandler {
                     break;
                 }
                 case Request.METHOD_DELETE: {
-                    try {
-                        replicaResponses.add(asyncService.delete(key, time));
-                    } catch (DaoOperationException e) {
-                        logger.error("Error in deleting from dao", e);
-                    }
-                    resultResponse = resolveDeleteProxyResult(parsedReplica, replicaResponses.size());
+                    resultResponse =
+                            resolveDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses, key, time);
                     break;
                 }
                 case Request.METHOD_PUT: {
-                    try {
-                        replicaResponses.add(asyncService.put(key, value, time));
-                    } catch (DaoOperationException e) {
-                        logger.error("Error in deleting from dao", e);
-                    }
-                    resultResponse = resolvePutProxyResult(parsedReplica, replicaResponses.size());
+                    resultResponse =
+                            resolvePutProxyResult(parsedReplica, homeInReplicas, replicaResponses, key, value, time);
                     break;
                 }
                 default: {
@@ -106,8 +103,17 @@ public class ReplicatedService implements HttpEntityHandler {
             }
             session.sendResponse(resultResponse);
         } catch (ReplicaException e) {
-            logger.error("Not enough replicas response");
+            logger.error("Not enough replicas response", e);
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+        }
+    }
+
+    private static Response fromFutureResponse(CompletableFuture<Response> future) {
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException | RuntimeException e) {
+            logger.error("Error in getting future", e);
+            throw new FutureResponseException("Error in getting from future");
         }
     }
 
@@ -117,8 +123,8 @@ public class ReplicatedService implements HttpEntityHandler {
                                            @NotNull final ByteBuffer key) throws ReplicaException {
         if (homeInReplicas) {
             try {
-                replicaResponses.add(asyncService.get(key));
-            } catch (DaoOperationException ignored) {
+                replicaResponses.add(fromFutureResponse(asyncService.getAsync(key)));
+            } catch (FutureResponseException ignored) {
                 logger.error("Error in getting from dao");
             }
         }
@@ -132,7 +138,7 @@ public class ReplicatedService implements HttpEntityHandler {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
         if (values.size() < parsedReplica.acks) {
-            throw new ReplicaException("Not enough replicas");
+            throw new ReplicaException("Not enough replicas in getting");
         }
 
         values.sort(Value.valueResponseComparator());
@@ -145,26 +151,48 @@ public class ReplicatedService implements HttpEntityHandler {
         }
     }
 
-    private static Response resolvePutProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
-                                                  final int counter) throws ReplicaException {
-        if (counter < parsedReplica.acks) {
-            throw new ReplicaException("Not enough replicas");
+    private Response resolvePutProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
+                                           final boolean homeInReplicas,
+                                           @NotNull final List<Response> replicaResponses,
+                                           @NotNull final ByteBuffer key,
+                                           @NotNull final ByteBuffer value,
+                                           final long time) throws ReplicaException {
+        if (homeInReplicas) {
+            try {
+                replicaResponses.add(fromFutureResponse(asyncService.putAsync(key, value, time)));
+            } catch (FutureResponseException e) {
+                logger.error("Error in deleting from dao", e);
+            }
+        }
+        if (replicaResponses.size() < parsedReplica.acks) {
+            throw new ReplicaException("Not enough replicas in putting");
         } else {
             return new Response(Response.CREATED, Response.EMPTY);
         }
     }
 
-    private static Response resolveDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
-                                                     final int counter) throws ReplicaException {
-        if (counter < parsedReplica.acks) {
-            throw new ReplicaException("Not enough replicas");
+    private Response resolveDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
+                                              final boolean homeInReplicas,
+                                              @NotNull final List<Response> replicaResponses,
+                                              @NotNull final ByteBuffer key,
+                                              final long time)
+            throws ReplicaException {
+        if (homeInReplicas) {
+            try {
+                replicaResponses.add(fromFutureResponse(asyncService.deleteAsync(key, time)));
+            } catch (FutureResponseException e) {
+                logger.error("Error in deleting from dao", e);
+            }
+        }
+        if (replicaResponses.size() < parsedReplica.acks) {
+            throw new ReplicaException("Not enough replicas in deleting");
         } else {
             return new Response(Response.ACCEPTED, Response.EMPTY);
         }
     }
 
     @Override
-    public void close() {
+    public void close() throws IOException {
         asyncService.close();
     }
 }

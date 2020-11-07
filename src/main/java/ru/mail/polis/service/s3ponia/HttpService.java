@@ -70,12 +70,12 @@ public class HttpService extends HttpServer implements Service {
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
         super.stop();
         try {
             httpEntityService.close();
         } catch (IOException e) {
-            logger.error("Error in closing entity service");
+            logger.error("Error in closing entity service", e);
         }
     }
 }

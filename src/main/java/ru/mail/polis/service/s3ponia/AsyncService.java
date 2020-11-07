@@ -8,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
@@ -24,18 +23,18 @@ import static ru.mail.polis.util.Utility.sendResponse;
 
 public final class AsyncService implements HttpEntityHandler {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
-    private final DAO dao;
     private final ExecutorService es;
+    private final DaoService daoService;
 
     /**
      * Creates a new {@link AsyncService} with given dao, workers and queueSize.
-     * @param dao database controller
+     * @param dao database
      * @param workers count of threads
      * @param queueSize max tasks' count at time
      */
     public AsyncService(@NotNull final DAO dao,
                         final int workers, final int queueSize) {
-        this.dao = dao;
+        this.daoService = new DaoService(dao);
         this.es = new ThreadPoolExecutor(
                 workers,
                 workers,
@@ -56,6 +55,7 @@ public final class AsyncService implements HttpEntityHandler {
      * @param session current {@link HttpSession} to send response
      * @throws IOException rethrowing from {@link HttpSession#sendResponse}
      */
+    @Override
     public void entity(final String id,
                        final String replicas,
                        @NotNull final Request request,
@@ -90,86 +90,29 @@ public final class AsyncService implements HttpEntityHandler {
             session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             return;
         }
-        op.whenComplete((r, t) -> {
+        if (op.whenComplete((r, t) -> {
             if (t == null) {
                 sendResponse(session, r);
             } else {
                 logger.error("Error in dao operation", t);
                 sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
-        });
-    }
-
-    /**
-     * Synchronous deleting from dao.
-     * @param key key to delete
-     * @param time time of deletion
-     * @return {@link Response} on deletion
-     * @throws DaoOperationException throw on {@link IOException} in {@link DAO#removeWithTimeStamp}
-     */
-    public Response delete(@NotNull final ByteBuffer key,
-                           final long time) throws DaoOperationException {
-        try {
-            dao.removeWithTimeStamp(key, time);
-        } catch (IOException e) {
-            throw new DaoOperationException("Remove error", e);
+        }).isCancelled()) {
+            logger.error("Canceled task");
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
     /**
-     * Synchronous putting in dao.
+     * Asynchronous version of delete.
      * @param key Record's key
-     * @param value Record's value
-     * @param time time of putting in dao
-     * @return {@link Response} result of putting
-     * @throws DaoOperationException throw on {@link IOException} in {@link DAO#upsertWithTimeStamp}
-     */
-    public Response put(@NotNull final ByteBuffer key,
-                        @NotNull final ByteBuffer value,
-                        final long time) throws DaoOperationException {
-        try {
-            dao.upsertWithTimeStamp(key, value, time);
-        } catch (IOException e) {
-            throw new DaoOperationException("Upsert error", e);
-        }
-        return new Response(Response.CREATED, Response.EMPTY);
-    }
-
-    /**
-     * Synchronous get from dao.
-     * @param key Record's key
-     * @return {@link Response} result of getting
-     * @throws DaoOperationException throw on {@link IOException} in {@link DAO#getValue}
-     */
-    public Response get(@NotNull final ByteBuffer key) throws DaoOperationException {
-        final Value v;
-        try {
-            v = dao.getValue(key);
-        } catch (IOException e) {
-            throw new DaoOperationException("Get error", e);
-        }
-        if (v.isDead()) {
-            final var resp = new Response(Response.NOT_FOUND, Response.EMPTY);
-            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
-            return resp;
-        } else {
-            final var resp = Response.ok(Utility.fromByteBuffer(v.getValue()));
-            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
-            return resp;
-        }
-    }
-
-    /**
-     * Asynchronous version of {@link AsyncService#delete}.
-     * @param key Record's key
-     * @return {@link CompletableFuture<Response>} future result of deleting
+     * @return {@link CompletableFuture} future result of deleting
      */
     public CompletableFuture<Response> deleteAsync(@NotNull final ByteBuffer key,
                                                    final long time) {
         return CompletableFuture.<Void>supplyAsync(() -> {
             try {
-                delete(key, time);
+                daoService.delete(key, time);
                 return null;
             } catch (DaoOperationException e) {
                 throw new RuntimeException("IOException in dao.removeWithTimeStamp", e);
@@ -178,18 +121,18 @@ public final class AsyncService implements HttpEntityHandler {
     }
 
     /**
-     * Asynchronous version of {@link AsyncService#put}.
+     * Asynchronous version of put.
      * @param key Record's key
      * @param value Record's value
      * @param time time of putting in dao
-     * @return {@link CompletableFuture<Response>} future result of putting
+     * @return {@link CompletableFuture} future result of putting
      */
     public CompletableFuture<Response> putAsync(@NotNull final ByteBuffer key,
                                                 @NotNull final ByteBuffer value,
                                                 final long time) {
         return CompletableFuture.<Void>supplyAsync(() -> {
             try {
-                put(key, value, time);
+                daoService.put(key, value, time);
                 return null;
             } catch (DaoOperationException e) {
                 throw new RuntimeException("IOException in dao.upsertWithTimeStamp", e);
@@ -198,14 +141,14 @@ public final class AsyncService implements HttpEntityHandler {
     }
 
     /**
-     * Asynchronous version of {@link AsyncService#get}.
+     * Asynchronous version of get.
      * @param key Record's key
-     * @return {@link CompletableFuture<Response>} future result of getting
+     * @return {@link CompletableFuture} future result of getting
      */
     public CompletableFuture<Response> getAsync(@NotNull final ByteBuffer key) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return get(key);
+                return daoService.get(key);
             } catch (DaoOperationException e) {
                 throw new RuntimeException("IOException in dao.getRAW", e);
             }
@@ -213,7 +156,13 @@ public final class AsyncService implements HttpEntityHandler {
     }
 
     @Override
-    public synchronized void close() {
+    public synchronized void close() throws IOException {
         this.es.shutdown();
+        try {
+            this.es.awaitTermination(3, TimeUnit.SECONDS);
+            daoService.close();
+        } catch (InterruptedException e) {
+            logger.error("Error in waiting es", e);
+        }
     }
 }
