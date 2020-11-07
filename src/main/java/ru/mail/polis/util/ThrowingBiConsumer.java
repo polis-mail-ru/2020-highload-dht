@@ -1,4 +1,4 @@
-package ru.mail.polis.s3ponia;
+package ru.mail.polis.util;
 
 import org.jetbrains.annotations.NotNull;
 

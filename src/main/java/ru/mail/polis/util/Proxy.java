@@ -1,4 +1,4 @@
-package ru.mail.polis.s3ponia;
+package ru.mail.polis.util;
 
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static ru.mail.polis.s3ponia.Utility.sendResponse;
+import static ru.mail.polis.util.Utility.sendResponse;
 
 /**
  * Utility class for proxying requests to different nodes.
