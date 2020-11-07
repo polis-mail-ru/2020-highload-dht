@@ -92,7 +92,6 @@ public class Value implements Comparable<Value> {
                 .compare(this, o);
     }
 
-
     private static Long getDeadFlagTimeStampFromResponse(@NotNull final Response response) {
         final var header = Header.getHeader(DEADFLAG_TIMESTAMP_HEADER, response);
         if (header == null) {

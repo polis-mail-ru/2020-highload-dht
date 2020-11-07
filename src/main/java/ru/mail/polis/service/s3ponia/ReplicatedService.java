@@ -90,14 +90,16 @@ public class ReplicatedService implements HttpEntityHandler {
                 }
                 case Request.METHOD_DELETE: {
                     resultResponse =
-                            resolveDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses,
-                                    () -> asyncService.deleteAsync(key, time));
+                            resolvePutDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses,
+                                    () -> asyncService.deleteAsync(key, time),
+                                    new Response(Response.ACCEPTED, Response.EMPTY));
                     break;
                 }
                 case Request.METHOD_PUT: {
                     resultResponse =
-                            resolvePutProxyResult(parsedReplica, homeInReplicas, replicaResponses,
-                                    () -> asyncService.putAsync(key, value, time));
+                            resolvePutDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses,
+                                    () -> asyncService.putAsync(key, value, time),
+                                    new Response(Response.CREATED, Response.EMPTY));
                     break;
                 }
                 default: {
@@ -156,29 +158,11 @@ public class ReplicatedService implements HttpEntityHandler {
         }
     }
 
-    private Response resolvePutProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
-                                           final boolean homeInReplicas,
-                                           @NotNull final List<Response> replicaResponses,
-                                           @NotNull final Supplier<CompletableFuture<Response>> future)
-            throws ReplicaException {
-        if (homeInReplicas) {
-            try {
-                replicaResponses.add(fromFutureResponse(future.get()));
-            } catch (FutureResponseException e) {
-                logger.error("Error in deleting from dao", e);
-            }
-        }
-        if (replicaResponses.size() < parsedReplica.acks) {
-            throw new ReplicaException("Not enough replicas in putting");
-        } else {
-            return new Response(Response.CREATED, Response.EMPTY);
-        }
-    }
-
-    private Response resolveDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
+    private Response resolvePutDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
                                               final boolean homeInReplicas,
                                               @NotNull final List<Response> replicaResponses,
-                                              @NotNull final Supplier<CompletableFuture<Response>> future)
+                                              @NotNull final Supplier<CompletableFuture<Response>> future,
+                                              @NotNull final Response successResponse)
             throws ReplicaException {
         if (homeInReplicas) {
             try {
@@ -190,7 +174,7 @@ public class ReplicatedService implements HttpEntityHandler {
         if (replicaResponses.size() < parsedReplica.acks) {
             throw new ReplicaException("Not enough replicas in deleting");
         } else {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
+            return successResponse;
         }
     }
 
