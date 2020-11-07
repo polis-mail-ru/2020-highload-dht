@@ -60,8 +60,6 @@ public final class AsyncService extends HttpServer implements Service {
                         final int workers, final int queueSize,
                         @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
         super(Utility.configFrom(port));
-        assert 0 < workers;
-        assert 0 < queueSize;
         BasicConfigurator.configure();
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
@@ -100,7 +98,7 @@ public final class AsyncService extends HttpServer implements Service {
             value = ByteBuffer.wrap(request.getBody());
         }
 
-        final var header = Header.getHeader(Utility.TIME_HEADER, request);
+        final var timeHeader = Header.getHeader(Utility.TIME_HEADER, request);
         final var key = Utility.byteBufferFromString(id);
         final Supplier<CompletableFuture<Response>> proxyHandler;
         final ReplicationConfiguration parsedReplica;
@@ -109,13 +107,12 @@ public final class AsyncService extends HttpServer implements Service {
             if (!Utility.validateId(id)) {
                 throw new InvalidRequestParametersException("Empty id");
             }
-            if (header == null && request.getMethod() != Request.METHOD_GET && proxyHeader != null) {
-                badRequestResponse(session, "Mismatch headers", logger);
+            if (timeHeader == null && request.getMethod() != Request.METHOD_GET && proxyHeader != null) {
                 throw new InvalidRequestHeaderException("Mismatch headers");
             }
 
-            if (header != null) {
-                time = Long.parseLong(header.value);
+            if (timeHeader != null) {
+                time = Long.parseLong(timeHeader.value);
             }
             proxyHandler = noReplicaHandler(key, value, time, request.getMethod());
             parsedReplica = ReplicationConfiguration.parseOrDefault(replicas, policy.all().length);
@@ -128,15 +125,14 @@ public final class AsyncService extends HttpServer implements Service {
             handleNoReplicaOperation(session, proxyHandler);
             return;
         }
-        final var currTime = System.currentTimeMillis();
 
-        request.addHeader(Utility.TIME_HEADER + ": " + currTime);
+        request.addHeader(Utility.TIME_HEADER + ": " + System.currentTimeMillis());
         final var nodes = policy.getNodeReplicas(key, parsedReplica.replicas);
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
         final var replicaResponses =
-                Proxy.proxyReplicas(request, urlToClient::get, policy.homeNode(), nodes);
-        final RunnableWithException daoOp = getMapDaoOp(value, key, currTime).get(request.getMethod());
+                Proxy.proxyReplicas(request, urlToClient.values());
+        final RunnableWithException daoOp = getMapDaoOp(value, key, System.currentTimeMillis()).get(request.getMethod());
         final Response responseSucc = mapResponseOnSuccess.get(request.getMethod());
 
         try {
@@ -184,7 +180,10 @@ public final class AsyncService extends HttpServer implements Service {
                                           @NotNull final Supplier<CompletableFuture<Response>> proxyHandler)
             throws IOException {
         try {
-            Proxy.proxyHandle(session, proxyHandler);
+            Proxy.proxyHandle(session, proxyHandler.get().exceptionally(t -> {
+                logger.error("Error in dao", t);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }));
         } catch (CancellationException e) {
             logger.error("Canceled task", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -218,11 +217,9 @@ public final class AsyncService extends HttpServer implements Service {
                                                                    @NotNull final ByteBuffer value,
                                                                    final long time,
                                                                    final int method) {
-        final Map<Integer, Supplier<CompletableFuture<Response>>> map =
-                Map.of(Request.METHOD_GET, handleNoReplicaGet(key),
-                        Request.METHOD_PUT, handleNoReplicaPut(key, value, time),
-                        Request.METHOD_DELETE, handleNoReplicaDelete(key, time));
-        return map.get(method);
+        return Map.of(Request.METHOD_GET, handleNoReplicaGet(key),
+                Request.METHOD_PUT, handleNoReplicaPut(key, value, time),
+                Request.METHOD_DELETE, handleNoReplicaDelete(key, time)).get(method);
     }
 
     private Supplier<CompletableFuture<Response>> handleNoReplicaDelete(@NotNull final ByteBuffer key,
@@ -234,11 +231,7 @@ public final class AsyncService extends HttpServer implements Service {
             } catch (IOException e) {
                 throw new RuntimeException("IOException in dao.removeWithTimeStamp", e);
             }
-        }, es).thenApply((v) -> new Response(Response.CREATED, Response.EMPTY))
-                .exceptionally((t) -> {
-                    logger.error("Error in upserting in dao", t);
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                });
+        }, es).thenApply(v -> new Response(Response.CREATED, Response.EMPTY));
     }
 
     private Supplier<CompletableFuture<Response>> handleNoReplicaPut(@NotNull final ByteBuffer key,
@@ -251,11 +244,7 @@ public final class AsyncService extends HttpServer implements Service {
             } catch (IOException e) {
                 throw new RuntimeException("IOException in dao.upsertWithTimeStamp", e);
             }
-        }, es).thenApply((v) -> new Response(Response.CREATED, Response.EMPTY))
-                .exceptionally((t) -> {
-                    logger.error("Error in upserting in dao", t);
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                });
+        }, es).thenApply(v -> new Response(Response.CREATED, Response.EMPTY));
     }
 
     private Supplier<CompletableFuture<Response>> handleNoReplicaGet(@NotNull final ByteBuffer key) {
@@ -265,7 +254,7 @@ public final class AsyncService extends HttpServer implements Service {
             } catch (IOException e) {
                 throw new RuntimeException("IOException in dao.getRAW", e);
             }
-        }, es).thenApply((v) -> {
+        }, es).thenApply(v -> {
             final var resp = Response.ok(Utility.fromByteBuffer(v.getValue()));
             resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
             return resp;
@@ -292,12 +281,6 @@ public final class AsyncService extends HttpServer implements Service {
     public synchronized void stop() {
         super.stop();
         this.es.shutdown();
-        try {
-            this.es.awaitTermination(3, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            logger.error("Can't shutdown executor", e);
-            Thread.currentThread().interrupt();
-        }
 
         for (final HttpClient client : this.urlToClient.values()) {
             client.clear();

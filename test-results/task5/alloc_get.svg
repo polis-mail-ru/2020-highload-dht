@@ -3702,7 +3702,7 @@
 <text x="723.5" y="542.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.s3ponia.Utility$ReplicationConfiguration (51 samples, 0.02%)</title><rect x="720.8" y="563.0" width="0.3" height="15" fill="#51bfbf" rx="2" ry="2"/>
+<title>ru.mail.polis.util.Utility$ReplicationConfiguration (51 samples, 0.02%)</title><rect x="720.8" y="563.0" width="0.3" height="15" fill="#51bfbf" rx="2" ry="2"/>
 <text x="723.8" y="574.0"></text>
 </g>
 <g>
@@ -4054,7 +4054,7 @@
 <text x="955.9" y="494.0"></text>
 </g>
 <g>
-<title>ru.mail.polis.s3ponia.Utility$Header (65 samples, 0.03%)</title><rect x="953.4" y="531.0" width="0.3" height="15" fill="#57c5c5" rx="2" ry="2"/>
+<title>ru.mail.polis.util.Utility$Header (65 samples, 0.03%)</title><rect x="953.4" y="531.0" width="0.3" height="15" fill="#57c5c5" rx="2" ry="2"/>
 <text x="956.4" y="542.0"></text>
 </g>
 <g>

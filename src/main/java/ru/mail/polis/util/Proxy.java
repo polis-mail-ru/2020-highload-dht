@@ -10,11 +10,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static ru.mail.polis.util.Utility.sendResponse;
 
@@ -41,41 +40,35 @@ public final class Proxy {
     /**
      * Get list of success responses from nodes.
      *
-     * @param request      proxying request
-     * @param toHttpClient function for mapping url to HttpClient
-     * @param skipNode     node that should be skipped
-     * @param nodes        array of nodes for proxy dest
+     * @param request     proxying request
+     * @param httpClients array of httpclients to proxy
      * @return list of sucess responses
      */
     @NotNull
     public static List<Response> proxyReplicas(@NotNull final Request request,
-                                               @NotNull final Function<String, HttpClient> toHttpClient,
-                                               @NotNull final String skipNode,
-                                               @NotNull final String... nodes) {
-        final List<Response> futureResponses = new ArrayList<>(nodes.length);
+                                               @NotNull final Collection<HttpClient> httpClients) {
+        final List<Response> futureResponses = new ArrayList<>();
 
-        for (final var node : nodes) {
+        for (final var httpClient : httpClients) {
 
-            if (!node.equals(skipNode)) {
-                final var response = proxy(request, toHttpClient.apply(node));
-                if (response == null) {
-                    continue;
-                }
-                if (response.getStatus() != 202 /* ACCEPTED */
-                        && response.getStatus() != 201 /* CREATED */
-                        && response.getStatus() != 200 /* OK */
-                        && response.getStatus() != 404 /* NOT FOUND */) {
-                    continue;
-                }
-                futureResponses.add(response);
+            final var response = proxy(request, httpClient);
+            if (response == null) {
+                continue;
             }
+            if (response.getStatus() != 202 /* ACCEPTED */
+                    && response.getStatus() != 201 /* CREATED */
+                    && response.getStatus() != 200 /* OK */
+                    && response.getStatus() != 404 /* NOT FOUND */) {
+                continue;
+            }
+            futureResponses.add(response);
         }
         return futureResponses;
     }
 
     public static void proxyHandle(@NotNull final HttpSession session,
-                                   @NotNull final Supplier<CompletableFuture<Response>> proxyHandler) {
-        if (proxyHandler.get()
+                                   @NotNull final CompletableFuture<Response> proxyHandler) {
+        if (proxyHandler
                 .whenComplete((r, t) -> proxyWhenCompleteHandler(session, r, t))
                 .isCancelled()) {
             throw new CancellationException("Canceled task");

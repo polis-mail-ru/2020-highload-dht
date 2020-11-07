@@ -2,6 +2,7 @@ package ru.mail.polis.service.s3ponia;
 
 import org.jetbrains.annotations.NotNull;
 
+@SuppressWarnings("serial")
 public class InvalidRequestParametersException extends Exception {
 
     public InvalidRequestParametersException(@NotNull final String s, @NotNull final Throwable cause) {
