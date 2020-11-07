@@ -20,14 +20,16 @@ public class ShardingService implements HttpEntityHandler {
     final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
 
-    public ShardingService(AsyncService asyncService, ShardingPolicy<ByteBuffer, String> policy) {
+    /**
+     * Creates a new {@link ShardingService} with given {@link AsyncService} and {@link ShardingPolicy}.
+     * @param asyncService base service for handling entity
+     * @param policy sharding policy
+     */
+    public ShardingService(@NotNull final AsyncService asyncService,
+                           @NotNull final ShardingPolicy<ByteBuffer, String> policy) {
         this.asyncService = asyncService;
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
-    }
-
-    public ShardingPolicy<ByteBuffer, String> getPolicy() {
-        return policy;
     }
 
     @Override
@@ -50,7 +52,6 @@ public class ShardingService implements HttpEntityHandler {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
-
 
     @Override
     public void close() throws IOException {

@@ -19,12 +19,26 @@ public class HttpService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(HttpService.class);
     final HttpEntityHandler httpEntityService;
 
+    /**
+     * Creates a new {@link HttpService} with given port and {@link HttpEntityHandler}.
+     * @param port listenable server's port
+     * @param httpEntityService entity request handler
+     * @throws IOException rethrow from {@link HttpServer#HttpServer}
+     */
     public HttpService(final int port, @NotNull final HttpEntityHandler httpEntityService) throws IOException {
         super(Utility.configFrom(port));
         BasicConfigurator.configure();
         this.httpEntityService = httpEntityService;
     }
 
+    /**
+     * Entity request handler.
+     * @param id request's param
+     * @param replicas replica configuration
+     * @param request sent request
+     * @param session current session for network interaction
+     * @throws IOException rethrow from {@link HttpSession#sendResponse} and {@link HttpEntityHandler#entity}
+     */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
                        @Param(value = "replicas") final String replicas,

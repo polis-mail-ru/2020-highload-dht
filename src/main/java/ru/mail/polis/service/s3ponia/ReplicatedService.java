@@ -23,8 +23,14 @@ public class ReplicatedService implements HttpEntityHandler {
     final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
 
+    /**
+     * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
+     *
+     * @param service {@link AsyncService} base service for proxy handle
+     * @param policy  {@link ShardingPolicy} replica policy
+     */
     public ReplicatedService(@NotNull final AsyncService service,
-                             ShardingPolicy<ByteBuffer, String> policy) {
+                             @NotNull final ShardingPolicy<ByteBuffer, String> policy) {
         this.asyncService = service;
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(policy.homeNode(), policy.all());
@@ -49,7 +55,6 @@ public class ReplicatedService implements HttpEntityHandler {
             value = ByteBuffer.wrap(request.getBody());
         }
 
-        final var key = Utility.byteBufferFromString(id);
         final ReplicationConfiguration parsedReplica;
         try {
             parsedReplica = ReplicationConfiguration.parseOrDefault(replicas, policy.all().length);
@@ -59,6 +64,7 @@ public class ReplicatedService implements HttpEntityHandler {
             throw new RuntimeException("Bad request's method", e);
         }
 
+        final var key = Utility.byteBufferFromString(id);
         final var nodes = policy.getNodeReplicas(key, parsedReplica.replicas);
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
 
@@ -116,7 +122,15 @@ public class ReplicatedService implements HttpEntityHandler {
                 logger.error("Error in getting from dao");
             }
         }
-        final var values = replicaResponses.stream().map(Value::fromResponse).collect(Collectors.toList());
+        final List<Value> values;
+        try {
+            values = replicaResponses.stream()
+                    .map(Value::fromResponse)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid response for parsing to value", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
         if (values.size() < parsedReplica.acks) {
             throw new ReplicaException("Not enough replicas");
         }

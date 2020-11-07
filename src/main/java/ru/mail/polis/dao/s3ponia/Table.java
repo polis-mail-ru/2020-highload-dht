@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
-import java.util.Comparator;
 import java.util.Iterator;
 
 public interface Table extends Closeable {

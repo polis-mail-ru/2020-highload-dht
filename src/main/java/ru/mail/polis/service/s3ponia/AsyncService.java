@@ -27,6 +27,12 @@ public final class AsyncService implements HttpEntityHandler {
     private final DAO dao;
     private final ExecutorService es;
 
+    /**
+     * Creates a new {@link AsyncService} with given dao, workers and queueSize.
+     * @param dao database controller
+     * @param workers count of threads
+     * @param queueSize max tasks' count at time
+     */
     public AsyncService(@NotNull final DAO dao,
                         final int workers, final int queueSize) {
         this.dao = dao;
@@ -42,6 +48,14 @@ public final class AsyncService implements HttpEntityHandler {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
+    /**
+     * Provide asynchronous handling entity request.
+     * @param id key param
+     * @param replicas replica configuration
+     * @param request processed request
+     * @param session current {@link HttpSession} to send response
+     * @throws IOException rethrowing from {@link HttpSession#sendResponse}
+     */
     public void entity(final String id,
                        final String replicas,
                        @NotNull final Request request,
@@ -49,10 +63,10 @@ public final class AsyncService implements HttpEntityHandler {
         final CompletableFuture<Response> op;
         final var timeHeader = Header.getHeader(Utility.TIME_HEADER, request);
         final long time;
-        if (timeHeader != null) {
-            time = Long.parseLong(timeHeader.value);
-        } else {
+        if (timeHeader == null) {
             time = System.currentTimeMillis();
+        } else {
+            time = Long.parseLong(timeHeader.value);
         }
         final var key = Utility.byteBufferFromString(id);
         try {
@@ -86,33 +100,54 @@ public final class AsyncService implements HttpEntityHandler {
         });
     }
 
+    /**
+     * Synchronous deleting from dao.
+     * @param key key to delete
+     * @param time time of deletion
+     * @return {@link Response} on deletion
+     * @throws DaoOperationException throw on {@link IOException} in {@link DAO#removeWithTimeStamp}
+     */
     public Response delete(@NotNull final ByteBuffer key,
                            final long time) throws DaoOperationException {
         try {
             dao.removeWithTimeStamp(key, time);
         } catch (IOException e) {
-            throw new DaoOperationException("Remove error");
+            throw new DaoOperationException("Remove error", e);
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
+    /**
+     * Synchronous putting in dao.
+     * @param key Record's key
+     * @param value Record's value
+     * @param time time of putting in dao
+     * @return {@link Response} result of putting
+     * @throws DaoOperationException throw on {@link IOException} in {@link DAO#upsertWithTimeStamp}
+     */
     public Response put(@NotNull final ByteBuffer key,
                         @NotNull final ByteBuffer value,
                         final long time) throws DaoOperationException {
         try {
             dao.upsertWithTimeStamp(key, value, time);
         } catch (IOException e) {
-            throw new DaoOperationException("Upsert error");
+            throw new DaoOperationException("Upsert error", e);
         }
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
+    /**
+     * Synchronous get from dao.
+     * @param key Record's key
+     * @return {@link Response} result of getting
+     * @throws DaoOperationException throw on {@link IOException} in {@link DAO#getValue}
+     */
     public Response get(@NotNull final ByteBuffer key) throws DaoOperationException {
         final Value v;
         try {
             v = dao.getValue(key);
         } catch (IOException e) {
-            throw new DaoOperationException("Get error");
+            throw new DaoOperationException("Get error", e);
         }
         if (v.isDead()) {
             final var resp = new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -125,6 +160,11 @@ public final class AsyncService implements HttpEntityHandler {
         }
     }
 
+    /**
+     * Asynchronous version of {@link AsyncService#delete}.
+     * @param key Record's key
+     * @return {@link CompletableFuture<Response>} future result of deleting
+     */
     public CompletableFuture<Response> deleteAsync(@NotNull final ByteBuffer key,
                                                    final long time) {
         return CompletableFuture.<Void>supplyAsync(() -> {
@@ -137,6 +177,13 @@ public final class AsyncService implements HttpEntityHandler {
         }, es).thenApply(v -> new Response(Response.ACCEPTED, Response.EMPTY));
     }
 
+    /**
+     * Asynchronous version of {@link AsyncService#put}.
+     * @param key Record's key
+     * @param value Record's value
+     * @param time time of putting in dao
+     * @return {@link CompletableFuture<Response>} future result of putting
+     */
     public CompletableFuture<Response> putAsync(@NotNull final ByteBuffer key,
                                                 @NotNull final ByteBuffer value,
                                                 final long time) {
@@ -150,6 +197,11 @@ public final class AsyncService implements HttpEntityHandler {
         }, es).thenApply(v -> new Response(Response.CREATED, Response.EMPTY));
     }
 
+    /**
+     * Asynchronous version of {@link AsyncService#get}.
+     * @param key Record's key
+     * @return {@link CompletableFuture<Response>} future result of getting
+     */
     public CompletableFuture<Response> getAsync(@NotNull final ByteBuffer key) {
         return CompletableFuture.supplyAsync(() -> {
             try {

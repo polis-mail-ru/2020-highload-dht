@@ -114,9 +114,9 @@ public class DiskTable implements Closeable, Table {
                 assert fileChannel != null;
                 fileChannel.read(buffer, position + Long.BYTES);
                 final var keySize = buffer.flip().getInt();
-                final var key = ByteBuffer.allocate(keySize);
-                fileChannel.read(key, position + Long.BYTES + Integer.BYTES);
-                return key.flip();
+                final var tempKey = ByteBuffer.allocate(keySize);
+                fileChannel.read(tempKey, position + Long.BYTES + Integer.BYTES);
+                return tempKey.flip();
             } catch (IOException e) {
                 logger.warning(e.toString());
                 return ByteBuffer.allocate(0);

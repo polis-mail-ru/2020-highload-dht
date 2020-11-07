@@ -40,7 +40,7 @@ public final class Proxy {
             request.addHeader(PROXY_HEADER + ":" + "proxied");
             return client.invoke(request);
         } catch (InterruptedException | HttpException | PoolException | IOException e) {
-            throw new ProxyException("Error in proxying");
+            throw new ProxyException("Error in proxying", e);
         }
     }
 

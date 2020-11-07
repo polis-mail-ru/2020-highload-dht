@@ -7,8 +7,6 @@ import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -17,7 +15,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class Utility {
-    private static final Logger logger = LoggerFactory.getLogger(Utility.class);
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
     public static final String TIME_HEADER = "XTime";
 
