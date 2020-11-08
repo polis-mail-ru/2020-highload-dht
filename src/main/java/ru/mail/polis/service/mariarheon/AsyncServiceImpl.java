@@ -106,36 +106,34 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                 @NotNull final HttpSession session,
                                 final @Param("request") Request request) {
         final var responsibleNodes = sharding.getResponsibleNodes(key, replicas);
-        final var answers = new CompletableFuture<?>[responsibleNodes.size()];
-        int i = 0;
+        final var composer = new ReplicasResponseComposer(replicas);
         for (final var node : responsibleNodes) {
+            CompletableFuture<Response> answer;
             if (sharding.isMe(node)) {
-                answers[i] = processLocalRequest(key, request);
+                answer = processLocalRequest(key, request);
             } else {
-                answers[i] = sharding.passOn(node, addMyselfParamToRequest(request));
+                answer = sharding.passOn(node, addMyselfParamToRequest(request));
             }
-            i++;
-        }
-        final var all = CompletableFuture.allOf(answers);
-
-        all.thenAccept(ignored -> {
-            final var composer = new ReplicasResponseComposer(replicas.getAckCount());
-            for (final var answer : answers) {
-                final Response response;
-                try {
-                    response = (Response) answer.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    continue;
+            answer.exceptionally(ex -> {
+                logger.error(SERV_UN, ex);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }).thenAccept(resp -> {
+                synchronized (composer) {
+                    if (composer.answerIsReady()) {
+                        return;
+                    }
+                    composer.addResponse(resp);
+                    if (composer.answerIsReady()) {
+                        final var requiredResponse = composer.getComposedResponse();
+                        trySendResponse(session, requiredResponse);
+                    }
                 }
-                composer.addResponse(response);
-            }
-            final var requiredResponse = composer.getComposedResponse();
-            trySendResponse(session, requiredResponse);
-        }).exceptionally((ex) -> {
-            logger.error(SERV_UN, ex);
-            trySendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            return null;
-        });
+            }).exceptionally(ex -> {
+                logger.error(SERV_UN, ex);
+                trySendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                return null;
+            });
+        }
     }
 
     private CompletableFuture<Response> processLocalRequest(final @Param(value = "id", required = true) String key,

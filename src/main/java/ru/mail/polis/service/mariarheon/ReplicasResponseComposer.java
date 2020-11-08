@@ -2,15 +2,14 @@ package ru.mail.polis.service.mariarheon;
 
 import one.nio.http.Response;
 
-import java.util.Date;
-
 /**
  * This class is used for composing response to client
  * by responses retrieved from replicas.
  */
 public class ReplicasResponseComposer {
-    private int ackCount;
-    private int goodAnswers;
+    private Replicas replicas;
+    private int ackReceived;
+    private int totalReceived;
     private int status;
     private Record record;
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
@@ -18,10 +17,10 @@ public class ReplicasResponseComposer {
     /**
      * Create composer for generating response for client from replicas answers.
      *
-     * @param ackCount - count of required acknowledgements.
+     * @param replicas - count of required acknowledgements and total nodes.
      */
-    public ReplicasResponseComposer(final int ackCount) {
-        this.ackCount = ackCount;
+    public ReplicasResponseComposer(final Replicas replicas) {
+        this.replicas = replicas;
     }
 
     /**
@@ -30,11 +29,12 @@ public class ReplicasResponseComposer {
      * @param response - response from replica.
      */
     public void addResponse(final Response response) {
+        totalReceived++;
         final var status = response.getStatus();
         if (status < 200 || status > 202) {
             return;
         }
-        goodAnswers++;
+        ackReceived++;
         this.status = status;
         if (status == 200) {
             final var responseRecord = Record.newFromRawValue(response.getBody());
@@ -47,12 +47,21 @@ public class ReplicasResponseComposer {
     }
 
     /**
+     * Returns true if ack good answers was reached or we get responses from all the nodes.
+     *
+     * @return - true if ack good answers was reached or we get responses from all the nodes.
+     */
+    public boolean answerIsReady() {
+        return ackReceived >= replicas.getAckCount() || totalReceived >= replicas.getTotalNodes();
+    }
+
+    /**
      * Get response for client, combined from responses from replicas.
      *
      * @return - response for client.
      */
     public Response getComposedResponse() {
-        if (goodAnswers < ackCount) {
+        if (ackReceived < replicas.getAckCount()) {
             return new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY);
         }
         if (status == 201) {
