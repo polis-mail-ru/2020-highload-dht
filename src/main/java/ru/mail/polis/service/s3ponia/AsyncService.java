@@ -159,7 +159,7 @@ public final class AsyncService implements HttpEntityHandler {
     public synchronized void close() throws IOException {
         this.es.shutdown();
         try {
-            this.es.awaitTermination(3, TimeUnit.SECONDS);
+            this.es.awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             logger.error("Error in waiting es", e);
             Thread.currentThread().interrupt();

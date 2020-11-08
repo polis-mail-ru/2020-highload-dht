@@ -17,36 +17,37 @@ import java.util.Map;
 public final class Utility {
     public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
     public static final String TIME_HEADER = "XTime";
-
+    
     private Utility() {
     }
-
+    
     public static boolean validateId(@NotNull final String id) {
         return !id.isEmpty();
     }
-
+    
     public static ByteBuffer byteBufferFromString(@NotNull final String s) {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
-
+    
     /**
-     * Checks is homeNode in nodeReplicas.
+     * Checks is el in elements' array.
      *
-     * @param homeNode     homeNode
-     * @param nodeReplicas array of replicas
-     * @return is home in replicas
+     * @param el     el
+     * @param elements array
+     * @return is el in elements' array
      */
-    public static boolean isHomeInReplicas(@NotNull final String homeNode,
-                                           @NotNull final String... nodeReplicas) {
+    @SafeVarargs
+    public static <T> boolean arrayContains(@NotNull final T el,
+                                            @NotNull final T... elements) {
         for (final var node :
-                nodeReplicas) {
-            if (node.equals(homeNode)) {
+                elements) {
+            if (node.equals(el)) {
                 return true;
             }
         }
         return false;
     }
-
+    
     /**
      * Configuring http server from port.
      *
@@ -57,13 +58,13 @@ public final class Utility {
     public static HttpServerConfig configFrom(final int port) {
         final AcceptorConfig ac = new AcceptorConfig();
         ac.port = port;
-
+        
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[1];
         config.acceptors[0] = ac;
         return config;
     }
-
+    
     /**
      * Make map String to HttpClient from nodes list.
      *
@@ -84,7 +85,7 @@ public final class Utility {
         }
         return result;
     }
-
+    
     /**
      * Send response with catching IOException and rethrowing it as RuntimeException.
      *
@@ -99,7 +100,7 @@ public final class Utility {
             throw new RuntimeException("IOException in sending response", e);
         }
     }
-
+    
     /**
      * Make byte array from ByteBuffer.
      *

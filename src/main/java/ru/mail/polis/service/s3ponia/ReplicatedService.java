@@ -13,6 +13,7 @@ import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -71,12 +72,12 @@ public class ReplicatedService implements HttpEntityHandler {
         
         final var key = Utility.byteBufferFromString(id);
         final var nodes = policy.getNodeReplicas(key, parsedReplica.replicas);
-        final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
+        final boolean homeInReplicas = Utility.arrayContains(policy.homeNode(), nodes);
         
         final var replicaResponses =
-                Proxy.proxyReplicas(request, urlToClient.values()
-                                                     .stream()
-                                                     .limit(parsedReplica.replicas)
+                Proxy.proxyReplicas(request, Arrays.stream(nodes)
+                                                     .filter(n -> !n.equals(policy.homeNode()))
+                                                     .map(urlToClient::get)
                                                      .collect(Collectors.toList()),
                         parsedReplica.acks);
         
@@ -182,5 +183,10 @@ public class ReplicatedService implements HttpEntityHandler {
     @Override
     public void close() throws IOException {
         asyncService.close();
+        
+        for (final var client :
+                urlToClient.values()) {
+            client.close();
+        }
     }
 }
