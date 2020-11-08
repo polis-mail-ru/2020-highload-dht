@@ -106,12 +106,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        @Param(value = "replicas") final String replicas,
                        @Param("request") final Request request,
                        final HttpSession session) {
-        final CompletableFuture<Response> response;
         if (id.isEmpty()) {
             basicFuctions.trySendResponse(session, CompletableFuture.supplyAsync(() ->
                     new Response(Response.BAD_REQUEST, Response.EMPTY)));
             return;
         }
+        final CompletableFuture<Response> response;
         if (request.getHeader(PROXY_HEADER) == null) {
             response = sendToReplicas(id, replicas, request);
         } else {

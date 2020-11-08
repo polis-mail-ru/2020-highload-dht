@@ -23,7 +23,6 @@ public class BasicFuctions {
     private final ExecutorService execPool;
     private final Logger log = LoggerFactory.getLogger(BasicFuctions.class);
 
-
     /**
      * Constructor.
      * @param dao       - dao.
@@ -88,6 +87,11 @@ public class BasicFuctions {
         }, execPool);
     }
 
+    /**
+     * Send response when future completes.
+     * @param session - session.
+     * @param response - response.
+     */
     public void trySendResponse(final HttpSession session,
                                 final CompletableFuture<Response> response) {
         if (response.whenComplete((r, t) -> {

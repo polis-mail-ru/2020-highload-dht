@@ -1,6 +1,5 @@
 package ru.mail.polis.service.ivanovandrey;
 
-
 import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
 

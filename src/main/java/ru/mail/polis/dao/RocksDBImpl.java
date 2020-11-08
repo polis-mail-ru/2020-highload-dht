@@ -86,6 +86,7 @@ public final class RocksDBImpl implements DAO {
             throw new RuntimeException(e);
         }
     }
+
     @Override
     public void upsertWithTimestamp(@NotNull final ByteBuffer key,
                                               @NotNull final ByteBuffer value) throws IOException {
@@ -113,6 +114,7 @@ public final class RocksDBImpl implements DAO {
             throw new IOException(ex);
         }
     }
+
     @Override
     public void close() throws IOException {
         db.close();

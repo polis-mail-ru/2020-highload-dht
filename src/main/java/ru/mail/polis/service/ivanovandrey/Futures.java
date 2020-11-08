@@ -12,6 +12,12 @@ public final class Futures {
 
     }
 
+    /**
+     * Generates a collection of ack responses.
+     * @param ack - ack.
+     * @param futures - futures.
+     * @return - Collection of ack responses or NotEnoughReplicasException.
+     */
     public static CompletableFuture<Collection<Response>> getAckResponses(
             final int ack,
             final Collection<CompletableFuture<Response>> futures) {

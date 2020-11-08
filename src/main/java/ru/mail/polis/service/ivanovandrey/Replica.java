@@ -15,6 +15,7 @@ import static one.nio.http.Request.METHOD_GET;
 public class Replica {
     private final int ackCount;
     private final int fromCount;
+
     /**
      * Constructor that works with "replicas".
      *

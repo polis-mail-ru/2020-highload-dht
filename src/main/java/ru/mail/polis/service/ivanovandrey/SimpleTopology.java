@@ -6,7 +6,6 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.dao.DAO;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -31,9 +30,16 @@ public class SimpleTopology {
     private final ExecutorService execPool;
     private final String thisNode;
 
+    /**
+     * Constructor.
+     *
+     * @param executors - number of executors.
+     * @param execPool - ExecutorService.
+     * @param port - port.
+     */
     public SimpleTopology(final int executors,
                           @NotNull final ExecutorService execPool,
-                          int port) {
+                          final int port) {
         final Executor executor = Executors.newFixedThreadPool(
                 executors,
                 new ThreadFactoryBuilder()
