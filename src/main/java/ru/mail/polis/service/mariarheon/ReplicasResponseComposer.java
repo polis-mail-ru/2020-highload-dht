@@ -7,33 +7,52 @@ import one.nio.http.Response;
  * by responses retrieved from replicas.
  */
 public class ReplicasResponseComposer {
-    private Response requiredResponse;
-    private int goodAnswers;
-    private int notFoundAnswers;
-    private boolean wasRemoved;
-    private int ackCount;
+    private final Replicas replicas;
+    private int ackReceived;
+    private int totalReceived;
+    private int status;
+    private Record record;
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+
+    /**
+     * Create composer for generating response for client from replicas answers.
+     *
+     * @param replicas - count of required acknowledgements and total nodes.
+     */
+    public ReplicasResponseComposer(final Replicas replicas) {
+        this.replicas = replicas;
+    }
 
     /**
      * Add response from replica.
      *
      * @param response - response from replica.
-     * @param ackCount - count of required acknowledgements.
      */
-    public void addResponse(final Response response, final int ackCount) {
-        this.ackCount = ackCount;
-        if (response.getStatus() >= 200 && response.getStatus() <= 202) {
-            if (requiredResponse == null) {
-                requiredResponse = response;
+    public void addResponse(final Response response) {
+        totalReceived++;
+        final var responseStatus = response.getStatus();
+        if (responseStatus < 200 || responseStatus > 202) {
+            return;
+        }
+        ackReceived++;
+        this.status = responseStatus;
+        if (responseStatus == 200) {
+            final var responseRecord = Record.newFromRawValue(response.getBody());
+            if (this.record == null
+                    || (!responseRecord.wasNotFound()
+                    && responseRecord.getTimestamp().after(this.record.getTimestamp()))) {
+                this.record = responseRecord;
             }
-            goodAnswers++;
         }
-        if (response.getStatus() == 404) {
-            notFoundAnswers++;
-        }
-        if (response.getStatus() == 310) {
-            wasRemoved = true;
-        }
+    }
+
+    /**
+     * Returns true if ack good answers was reached or we get responses from all the nodes.
+     *
+     * @return - true if ack good answers was reached or we get responses from all the nodes.
+     */
+    public boolean answerIsReady() {
+        return ackReceived >= replicas.getAckCount() || totalReceived >= replicas.getTotalNodes();
     }
 
     /**
@@ -42,15 +61,18 @@ public class ReplicasResponseComposer {
      * @return - response for client.
      */
     public Response getComposedResponse() {
-        var res = requiredResponse;
-        final int ackCountRetrieved = goodAnswers + notFoundAnswers;
-        if (wasRemoved) {
-            res = new ZeroResponse(Response.NOT_FOUND);
-        } else if (ackCountRetrieved < this.ackCount) {
-            res = new ZeroResponse(NOT_ENOUGH_REPLICAS);
-        } else if (goodAnswers == 0 && notFoundAnswers > 0) {
-            res = new ZeroResponse(Response.NOT_FOUND);
+        if (ackReceived < replicas.getAckCount()) {
+            return new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY);
         }
-        return res;
+        if (status == 201) {
+            return new Response(Response.CREATED, Response.EMPTY);
+        }
+        if (status == 202) {
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        }
+        if (record.wasNotFound() || record.isRemoved()) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
+        return Response.ok(record.getValue());
     }
 }

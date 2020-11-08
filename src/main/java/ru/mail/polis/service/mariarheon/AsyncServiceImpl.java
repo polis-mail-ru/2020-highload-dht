@@ -47,8 +47,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final String SERV_UN = "Service unavailable: ";
     private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
     private static final String MYSELF_PARAMETER = "myself";
-    private static final String REMOVED_PERMANENTLY = "310 Removed Permanently";
-    private static final String DELETED_SPECIAL_VALUE = "P**J$#RFh7e3j89ri(((8873uj33*&&*&&";
 
     /**
      * Asynchronous Service Implementation.
@@ -128,7 +126,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 answers.add(passOn(node, request));
             }
         }
-        final var composer = new ReplicasResponseComposer();
+        final var composer = new ReplicasResponseComposer(replicas);
         for (final var answer : answers) {
             if (answer == null) {
                 continue;
@@ -139,7 +137,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             } catch (InterruptedException | ExecutionException e) {
                 continue;
             }
-            composer.addResponse(response, replicas.getAckCount());
+            composer.addResponse(response);
         }
         final var requiredResponse = composer.getComposedResponse();
         trySendResponse(session, requiredResponse);
@@ -168,52 +166,34 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private Response get(final String key) {
         try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.getInternal() method: key is empty");
-                return new ZeroResponse(Response.BAD_REQUEST);
-            }
-            final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            final var ar = ByteBufferUtils.toArray(response);
-            if (Arrays.equals(ar, DELETED_SPECIAL_VALUE.getBytes(StandardCharsets.UTF_8))) {
-                return new ZeroResponse(REMOVED_PERMANENTLY);
-            }
-            return Response.ok(ar);
-        } catch (NoSuchElementException ex) {
-            return new ZeroResponse(Response.NOT_FOUND);
+            final var record = Record.newFromDAO(dao, key);
+            return Response.ok(record.getRawValue());
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.getInternal() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     private Response put(final String key,
-                     final Request request) {
+                         final Request request) {
         try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.putInternal() method: key is empty");
-                return new ZeroResponse(Response.BAD_REQUEST);
-            }
-            dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                    ByteBufferUtils.toByteBuffer(request.getBody()));
-            return new ZeroResponse(Response.CREATED);
+            final var record = Record.newRecord(key, request.getBody());
+            record.save(dao);
+            return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.putInternal() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     private Response delete(final String key) {
         try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.delete() method: key is empty");
-                return new ZeroResponse(Response.BAD_REQUEST);
-            }
-            dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                    ByteBufferUtils.toByteBuffer(DELETED_SPECIAL_VALUE.getBytes(StandardCharsets.UTF_8)));
-            return new ZeroResponse(Response.ACCEPTED);
+            final var record = Record.newRemoved(key);
+            record.save(dao);
+            return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
