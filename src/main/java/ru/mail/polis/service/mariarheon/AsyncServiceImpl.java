@@ -13,13 +13,9 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -43,8 +39,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final String SERV_UN = "Service unavailable: ";
     private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
     private static final String MYSELF_PARAMETER = "myself";
-    private static final String REMOVED_PERMANENTLY = "310 Removed Permanently";
-    private static final String DELETED_SPECIAL_VALUE = "P**J$#RFh7e3j89ri(((8873uj33*&&*&&";
 
     /**
      * Asynchronous Service Implementation.
@@ -59,7 +53,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         this.dao = dao;
         this.sharding = sharding;
         final int workers = Runtime.getRuntime().availableProcessors();
-        service = new ThreadPoolExecutor(workers, workers, 0L,
+        this.service = new ThreadPoolExecutor(workers, workers, 0L,
                 TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(1024),
                 new ThreadFactoryBuilder()
@@ -84,11 +78,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
         if (key.isEmpty()) {
-            trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
+            trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
         if (myself != null) {
-            final var resp = processRequest(key, request);
+            final var resp = processLocalRequest(key, request);
             try {
                 trySendResponse(session, resp.get());
             } catch (InterruptedException | ExecutionException e) {
@@ -101,7 +95,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             replicas = new Replicas(replicasParam, sharding.getNodesCount());
         } catch (ReplicasParamParseException ex) {
             logger.error(BAD_REPL_PARAM, ex);
-            trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
+            trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
         sendToReplicas(key, replicas, session, request);
@@ -116,7 +110,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         int i = 0;
         for (final var node : responsibleNodes) {
             if (sharding.isMe(node)) {
-                answers[i] = processRequest(key, request);
+                answers[i] = processLocalRequest(key, request);
             } else {
                 answers[i] = sharding.passOn(node, addMyselfParamToRequest(request));
             }
@@ -125,7 +119,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final var all = CompletableFuture.allOf(answers);
 
         all.thenAccept(ignored -> {
-            final var composer = new ReplicasResponseComposer();
+            final var composer = new ReplicasResponseComposer(replicas.getAckCount());
             for (final var answer : answers) {
                 final Response response;
                 try {
@@ -133,19 +127,19 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 } catch (InterruptedException | ExecutionException e) {
                     continue;
                 }
-                composer.addResponse(response, replicas.getAckCount());
+                composer.addResponse(response);
             }
             final var requiredResponse = composer.getComposedResponse();
             trySendResponse(session, requiredResponse);
         }).exceptionally((ex) -> {
             logger.error(SERV_UN, ex);
-            trySendResponse(session, new ZeroResponse(Response.INTERNAL_ERROR));
+            trySendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             return null;
         });
     }
 
-    private CompletableFuture<Response> processRequest(final @Param(value = "id", required = true) String key,
-                                final @Param("request") Request request) {
+    private CompletableFuture<Response> processLocalRequest(final @Param(value = "id", required = true) String key,
+                                                            final @Param("request") Request request) {
         return CompletableFuture.supplyAsync(() -> {
             switch (request.getMethod()) {
                 case METHOD_GET:
@@ -155,59 +149,41 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 case METHOD_DELETE:
                     return delete(key);
                 default:
-                    return new ZeroResponse(Response.NOT_FOUND);
+                    return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
         }, service);
     }
 
     private Response get(final String key) {
         try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.getInternal() method: key is empty");
-                return new ZeroResponse(Response.BAD_REQUEST);
-            }
-            final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
-            final var ar = ByteBufferUtils.toArray(response);
-            if (Arrays.equals(ar, DELETED_SPECIAL_VALUE.getBytes(StandardCharsets.UTF_8))) {
-                return new ZeroResponse(REMOVED_PERMANENTLY);
-            }
-            return Response.ok(ar);
-        } catch (NoSuchElementException ex) {
-            return new ZeroResponse(Response.NOT_FOUND);
+            final var record = Record.newFromDAO(dao, key);
+            return Response.ok(record.getRawValue());
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.getInternal() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     private Response put(final String key,
                      final Request request) {
         try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.putInternal() method: key is empty");
-                return new ZeroResponse(Response.BAD_REQUEST);
-            }
-            dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                    ByteBufferUtils.toByteBuffer(request.getBody()));
-            return new ZeroResponse(Response.CREATED);
+            final var record = Record.newRecord(key, request.getBody());
+            record.save(dao);
+            return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.putInternal() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
     private Response delete(final String key) {
         try {
-            if (key.isEmpty()) {
-                logger.info("ServiceImpl.delete() method: key is empty");
-                return new ZeroResponse(Response.BAD_REQUEST);
-            }
-            dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
-                    ByteBufferUtils.toByteBuffer(DELETED_SPECIAL_VALUE.getBytes(StandardCharsets.UTF_8)));
-            return new ZeroResponse(Response.ACCEPTED);
+            final var record = Record.newRemoved(key);
+            record.save(dao);
+            return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -227,13 +203,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) {
-        trySendResponse(session, new ZeroResponse(Response.OK));
+        trySendResponse(session, new Response(Response.OK, Response.EMPTY));
     }
 
     @Override
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
-        trySendResponse(session, new ZeroResponse(Response.BAD_REQUEST));
+        trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     private static Request addMyselfParamToRequest(final Request request) {

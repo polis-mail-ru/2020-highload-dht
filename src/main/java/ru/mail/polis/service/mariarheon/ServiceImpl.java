@@ -48,16 +48,16 @@ public class ServiceImpl extends HttpServer implements Service {
     public Response get(final @Param(value = "id", required = true) String key) {
         if (key.isEmpty()) {
             logger.info("ServiceImpl.get() method: key is empty");
-            return new ZeroResponse(Response.BAD_REQUEST);
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         try {
             final ByteBuffer response = dao.get(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
             return Response.ok(ByteBufferUtils.toArray(response));
         } catch (NoSuchElementException ex) {
-            return new ZeroResponse(Response.NOT_FOUND);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.get() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
@@ -74,16 +74,16 @@ public class ServiceImpl extends HttpServer implements Service {
                         final @Param("request") Request request) {
         if (key.isEmpty()) {
             logger.info("ServiceImpl.put() method: key is empty");
-            return new ZeroResponse(Response.BAD_REQUEST);
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         try {
             dao.upsert(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)),
                     ByteBufferUtils.toByteBuffer(request.getBody()));
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.put() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-        return new ZeroResponse(Response.CREATED);
+        return new Response(Response.CREATED, Response.EMPTY);
     }
 
     /** Remove key-data pair.
@@ -98,28 +98,28 @@ public class ServiceImpl extends HttpServer implements Service {
     public Response delete(final @Param(value = "id", required = true) String key) {
         if (key.isEmpty()) {
             logger.info("ServiceImpl.delete() method: key is empty");
-            return new ZeroResponse(Response.BAD_REQUEST);
+            return new Response(Response.BAD_REQUEST, Response.EMPTY);
         }
         try {
             dao.remove(ByteBufferUtils.toByteBuffer(key.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchElementException ex) {
-            return new ZeroResponse(Response.NOT_FOUND);
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
         } catch (IOException ex) {
             logger.error("Error in ServiceImpl.delete() method; internal error: ", ex);
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
-        return new ZeroResponse(Response.ACCEPTED);
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
     @Path("/v0/status")
     public Response status() {
-        return new ZeroResponse(Response.OK);
+        return new Response(Response.OK, Response.EMPTY);
     }
 
     @Override
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) throws IOException {
-        session.sendResponse(new ZeroResponse(Response.BAD_REQUEST));
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
 }

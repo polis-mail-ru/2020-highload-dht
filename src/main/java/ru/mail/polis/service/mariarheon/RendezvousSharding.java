@@ -100,7 +100,7 @@ public class RendezvousSharding {
         final var bodyHandler = HttpResponse.BodyHandlers.ofByteArray();
         return httpClient.sendAsync(javaHttpRequest, bodyHandler)
                 .thenApply(ResponseConverter::convert)
-                .exceptionally(ex -> new ZeroResponse(Response.INTERNAL_ERROR));
+                .exceptionally(ex -> new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 
     /**

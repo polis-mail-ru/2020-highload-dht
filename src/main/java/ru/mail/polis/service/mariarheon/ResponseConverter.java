@@ -17,7 +17,7 @@ public final class ResponseConverter {
      */
     public static Response convert(final HttpResponse<byte[]> response) {
         if (response == null) {
-            return new ZeroResponse(Response.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
         final String statusCode = String.valueOf(response.statusCode());
         return new Response(statusCode, response.body());
