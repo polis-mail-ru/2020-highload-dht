@@ -21,11 +21,6 @@ final class ReplicationServiceUtils {
     }
 
     private static Value syncValues(final List<Value> values) {
-
-        if (values.size() == 1) {
-            return values.get(0);
-        }
-
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))
@@ -38,9 +33,9 @@ final class ReplicationServiceUtils {
             final boolean isForwardedRequest,
             @NotNull final Topology topology) throws NotEnoughNodesException {
 
-        return isForwardedRequest ? new HashSet<>(ImmutableSet.of(
+        return isForwardedRequest ? ImmutableSet.of(
                 topology.getCurrentNode()
-        )) : topology.getReplicas(key, replicationFactor.getFrom());
+        ) : topology.getReplicas(key, replicationFactor.getFrom());
     }
 
     static Response handleExternal(
@@ -60,11 +55,10 @@ final class ReplicationServiceUtils {
             return addTimestampHeader(response, value.getTimestamp());
         }
 
-        final Response response = new Response(Response.OK, value.getBytes());
-        return addTimestampHeader(response, value.getTimestamp());
+        return new Response(Response.OK, value.getBytes());
     }
 
-    static long getTimestamp(final Response response) {
+    static long getTimestamp(final Response response) throws NumberFormatException {
         final String timestamp = response.getHeader(TIMESTAMP);
         return timestamp == null ? -1 : Long.parseLong(timestamp);
     }

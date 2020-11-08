@@ -24,11 +24,15 @@ final class ReplicationFactor {
     ) throws IllegalArgumentException {
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
 
+        if (delimitValues.size() != 2) {
+            throw new IllegalArgumentException(RF_ERROR);
+        }
+
         final int ack = Integer.parseInt(delimitValues.get(0));
         final int from = Integer.parseInt(delimitValues.get(1));
         final boolean negativeValuesPresent = ack < 1 || from < 1;
 
-        if (delimitValues.size() != 2 || negativeValuesPresent || ack > from) {
+        if (negativeValuesPresent || ack > from) {
             throw new IllegalArgumentException(RF_ERROR);
         }
 

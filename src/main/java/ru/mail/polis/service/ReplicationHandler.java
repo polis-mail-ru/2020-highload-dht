@@ -85,7 +85,6 @@ class ReplicationHandler {
     Response multipleGet(
             final String id, @NotNull final ReplicationFactor repliFactor, final boolean isForwardedRequest
     ) throws NotEnoughNodesException, IOException {
-        int replCounter = 0;
         final Set<String> nodes = getNodeReplica(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 repliFactor,
@@ -106,18 +105,15 @@ class ReplicationHandler {
                 final long timestamp = ReplicationServiceUtils.getTimestamp(response);
                 if (response.getStatus() == 404) {
                     values.add(timestamp > 0 ? Value.resolveDeletedValue(timestamp) : Value.resolveMissingValue());
-                } else if (response.getStatus() == 500) {
-                    continue;
-                } else {
+                } else if (response.getStatus() != 500) {
                     values.add(Value.composeFromBytes(response.getBody()));
                 }
-                replCounter++;
-            } catch (HttpException | PoolException | InterruptedException | IOException exc) {
+            } catch (HttpException | PoolException | InterruptedException | IOException | NumberFormatException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }
         }
 
-        return processGet(isForwardedRequest, repliFactor, replCounter, nodes, values);
+        return processGet(isForwardedRequest, repliFactor, values.size(), nodes, values);
     }
 
     private Response processGet(

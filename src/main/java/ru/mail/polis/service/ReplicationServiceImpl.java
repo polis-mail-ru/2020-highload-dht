@@ -37,13 +37,14 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private static final int CONNECTION_TIMEOUT = 1000;
 
     private enum ErrorNames {
-        IO_ERROR, NOT_ALLOWED_METHOD_ERROR, REJECTED
+        IO_ERROR, NOT_ALLOWED_METHOD_ERROR, REJECTED, NOT_ENOUGH_NODES
     }
 
     private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
             entry(ErrorNames.IO_ERROR, "IO exception raised"),
             entry(ErrorNames.NOT_ALLOWED_METHOD_ERROR, "Method not allowed"),
-            entry(ErrorNames.REJECTED, "RejectedExecutionException when handling replicas")
+            entry(ErrorNames.REJECTED, "RejectedExecutionException when handling replicas"),
+            entry(ErrorNames.NOT_ENOUGH_NODES, "Not enough nodes in cluster")
     );
 
     private final ExecutorService exec;
@@ -165,6 +166,15 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             }
         } catch (RejectedExecutionException e) {
             log.error(MESSAGE_MAP.get(ErrorNames.REJECTED), e);
+            handleError(session);
+        }
+    }
+
+    private void handleError(final HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Couldn't send response", e);
         }
     }
 
@@ -215,7 +225,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                     break;
             }
         } catch (NotEnoughNodesException e) {
-            log.error(e.getMessage());
+            log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
         }
     }
 

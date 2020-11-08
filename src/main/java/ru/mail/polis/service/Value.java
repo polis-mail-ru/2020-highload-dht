@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public final class Value {
+    private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+
     private final boolean isValueDeleted;
     private final long timestamp;
     private final ByteBuffer buffer;
@@ -19,16 +21,12 @@ public final class Value {
         this.buffer = buffer;
     }
 
-    private static ByteBuffer getEmptyBuffer() {
-        return ByteBuffer.allocate(0);
-    }
-
     public static Value resolveExistingValue(final ByteBuffer buffer, final long timestamp) {
         return new Value(false, timestamp, buffer);
     }
 
     public static Value resolveDeletedValue(final long timestamp) {
-        return new Value(true, timestamp, getEmptyBuffer());
+        return new Value(true, timestamp, EMPTY_BUFFER);
     }
 
     static Value resolveMissingValue() {
