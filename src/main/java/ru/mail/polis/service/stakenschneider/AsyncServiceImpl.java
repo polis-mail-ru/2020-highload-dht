@@ -159,9 +159,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                       @NotNull final Request request) {
         try {
             return clusterClients.get(node).invoke(request);
-        } catch (InterruptedException | PoolException | HttpException | IOException e) {
+        } catch (InterruptedException | HttpException | IOException e) {
             log.info("fail", e);
-
+        } catch (PoolException e) {
+            log.info("fail", e);
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
         return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
     }
