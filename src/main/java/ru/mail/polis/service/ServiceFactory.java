@@ -19,7 +19,6 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.ivanovandrey.AsyncServiceImpl;
-import ru.mail.polis.service.ivanovandrey.SimpleTopology;
 
 import java.io.IOException;
 import java.util.Set;
@@ -59,6 +58,8 @@ public final class ServiceFactory {
 
         return new AsyncServiceImpl(port,
                 dao,
-                new SimpleTopology(topology, "http://localhost:" + port));
+                Runtime.getRuntime().availableProcessors(),
+                1024,
+                topology);
     }
 }

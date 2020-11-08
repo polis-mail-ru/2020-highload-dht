@@ -1,64 +1,76 @@
 package ru.mail.polis.service.ivanovandrey;
 
+import com.google.common.base.Splitter;
+import one.nio.http.Response;
+import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.Timestamp;
+
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+
+import static one.nio.http.Request.METHOD_GET;
+
 public class Replica {
-    private int ackCount;
-    private int totalNodes;
-
-    private static final String SLASH_SHOULD_BE_PRESENTED_ERROR_MSG = "/-symbol should be in the value";
-    private static final String ACK_TO_HIGH_ERROR_MSG = "Ack-value should be less than or equal to from-value";
-    private static final String ACK_TO_LOW_ERROR_MSG = "Ack-value should be more than 0";
-    private static final String NON_INTEGER_IN_VALUE_ERROR_MSG = "Two numbers should be here separated by /-symbol";
-
+    private final int ackCount;
+    private final int fromCount;
     /**
-     * Storing the value of 'replicas'-param of queries.
+     * Constructor that works with "replicas".
      *
-     * @param ackFromString - the value of 'replicas'-param.
-     * @throws ReplicasParamParseException - throws when the format of the value is incorrect.
+     * @param replicas - the value of 'replicas'-param.
      */
-    public Replica(final String ackFromString, final int nodeCount) throws ReplicasParamParseException {
-        if (ackFromString == null) {
-            this.ackCount = nodeCount / 2 + 1;
-            this.totalNodes = nodeCount;
-            return;
-        }
-        final int slashWhere = ackFromString.indexOf('/');
-        if (slashWhere == -1) {
-            throw new ReplicasParamParseException(SLASH_SHOULD_BE_PRESENTED_ERROR_MSG);
-        }
-        final String ackStr = ackFromString.substring(0, slashWhere);
-        final String fromStr = ackFromString.substring(slashWhere + 1);
-        try {
-            this.ackCount = Integer.parseInt(ackStr);
-            this.totalNodes = Integer.parseInt(fromStr);
-        } catch (NumberFormatException ex) {
-            throw new ReplicasParamParseException(NON_INTEGER_IN_VALUE_ERROR_MSG, ex);
-        }
-        if (this.totalNodes > nodeCount) {
-            this.totalNodes = nodeCount;
-        }
-        if (this.ackCount > this.totalNodes) {
-            throw new ReplicasParamParseException(ACK_TO_HIGH_ERROR_MSG);
-        }
-        if (this.ackCount <= 0) {
-            throw new ReplicasParamParseException(ACK_TO_LOW_ERROR_MSG);
-        }
+    public Replica(@NotNull final String replicas) {
+        final List<String> r = Splitter.on('/').splitToList(replicas);
+        this.ackCount = Integer.parseInt(r.get(0));
+        this.fromCount = Integer.parseInt(r.get(1));
     }
 
     /**
-     * Returns number of answers we should get in order to think that this is enough.
+     * Constructor that works with cluster size.
      *
-     * @return - number of answers we should get in order to think that this is enough.
+     * @param nodeCount number of cluster nodes
      */
+    public Replica(final int nodeCount) {
+        this.ackCount = nodeCount / 2 + 1;
+        this.fromCount = nodeCount;
+    }
+
+    public int getFromCount() {
+        return fromCount;
+    }
+
     public int getAckCount() {
         return ackCount;
     }
 
     /**
-     * Returns number of nodes which should be used for this operation.
+     * Form final response to client.
      *
-     * @return - number of nodes which should be used for this operation.
+     * @param responses - collection of responses.
+     * @param method - method of the request.
      */
-    public int getTotalNodes() {
-        return totalNodes;
+    public Response formFinalResponse(final Collection<Response> responses, final int method) {
+        if (method == METHOD_GET) {
+            return responses.stream()
+                    .filter(response -> response.getStatus() == 200)
+                    .max(Comparator.comparingLong(response ->
+                            Timestamp.getTimestampByData(ByteBuffer.wrap(response.getBody()))
+                                    .getTimestampValue()))
+                    .map(response -> {
+                        final Timestamp timestamp = Timestamp.getTimestampByData(
+                                ByteBuffer.wrap(response.getBody()));
+                        if (timestamp.getState() == Timestamp.State.DELETED) {
+                            return new Response(Response.NOT_FOUND, Response.EMPTY);
+                        } else {
+                            return new Response(Response.OK, timestamp.getData());
+                        }
+                    })
+                    .orElse(new Response(Response.NOT_FOUND, Response.EMPTY));
+
+        }
+        return responses.stream()
+                .findFirst()
+                .orElse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 }

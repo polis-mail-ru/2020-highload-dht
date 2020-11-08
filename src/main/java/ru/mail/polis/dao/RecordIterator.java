@@ -3,6 +3,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
+import ru.mail.polis.service.ivanovandrey.Util;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
@@ -30,7 +31,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
         final var key = iterator.key();
         final var value = iterator.value();
         iterator.next();
-        return Record.of(Converter.fromArrayShifted(key), ByteBuffer.wrap(value));
+        return Record.of(Util.fromArrayShifted(key), ByteBuffer.wrap(value));
     }
 
     @Override

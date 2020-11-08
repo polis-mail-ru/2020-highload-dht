@@ -103,4 +103,9 @@ public interface DAO extends Closeable {
     default void compact() throws IOException {
         // Implement me when you get to stage 3
     }
+
+    void upsertWithTimestamp(@NotNull ByteBuffer key,
+                             @NotNull ByteBuffer value) throws IOException;
+
+    void removeWithTimestamp(@NotNull ByteBuffer key) throws IOException;
 }

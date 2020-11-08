@@ -1,25 +1,79 @@
 package ru.mail.polis.service.ivanovandrey;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+
+import one.nio.util.Hash;
+import org.jetbrains.annotations.NotNull;
+
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public final class Util {
     private Util() {
-        /* nothing */
+
+    }
+
+    /** Convert from ByteBuffer to Byte massive.
+     *
+     * @param buffer - ByteBuffer to convert
+     */
+    public static byte[] fromByteBufferToByteArray(@NotNull final ByteBuffer buffer) {
+        final ByteBuffer bufferCopy = buffer.duplicate();
+        final byte[] array = new byte[bufferCopy.remaining()];
+        bufferCopy.get(array);
+        return array;
     }
 
     /**
-     * Converts any collection to new sorted list.
+     * Extract array from a ByteBuffer and shift all bytes by min value.
      *
-     * @param c - collection.
-     * @param <T> - type of element.
-     * @return - sorted list.
+     * @param buffer - ByteBuffer to extract from
      */
-    public static
-    <T extends Comparable<? super T>> List<T> asSortedList(final Collection<T> c) {
-        final List<T> list = new ArrayList<T>(c);
-        java.util.Collections.sort(list);
-        return list;
+    public static byte[] toArrayShifted(@NotNull final ByteBuffer buffer) {
+        var res = fromByteBufferToByteArray(buffer);
+        for (int i = 0; i < res.length; i++) {
+            res[i] = (byte)(Byte.toUnsignedInt(res[i]) - Byte.MIN_VALUE);
+        }
+        return res;
+    }
+
+    /**
+     * Wrap byte array into ByteBuffer.
+     *
+     * @param arr - byte array
+     */
+    public static ByteBuffer fromArrayShifted(@NotNull final byte[] arr) {
+        final byte[] cpy = Arrays.copyOf(arr, arr.length);
+        for (int i = 0; i < cpy.length; i++) {
+            cpy[i] = (byte) (Byte.toUnsignedInt(cpy[i]) + Byte.MIN_VALUE);
+        }
+        return ByteBuffer.wrap(cpy);
+    }
+
+    /**
+     * Returns nodes that stores data for a given key by rendezvous hashing algorithm.
+     *
+     * @param nodes - list of existing nodes
+     * @param key - data id
+     * @param replicasNumber - number of nodes to store data
+     */
+    public static Set<String> getNodes(final Set<String> nodes,
+                                       final String key,
+                                       final int replicasNumber) {
+        final Map<Integer,String> hash = new HashMap<>();
+        final Set<String> resultNodes = new HashSet<>();
+        for (final String node : nodes) {
+            hash.put(Hash.murmur3(node + key), node);
+        }
+        final Object[] keys = hash.keySet().toArray();
+        Arrays.sort(keys);
+        for (int i = keys.length - replicasNumber; i < keys.length; i++) {
+            resultNodes.add(hash.get(keys[i]));
+        }
+        return resultNodes;
     }
 }
+
