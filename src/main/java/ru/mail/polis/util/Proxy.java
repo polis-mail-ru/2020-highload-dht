@@ -49,12 +49,14 @@ public final class Proxy {
      *
      * @param request     proxying request
      * @param httpClients array of httpclients to proxy
+     * @param min minimum responses for success
      * @return list of sucess responses
      */
     @NotNull
     public static List<Response> proxyReplicas(@NotNull final Request request,
-                                               @NotNull final Collection<HttpClient> httpClients) {
-        final List<Response> futureResponses = new ArrayList<>();
+                                               @NotNull final Collection<HttpClient> httpClients,
+                                               final int min) {
+        final List<Response> responses = new ArrayList<>();
 
         for (final var httpClient : httpClients) {
 
@@ -70,9 +72,12 @@ public final class Proxy {
                     && response.getStatus() != 404 /* NOT FOUND */) {
                 continue;
             }
-            futureResponses.add(response);
+            responses.add(response);
+            if (responses.size() >= min) {
+                break;
+            }
         }
-        return futureResponses;
+        return responses;
     }
 
     /**

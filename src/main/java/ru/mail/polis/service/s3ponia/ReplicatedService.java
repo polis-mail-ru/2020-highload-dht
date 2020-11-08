@@ -27,7 +27,7 @@ public class ReplicatedService implements HttpEntityHandler {
     final AsyncService asyncService;
     final ShardingPolicy<ByteBuffer, String> policy;
     private final Map<String, HttpClient> urlToClient;
-
+    
     /**
      * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
      *
@@ -40,7 +40,7 @@ public class ReplicatedService implements HttpEntityHandler {
         this.policy = policy;
         this.urlToClient = Utility.urltoClientFromSet(policy.homeNode(), policy.all());
     }
-
+    
     @Override
     public void entity(@NotNull final String id,
                        final String replicas,
@@ -59,7 +59,7 @@ public class ReplicatedService implements HttpEntityHandler {
         } else {
             value = ByteBuffer.wrap(request.getBody());
         }
-
+        
         final ReplicationConfiguration parsedReplica;
         try {
             parsedReplica = ReplicationConfiguration.parseOrDefault(replicas, policy.all().length);
@@ -68,19 +68,20 @@ public class ReplicatedService implements HttpEntityHandler {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             throw new RuntimeException("Bad request's method", e);
         }
-
+        
         final var key = Utility.byteBufferFromString(id);
         final var nodes = policy.getNodeReplicas(key, parsedReplica.replicas);
         final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
-
+        
         final var replicaResponses =
                 Proxy.proxyReplicas(request, urlToClient.values()
-                        .stream()
-                        .limit(parsedReplica.replicas)
-                        .collect(Collectors.toList()));
-
+                                                     .stream()
+                                                     .limit(parsedReplica.replicas)
+                                                     .collect(Collectors.toList()),
+                        parsedReplica.acks);
+        
         final Response resultResponse;
-
+        
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET: {
@@ -114,21 +115,21 @@ public class ReplicatedService implements HttpEntityHandler {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         }
     }
-
+    
     private static Response fromFutureResponse(@NotNull final CompletableFuture<Response> future) {
         try {
-            return future.get(1, TimeUnit.SECONDS);
+            return future.get(100, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error in getting future", e);
             throw new FutureResponseException("Error in getting from future", e);
         }
     }
-
+    
     private Response resolveGetProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
                                            final boolean homeInReplicas,
                                            @NotNull final List<Response> replicaResponses,
                                            @NotNull final ByteBuffer key) throws ReplicaException {
-        if (homeInReplicas) {
+        if (homeInReplicas && replicaResponses.size() < parsedReplica.acks) {
             try {
                 replicaResponses.add(fromFutureResponse(asyncService.getAsync(key)));
             } catch (FutureResponseException ignored) {
@@ -138,8 +139,8 @@ public class ReplicatedService implements HttpEntityHandler {
         final List<Value> values;
         try {
             values = replicaResponses.stream()
-                    .map(Value::fromResponse)
-                    .collect(Collectors.toList());
+                             .map(Value::fromResponse)
+                             .collect(Collectors.toList());
         } catch (IllegalArgumentException e) {
             logger.error("Invalid response for parsing to value", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
@@ -147,9 +148,9 @@ public class ReplicatedService implements HttpEntityHandler {
         if (values.size() < parsedReplica.acks) {
             throw new ReplicaException("Not enough replicas in getting");
         }
-
+        
         values.sort(Value.valueResponseComparator());
-
+        
         final var bestVal = values.get(0);
         if (bestVal.isDead()) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -157,14 +158,14 @@ public class ReplicatedService implements HttpEntityHandler {
             return Response.ok(Utility.fromByteBuffer(bestVal.getValue()));
         }
     }
-
+    
     private Response resolvePutDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
-                                              final boolean homeInReplicas,
-                                              @NotNull final List<Response> replicaResponses,
-                                              @NotNull final Supplier<CompletableFuture<Response>> future,
-                                              @NotNull final Response successResponse)
+                                                 final boolean homeInReplicas,
+                                                 @NotNull final List<Response> replicaResponses,
+                                                 @NotNull final Supplier<CompletableFuture<Response>> future,
+                                                 @NotNull final Response successResponse)
             throws ReplicaException {
-        if (homeInReplicas) {
+        if (homeInReplicas && replicaResponses.size() < parsedReplica.acks) {
             try {
                 replicaResponses.add(fromFutureResponse(future.get()));
             } catch (FutureResponseException e) {
@@ -177,7 +178,7 @@ public class ReplicatedService implements HttpEntityHandler {
             return successResponse;
         }
     }
-
+    
     @Override
     public void close() throws IOException {
         asyncService.close();
