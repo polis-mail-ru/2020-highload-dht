@@ -6,6 +6,7 @@ import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.NoSuchElementException;
 
@@ -32,8 +33,8 @@ public final class Record {
     public static Record newRecord(final String key, final byte[] value) {
         final var record = new Record();
         record.key = key.getBytes(StandardCharsets.UTF_8);
-        record.value = value;
-        record.state = RecordState.Undefined;
+        record.value = Arrays.copyOf(value, value.length);
+        record.state = RecordState.UNDEFINED;
         record.timestamp = new Date();
         return record;
     }
@@ -48,7 +49,7 @@ public final class Record {
         final var record = new Record();
         record.key = key.getBytes(StandardCharsets.UTF_8);
         record.value = new byte[]{};
-        record.state = RecordState.Removed;
+        record.state = RecordState.REMOVED;
         record.timestamp = new Date();
         return record;
     }
@@ -67,17 +68,17 @@ public final class Record {
         record.key = key.getBytes(StandardCharsets.UTF_8);
         record.value = new byte[]{};
         record.timestamp = new Date(0);
-        record.state = RecordState.Presented;
+        record.state = RecordState.PRESENTED;
         final var keyAsByteBuffer = ByteBufferUtils.toByteBuffer(record.key);
         final ByteBuffer response;
         try {
             response = dao.get(keyAsByteBuffer);
         } catch (NoSuchElementException ex) {
-            record.state = RecordState.NotFound;
+            record.state = RecordState.NOT_FOUND;
             return record;
         }
-        if (RecordState.values()[response.get()] == RecordState.Removed) {
-            record.state = RecordState.Removed;
+        if (RecordState.values()[response.get()] == RecordState.REMOVED) {
+            record.state = RecordState.REMOVED;
         }
         record.timestamp = new Date(response.getLong());
         record.value = new byte[response.remaining()];
@@ -93,7 +94,7 @@ public final class Record {
      * @param rawValue - raw (unparsed) value from record.
      * @return - record with parsed value information.
      */
-    public static Record newFromRawValue(byte[] rawValue) {
+    public static Record newFromRawValue(final byte[] rawValue) {
         final var record = new Record();
         final var bb = ByteBuffer.wrap(rawValue);
         record.state = RecordState.values()[bb.get()];
@@ -118,13 +119,13 @@ public final class Record {
         final int byteSize = 1;
         final int longSize = 8;
         final int valueSize = this.value.length;
-        final var value = ByteBuffer.allocate(byteSize + longSize + valueSize);
-        byte state = (byte) this.state.ordinal();
-        value.put(state);
-        value.putLong(this.timestamp.getTime());
-        value.put(this.value);
-        value.rewind();
-        return value;
+        final var rawValue = ByteBuffer.allocate(byteSize + longSize + valueSize);
+        final byte stateAsByte = (byte) this.state.ordinal();
+        rawValue.put(stateAsByte);
+        rawValue.putLong(this.timestamp.getTime());
+        rawValue.put(this.value);
+        rawValue.rewind();
+        return rawValue;
     }
 
     /**
@@ -134,9 +135,9 @@ public final class Record {
      * @return - raw value of the record.
      */
     public byte[] getRawValue() {
-        final var value = combineValue();
-        final var res = new byte[value.remaining()];
-        value.get(res);
+        final var rawValue = combineValue();
+        final var res = new byte[rawValue.remaining()];
+        rawValue.get(res);
         return res;
     }
 
@@ -146,7 +147,7 @@ public final class Record {
      * @return - true if record was not found.
      */
     public boolean wasNotFound() {
-        return this.state == RecordState.NotFound;
+        return this.state == RecordState.NOT_FOUND;
     }
 
     /**
@@ -155,7 +156,7 @@ public final class Record {
      * @return - true if record was removed.
      */
     public boolean isRemoved() {
-        return this.state == RecordState.Removed;
+        return this.state == RecordState.REMOVED;
     }
 
     /**
@@ -164,7 +165,7 @@ public final class Record {
      * @return - value of the record without meta-information.
      */
     public byte[] getValue() {
-        return this.value;
+        return Arrays.copyOf(this.value, this.value.length);
     }
 
     /**

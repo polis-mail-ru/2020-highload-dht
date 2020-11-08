@@ -22,22 +22,4 @@ public final class Util {
         java.util.Collections.sort(list);
         return list;
     }
-
-    /**
-     * Concatenate arrays of bytes.
-     *
-     * @param a - first array of bytes.
-     * @param b - second array of bytes.
-     * @return - result array of bytes.
-     */
-    public byte[] concatenate(byte[] a, byte[] b) {
-        final int aLen = a.length;
-        final int bLen = b.length;
-
-        final byte[] res = new byte[aLen + bLen];
-        System.arraycopy(a, 0, res, 0, aLen);
-        System.arraycopy(b, 0, res, aLen, bLen);
-
-        return res;
-    }
 }

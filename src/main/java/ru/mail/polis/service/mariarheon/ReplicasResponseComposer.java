@@ -7,7 +7,7 @@ import one.nio.http.Response;
  * by responses retrieved from replicas.
  */
 public class ReplicasResponseComposer {
-    private Replicas replicas;
+    private final Replicas replicas;
     private int ackReceived;
     private int totalReceived;
     private int status;
@@ -30,17 +30,17 @@ public class ReplicasResponseComposer {
      */
     public void addResponse(final Response response) {
         totalReceived++;
-        final var status = response.getStatus();
-        if (status < 200 || status > 202) {
+        final var responseStatus = response.getStatus();
+        if (responseStatus < 200 || responseStatus > 202) {
             return;
         }
         ackReceived++;
-        this.status = status;
-        if (status == 200) {
+        this.status = responseStatus;
+        if (responseStatus == 200) {
             final var responseRecord = Record.newFromRawValue(response.getBody());
-            if (this.record == null ||
-                    (!responseRecord.wasNotFound() &&
-                    responseRecord.getTimestamp().after(this.record.getTimestamp()))) {
+            if (this.record == null
+                    || (!responseRecord.wasNotFound()
+                    && responseRecord.getTimestamp().after(this.record.getTimestamp()))) {
                 this.record = responseRecord;
             }
         }

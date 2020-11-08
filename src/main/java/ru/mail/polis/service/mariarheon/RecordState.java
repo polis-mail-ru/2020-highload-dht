@@ -1,8 +1,8 @@
 package ru.mail.polis.service.mariarheon;
 
 public enum RecordState {
-    Undefined,
-    Presented,
-    Removed,
-    NotFound
+    UNDEFINED,
+    PRESENTED,
+    REMOVED,
+    NOT_FOUND
 }
