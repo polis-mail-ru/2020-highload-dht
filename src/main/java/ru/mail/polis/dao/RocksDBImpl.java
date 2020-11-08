@@ -100,8 +100,7 @@ public final class RocksDBImpl implements DAO {
             throw new IOException(ex);
         }
     }
-
-
+    
     @Override
     public void removeWithTimestamp(@NotNull final ByteBuffer key) throws IOException {
         final Timestamp timestamp = new Timestamp(
