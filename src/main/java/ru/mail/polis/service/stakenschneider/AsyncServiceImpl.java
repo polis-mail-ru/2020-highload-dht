@@ -25,9 +25,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -214,7 +212,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 Replica.calculateRF(replicas, session, defaultReplicaFactor, clusterSize);
 
         if (proxied || nodes.getNodes().size() > 1) {
-            final String[] replicaClusters = proxied ? new String[]{nodes.getId()}
+            final Set<String> replicaClusters = proxied ? Set.of(nodes.getId())
                     : nodes.replicas(replicaFactor.getFrom(), key);
             clusterCoordinator.coordinateRequest(replicaClusters, request, replicaFactor.getAck(), session);
         } else {

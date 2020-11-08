@@ -23,13 +23,13 @@ public class Nodes {
      *
      * @param count - the amount of replicas
      * @param key - key id
-     * @return array ids of the clusters to create replicas
+     * @return set of clusters ids to create replicas
      */
-    public String[] replicas(final int count, @NotNull final ByteBuffer key) {
-        final String[] res = new String[count];
+    public Set<String> replicas(final int count, @NotNull final ByteBuffer key) {
+        final Set<String> res = new HashSet<>();
         int index = (key.hashCode() & Integer.MAX_VALUE) % clusterNode.size();
         for (int j = 0; j < count; j++) {
-            res[j] = clusterNode.get(index);
+            res.add(clusterNode.get(index));
             index = (index + 1) % clusterNode.size();
         }
         return res;
