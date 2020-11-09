@@ -335,26 +335,10 @@ public class CustomServer extends OverridedServer {
         final var completableFutures = tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
-                .map(nodeHost -> new Pair<>(
-                        new Pair<>(asyncHttpClient, nodeHost.getValue()),
-                        getNewReplicationRequest(request, port)))
-                .map(clientRequest -> {
-                    final Pair<HttpClient, String> clientAndHost = clientRequest.getValue0();
-                    final HttpClient client = clientAndHost.getValue0();
-                    final String host = clientAndHost.getValue1();
-                    final Request oneNioRequest = clientRequest.getValue1();
-                    final HttpRequest javaRequest = getJavaRequest(oneNioRequest, host);
-                    return client.sendAsync(javaRequest, HttpResponse.BodyHandlers.ofByteArray())
-                            .thenApplyAsync(Util::getOneNioResponse)
-                            .handle((response, throwable) -> {
-                                if (throwable == null) {
-                                    return response;
-                                } else {
-                                    return responseWithNoBody(Response.INTERNAL_ERROR);
-                                }
-                            })
-                            .thenAcceptAsync(responses::add);
-                })
+                .map(nodeHost -> asyncHttpClient.sendAsync(
+                        getJavaRequest(getNewReplicationRequest(request, port), nodeHost.getValue()),
+                        HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(Util::getOneNioResponse)
+                        .handleAsync(Util::filterResponse).thenAcceptAsync(responses::add))
                 .toArray(CompletableFuture[]::new);
         CompletableFuture.allOf(completableFutures).join();
         return responses;

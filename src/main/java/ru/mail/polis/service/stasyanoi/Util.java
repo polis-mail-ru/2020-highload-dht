@@ -59,6 +59,14 @@ public final class Util {
         return absoluteHash % nodeCount;
     }
 
+    public static Response filterResponse(Response response, Throwable throwable) {
+        if (throwable == null) {
+            return response;
+        } else {
+            return responseWithNoBody(Response.INTERNAL_ERROR);
+        }
+    }
+
     /**
      * Add timestamp to body.
      *
