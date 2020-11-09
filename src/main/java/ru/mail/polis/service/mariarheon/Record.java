@@ -21,8 +21,8 @@ public final class Record {
 
     private Record(final byte[] key, final byte[] value, final Date timestamp,
                    final RecordState state) {
-        this.key = key;
-        this.value = value;
+        this.key = Arrays.copyOf(key, key.length);
+        this.value = Arrays.copyOf(value, value.length);
         this.timestamp = timestamp;
         this.state = state;
     }
@@ -69,7 +69,7 @@ public final class Record {
         final var argKey = key.getBytes(StandardCharsets.UTF_8);
         var argValue = new byte[]{};
         var argTimestamp = new Date(0);
-        var argState =  RecordState.PRESENTED;
+        var argState = RecordState.PRESENTED;
         final var keyAsByteBuffer = ByteBufferUtils.toByteBuffer(argKey);
         final ByteBuffer response;
         try {
