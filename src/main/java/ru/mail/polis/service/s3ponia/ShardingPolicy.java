@@ -11,6 +11,9 @@ public interface ShardingPolicy<K, N> {
      */
     @NotNull
     N getNode(@NotNull final K key);
+    
+    @NotNull
+    N[] getNodeReplicas(@NotNull final K key, final int replicas);
 
     /**
      * Method for getting all nodes.

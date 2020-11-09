@@ -19,6 +19,8 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.s3ponia.ICell;
+import ru.mail.polis.dao.s3ponia.Value;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -42,6 +44,13 @@ public interface DAO extends Closeable {
      */
     @NotNull
     Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
+    
+    /**
+     * Provides iterator (possibly empty) over {@link ICell}s starting at "from" key (inclusive)
+     * in <b>ascending</b> order according to {@link ICell#compareTo(ICell)}.
+     */
+    @NotNull
+    Iterator<ICell> cellsIterator(@NotNull ByteBuffer from) throws IOException;
 
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
@@ -72,12 +81,28 @@ public interface DAO extends Closeable {
      */
     @NotNull
     default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
-        final Iterator<Record> iter = iterator(key);
-        if (!iter.hasNext()) {
+        final var temp = getValue(key);
+        
+        if (temp.isDead()) {
             throw new NoSuchElementException("Not found");
         }
-
-        final Record next = iter.next();
+        
+        return temp.getValue();
+    }
+    
+    /**
+     * Obtains {@link Record} corresponding to given key.
+     *
+     * @throws NoSuchElementException if no such record
+     */
+    @NotNull
+    default Value getValue(@NotNull ByteBuffer key) throws IOException {
+        final Iterator<ICell> iter = cellsIterator(key);
+        if (!iter.hasNext()) {
+            return Value.ABSENT;
+        }
+        
+        final ICell next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
@@ -91,11 +116,26 @@ public interface DAO extends Closeable {
     void upsert(
             @NotNull ByteBuffer key,
             @NotNull ByteBuffer value) throws IOException;
+    
+    /**
+     * Inserts or updates value by given key at given time.
+     */
+    void upsertWithTimeStamp(
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value,
+            final long timeStamp) throws IOException;
 
     /**
      * Removes value by given key.
      */
     void remove(@NotNull ByteBuffer key) throws IOException;
+    
+    /**
+     * Inserts or updates value by given key at given time.
+     */
+    void removeWithTimeStamp(
+            @NotNull ByteBuffer key,
+            final long timeStamp) throws IOException;
 
     /**
      * Perform compaction
