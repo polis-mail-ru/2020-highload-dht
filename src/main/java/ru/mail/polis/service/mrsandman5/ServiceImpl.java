@@ -174,7 +174,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .handle((res, ex) -> res != null ? Entry.entriesToResponse(res)
+                .handle((res, ex) -> ex == null ? Entry.entriesToResponse(res)
                         : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
     }
 
@@ -194,7 +194,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .handle((res, ex) -> res != null ? ResponseUtils.emptyResponse(Response.CREATED)
+                .handle((res, ex) -> ex == null ? ResponseUtils.emptyResponse(Response.CREATED)
                         : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
     }
 
@@ -211,7 +211,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .handle((res, ex) -> res != null ? ResponseUtils.emptyResponse(Response.ACCEPTED)
+                .handle((res, ex) -> ex == null ? ResponseUtils.emptyResponse(Response.ACCEPTED)
                         : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
     }
 
