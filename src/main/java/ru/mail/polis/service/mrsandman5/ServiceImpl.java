@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -163,24 +164,19 @@ public final class ServiceImpl extends HttpServer implements Service {
                 if (t instanceof CompletionException) {
                     t = t.getCause();
                 }
-                if (t instanceof IllegalStateException) {
-                    code = ResponseUtils.NOT_ENOUGH_REPLICAS;
-                } else {
-                    code = Response.INTERNAL_ERROR;
-                }
-                ResponseUtils.sendNonEmptyResponse(session,
-                        code,
+                code = t instanceof IllegalStateException ? ResponseUtils.NOT_ENOUGH_REPLICAS
+                        : Response.INTERNAL_ERROR;
+                ResponseUtils.sendNonEmptyResponse(session, code,
                         t.getMessage().getBytes(StandardCharsets.UTF_8));
             }
         }).isCancelled();
     }
 
     private CompletableFuture<Response> replicasGet(@NotNull final String id,
-                                                    @NotNull final ReplicasFactor replicasFactor)
-            throws IllegalArgumentException {
+                                                    @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : topology.replicasFor(key, replicasFactor)) {
+        for (final String node : Objects.requireNonNull(getTopologies(key, replicasFactor))) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
@@ -196,11 +192,10 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     private CompletableFuture<Response> replicasPut(@NotNull final String id,
                                                     @NotNull final byte[] value,
-                                                    @NotNull final ReplicasFactor replicasFactor)
-            throws IllegalArgumentException {
+                                                    @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : topology.replicasFor(key, replicasFactor)) {
+        for (final String node : Objects.requireNonNull(getTopologies(key, replicasFactor))) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value));
             } else {
@@ -217,11 +212,10 @@ public final class ServiceImpl extends HttpServer implements Service {
     }
 
     private CompletableFuture<Response> replicasDelete(@NotNull final String id,
-                                                       @NotNull final ReplicasFactor replicasFactor)
-            throws IllegalArgumentException {
+                                                       @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : topology.replicasFor(key, replicasFactor)) {
+        for (final String node : Objects.requireNonNull(getTopologies(key, replicasFactor))) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
@@ -247,6 +241,16 @@ public final class ServiceImpl extends HttpServer implements Service {
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
         ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
+    }
+
+    private Set<String> getTopologies(@NotNull final ByteBuffer key,
+                                      @NotNull final ReplicasFactor replicasFactor) {
+        try {
+            return topology.replicasFor(key, replicasFactor);
+        } catch (IllegalArgumentException e) {
+            log.error("Topology size error", e);
+            return null;
+        }
     }
 
     @Override
