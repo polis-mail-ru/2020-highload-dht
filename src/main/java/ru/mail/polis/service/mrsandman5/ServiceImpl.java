@@ -46,8 +46,6 @@ public final class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
-    private final DAOImpl dao;
-    @NotNull
     private final Topology<String> topology;
     @NotNull
     private final ReplicasFactor quorum;
@@ -91,9 +89,9 @@ public final class ServiceImpl extends HttpServer implements Service {
                         @NotNull final ExecutorService executor) throws IOException {
         super(config);
         this.topology = topology;
-        this.dao = (DAOImpl) dao;
+        final DAOImpl daoImpl = (DAOImpl) dao;
         this.executor = executor;
-        this.simpleRequests = new SimpleRequests(this.dao, executor);
+        this.simpleRequests = new SimpleRequests(daoImpl, executor);
         this.quorum = ReplicasFactor.quorum(topology.all().size());
         final Map<String, HttpClient> temp = new HashMap<>();
         for (final String node : topology.others()) {
