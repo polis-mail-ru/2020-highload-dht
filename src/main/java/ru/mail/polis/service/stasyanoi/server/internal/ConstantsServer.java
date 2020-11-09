@@ -1,9 +1,7 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
-import one.nio.net.ConnectionString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -13,7 +11,6 @@ import ru.mail.polis.service.stasyanoi.server.CustomServer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +26,6 @@ public class ConstantsServer extends HttpServer {
     protected int nodeNum;
     protected DAO dao;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
-    protected Map<String, HttpClient> httpClientMap;
     protected java.net.http.HttpClient asyncHttpClient;
     protected Logger logger = LoggerFactory.getLogger(CustomServer.class);
 
@@ -49,18 +45,15 @@ public class ConstantsServer extends HttpServer {
         urls.sort(String::compareTo);
 
         final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
-        final Map<String, HttpClient> clients = new HashMap<>();
 
         asyncHttpClient = java.net.http.HttpClient.newBuilder()
                 .build();
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
-            clients.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));
             if (urls.get(i).contains(String.valueOf(super.port))) {
                 nodeNum = i;
             }
         }
-        this.httpClientMap = clients;
         this.nodeMapping = nodeMappingTemp;
         this.dao = dao;
     }
