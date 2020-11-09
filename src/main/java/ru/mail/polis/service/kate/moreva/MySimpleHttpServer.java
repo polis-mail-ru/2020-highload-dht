@@ -138,7 +138,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    private void parseRequest(String id, Request request, HttpSession session, String replicas) {
+    private void parseRequest(final String id, final Request request,
+                              final HttpSession session, final String replicas) {
         final boolean isProxy = requestHelper.isProxied(request);
         try {
             final Replicas replicasFactor = isProxy
