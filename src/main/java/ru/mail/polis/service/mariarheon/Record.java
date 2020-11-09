@@ -21,7 +21,11 @@ public final class Record {
 
     private Record(final byte[] key, final byte[] value, final Date timestamp,
                    final RecordState state) {
-        this.key = Arrays.copyOf(key, key.length);
+        if (key == null) {
+            this.key = null;
+        } else {
+            this.key = Arrays.copyOf(key, key.length);
+        }
         this.value = Arrays.copyOf(value, value.length);
         this.timestamp = timestamp;
         this.state = state;
