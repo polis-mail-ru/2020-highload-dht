@@ -57,7 +57,7 @@ public final class ServiceFactory {
 
         final int queueSize = 1024;
 
-        return new AsyncClientServiceImpl(
+        return new ReplicationServiceImpl(
                 port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),

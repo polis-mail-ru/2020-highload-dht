@@ -1,10 +1,13 @@
 package ru.mail.polis.service;
 
+import one.nio.http.Response;
 import ru.mail.polis.util.Util;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 public final class Value {
     private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
@@ -94,5 +97,30 @@ public final class Value {
                 .putShort(isDeleted)
                 .putLong(timestamp)
                 .put(buffer.duplicate()).array();
+    }
+
+    static Response toResponse(
+            final Set<String> nodes,
+            final List<Value> responses,
+            final boolean isForwardedRequest
+    ) throws IOException {
+        final Value value = ReplicationServiceUtils.syncValues(responses);
+        // Value is deleted
+        if (value.isValueDeleted()) {
+            return new Response(Response.NOT_FOUND, value.getValueBytes());
+        }
+        // Value is present
+        if (!value.isValueMissing()) {
+            if (isForwardedRequest || nodes.size() > 1) {
+                if (isForwardedRequest && nodes.size() == 1) {
+                    return new Response(Response.OK, value.getValueBytes());
+                }
+                return new Response(Response.OK, value.getBytes());
+            } else {
+                return new Response(Response.OK, value.getBytes());
+            }
+        }
+        // Value is missing
+        return new Response(Response.NOT_FOUND, Response.EMPTY);
     }
 }

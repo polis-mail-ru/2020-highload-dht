@@ -19,7 +19,7 @@ final class ReplicationServiceUtils {
 
     }
 
-    private static Value syncValues(final List<Value> values) {
+    static Value syncValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))

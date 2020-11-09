@@ -1,10 +1,9 @@
 package ru.mail.polis.service;
 
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
+import com.google.common.collect.ImmutableSet;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,251 +11,267 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.util.Util;
 
 import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
-import static ru.mail.polis.service.ReplicationServiceUtils.getNodeReplica;
-import static ru.mail.polis.service.ReplicationServiceUtils.handleExternal;
-import static ru.mail.polis.service.ReplicationServiceUtils.handleInternal;
 
 class ReplicationHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
-    private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
-    private static final String PROXY_HEADER = "X-Proxy-For: ";
-    private final DAO dao;
-    private final Topology topology;
-    private final Map<String, HttpClient> nodesToClients;
-    private final ReplicationFactor replicationFactor;
 
     private enum ErrorNames {
-        NOT_FOUND_ERROR, IO_ERROR, QUEUE_LIMIT_ERROR, PROXY_ERROR
+        NOT_FOUND_ERROR, IO_ERROR, QUEUE_LIMIT_ERROR,
+        PROXY_ERROR, NOT_ENOUGH_NODES, TIMEOUT_ERROR,
+        NOT_ALLOWED, FUTURE_ERROR
     }
+
 
     private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
             entry(ErrorNames.NOT_FOUND_ERROR, "Value not found"),
             entry(ErrorNames.IO_ERROR, "IO exception raised"),
             entry(ErrorNames.QUEUE_LIMIT_ERROR, "Queue is full"),
-            entry(ErrorNames.PROXY_ERROR, "Error forwarding request via proxy")
+            entry(ErrorNames.NOT_ENOUGH_NODES, "Not enough nodes in cluster"),
+            entry(ErrorNames.PROXY_ERROR, "Error forwarding request via proxy"),
+            entry(ErrorNames.TIMEOUT_ERROR, "Your request failed due to timeout"),
+            entry(ErrorNames.NOT_ALLOWED, "Method not allowed"),
+            entry(ErrorNames.FUTURE_ERROR, "Error handling future")
     );
+
+    @NotNull
+    private final DAO dao;
+    @NotNull
+    private final Topology topology;
+    @NotNull
+    private final Map<String, HttpClient> nodesToClients;
+    @NotNull
+    private final FuturesHandler futuresHandler;
 
     ReplicationHandler(
             @NotNull final DAO dao,
             @NotNull final Topology topology,
-            @NotNull final Map<String, HttpClient> nodesToClients,
-            @NotNull final ReplicationFactor replicationFactor
+            @NotNull final Map<String, HttpClient> nodesToClients
     ) {
         this.dao = dao;
         this.topology = topology;
         this.nodesToClients = nodesToClients;
-        this.replicationFactor = replicationFactor;
+        this.futuresHandler = new FuturesHandler(false, dao);
     }
 
-    Response singleGet(@NotNull final ByteBuffer key, @NotNull final Request req) {
-        final String owner = topology.primaryFor(key);
-        ByteBuffer buf;
-        if (topology.isSelfId(owner)) {
-            try {
-                buf = dao.get(key);
-                return new Response(Response.ok(Util.toByteArray(buf)));
-            } catch (NoSuchElementException exc) {
-                log.info(MESSAGE_MAP.get(ErrorNames.NOT_FOUND_ERROR));
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (RejectedExecutionException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-                return new Response(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } else {
-            return proxy(owner, req);
+    Response singleGet(@NotNull final ByteBuffer key) {
+        try {
+            return new Response(Response.ok(Util.toByteArray(dao.get(key))));
+        } catch (NoSuchElementException exc) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        } catch (IOException exc) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
 
-    Response multipleGet(
-            final String id, @NotNull final ReplicationFactor repliFactor, final boolean isForwardedRequest
-    ) throws NotEnoughNodesException, IOException {
-        final Set<String> nodes = getNodeReplica(
-                ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
-                repliFactor,
-                isForwardedRequest,
-                topology
-        );
-
+    private void multipleGet(
+            final Set<String> nodes,
+            @NotNull final Request req,
+            final int ack,
+            @NotNull final HttpSession session
+    ) throws IOException {
+        final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         final List<Value> values = new ArrayList<>();
         for (final String node : nodes) {
-            try {
-                Response response;
-                if (topology.isSelfId(node)) {
-                    response = handleInternal(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)), dao);
-                } else {
-                    response = nodesToClients.get(node)
-                            .get(NORMAL_REQUEST_HEADER + id, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
-                }
-                final long timestamp = ReplicationServiceUtils.getTimestamp(response);
-                if (response.getStatus() == 404) {
-                    values.add(timestamp > 0 ? Value.resolveDeletedValue(timestamp) : Value.resolveMissingValue());
-                } else if (response.getStatus() != 500) {
-                    values.add(Value.composeFromBytes(response.getBody()));
-                }
-            } catch (HttpException | PoolException | InterruptedException | IOException | NumberFormatException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+            if (node.equals(topology.getCurrentNode())) {
+                futures.add(futuresHandler.handleLocal(req));
+            } else {
+                final HttpRequest request = FuturesHandler.setRequestPattern(node, req).GET().build();
+                final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
+                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
+                futures.add(responses);
             }
         }
 
-        return processGet(isForwardedRequest, repliFactor, values.size(), nodes, values);
+        multipleFutureGet(session, futures, values, nodes, ack);
     }
 
-    private Response processGet(
-            final boolean isForwardedRequest, final ReplicationFactor repliFactor, final int replCounter,
-            final Set<String> nodes, final List<Value> values
-    ) throws IOException {
-        if (isForwardedRequest || replCounter >= repliFactor.getAck()) {
-            return handleExternal(values, nodes, isForwardedRequest);
-        } else {
-            log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
+    private void multipleFutureGet(
+            @NotNull final HttpSession session, @NotNull List<CompletableFuture<HttpResponse<byte[]>>> futures,
+            @NotNull List<Value> values, final Set<String> nodes, final int ack
+    ) {
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
+        allOf = allOf.thenAccept((response) -> {
+            try {
+                session.sendResponse(futuresHandler.execGetWithFutures(values, atomicInteger, futures, nodes, ack));
+            } catch (IOException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+            }
+        });
+        allOf.exceptionally(response -> {
+            try {
+                if (futures.size() == 1) {
+                    session.sendError(Response.GATEWAY_TIMEOUT, MESSAGE_MAP.get(ErrorNames.TIMEOUT_ERROR));
+                } else {
+                    session.sendResponse(futuresHandler.execGetWithFutures(values, atomicInteger, futures, nodes, ack));
+                }
+            } catch (IOException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+            }
+            return null;
+        });
     }
 
     Response singleUpsert(
             @NotNull final ByteBuffer key,
-            final byte[] byteVal,
-            @NotNull final Request req) {
-        final String owner = topology.primaryFor(key);
-        final ByteBuffer val = ByteBuffer.wrap(byteVal);
-        if (topology.isSelfId(owner)) {
-            try {
-                dao.upsert(key, val);
-                return new Response(Response.CREATED, Response.EMPTY);
-            } catch (RejectedExecutionException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-                return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } else {
-            return proxy(owner, req);
-        }
-    }
-
-    Response multipleUpsert(
-            final String id, final byte[] value, final int ackValue, final boolean isForwardedRequest
-    ) throws NotEnoughNodesException {
-        if (isForwardedRequest) {
-            try {
-                dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
-                return new Response(Response.CREATED, Response.EMPTY);
-            } catch (IOException exc) {
-                return new Response(Response.INTERNAL_ERROR, exc.toString().getBytes(Charset.defaultCharset()));
-            }
-        }
-        final Set<String> nodes = topology.getReplicas(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
-                replicationFactor.getFrom());
-        int ack = 0;
-        for (final String node : nodes) {
-            try {
-                if (topology.isSelfId(node)) {
-                    dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
-                    ack++;
-                } else {
-                    final Response response = nodesToClients.get(node)
-                            .put(NORMAL_REQUEST_HEADER + id, value, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
-                    if (response.getStatus() == 201) {
-                        ack++;
-                    }
-                }
-            } catch (IOException | PoolException | InterruptedException | HttpException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-            }
-        }
-        if (ack >= ackValue) {
-            return new Response(Response.CREATED, Response.EMPTY);
-        } else {
-            log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
-    }
-
-    Response singleDelete(
-            @NotNull final ByteBuffer key,
-            @NotNull final Request req
+            final byte[] byteVal
     ) {
-        final String target = topology.primaryFor(key);
-        if (topology.isSelfId(target)) {
-            try {
-                dao.remove(key);
-                return new Response(Response.ACCEPTED, Response.EMPTY);
-            } catch (RejectedExecutionException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-                return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } else {
-            return proxy(target, req);
-        }
-    }
 
-    Response multipleDelete(
-            final String id,
-            final int ackValue,
-            final boolean isForwardedRequest) throws NotEnoughNodesException {
-        if (isForwardedRequest) {
-            try {
-                dao.removeValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
-                return new Response(Response.ACCEPTED, Response.EMPTY);
-            } catch (IOException e) {
-                return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(Charset.defaultCharset()));
-            }
-        }
-
-        final Set<String> nodes = topology.getReplicas(
-                ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
-                replicationFactor.getFrom());
-        int ack = 0;
-        for (final String node : nodes) {
-            try {
-                if (topology.isSelfId(node)) {
-                    dao.removeValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
-                    ack++;
-                } else {
-                    final Response response = nodesToClients
-                            .get(node)
-                            .delete(NORMAL_REQUEST_HEADER + id, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
-                    if (response.getStatus() == 202) {
-                        ack++;
-                    }
-                }
-                if (ack == ackValue) {
-                    return new Response(Response.ACCEPTED, Response.EMPTY);
-                }
-            } catch (IOException | PoolException | HttpException | InterruptedException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-            }
-        }
-        log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
-        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-    }
-
-    private Response proxy(@NotNull final String nodeId, @NotNull final Request req) {
+        final ByteBuffer val = ByteBuffer.wrap(byteVal);
         try {
-            req.addHeader(PROXY_HEADER + nodeId);
-            return nodesToClients.get(nodeId).invoke(req);
-        } catch (IOException | InterruptedException | HttpException | PoolException exc) {
-            log.error(MESSAGE_MAP.get(ErrorNames.PROXY_ERROR), exc);
+            dao.upsert(key, val);
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (IOException exc) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    private void multipleUpsert(
+            final Set<String> nodes,
+            @NotNull final Request req,
+            final int count,
+            @NotNull final HttpSession session
+    ) throws IOException {
+        final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
+        for (final String node : nodes) {
+            if (topology.isSelfId(node)) futures.add(futuresHandler.handleLocal(req));
+            else {
+                final HttpRequest request = FuturesHandler.setRequestPattern(node, req)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
+                        .build();
+                final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
+                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
+                futures.add(responses);
+            }
+        }
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
+        all = all.thenAccept((response) -> {
+            try {
+                session.sendResponse(futuresHandler.execUpsertWithFutures(atomicInteger, count, futures));
+            } catch (IOException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+            }
+        });
+        all.exceptionally(response -> {
+            try {
+                session.sendResponse(futuresHandler.execUpsertWithFutures(atomicInteger, count, futures));
+            } catch (IOException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+            }
+            return null;
+        });
+    }
+
+    Response singleDelete(@NotNull final ByteBuffer key) {
+        try {
+            dao.remove(key);
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (RejectedExecutionException exc) {
+            return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
+        } catch (IOException exc) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+    }
+
+    private void multipleDelete(
+            final Set<String> nodes,
+            @NotNull final Request req,
+            final int count,
+            final HttpSession session
+    ) throws IOException {
+
+        final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
+        for (final String node : nodes) {
+            if (topology.isSelfId(node)) futures.add(futuresHandler.handleLocal(req));
+            else {
+                final HttpRequest request = FuturesHandler.setRequestPattern(node, req).DELETE().build();
+                final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
+                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
+                futures.add(responses);
+            }
+        }
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
+        all = all.thenAccept((response) -> {
+            try {
+                session.sendResponse(futuresHandler.execDeleteWithFutures(atomicInteger, count, futures));
+            } catch (IOException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+            }
+        });
+        all.exceptionally(response -> {
+            try {
+                session.sendResponse(futuresHandler.execDeleteWithFutures(atomicInteger, count, futures));
+            } catch (IOException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+            }
+            return null;
+        });
+    }
+
+    void handle(
+            final boolean isForwardedRequest,
+            @NotNull final Request req,
+            @NotNull final HttpSession session
+    ) throws IOException {
+        final String id = req.getParameter("id=");
+        final String replicas = req.getParameter("replicas");
+
+        final ReplicationFactor replicationFactor;
+
+        try {
+            replicationFactor = replicas == null ? ReplicationFactor.getQuorum(topology.getSize()) :
+                    ReplicationFactor.createReplicationFactor(replicas);
+        } catch (IllegalArgumentException ex) {
+            session.sendError(Response.BAD_REQUEST, ex.getMessage());
+            return;
+        }
+
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final Set<String> nodes;
+        try {
+            nodes = isForwardedRequest ? ImmutableSet.of(topology.getCurrentNode()) : topology.getReplicas(key, replicationFactor.getFrom());
+        } catch (NotEnoughNodesException e) {
+            log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
+            return;
+        }
+
+        futuresHandler.isProxied = isForwardedRequest;
+
+        try {
+            switch (req.getMethod()) {
+                case Request.METHOD_GET:
+                    multipleGet(nodes, req, replicationFactor.getAck(), session);
+                    return;
+                case Request.METHOD_PUT:
+                    multipleUpsert(nodes, req, replicationFactor.getAck(), session);
+                    return;
+                case Request.METHOD_DELETE:
+                    multipleDelete(nodes, req, replicationFactor.getAck(), session);
+                    return;
+                default:
+                    session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED));
+                    break;
+            }
+        } catch (IOException e) {
+            session.sendError(Response.GATEWAY_TIMEOUT, MESSAGE_MAP.get(ErrorNames.TIMEOUT_ERROR));
         }
     }
 }
