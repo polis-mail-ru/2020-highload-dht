@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -176,7 +177,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : Objects.requireNonNull(getTopologies(key, replicasFactor))) {
+        for (final String node : getTopologies(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
@@ -195,7 +196,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : Objects.requireNonNull(getTopologies(key, replicasFactor))) {
+        for (final String node : getTopologies(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value));
             } else {
@@ -215,7 +216,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : Objects.requireNonNull(getTopologies(key, replicasFactor))) {
+        for (final String node : getTopologies(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
@@ -249,7 +250,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             return topology.replicasFor(key, replicasFactor);
         } catch (IllegalArgumentException e) {
             log.error("Topology size error", e);
-            return null;
+            return new HashSet<>();
         }
     }
 
