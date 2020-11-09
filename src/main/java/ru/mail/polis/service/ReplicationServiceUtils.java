@@ -62,7 +62,7 @@ final class ReplicationServiceUtils {
         return timestamp == null ? -1 : Long.parseLong(timestamp);
     }
 
-    private static Response addTimestampHeader(final Response response, final long timestamp) {
+    static Response addTimestampHeader(final Response response, final long timestamp) {
         response.addHeader(TIMESTAMP + timestamp);
         return response;
     }

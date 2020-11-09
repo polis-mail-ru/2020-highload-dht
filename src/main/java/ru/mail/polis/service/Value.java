@@ -107,18 +107,19 @@ public final class Value {
         final Value value = ReplicationServiceUtils.syncValues(responses);
         // Value is deleted
         if (value.isValueDeleted()) {
-            return new Response(Response.NOT_FOUND, value.getValueBytes());
+            Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
         }
         // Value is present
+        Response response;
         if (!value.isValueMissing()) {
-            if (isForwardedRequest || nodes.size() > 1) {
-                if (isForwardedRequest && nodes.size() == 1) {
-                    return new Response(Response.OK, value.getValueBytes());
-                }
-                return new Response(Response.OK, value.getBytes());
-            } else {
-                return new Response(Response.OK, value.getBytes());
+            if (isForwardedRequest && nodes.size() == 1) {
+                response = new Response(Response.OK, value.getValueBytes());
+                return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
             }
+
+            response = new Response(Response.OK, value.getBytes());
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
         }
         // Value is missing
         return new Response(Response.NOT_FOUND, Response.EMPTY);
