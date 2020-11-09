@@ -64,7 +64,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     /** Get/set/delete key-value entity.
      *
      * @param key - record id.
-     * @param replicasParam - ack/from, where ack is how many answers should be retrieved,
+     * @param replicasParameter - ack/from, where ack is how many answers should be retrieved,
      *                 from - total count of nodes
      * @param session - session.
      * @param request - request.
@@ -72,7 +72,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void handleEntityRequest(final @Param(value = "id", required = true) String key,
-                    final @Param(value = "replicas") String replicasParam,
+                    final @Param(value = "replicas") String replicasParameter,
                     final @Param(value = MYSELF_PARAMETER) String myself,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
@@ -91,7 +91,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         final Replicas replicas;
         try {
-            replicas = new Replicas(replicasParam, sharding.getNodesCount());
+            replicas = new Replicas(replicasParameter, sharding.getNodesCount());
         } catch (ReplicasParamParseException ex) {
             logger.error(BAD_REPL_PARAM, ex);
             trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
