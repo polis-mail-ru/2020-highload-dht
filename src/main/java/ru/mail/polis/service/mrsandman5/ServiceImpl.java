@@ -179,7 +179,7 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     private CompletableFuture<Response> replicasGet(@NotNull final String id,
                                                     @NotNull final ReplicasFactor replicasFactor)
-            throws IllegalArgumentException{
+            throws IllegalArgumentException {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {

@@ -21,7 +21,7 @@ public final class ReplicasFactor {
         return new ReplicasFactor(nodes / 2 + 1, nodes);
     }
 
-    /** Get ack and from parameters from request body
+    /** Get ack and from parameters from request body.
      * @param replicas - ack and from parameters in string.
      * @return ReplicasFactor with ack and from.
      * */
@@ -29,8 +29,8 @@ public final class ReplicasFactor {
     @SuppressWarnings("UnstableApiUsage")
     public static ReplicasFactor parser(@NotNull final String replicas) throws NumberFormatException {
         final List<String> params = Splitter.on('/').splitToList(replicas);
-        int ackParam = Integer.parseInt(params.get(0));
-        int fromParam = Integer.parseInt(params.get(1));
+        final int ackParam = Integer.parseInt(params.get(0));
+        final int fromParam = Integer.parseInt(params.get(1));
         return new ReplicasFactor(ackParam, fromParam);
     }
 
