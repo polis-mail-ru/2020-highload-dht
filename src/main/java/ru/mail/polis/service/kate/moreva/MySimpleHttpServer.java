@@ -124,15 +124,13 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id, final Request request,
                        final HttpSession session, @Param("replicas") final String replicas) {
+        if (id.isBlank()) {
+            log.error("Request with empty id on /v0/entity");
+            requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
         try {
-            if (id.isBlank()) {
-                log.error("Request with empty id on /v0/entity");
-                requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                return;
-            }
-            executorService.execute(() -> {
-                parseRequest(id, request, session, replicas);
-            });
+            executorService.execute(() -> parseRequest(id, request, session, replicas));
         } catch (RejectedExecutionException e) {
             requestHelper.sendLoggedResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
@@ -178,13 +176,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             }
         }, clientExecutor).exceptionally(e -> {
             log.error("Error while executing method ", e);
-            requestHelper.sendLoggedResponse(context.getSession(),
-                    new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
             return null;
         });
     }
 
-    void executeMethod(final Context context, final ByteBuffer key, final Action action) {
+    private void executeMethod(final Context context, final ByteBuffer key, final Action action) {
         if (context.isProxy()) {
             requestHelper.sendLoggedResponse(context.getSession(), action.act());
             return;
@@ -198,7 +194,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 .exceptionally(e -> {
                     log.error("Error while executing method ", e);
                     requestHelper.sendLoggedResponse(context.getSession(),
-                            new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                            new Response(requestHelper.parseStatusCode(504), Response.EMPTY));
                     return null;
                 });
     }
@@ -228,16 +224,16 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     }
 
     private CompletableFuture<ResponseValue> getLocalResults(final Action action) {
-        return CompletableFuture.supplyAsync(() -> {
-            final Response response = action.act();
-            try {
-                return new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
-                        response.getBody(), requestHelper.getTimestamp(response));
-            } catch (IllegalArgumentException e) {
-                log.error("Response value with invalid timestamp", e);
-                return new ResponseValue(Response.INTERNAL_ERROR, Response.EMPTY, -1);
-            }
-        });
+        final Response response = action.act();
+        ResponseValue responseValue;
+        try {
+            responseValue = new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
+                    response.getBody(), requestHelper.getTimestamp(response));
+        } catch (IllegalArgumentException e) {
+            log.error("Response value with invalid timestamp", e);
+            responseValue = new ResponseValue(Response.INTERNAL_ERROR, Response.EMPTY, -1);
+        }
+        return CompletableFuture.completedFuture(responseValue);
     }
 
     private HttpRequest requestForReplica(final Request request, final ByteBuffer key, final String node) {
