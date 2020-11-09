@@ -17,14 +17,15 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -51,7 +52,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private final Topology<String> topology;
     private final MyRequestHelper requestHelper;
     private final Replicas quorum;
-    private final java.net.http.HttpClient client;
+    private final HttpClient client;
 
     /**
      * Http Server constructor.
@@ -78,8 +79,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
         this.quorum = Replicas.quorum(this.topology.size());
         this.clientExecutor = Executors.newFixedThreadPool(
-                        Runtime.getRuntime().availableProcessors(),
-                        new ThreadFactoryBuilder().setNameFormat("client-%d").build());
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder().setNameFormat("client-%d").build());
         this.client = java.net.http.HttpClient.newBuilder()
                 .executor(clientExecutor)
                 .connectTimeout(timeout)
@@ -132,15 +133,18 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             }
             executorService.execute(() -> {
                 final boolean isProxy = requestHelper.isProxied(request);
-                final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
-
-                if (replicasFactor.getFrom() > this.topology.size()
-                        || replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
+                try {
+                    final Replicas replicasFactor = isProxy || replicas == null ? this.quorum : Replicas.parser(replicas);
+                    if (replicasFactor.getFrom() > this.topology.size()
+                            || replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
+                        requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        return;
+                    }
+                    final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
+                    defineMethod(request, session, key, replicasFactor, isProxy);
+                } catch (IllegalArgumentException e) {
                     requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    return;
                 }
-                final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-                defineMethod(request, session, key, replicasFactor, isProxy);
             });
         } catch (RejectedExecutionException e) {
             requestHelper.sendLoggedResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
@@ -151,21 +155,21 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                               final Replicas replicasFactor, final boolean isProxy) {
         final Context context = new Context(session, isProxy, request, replicasFactor);
         CompletableFuture.runAsync(() -> {
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                executeMethod(context, key, () -> requestHelper.getEntity(key));
-                break;
-            case Request.METHOD_PUT:
-                executeMethod(context, key, () -> requestHelper.putEntity(key, context.getRequest()));
-                break;
-            case Request.METHOD_DELETE:
-                executeMethod(context, key, () -> requestHelper.deleteEntity(key));
-                break;
-            default:
-                log.error("Not allowed method on /v0/entity");
-                requestHelper.sendLoggedResponse(session, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-                break;
-        }
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    executeMethod(context, key, () -> requestHelper.getEntity(key));
+                    break;
+                case Request.METHOD_PUT:
+                    executeMethod(context, key, () -> requestHelper.putEntity(key, context.getRequest()));
+                    break;
+                case Request.METHOD_DELETE:
+                    executeMethod(context, key, () -> requestHelper.deleteEntity(key));
+                    break;
+                default:
+                    log.error("Not allowed method on /v0/entity");
+                    requestHelper.sendLoggedResponse(session, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    break;
+            }
         }, clientExecutor).exceptionally(e -> {
             log.error("Error while executing method ", e);
             requestHelper.sendLoggedResponse(context.getSession(),
@@ -180,7 +184,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             return;
         }
         final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
-                replication(action, key, topology, context),
+                Objects.requireNonNull(replication(action, key, topology, context)),
                 context.getReplicaFactor().getAck(), clientExecutor);
         final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
         result.thenAccept(v -> requestHelper.sendLoggedResponse(
@@ -197,16 +201,16 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                                                                final ByteBuffer key,
                                                                final Topology<String> topology,
                                                                final Context context) {
-        Set<String> nodes = Collections.emptySet();
-        try {
-            nodes = topology.primaryFor(key, context.getReplicaFactor(), context.getReplicaFactor().getAck());
-        } catch (IllegalArgumentException e) {
+        if (topology.size() < context.getReplicaFactor().getFrom()
+                || context.getReplicaFactor().getAck() > context.getReplicaFactor().getFrom()) {
             requestHelper.sendLoggedResponse(context.getSession(), new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return null;
         }
-        final List<CompletableFuture<ResponseValue>> results = new ArrayList<>(nodes.size());
+        Set<String> nodes = topology.primaryFor(key, context.getReplicaFactor(), context.getReplicaFactor().getAck());
+        final List<CompletableFuture<ResponseValue>> results = new ArrayList<>();
         for (final String node : nodes) {
             if (topology.isMe(node)) {
-                getLocalResults(action, results);
+                results.add(getLocalResults(action));
             } else {
                 final HttpRequest request = requestForReplica(context.getRequest(), key, node);
                 final CompletableFuture<ResponseValue> result = this.client
@@ -219,13 +223,17 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         return results;
     }
 
-    private void getLocalResults(final Action action, final List<CompletableFuture<ResponseValue>> results) {
-        final CompletableFuture<ResponseValue> future = CompletableFuture.supplyAsync(() -> {
+    private CompletableFuture<ResponseValue> getLocalResults(final Action action) {
+        return CompletableFuture.supplyAsync(() -> {
             final Response response = action.act();
-            return new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
-                    response.getBody(), requestHelper.getTimestamp(response));
+            try {
+                return new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
+                        response.getBody(), requestHelper.getTimestamp(response));
+            } catch (IllegalArgumentException e) {
+                log.error("Response value with invalid timestamp", e);
+                return new ResponseValue(Response.INTERNAL_ERROR, Response.EMPTY, -1);
+            }
         });
-        results.add(future);
     }
 
     private HttpRequest requestForReplica(final Request request, final ByteBuffer key, final String node) {

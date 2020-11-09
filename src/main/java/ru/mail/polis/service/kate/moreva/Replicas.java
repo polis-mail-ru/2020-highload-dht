@@ -20,12 +20,16 @@ public class Replicas {
 
     /**
      * Parses the request to get the needed number of answers (ack) and nodes (from).
-     * */
-    public static Replicas parser(final String replicas) {
+     */
+    public static Replicas parser(final String replicas) throws IllegalArgumentException {
         final List<String> params = Splitter.on('/').splitToList(replicas);
-        final int ack = Integer.parseInt(params.get(0));
-        final int from = Integer.parseInt(params.get(1));
-        return new Replicas(ack, from);
+        if (params.size() >= 2) {
+            final int ack = Integer.parseInt(params.get(0));
+            final int from = Integer.parseInt(params.get(1));
+            return new Replicas(ack, from);
+        } else {
+            throw new IllegalArgumentException("Wrong input replica factor");
+        }
     }
 
     public int getAck() {

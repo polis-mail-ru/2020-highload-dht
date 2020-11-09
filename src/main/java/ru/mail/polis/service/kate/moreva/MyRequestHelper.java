@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -93,12 +94,7 @@ public class MyRequestHelper {
      * Merges responses for GET request.
      */
     public CompletableFuture<ResponseValue> merge(final CompletableFuture<List<ResponseValue>> future) {
-        final CompletableFuture<ResponseValue> resultsFuture = new CompletableFuture<>();
-        future.whenComplete((r, t) -> {
-            if (t != null) {
-                resultsFuture.complete(new ResponseValue(NOT_ENOUGH_REPLICAS, Response.EMPTY, -1));
-                return;
-            }
+        return future.thenApply(r -> {
             ResponseValue response = new ResponseValue(Response.NOT_FOUND, Response.EMPTY, -1);
             final List<ResponseValue> responseValues = new ArrayList<>(r);
             long time = Long.MIN_VALUE;
@@ -108,12 +104,11 @@ public class MyRequestHelper {
                     response = resp;
                 }
             }
-            resultsFuture.complete(response);
+            return response;
         }).exceptionally(e -> {
             log.error("Error while merge ", e);
             return null;
         });
-        return resultsFuture;
     }
 
     /**
@@ -121,13 +116,13 @@ public class MyRequestHelper {
      */
     public CompletableFuture<List<ResponseValue>> collect(final List<CompletableFuture<ResponseValue>> responseValues,
                                                           final int ack, final Executor clientExecutor) {
-        final AtomicInteger numberOfErrors = new AtomicInteger(-1);
-        final List<ResponseValue> results = new ArrayList<>();
+        final AtomicInteger numberOfErrors = new AtomicInteger(0);
+        final List<ResponseValue> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<List<ResponseValue>> resultsFuture = new CompletableFuture<>();
         for (final CompletableFuture<ResponseValue> resp : responseValues) {
             resp.whenCompleteAsync((v, t) -> {
                 if (t != null) {
-                    if (numberOfErrors.incrementAndGet() == (responseValues.size() - ack)) {
+                    if (numberOfErrors.incrementAndGet() == (responseValues.size() - ack + 1)) {
                         resultsFuture.completeExceptionally(new RejectedExecutionException(t));
                     }
                     return;
@@ -180,9 +175,13 @@ public class MyRequestHelper {
     /**
      * Takes timestamp from header or -1 if null.
      */
-    public long getTimestamp(final Response response) {
+    public long getTimestamp(final Response response) throws IllegalArgumentException {
         final String timestamp = response.getHeader(TIMESTAMP);
-        return timestamp == null ? -1 : Long.parseLong(timestamp);
+        try {
+            return timestamp == null ? -1 : Long.parseLong(timestamp);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Error while parsing timestamp");
+        }
     }
 
     /**
