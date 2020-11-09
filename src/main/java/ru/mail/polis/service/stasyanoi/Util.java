@@ -82,11 +82,11 @@ public final class Util {
     /**
      * Get node with hash.
      *
-     * @param idArray   - key.
      * @param nodeCount - amount of nodes.
      * @return - the node number.
      */
-    public static int getNode(final byte[] idArray, final int nodeCount) {
+    public static int getNode(final String idParam, final int nodeCount) {
+        final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         int hash = Math.abs(Arrays.hashCode(idArray));
         hash = hash < 0 ? -hash : hash;
         return hash % nodeCount;

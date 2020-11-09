@@ -18,16 +18,16 @@ import java.util.TreeMap;
 
 public class ConstantsServer extends HttpServer {
 
-    protected static final String TRUE_VAL = "true";
-    protected static final String REPS = "reps";
+    protected static final String TRUE = "true";
+    protected static final String SHOULD_REPLICATE = "reps";
     protected final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     protected Map<Integer, String> nodeMapping;
-    protected int nodeCount;
-    protected int nodeNum;
+    protected int nodeAmmount;
+    protected int thisNodeIndex;
     protected DAO dao;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
     protected java.net.http.HttpClient asyncHttpClient;
-    protected Logger logger = LoggerFactory.getLogger(CustomServer.class);
+    protected Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
 
     /**
      * Fields server.
@@ -40,7 +40,7 @@ public class ConstantsServer extends HttpServer {
     public ConstantsServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
             throws IOException {
         super(config);
-        this.nodeCount = topology.size();
+        this.nodeAmmount = topology.size();
         final ArrayList<String> urls = new ArrayList<>(topology);
         urls.sort(String::compareTo);
 
@@ -51,7 +51,7 @@ public class ConstantsServer extends HttpServer {
         for (int i = 0; i < urls.size(); i++) {
             nodeMappingTemp.put(i, urls.get(i));
             if (urls.get(i).contains(String.valueOf(super.port))) {
-                nodeNum = i;
+                thisNodeIndex = i;
             }
         }
         this.nodeMapping = nodeMappingTemp;
