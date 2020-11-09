@@ -7,6 +7,7 @@ import ru.mail.polis.utils.ResponseUtils;
 import java.net.http.HttpResponse;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.RejectedExecutionException;
 
 public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
@@ -21,25 +22,25 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
             @NotNull final HttpResponse.ResponseInfo responseInfo) {
         switch (responseInfo.statusCode()) {
             case 200:
-                final Optional<String> okTimestamp =
-                        responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);
+                final OptionalLong okTimestamp =
+                        responseInfo.headers().firstValueAsLong(ResponseUtils.TIMESTAMP);
                 if (okTimestamp.isEmpty()) {
                     throw new IllegalArgumentException("No timestamp header");
                 }
-                final String ofTimestampValue = okTimestamp.orElse(null);
+                final long okTimestampValue = okTimestamp.getAsLong();
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
-                        bytes -> Entry.present(Long.parseLong(Objects.requireNonNull(ofTimestampValue)), bytes));
+                        bytes -> Entry.present(okTimestampValue, bytes));
             case 404:
-                final Optional<String> notFoundTimestamp =
-                        responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);
+                final OptionalLong notFoundTimestamp =
+                        responseInfo.headers().firstValueAsLong(ResponseUtils.TIMESTAMP);
                 if (notFoundTimestamp.isEmpty()) {
                     return HttpResponse.BodySubscribers.replacing(
                             Entry.absent());
                 }
-                final String notFoundTimestampValue = notFoundTimestamp.orElse(null);
+                final long notFoundTimestampValue = notFoundTimestamp.getAsLong();
                 return HttpResponse.BodySubscribers.replacing(
-                        Entry.removed(Long.parseLong(notFoundTimestampValue)));
+                        Entry.removed(notFoundTimestampValue));
             default:
                 throw new RejectedExecutionException("Can't get response");
         }

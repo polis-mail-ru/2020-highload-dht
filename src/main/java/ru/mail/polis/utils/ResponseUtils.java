@@ -92,6 +92,7 @@ public final class ResponseUtils {
         return TIMESTAMP + ": " + entry.getTimestamp();
     }
 
+    /** GET response from Entry.*/
     public static CompletableFuture<Entry> getResponse(@NotNull final Map<String, HttpClient> httpClients,
                                                           @NotNull final String node,
                                                           @NotNull final String id,
@@ -104,6 +105,7 @@ public final class ResponseUtils {
                 .thenApplyAsync(HttpResponse::body, executor);
     }
 
+    /** PUT response from Entry.*/
     public static CompletableFuture<Response> putResponse(@NotNull final Map<String, HttpClient> httpClients,
                                                           @NotNull final String node,
                                                           @NotNull final String id,
@@ -117,6 +119,7 @@ public final class ResponseUtils {
                 .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
     }
 
+    /** DELETE response from Entry.*/
     public static CompletableFuture<Response> deleteResponse(@NotNull final Map<String, HttpClient> httpClients,
                                                           @NotNull final String node,
                                                           @NotNull final String id,
