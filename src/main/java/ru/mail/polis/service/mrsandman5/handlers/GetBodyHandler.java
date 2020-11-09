@@ -5,6 +5,7 @@ import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.net.http.HttpResponse;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -22,13 +23,10 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
             case 200:
                 final Optional<String> okTimestamp =
                         responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);
-                if (okTimestamp.isEmpty()) {
-                    throw new IllegalArgumentException("No timestamp header");
-                }
                 final String ofTimestampValue = okTimestamp.orElse(null);
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
-                        bytes -> Entry.present(Long.parseLong(ofTimestampValue), bytes));
+                        bytes -> Entry.present(Long.parseLong(Objects.requireNonNull(ofTimestampValue)), bytes));
             case 404:
                 final Optional<String> notFoundTimestamp =
                         responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);

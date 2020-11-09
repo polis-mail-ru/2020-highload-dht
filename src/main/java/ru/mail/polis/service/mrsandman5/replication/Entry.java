@@ -70,12 +70,12 @@ public final class Entry implements Comparable<Entry> {
         return new Entry(-1, null, State.ABSENT);
     }
 
-    /** Merge all Entries from nodes to single result node.
+    /** Merge all exist Entries comparing to their timestamp
      * @param entries - collection of nodes' Entries.
      * @return target Entry.
      * */
     @NotNull
-    private static Entry mergeEntries(@NotNull final Collection<Entry> entries) {
+    private static Entry mergeExistEntriesWithTimestamp(@NotNull final Collection<Entry> entries) {
         return entries.stream()
                 .filter(value -> value.getState() != State.ABSENT)
                 .max(Comparator.comparingLong(Entry::getTimestamp))
@@ -84,7 +84,7 @@ public final class Entry implements Comparable<Entry> {
 
     @NotNull
     public static Response entriesToResponse(@NotNull final Collection<Entry> entries) {
-        final Entry entry = Entry.mergeEntries(entries);
+        final Entry entry = Entry.mergeExistEntriesWithTimestamp(entries);
         return entryToResponse(entry);
     }
 

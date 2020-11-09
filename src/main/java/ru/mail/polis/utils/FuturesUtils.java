@@ -18,7 +18,6 @@ public final class FuturesUtils {
      * @param successes - necessary number of successful requests
      * @param executor - thread pool of async executors
      * */
-    @SuppressWarnings("FutureReturnValueIgnored")
     @NotNull
     public static <T> CompletableFuture<Collection<T>> atLeastAsync(
             @NotNull final Collection<CompletableFuture<T>> futures,
@@ -39,7 +38,7 @@ public final class FuturesUtils {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
                 }
             }
-        }, executor));
+        }, executor).isCancelled());
         return future;
     }
 

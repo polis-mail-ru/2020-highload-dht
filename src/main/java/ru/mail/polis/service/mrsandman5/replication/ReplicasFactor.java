@@ -3,6 +3,7 @@ package ru.mail.polis.service.mrsandman5.replication;
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.util.List;
 
 public final class ReplicasFactor {
@@ -25,7 +26,14 @@ public final class ReplicasFactor {
     @SuppressWarnings("UnstableApiUsage")
     public static ReplicasFactor parser(@NotNull final String replicas) {
         final List<String> params = Splitter.on('/').splitToList(replicas);
-        return new ReplicasFactor(Integer.parseInt(params.get(0)), Integer.parseInt(params.get(1)));
+        int ackParam, fromParam;
+        try {
+            ackParam = Integer.parseInt(params.get(0));
+            fromParam = Integer.parseInt(params.get(1));
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException("Replicas parameters error");
+        }
+        return new ReplicasFactor(ackParam, fromParam);
     }
 
     public int getFrom() {

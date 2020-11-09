@@ -57,7 +57,6 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
         if (replicasFactor.getFrom() > topology.size()) {
             throw new IllegalArgumentException("Number of nodes is bigger than from!");
         }
-
         final long hash = hashFunction.hashBytes(key.duplicate()).asLong();
         final Set<T> result = new HashSet<>();
         Iterator<VirtualNode<T>> it = ring.tailMap(hash).values().iterator();
@@ -78,7 +77,7 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     @NotNull
     @Override
     public Set<T> all() {
-        return topology;
+        return new HashSet<>(topology);
     }
 
     /** Add new node to hash ring.
