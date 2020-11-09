@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class OverridedServer extends ConstantsServer {
 
     /**
-     * Fields server.
+     * Server for overwridden methods.
      *
      * @param dao - dao.
      * @param config - config.

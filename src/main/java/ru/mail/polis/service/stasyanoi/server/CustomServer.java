@@ -1,7 +1,5 @@
 package ru.mail.polis.service.stasyanoi.server;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -14,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.Util;
+import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
 import ru.mail.polis.service.stasyanoi.server.internal.OverridedServer;
 
 import java.io.IOException;
@@ -22,11 +21,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -39,7 +36,7 @@ import static ru.mail.polis.service.stasyanoi.Util.*;
 public class CustomServer extends OverridedServer {
 
     /**
-     * Create custom server.
+     * Custom server.
      *
      * @param dao - DAO to use.
      * @param config - config for server.
@@ -110,14 +107,10 @@ public class CustomServer extends OverridedServer {
             }
 
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
-                tempNodeMapping.remove(node);
-                final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final int from = ackFrom.getValue1();
-                final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
-                final Integer ack = ackFrom.getValue0();
+                final AckFrom ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+                final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
                 responses.add(responseHttpTemp);
-                responseHttp = mergeGetResponses(responses, ack, nodeIndexToUrlMapping);
+                responseHttp = mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -213,26 +206,27 @@ public class CustomServer extends OverridedServer {
             } else {
                 responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
             }
-
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final int from = ackFrom.getValue1();
-                final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
-                tempNodeMapping.remove(node);
-                final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
-                final Integer ack = ackFrom.getValue0();
+                final AckFrom ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+                final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
                 responses.add(responseHttpTemp);
-                responseHttp = mergePutDeleteResponses(responses, ack, 201, nodeIndexToUrlMapping);
+                responseHttp = mergePutDeleteResponses(responses, ackFrom.getAck(), 201, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
         }
-
         try {
             session.sendResponse(responseHttp);
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
         }
+    }
+
+    @NotNull
+    private List<Response> getReplicaResponses(Request request, int node, int fromOtherReplicas) {
+        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
+        tempNodeMapping.remove(node);
+        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request, port);
     }
 
     @NotNull
@@ -285,7 +279,6 @@ public class CustomServer extends OverridedServer {
         } else {
             responseHttp = deleteInLocalNode(idParam);
         }
-
         try {
             session.sendResponse(responseHttp);
         } catch (IOException e) {
@@ -295,7 +288,6 @@ public class CustomServer extends OverridedServer {
 
     private void deleteInternal(final String idParam, final Request request, final HttpSession session) {
         final Response responseHttp;
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -306,20 +298,15 @@ public class CustomServer extends OverridedServer {
             } else {
                 responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
             }
-            tempNodeMapping.remove(node);
-
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final int from = ackFrom.getValue1();
-                final Integer ack = ackFrom.getValue0();
-                final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
+                final AckFrom ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+                final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
                 responses.add(responseHttpTemp);
-                responseHttp = mergePutDeleteResponses(responses, ack, 202, nodeIndexToUrlMapping);
+                responseHttp = mergePutDeleteResponses(responses, ackFrom.getAck(), 202, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
         }
-
         try {
             session.sendResponse(responseHttp);
         } catch (IOException e) {
@@ -380,70 +367,6 @@ public class CustomServer extends OverridedServer {
         } catch (InterruptedException | IOException e) {
             return responseWithNoBody(Response.INTERNAL_ERROR);
         }
-    }
-
-    private Request getNewReplicationRequest(final Request request, final int port) {
-        final String path = request.getPath();
-        final String queryString = request.getQueryString();
-        final String newPath = path + "/rep?" + queryString;
-        final Request requestNew = getCloneRequest(request, newPath, port);
-        requestNew.setBody(request.getBody());
-        return requestNew;
-    }
-
-    private Request getNoRepRequest(final Request request,
-                                   final int port) {
-        final String path = request.getPath();
-        final String queryString = request.getQueryString();
-        final String newPath;
-        if (request.getQueryString().contains("&reps=false")) {
-            newPath = path + "?" + queryString;
-        } else {
-            newPath = path + "?" + queryString + "&reps=false";
-        }
-        final Request noRepRequest = getCloneRequest(request, newPath, port);
-        noRepRequest.setBody(request.getBody());
-        return noRepRequest;
-    }
-
-    @NotNull
-    private Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
-        final Request noRepRequest = new Request(request.getMethod(), newPath, true);
-        Arrays.stream(request.getHeaders())
-                .filter(Objects::nonNull)
-                .filter(header -> !header.contains("Host: "))
-                .forEach(noRepRequest::addHeader);
-        noRepRequest.addHeader("Host: localhost:" + thisServerPort);
-        return noRepRequest;
-    }
-
-    @NotNull
-    private Pair<Integer, Integer> getRF(String replicas, int size) {
-        int ack;
-        int from;
-        if (replicas == null) {
-            if (size == 1) {
-                ack = 1;
-                from = 1;
-            } else if (size == 2) {
-                ack = 2;
-                from = 2;
-            } else if (size == 3) {
-                ack = 2;
-                from = 3;
-            } else if (size == 4) {
-                ack = 3;
-                from = 4;
-            } else {
-                ack = 3;
-                from = 5;
-            }
-        } else {
-            replicas = replicas.substring(1);
-            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
-            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 1));
-        }
-        return new Pair<>(ack, from);
     }
 
     /**

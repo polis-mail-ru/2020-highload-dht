@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.Mapper;
+import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,9 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public final class Util {
@@ -204,5 +203,69 @@ public final class Util {
         } else {
             return requestBuilder.DELETE().build();
         }
+    }
+
+    public static Request getNewReplicationRequest(final Request request, final int port) {
+        final String path = request.getPath();
+        final String queryString = request.getQueryString();
+        final String newPath = path + "/rep?" + queryString;
+        final Request requestNew = getCloneRequest(request, newPath, port);
+        requestNew.setBody(request.getBody());
+        return requestNew;
+    }
+
+    public static Request getNoRepRequest(final Request request,
+                                    final int port) {
+        final String path = request.getPath();
+        final String queryString = request.getQueryString();
+        final String newPath;
+        if (request.getQueryString().contains("&reps=false")) {
+            newPath = path + "?" + queryString;
+        } else {
+            newPath = path + "?" + queryString + "&reps=false";
+        }
+        final Request noRepRequest = getCloneRequest(request, newPath, port);
+        noRepRequest.setBody(request.getBody());
+        return noRepRequest;
+    }
+
+    @NotNull
+    public static Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
+        final Request noRepRequest = new Request(request.getMethod(), newPath, true);
+        Arrays.stream(request.getHeaders())
+                .filter(Objects::nonNull)
+                .filter(header -> !header.contains("Host: "))
+                .forEach(noRepRequest::addHeader);
+        noRepRequest.addHeader("Host: localhost:" + thisServerPort);
+        return noRepRequest;
+    }
+
+    @NotNull
+    public static AckFrom getRF(String replicas, int size) {
+        int ack;
+        int from;
+        if (replicas == null) {
+            if (size == 1) {
+                ack = 1;
+                from = 1;
+            } else if (size == 2) {
+                ack = 2;
+                from = 2;
+            } else if (size == 3) {
+                ack = 2;
+                from = 3;
+            } else if (size == 4) {
+                ack = 3;
+                from = 4;
+            } else {
+                ack = 3;
+                from = 5;
+            }
+        } else {
+            replicas = replicas.substring(1);
+            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
+            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 1));
+        }
+        return new AckFrom(ack, from);
     }
 }
