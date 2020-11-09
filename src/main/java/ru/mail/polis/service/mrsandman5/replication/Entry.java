@@ -70,7 +70,7 @@ public final class Entry implements Comparable<Entry> {
         return new Entry(-1, null, State.ABSENT);
     }
 
-    /** Merge all exist Entries comparing to their timestamp
+    /** Merge all exist Entries comparing to their timestamp.
      * @param entries - collection of nodes' Entries.
      * @return target Entry.
      * */
