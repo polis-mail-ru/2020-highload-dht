@@ -373,6 +373,15 @@ public class CustomServer extends OverridedServer {
         return responses;
     }
 
+    private Response routeRequestToRemoteNode(final Request request, final int node, final Map<Integer, String> nodeMapping) {
+        try {
+            return getOneNioResponse(asyncHttpClient.send(getJavaRequest(request,nodeMapping.get(node)),
+                    HttpResponse.BodyHandlers.ofByteArray()));
+        } catch (InterruptedException | IOException e) {
+            return responseWithNoBody(Response.INTERNAL_ERROR);
+        }
+    }
+
     private Request getNewReplicationRequest(final Request request, final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
@@ -406,15 +415,6 @@ public class CustomServer extends OverridedServer {
                 .forEach(noRepRequest::addHeader);
         noRepRequest.addHeader("Host: localhost:" + thisServerPort);
         return noRepRequest;
-    }
-
-    private Response routeRequestToRemoteNode(final Request request, final int node, final Map<Integer, String> nodeMapping) {
-        try {
-            return getOneNioResponse(asyncHttpClient.send(getJavaRequest(request,nodeMapping.get(node)),
-                    HttpResponse.BodyHandlers.ofByteArray()));
-        } catch (InterruptedException | IOException e) {
-            return responseWithNoBody(Response.INTERNAL_ERROR);
-        }
     }
 
     @NotNull
