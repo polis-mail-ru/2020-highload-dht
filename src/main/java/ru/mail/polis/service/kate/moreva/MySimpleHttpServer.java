@@ -148,17 +148,16 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 return;
             }
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(Charsets.UTF_8));
-            defineMethod(request, session, key, replicasFactor, isProxy);
+            final Context context = new Context(session, isProxy, request, replicasFactor);
+            defineMethod(key, context);
         } catch (IllegalArgumentException e) {
             requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
     }
 
-    private void defineMethod(final Request request, final HttpSession session, final ByteBuffer key,
-                              final Replicas replicasFactor, final boolean isProxy) {
-        final Context context = new Context(session, isProxy, request, replicasFactor);
+    private void defineMethod(final ByteBuffer key,final Context context) {
         CompletableFuture.runAsync(() -> {
-            switch (request.getMethod()) {
+            switch (context.getRequest().getMethod()) {
                 case Request.METHOD_GET:
                     executeMethod(context, key, () -> requestHelper.getEntity(key));
                     break;
@@ -170,7 +169,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                     break;
                 default:
                     log.error("Not allowed method on /v0/entity");
-                    requestHelper.sendLoggedResponse(session,
+                    requestHelper.sendLoggedResponse(context.getSession(),
                             new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                     break;
             }
