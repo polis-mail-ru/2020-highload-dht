@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
 
+import static ru.mail.polis.service.stasyanoi.Merger.*;
 import static ru.mail.polis.service.stasyanoi.Util.*;
 
 public class CustomServer extends OverridedServer {
@@ -117,7 +118,7 @@ public class CustomServer extends OverridedServer {
                 final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
                 responses.add(responseHttpTemp);
-                responseHttp = Merger.mergeGetResponses(responses, ack, nodeIndexToUrlMapping);
+                responseHttp = mergeGetResponses(responses, ack, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -228,7 +229,7 @@ public class CustomServer extends OverridedServer {
                 final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
                 responses.add(responseHttpTemp);
-                responseHttp = Merger.mergePutDeleteResponses(responses, ack, 201, nodeIndexToUrlMapping);
+                responseHttp = mergePutDeleteResponses(responses, ack, 201, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -320,7 +321,7 @@ public class CustomServer extends OverridedServer {
                 final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
                 responses.add(responseHttpTemp);
-                responseHttp = Merger.mergePutDeleteResponses(responses, ack, 202, nodeIndexToUrlMapping);
+                responseHttp = mergePutDeleteResponses(responses, ack, 202, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
