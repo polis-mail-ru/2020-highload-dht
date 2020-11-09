@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -30,24 +31,25 @@ import static java.util.Map.entry;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ReplicationServiceImpl.class);
     static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     static final String GATEWAY_TIMEOUT_ERROR_LOG = "Your request failed due to timeout";
     private static final int CONNECTION_TIMEOUT = 1000;
 
     private enum ErrorNames {
-        IO_ERROR, NOT_ALLOWED_METHOD_ERROR
+        IO_ERROR, NOT_ALLOWED_METHOD_ERROR, REJECTED, NOT_ENOUGH_NODES
     }
 
     private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
             entry(ErrorNames.IO_ERROR, "IO exception raised"),
-            entry(ErrorNames.NOT_ALLOWED_METHOD_ERROR, "Method not allowed")
+            entry(ErrorNames.NOT_ALLOWED_METHOD_ERROR, "Method not allowed"),
+            entry(ErrorNames.REJECTED, "RejectedExecutionException when handling replicas"),
+            entry(ErrorNames.NOT_ENOUGH_NODES, "Not enough nodes in cluster")
     );
 
     private final ExecutorService exec;
     private final Topology topology;
     private final Map<String, HttpClient> nodesToClients;
-    private final ReplicationFactor rf;
     private final ReplicationHandler handler;
 
     ReplicationServiceImpl(
@@ -59,19 +61,20 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) throws IOException {
 
         super(getConfig(port));
-        this.exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
+        exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Worker {} fails running: {}", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
-        this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
-        this.handler = new ReplicationHandler(dao, topology, nodesToClients, rf);
+        this.handler = new ReplicationHandler(dao, topology, nodesToClients, ReplicationFactor.getQuorum(
+                topology.getSize())
+        );
 
         for (final String node : topology.getNodes()) {
 
@@ -112,89 +115,117 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) throws IOException {
 
         if (id.isEmpty()) {
-            session.sendError(Response.BAD_REQUEST, "Identifier is required as parameter. Error handling request");
+            session.sendError(
+                    Response.BAD_REQUEST, "Identifier is required as parameter. Error handling request"
+            );
+            return;
+        }
+
+        final ReplicationFactor replicationFactor;
+
+        try {
+            replicationFactor = replicas == null ? ReplicationFactor.getQuorum(topology.getSize()) :
+                    ReplicationFactor.createReplicationFactor(
+                            replicas
+                    );
+        } catch (IllegalArgumentException ex) {
+            session.sendError(Response.BAD_REQUEST, ex.getMessage());
             return;
         }
 
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
-        final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final ReplicationFactor replicationFactor = ReplicationFactor
-                .getReplicationFactor(replicas, rf, session);
-
-        if (topology.getSize() > 1) {
-            try {
-                handleMultipleCase(req, session, id, replicationFactor, isForwardedRequest);
-            } catch (IOException exc) {
-                session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
-            }
-        } else {
-            try {
-                handleSingleCase(req, session, byteBuffer);
-            } catch (IOException exc) {
-                session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
-            }
+        try {
+            handle(req, session, id, replicationFactor, isForwardedRequest);
+        } catch (IOException exc) {
+            session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
         }
     }
 
-    private void handleSingleCase(
+    private void handleLocal(
             final Request request,
             final HttpSession session,
             final ByteBuffer key
     ) throws IOException {
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                runExecutor(session, () -> handler.singleGet(key, request));
-                break;
-            case Request.METHOD_PUT:
-                runExecutor(session, () -> handler.singleUpsert(key, request.getBody(), request));
-                break;
-            case Request.METHOD_DELETE:
-                runExecutor(session, () -> handler.singleDelete(key, request));
-                break;
-            default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR));
-                break;
+        try {
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    runExecutor(session, () -> handler.singleGet(key, request));
+                    break;
+                case Request.METHOD_PUT:
+                    runExecutor(session, () -> handler.singleUpsert(key, request.getBody(), request));
+                    break;
+                case Request.METHOD_DELETE:
+                    runExecutor(session, () -> handler.singleDelete(key, request));
+                    break;
+                default:
+                    session.sendError(
+                            Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR)
+                    );
+                    break;
+            }
+        } catch (RejectedExecutionException e) {
+            log.error(MESSAGE_MAP.get(ErrorNames.REJECTED), e);
+            handleError(session);
         }
     }
 
-    private void handleMultipleCase(
+    private void handleError(final HttpSession session) {
+        try {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Couldn't send response", e);
+        }
+    }
+
+    private void handle(
             final Request request,
             final HttpSession session,
             final String id,
             final ReplicationFactor replicationFactor,
             final boolean isForwardedRequest
     ) throws IOException {
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                session.sendResponse(
-                        handler.multipleGet(
-                                id,
-                                replicationFactor,
-                                isForwardedRequest
-                        )
-                );
-                break;
-            case Request.METHOD_PUT:
-                session.sendResponse(handler.multipleUpsert(
-                        id,
-                        request.getBody(),
-                        replicationFactor.getAck(),
-                        isForwardedRequest)
-                );
-                break;
-            case Request.METHOD_DELETE:
-                session.sendResponse(
-                        handler.multipleDelete(
-                                id,
-                                replicationFactor.getAck(),
-                                isForwardedRequest
-                        )
-                );
-                break;
-            default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR));
-                break;
+        try {
+            if (topology.getSize() == 1) {
+                final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+                handleLocal(request, session, byteBuffer);
+                return;
+            }
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    session.sendResponse(
+                            handler.multipleGet(
+                                    id,
+                                    replicationFactor,
+                                    isForwardedRequest
+                            )
+                    );
+                    break;
+                case Request.METHOD_PUT:
+                    session.sendResponse(handler.multipleUpsert(
+                            id,
+                            request.getBody(),
+                            replicationFactor.getAck(),
+                            isForwardedRequest)
+                    );
+                    break;
+                case Request.METHOD_DELETE:
+                    session.sendResponse(
+                            handler.multipleDelete(
+                                    id,
+                                    replicationFactor.getAck(),
+                                    isForwardedRequest
+                            )
+                    );
+                    break;
+                default:
+                    session.sendError(
+                            Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR)
+                    );
+                    break;
+            }
+        } catch (NotEnoughNodesException e) {
+            log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
         }
     }
 
@@ -203,12 +234,14 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    private void runExecutor(@NotNull final HttpSession session, final Runner runner) {
+    private void runExecutor(
+            @NotNull final HttpSession session, final Runner runner
+    ) throws RejectedExecutionException {
         exec.execute(() -> {
             try {
                 session.sendResponse(runner.execute());
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
             }
         });
     }
@@ -220,7 +253,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         try {
             exec.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            LOGGER.error("Couldn't terminate executor");
+            log.error("Couldn't terminate executor");
             Thread.currentThread().interrupt();
         }
         for (final HttpClient client : nodesToClients.values()) {

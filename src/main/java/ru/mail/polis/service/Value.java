@@ -1,17 +1,13 @@
 package ru.mail.polis.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.util.Util;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public final class Value {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(Value.class);
+    private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     private final boolean isValueDeleted;
     private final long timestamp;
@@ -33,7 +29,7 @@ public final class Value {
     }
 
     public static Value resolveDeletedValue(final long timestamp) {
-        return new Value(true, timestamp, ByteBuffer.allocate(0));
+        return new Value(true, timestamp, EMPTY_BUFFER);
     }
 
     static boolean isDeleted(final ByteBuffer buffer, final String marker) {
@@ -60,8 +56,7 @@ public final class Value {
 
     private ByteBuffer getValue() throws IOException {
         if (isValueDeleted) {
-            LOGGER.info("Record was removed");
-            throw new IOException();
+            throw new IOException("Record was removed");
         } else {
             return buffer;
         }
