@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
-import ru.mail.polis.service.stasyanoi.server.CustomServer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,9 +18,10 @@ import java.util.TreeMap;
 public class ConstantsServer extends HttpServer {
 
     protected static final String TRUE = "true";
+    protected static final String REPLICAS = "replicas";
     protected static final String SHOULD_REPLICATE = "reps";
     protected final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
-    protected Map<Integer, String> nodeMapping;
+    protected Map<Integer, String> nodeIndexToUrlMapping;
     protected int nodeAmmount;
     protected int thisNodeIndex;
     protected DAO dao;
@@ -54,7 +54,7 @@ public class ConstantsServer extends HttpServer {
                 thisNodeIndex = i;
             }
         }
-        this.nodeMapping = nodeMappingTemp;
+        this.nodeIndexToUrlMapping = nodeMappingTemp;
         this.dao = dao;
     }
 }

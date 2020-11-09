@@ -48,38 +48,6 @@ public final class Util {
     }
 
     /**
-     * Get RF.
-     *
-     * @param request             - request to replicate.
-     * @param replicationDefaults - default RFs.
-     * @param nodeMapping         - node list.
-     * @return - pair of ack and from.
-     */
-    public static Pair<Integer, Integer> ackFromPair(final Request request,
-                                                     final List<String> replicationDefaults,
-                                                     final Map<Integer, String> nodeMapping) {
-        final int ack;
-        final int from;
-        String replicas = request.getParameter("replicas");
-        if (replicas == null) {
-            final Optional<String[]> ackFrom = replicationDefaults.stream()
-                    .map(replic -> replic.split("/"))
-                    .filter(strings -> Integer.parseInt(strings[1]) == nodeMapping.size())
-                    .findFirst();
-
-            final String[] ackFromReal = ackFrom.orElseGet(() -> new String[]{"4", String.valueOf(nodeMapping.size())});
-            ack = Integer.parseInt(ackFromReal[0]);
-            from = Integer.parseInt(ackFromReal[1]);
-        } else {
-            replicas = replicas.substring(1);
-            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
-            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 1));
-        }
-
-        return new Pair<>(ack, from);
-    }
-
-    /**
      * Get node with hash.
      *
      * @param nodeCount - amount of nodes.

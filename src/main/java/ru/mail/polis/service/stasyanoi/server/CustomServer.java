@@ -1,5 +1,7 @@
 package ru.mail.polis.service.stasyanoi.server;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -104,21 +106,21 @@ public class CustomServer extends OverridedServer {
             if (node == thisNodeIndex) {
                 responseHttpTemp = getResponseFromLocalNode(idParam, dao);
             } else {
-                responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeMapping);
+                responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
             }
 
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
+                final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
                 tempNodeMapping.remove(node);
-                final Pair<Integer, Integer> ackFrom = getRF(request, nodeMapping);
+                final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
                 final int from = ackFrom.getValue1();
                 final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
                 responses.add(responseHttpTemp);
-                responseHttp = Merger.mergeGetResponses(responses, ack, nodeMapping);
+                responseHttp = Merger.mergeGetResponses(responses, ack, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
-            };
+            }
         }
 
         try {
@@ -215,18 +217,18 @@ public class CustomServer extends OverridedServer {
             if (node == thisNodeIndex) {
                 responseHttpTemp = putIntoLocalNode(request, idParam);
             } else {
-                responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeMapping);
+                responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
             }
 
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final Pair<Integer, Integer> ackFrom = getRF(request, nodeMapping);
+                final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
                 final int from = ackFrom.getValue1();
-                final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
+                final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
                 tempNodeMapping.remove(node);
                 final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
                 responses.add(responseHttpTemp);
-                responseHttp = Merger.mergePutDeleteResponses(responses, ack, 201, nodeMapping);
+                responseHttp = Merger.mergePutDeleteResponses(responses, ack, 201, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -299,7 +301,7 @@ public class CustomServer extends OverridedServer {
 
     private void deleteInternal(final String idParam, final Request request, final HttpSession session) {
         final Response responseHttp;
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
+        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = responseWithNoBody(Response.BAD_REQUEST);
         } else {
@@ -308,17 +310,17 @@ public class CustomServer extends OverridedServer {
             if (node == thisNodeIndex) {
                 responseHttpTemp = deleteInLocalNode(idParam);
             } else {
-                responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeMapping);
+                responseHttpTemp = routeRequestToRemoteNode(getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
             }
             tempNodeMapping.remove(node);
 
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final Pair<Integer, Integer> ackFrom = getRF(request, nodeMapping);
+                final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
                 final int from = ackFrom.getValue1();
                 final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
                 responses.add(responseHttpTemp);
-                responseHttp = Merger.mergePutDeleteResponses(responses, ack, 202, nodeMapping);
+                responseHttp = Merger.mergePutDeleteResponses(responses, ack, 202, nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -455,8 +457,32 @@ public class CustomServer extends OverridedServer {
     }
 
     @NotNull
-    private Pair<Integer, Integer> getRF(final Request request, final Map<Integer, String> nodeMapping) {
-        return ackFromPair(request, replicationDefaults, nodeMapping);
+    private Pair<Integer, Integer> getRF(String replicas, int size) {
+        int ack;
+        int from;
+        if (replicas == null) {
+            if (size == 1) {
+                ack = 1;
+                from = 1;
+            } else if (size == 2) {
+                ack = 2;
+                from = 2;
+            } else if (size == 3) {
+                ack = 2;
+                from = 3;
+            } else if (size == 4) {
+                ack = 3;
+                from = 4;
+            } else {
+                ack = 3;
+                from = 5;
+            }
+        } else {
+            replicas = replicas.substring(1);
+            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
+            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 1));
+        }
+        return new Pair<>(ack, from);
     }
 
     /**
