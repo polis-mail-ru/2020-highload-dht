@@ -5,8 +5,6 @@ import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.net.http.HttpResponse;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.RejectedExecutionException;
 
