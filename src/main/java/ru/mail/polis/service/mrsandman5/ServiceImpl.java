@@ -184,14 +184,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
-                result.add(CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return Entry.entryFromBytes(key, dao);
-                            } catch (IOException e) {
-                                throw new RuntimeException("Get future error", e);
-                            }
-                        }, executor));
+                result.add(simpleRequests.getEntry(key));
             } else {
                 final HttpRequest request = ResponseUtils.requestForReplica(node, id).GET().build();
                 result.add(httpClients.get(node)

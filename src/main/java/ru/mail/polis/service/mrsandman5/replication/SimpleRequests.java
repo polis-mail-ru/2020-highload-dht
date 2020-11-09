@@ -23,7 +23,7 @@ public final class SimpleRequests {
     }
 
     /**
-     * Get value.
+     * Get value response.
      * {@code 200, value} (data is found).
      * {@code 404} (data is not found).
      * {@code 500} (internal server error occurred).
@@ -43,7 +43,21 @@ public final class SimpleRequests {
     }
 
     /**
-     * Put value.
+     * Get value.
+     */
+    public CompletableFuture<Entry> getEntry(@NotNull final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return Entry.entryFromBytes(key, dao);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Get future error", e);
+                    }
+                }, executor);
+    }
+
+    /**
+     * Put value response.
      * {@code 201} (new value created).
      * {@code 500} (internal server error occurred).
      */
@@ -62,7 +76,7 @@ public final class SimpleRequests {
     }
 
     /**
-     * Delete value by the key.
+     * Delete value by the key response.
      * {@code 202} (value deleted).
      * {@code 500} (internal server error occurred).
      */
