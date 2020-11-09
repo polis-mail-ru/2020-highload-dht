@@ -30,7 +30,7 @@ public class ModularTopology implements Topology<String> {
      * retrieves node associate ID for key searched.
      *
      * @param id - node ID
-     * @return target node ID
+     * @return destination node ID
      */
     @NotNull
     @Override

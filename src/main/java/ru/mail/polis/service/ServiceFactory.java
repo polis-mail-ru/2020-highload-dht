@@ -17,7 +17,7 @@ import java.util.Set;
 public final class ServiceFactory {
 
     private static final long MAX_HEAP = 256 * 1024 * 1024;
-    public static final int CONNECTION_TIMEOUT = 1;
+    public static final int TIMEOUT = 1;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -51,6 +51,6 @@ public final class ServiceFactory {
                 Runtime.getRuntime().availableProcessors(),
                 1024,
                 topology1,
-                CONNECTION_TIMEOUT);
+                TIMEOUT);
     }
 }

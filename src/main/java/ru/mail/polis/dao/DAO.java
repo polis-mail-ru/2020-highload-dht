@@ -1,5 +1,7 @@
 package ru.mail.polis.dao;
 
+import one.nio.http.Request;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
@@ -109,6 +111,30 @@ public interface DAO extends Closeable {
      * @param key - key searched to remove specific record
      */
     void removeValue(@NotNull ByteBuffer key) throws IOException;
+
+    /**
+     * Access dao and get the required key.
+     *
+     * @param key to specify the key to put
+     * @return response containing the key
+     */
+    Response getValueWithFutures(@NotNull final ByteBuffer key) throws IOException;
+
+    /**
+     * PUT exchange runner.
+     *
+     * @param key - key either to add a record or to modify existing one
+     * @param request - HTTP request
+     */
+    void upsertValueWithFutures(@NotNull final ByteBuffer key,
+                                @NotNull final Request request) throws IOException;
+
+    /**
+     * DELETE exchange runner.
+     *
+     * @param key - key searched to remove specific record
+     */
+    void deleteValueWithFutures(@NotNull final ByteBuffer key) throws IOException;
 
     /**
      * Performs compaction.

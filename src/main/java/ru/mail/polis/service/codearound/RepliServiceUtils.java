@@ -21,6 +21,7 @@ public final class RepliServiceUtils {
      * class instance const.
      */
     private RepliServiceUtils() {
+        // Not supposed to be instantiated
     }
 
     /**
@@ -122,7 +123,6 @@ public final class RepliServiceUtils {
     public static Response processResponses(final String[] nodes,
                                      final List<Value> responses,
                                      final boolean isForwardedRequest) throws IOException {
-
         final Value value = syncReplicaValues(responses);
         if (value.isValueExisting()) {
             if (!isForwardedRequest && nodes.length == 1) {

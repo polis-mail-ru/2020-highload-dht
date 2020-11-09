@@ -129,8 +129,8 @@ public class TaskService extends HttpServer implements Service {
     /**
      * default handler.
      *
-     * @param req - client request
-     * @param session ongoing session instance
+     * @param req - http client request
+     * @param session - ongoing session instance
      */
     @Override
     public void handleDefault(final Request req, final HttpSession session) throws IOException {

@@ -1,5 +1,7 @@
 package ru.mail.polis.service.codearound;
 
+import one.nio.http.Request;
+import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
@@ -7,6 +9,8 @@ import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import java.io.File;
@@ -16,7 +20,6 @@ import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class TaskDAO implements DAO {
 
@@ -24,9 +27,9 @@ public class TaskDAO implements DAO {
         RocksDB.loadLibrary();
     }
 
-    File dbLocalDir;
+    private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
     private RocksDB db;
-    private static final Logger LOGGER = Logger.getLogger(TaskDAO.class.getName());
+    File dbLocalDir;
 
     public TaskDAO(final RocksDB db) {
             this.db = db;
@@ -54,7 +57,7 @@ public class TaskDAO implements DAO {
             Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
             db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
         } catch (IOException | RocksDBException exc) {
-            LOGGER.log(Level.SEVERE, "Storage initialization failed", exc);
+            LOGGER.error("Storage initialization failed", exc);
         }
     }
 
@@ -178,6 +181,59 @@ public class TaskDAO implements DAO {
             throw new NoSuchElementException("No match key found, failed request");
         }
         return value;
+    }
+
+    /**
+     * Access dao and get the required key.
+     *
+     * @param key to specify the key to put
+     * @return response containing the key
+     */
+    @Override
+    public Response getValueWithFutures(@NotNull final ByteBuffer key) throws IOException {
+        try {
+            final byte[] value = evaluateFromBuffer(key);
+            return new Response(Response.OK, value);
+        } catch (NoSuchElementException exc) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
+    }
+
+    /**
+     * PUT exchange runner.
+     *
+     * @param key - key either to add a record or to modify existing one
+     * @param request - HTTP request
+     */
+    @Override
+    public void upsertValueWithFutures(@NotNull final ByteBuffer key,
+                            @NotNull final Request request) throws IOException {
+        upsertValue(key, ByteBuffer.wrap(request.getBody()));
+    }
+
+    /**
+     * DELETE exchange runner.
+     *
+     * @param key - key searched to remove specific record
+     */
+    @Override
+    public void deleteValueWithFutures(@NotNull final ByteBuffer key) throws IOException {
+        removeValue(key);
+    }
+
+    /**
+     * retrieves value which is a match of key searched.
+     *
+     * @param key - key searched
+     * @return value written into plain byte array
+     */
+    private byte[] evaluateFromBuffer(@NotNull final ByteBuffer key) throws IOException {
+        final Value value = getValue(key);
+        if (value.isValueMissing()) {
+            LOGGER.error(ReplicationLsm.NOT_FOUND_ERROR_LOG);
+            throw new NoSuchElementException(ReplicationLsm.NOT_FOUND_ERROR_LOG);
+        }
+        return value.getBytesFromValue();
     }
 
     /**

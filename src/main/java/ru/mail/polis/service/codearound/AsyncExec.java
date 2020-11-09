@@ -6,6 +6,5 @@ import java.io.IOException;
 
 @FunctionalInterface
 public interface AsyncExec {
-
     Response exec() throws IOException;
 }

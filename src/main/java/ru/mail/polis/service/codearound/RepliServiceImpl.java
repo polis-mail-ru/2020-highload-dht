@@ -73,7 +73,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         final ReplicationFactor repliFactor = new ReplicationFactor(
                 topology.getClusterSize() / 2 + 1,
                 topology.getClusterSize());
-        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor);
+        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor, exec);
 
         for (final String node : topology.getNodes()) {
             if (topology.isThisNode(node)) {
@@ -122,10 +122,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
             isForwardedRequest = true;
         }
 
-        final boolean forwardedStatus = isForwardedRequest;
-
         if (isForwardedRequest || topology.getNodes().size() > 1) {
-            lsm.invokeHandlerByMethod(forwardedStatus, req, session);
+            lsm.invokeHandlerByMethod(id, isForwardedRequest, req, session);
         } else {
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             executeAsync(req, key, session);
