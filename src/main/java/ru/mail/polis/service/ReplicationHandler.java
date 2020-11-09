@@ -90,13 +90,12 @@ class ReplicationHandler {
             if (node.equals(topology.getCurrentNode())) {
                 futures.add(futuresHandler.handleLocal(req));
             } else {
-                final HttpRequest request = FuturesHandler.setRequestPattern(node, req).GET().build();
+                final HttpRequest request = FuturesHandler.setProxyHeader(node, req).GET().build();
                 final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
                 futures.add(responses);
             }
         }
-
         multipleFutureGet(session, futures, values, nodes, ack);
     }
 
@@ -108,7 +107,7 @@ class ReplicationHandler {
         CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         allOf = allOf.thenAccept((response) -> {
             try {
-                session.sendResponse(futuresHandler.execGetWithFutures(values, atomicInteger, futures, nodes, ack));
+                session.sendResponse(futuresHandler.futureGet(values, atomicInteger, futures, nodes, ack));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -118,7 +117,7 @@ class ReplicationHandler {
                 if (futures.size() == 1) {
                     session.sendError(Response.GATEWAY_TIMEOUT, MESSAGE_MAP.get(ErrorNames.TIMEOUT_ERROR));
                 } else {
-                    session.sendResponse(futuresHandler.execGetWithFutures(values, atomicInteger, futures, nodes, ack));
+                    session.sendResponse(futuresHandler.futureGet(values, atomicInteger, futures, nodes, ack));
                 }
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
@@ -131,7 +130,6 @@ class ReplicationHandler {
             @NotNull final ByteBuffer key,
             final byte[] byteVal
     ) {
-
         final ByteBuffer val = ByteBuffer.wrap(byteVal);
         try {
             dao.upsert(key, val);
@@ -151,7 +149,7 @@ class ReplicationHandler {
         for (final String node : nodes) {
             if (topology.isSelfId(node)) futures.add(futuresHandler.handleLocal(req));
             else {
-                final HttpRequest request = FuturesHandler.setRequestPattern(node, req)
+                final HttpRequest request = FuturesHandler.setProxyHeader(node, req)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
                         .build();
                 final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
@@ -163,14 +161,14 @@ class ReplicationHandler {
         CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         all = all.thenAccept((response) -> {
             try {
-                session.sendResponse(futuresHandler.execUpsertWithFutures(atomicInteger, count, futures));
+                session.sendResponse(futuresHandler.futureUpsert(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
-                session.sendResponse(futuresHandler.execUpsertWithFutures(atomicInteger, count, futures));
+                session.sendResponse(futuresHandler.futureUpsert(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -195,12 +193,11 @@ class ReplicationHandler {
             final int count,
             final HttpSession session
     ) throws IOException {
-
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) futures.add(futuresHandler.handleLocal(req));
             else {
-                final HttpRequest request = FuturesHandler.setRequestPattern(node, req).DELETE().build();
+                final HttpRequest request = FuturesHandler.setProxyHeader(node, req).DELETE().build();
                 final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
                 futures.add(responses);
@@ -210,14 +207,14 @@ class ReplicationHandler {
         CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         all = all.thenAccept((response) -> {
             try {
-                session.sendResponse(futuresHandler.execDeleteWithFutures(atomicInteger, count, futures));
+                session.sendResponse(futuresHandler.futureDelete(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
-                session.sendResponse(futuresHandler.execDeleteWithFutures(atomicInteger, count, futures));
+                session.sendResponse(futuresHandler.futureDelete(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
