@@ -19,8 +19,9 @@ import java.util.logging.Logger;
 
 public class TaskService extends HttpServer implements Service {
 
-    private final DAO dao;
     private static final Logger LOGGER = Logger.getLogger(TaskService.class.getName());
+    @NotNull
+    private final DAO dao;
 
     /**
      * initial (non-async) service impl const.
@@ -28,7 +29,6 @@ public class TaskService extends HttpServer implements Service {
      * @param port request listening port
      * @param dao DAO instance
      */
-
     public TaskService(final int port, @NotNull final DAO dao) throws IOException {
         super(TaskServerConfig.getConfig(port));
         this.dao = dao;
