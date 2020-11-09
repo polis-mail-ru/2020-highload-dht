@@ -70,7 +70,7 @@ public final class Entry implements Comparable<Entry> {
         return new Entry(-1, null, State.ABSENT);
     }
 
-    /** Merge all exist Entries comparing to their timestamp.
+    /** Merge all existed Entries comparing to their timestamp.
      * @param entries - collection of nodes' Entries.
      * @return target Entry.
      * */
@@ -107,7 +107,7 @@ public final class Entry implements Comparable<Entry> {
             case ABSENT:
                 return ResponseUtils.emptyResponse(Response.NOT_FOUND);
             default:
-                throw new IllegalArgumentException("Wrong input data");
+                throw new IllegalStateException("Wrong input data");
         }
     }
 
@@ -117,17 +117,15 @@ public final class Entry implements Comparable<Entry> {
      * @return target Entry.
      * */
     public static Entry entryFromBytes(@NotNull final ByteBuffer key,
-                                                          @NotNull final DAOImpl dao) throws IOException {
+                                       @NotNull final DAOImpl dao) throws IOException {
         final Iterator<Cell> cells = IteratorUtils.entryIterators(key, dao);
         if (!cells.hasNext()) {
             return Entry.absent();
         }
-
         final Cell cell = cells.next();
         if (!cell.getKey().equals(key)) {
             return Entry.absent();
         }
-
         if (cell.getValue().isTombstone()) {
             return Entry.removed(cell.getValue().getTimestamp());
         } else {

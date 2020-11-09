@@ -28,7 +28,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -128,14 +127,14 @@ public final class ServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                respond(session, proxied ? simpleRequests.get(key) : replicasGet(session, id, replicasFactor));
+                respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor));
                 break;
             case Request.METHOD_PUT:
                 respond(session, proxied ? simpleRequests.put(key, request.getBody())
-                                : replicasPut(session, id, request.getBody(), replicasFactor));
+                                : replicasPut(id, request.getBody(), replicasFactor));
                 break;
             case Request.METHOD_DELETE:
-                respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(session, id, replicasFactor));
+                respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(id, replicasFactor));
                 break;
             default:
                 log.error("Non-supported request : {}", id);
@@ -161,12 +160,11 @@ public final class ServiceImpl extends HttpServer implements Service {
     }
 
     @NotNull
-    private CompletableFuture<Response> replicasGet(@NotNull final HttpSession session,
-                                                    @NotNull final String id,
+    private CompletableFuture<Response> replicasGet(@NotNull final String id,
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
-        final Set<String> topologies = getTopologies(session, key, replicasFactor);
+        final Set<String> topologies = getTopologies(key, replicasFactor);
         assert !topologies.isEmpty();
         for (final String node : topologies) {
             if (topology.isMe(node)) {
@@ -176,21 +174,17 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .exceptionally(e -> {
-                    log.error("Replicas GET successes error", e);
-                    return Collections.singleton(Entry.absent());
-                })
-                .thenApply(Entry::entriesToResponse);
+                .handle((res, ex) -> res != null ? Entry.entriesToResponse(res)
+                        : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
     }
 
     @NotNull
-    private CompletableFuture<Response> replicasPut(@NotNull final HttpSession session,
-                                                    @NotNull final String id,
+    private CompletableFuture<Response> replicasPut(@NotNull final String id,
                                                     @NotNull final byte[] value,
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        final Set<String> topologies = getTopologies(session, key, replicasFactor);
+        final Set<String> topologies = getTopologies(key, replicasFactor);
         assert !topologies.isEmpty();
         for (final String node : topologies) {
             if (topology.isMe(node)) {
@@ -200,20 +194,16 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .exceptionally(e -> {
-                    log.error("Replicas PUT successes error", e);
-                    return Collections.singleton(ResponseUtils.emptyResponse(Response.BAD_REQUEST));
-                })
-                .thenApply(r -> ResponseUtils.emptyResponse(Response.CREATED));
+                .handle((res, ex) -> res != null ? ResponseUtils.emptyResponse(Response.CREATED)
+                        : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
     }
 
     @NotNull
-    private CompletableFuture<Response> replicasDelete(@NotNull final HttpSession session,
-                                                       @NotNull final String id,
+    private CompletableFuture<Response> replicasDelete(@NotNull final String id,
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : getTopologies(session, key, replicasFactor)) {
+        for (final String node : getTopologies(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
@@ -221,11 +211,8 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
-                .exceptionally(e -> {
-                    log.error("Replicas DELETE successes error", e);
-                    return Collections.singleton(ResponseUtils.emptyResponse(Response.BAD_REQUEST));
-                })
-                .thenApply(r -> ResponseUtils.emptyResponse(Response.ACCEPTED));
+                .handle((res, ex) -> res != null ? ResponseUtils.emptyResponse(Response.ACCEPTED)
+                        : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
     }
 
     /** Request method for status return.
@@ -242,14 +229,12 @@ public final class ServiceImpl extends HttpServer implements Service {
         ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
     }
 
-    private Set<String> getTopologies(@NotNull final HttpSession session,
-                                      @NotNull final ByteBuffer key,
+    private Set<String> getTopologies(@NotNull final ByteBuffer key,
                                       @NotNull final ReplicasFactor replicasFactor) {
         try {
             return topology.replicasFor(key, replicasFactor);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalStateException e) {
             log.error("Topology size error", e);
-            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return new HashSet<>();
         }
     }
