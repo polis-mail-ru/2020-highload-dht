@@ -32,8 +32,7 @@ class ReplicationHandler {
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
 
     private enum ErrorNames {
-        NOT_FOUND_ERROR, IO_ERROR, QUEUE_LIMIT_ERROR,
-        PROXY_ERROR, NOT_ENOUGH_NODES, TIMEOUT_ERROR,
+        NOT_FOUND_ERROR, IO_ERROR, QUEUE_LIMIT_ERROR, PROXY_ERROR, NOT_ENOUGH_NODES, TIMEOUT_ERROR,
         NOT_ALLOWED, FUTURE_ERROR
     }
 
@@ -79,10 +78,7 @@ class ReplicationHandler {
     }
 
     private void multipleGet(
-            final Set<String> nodes,
-            @NotNull final Request req,
-            final int ack,
-            @NotNull final HttpSession session
+            final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session
     ) throws IOException {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         final List<Value> values = new ArrayList<>();
@@ -127,8 +123,7 @@ class ReplicationHandler {
     }
 
     Response singleUpsert(
-            @NotNull final ByteBuffer key,
-            final byte[] byteVal
+            @NotNull final ByteBuffer key, final byte[] byteVal
     ) {
         final ByteBuffer val = ByteBuffer.wrap(byteVal);
         try {
@@ -140,10 +135,8 @@ class ReplicationHandler {
     }
 
     private void multipleUpsert(
-            final Set<String> nodes,
-            @NotNull final Request req,
-            final int count,
-            @NotNull final HttpSession session
+            final Set<String> nodes, @NotNull final Request req,
+            final int count, @NotNull final HttpSession session
     ) throws IOException {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
@@ -188,10 +181,8 @@ class ReplicationHandler {
     }
 
     private void multipleDelete(
-            final Set<String> nodes,
-            @NotNull final Request req,
-            final int count,
-            final HttpSession session
+            final Set<String> nodes, @NotNull final Request req,
+            final int count, final HttpSession session
     ) throws IOException {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
@@ -223,9 +214,7 @@ class ReplicationHandler {
     }
 
     void handle(
-            final boolean isForwardedRequest,
-            @NotNull final Request req,
-            @NotNull final HttpSession session
+            final boolean isForwardedRequest, @NotNull final Request req, @NotNull final HttpSession session
     ) throws IOException {
         final String replicas = req.getParameter("replicas");
         final ReplicationFactor replicationFactor;
