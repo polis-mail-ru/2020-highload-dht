@@ -180,7 +180,7 @@ public class MyRequestHelper {
         try {
             return timestamp == null ? -1 : Long.parseLong(timestamp);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Error while parsing timestamp");
+            throw new IllegalArgumentException("Error while parsing timestamp", e);
         }
     }
 
