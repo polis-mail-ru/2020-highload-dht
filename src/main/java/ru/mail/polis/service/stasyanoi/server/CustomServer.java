@@ -13,7 +13,6 @@ import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
-import ru.mail.polis.service.stasyanoi.Merger;
 import ru.mail.polis.service.stasyanoi.Util;
 import ru.mail.polis.service.stasyanoi.server.internal.OverridedServer;
 
