@@ -107,7 +107,7 @@ public final class Value {
         final Value value = ReplicationServiceUtils.syncValues(responses);
         // Value is deleted
         if (value.isValueDeleted()) {
-            Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
             return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
         }
         // Value is present
