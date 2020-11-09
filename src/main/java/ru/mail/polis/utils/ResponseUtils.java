@@ -6,12 +6,20 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.mrsandman5.ServiceImpl;
+import ru.mail.polis.service.mrsandman5.handlers.DeleteBodyHandler;
+import ru.mail.polis.service.mrsandman5.handlers.GetBodyHandler;
+import ru.mail.polis.service.mrsandman5.handlers.PutBodyHandler;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 public final class ResponseUtils {
 
@@ -82,5 +90,42 @@ public final class ResponseUtils {
 
     public static String getTimestamp(@NotNull final Entry entry) {
         return TIMESTAMP + ": " + entry.getTimestamp();
+    }
+
+    public static CompletableFuture<Entry> getResponse(@NotNull final Map<String, HttpClient> httpClients,
+                                                          @NotNull final String node,
+                                                          @NotNull final String id,
+                                                          @NotNull final ExecutorService executor) {
+        final HttpRequest request = ResponseUtils.requestForReplica(node, id)
+                .GET()
+                .build();
+        return httpClients.get(node)
+                .sendAsync(request, GetBodyHandler.INSTANCE)
+                .thenApplyAsync(HttpResponse::body, executor);
+    }
+
+    public static CompletableFuture<Response> putResponse(@NotNull final Map<String, HttpClient> httpClients,
+                                                          @NotNull final String node,
+                                                          @NotNull final String id,
+                                                          @NotNull final byte[] value,
+                                                          @NotNull final ExecutorService executor) {
+        final HttpRequest request = ResponseUtils.requestForReplica(node, id)
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
+                .build();
+        return httpClients.get(node)
+                .sendAsync(request, PutBodyHandler.INSTANCE)
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
+    }
+
+    public static CompletableFuture<Response> deleteResponse(@NotNull final Map<String, HttpClient> httpClients,
+                                                          @NotNull final String node,
+                                                          @NotNull final String id,
+                                                          @NotNull final ExecutorService executor) {
+        final HttpRequest request = ResponseUtils.requestForReplica(node, id)
+                .DELETE()
+                .build();
+        return httpClients.get(node)
+                .sendAsync(request, DeleteBodyHandler.INSTANCE)
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
     }
 }

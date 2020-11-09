@@ -15,9 +15,6 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
-import ru.mail.polis.service.mrsandman5.handlers.DeleteBodyHandler;
-import ru.mail.polis.service.mrsandman5.handlers.GetBodyHandler;
-import ru.mail.polis.service.mrsandman5.handlers.PutBodyHandler;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 import ru.mail.polis.service.mrsandman5.replication.SimpleRequests;
@@ -27,8 +24,6 @@ import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -44,7 +39,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public final class ServiceImpl extends HttpServer implements Service {
-
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
@@ -73,10 +67,8 @@ public final class ServiceImpl extends HttpServer implements Service {
         acceptor.port = port;
         acceptor.deferAccept = true;
         acceptor.reusePort = true;
-
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-
         return new ServiceImpl(config, topology, dao, executor);
     }
 
@@ -97,10 +89,7 @@ public final class ServiceImpl extends HttpServer implements Service {
         this.quorum = ReplicasFactor.quorum(topology.all().size());
         final Map<String, HttpClient> temp = new HashMap<>();
         for (final String node : topology.others()) {
-            temp.put(node, HttpClient.newBuilder()
-                    .executor(executor)
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .build());
+            temp.put(node, HttpClient.newBuilder().executor(executor).version(HttpClient.Version.HTTP_1_1).build());
         }
         this.httpClients = temp;
     }
@@ -132,28 +121,21 @@ public final class ServiceImpl extends HttpServer implements Service {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
         }
         assert replicasFactor != null;
-        if (replicasFactor.getAck() < 1
-                || replicasFactor.getFrom() < replicasFactor.getAck()
-                || replicasFactor.getFrom() > this.topology.all().size()) {
+        if (replicasFactor.getAck() < 1 || replicasFactor.getFrom() < replicasFactor.getAck()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                respond(session,
-                        proxied ? simpleRequests.get(key)
-                                : replicasGet(session, id, replicasFactor));
+                respond(session, proxied ? simpleRequests.get(key) : replicasGet(session, id, replicasFactor));
                 break;
             case Request.METHOD_PUT:
-                respond(session,
-                        proxied ? simpleRequests.put(key, request.getBody())
+                respond(session, proxied ? simpleRequests.put(key, request.getBody())
                                 : replicasPut(session, id, request.getBody(), replicasFactor));
                 break;
             case Request.METHOD_DELETE:
-                respond(session,
-                        proxied ? simpleRequests.delete(key)
-                                : replicasDelete(session, id, replicasFactor));
+                respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(session, id, replicasFactor));
                 break;
             default:
                 log.error("Non-supported request : {}", id);
@@ -172,10 +154,8 @@ public final class ServiceImpl extends HttpServer implements Service {
                 if (t instanceof CompletionException) {
                     t = t.getCause();
                 }
-                code = t instanceof IllegalStateException ? ResponseUtils.NOT_ENOUGH_REPLICAS
-                        : Response.INTERNAL_ERROR;
-                ResponseUtils.sendNonEmptyResponse(session, code,
-                        t.getMessage().getBytes(StandardCharsets.UTF_8));
+                code = t instanceof IllegalStateException ? ResponseUtils.NOT_ENOUGH_REPLICAS : Response.INTERNAL_ERROR;
+                ResponseUtils.sendNonEmptyResponse(session, code, t.getMessage().getBytes(StandardCharsets.UTF_8));
             }
         }).isCancelled();
     }
@@ -192,15 +172,12 @@ public final class ServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
-                final HttpRequest request = ResponseUtils.requestForReplica(node, id).GET().build();
-                result.add(httpClients.get(node)
-                        .sendAsync(request, GetBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executor));
+                result.add(ResponseUtils.getResponse(httpClients, node, id, executor));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
                 .exceptionally(e -> {
-                    log.error("Replicas successes error", e);
+                    log.error("Replicas GET successes error", e);
                     return Collections.singleton(Entry.absent());
                 })
                 .thenApply(Entry::entriesToResponse);
@@ -219,17 +196,12 @@ public final class ServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value));
             } else {
-                final HttpRequest request = ResponseUtils.requestForReplica(node, id)
-                        .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
-                        .build();
-                result.add(httpClients.get(node)
-                        .sendAsync(request, PutBodyHandler.INSTANCE)
-                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor));
+                result.add(ResponseUtils.putResponse(httpClients, node, id, value, executor));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
                 .exceptionally(e -> {
-                    log.error("Replicas successes error", e);
+                    log.error("Replicas PUT successes error", e);
                     return Collections.singleton(ResponseUtils.emptyResponse(Response.BAD_REQUEST));
                 })
                 .thenApply(r -> ResponseUtils.emptyResponse(Response.CREATED));
@@ -245,15 +217,12 @@ public final class ServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
-                final HttpRequest request = ResponseUtils.requestForReplica(node, id).DELETE().build();
-                result.add(httpClients.get(node)
-                        .sendAsync(request, DeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor));
+                result.add(ResponseUtils.deleteResponse(httpClients, node, id, executor));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
                 .exceptionally(e -> {
-                    log.error("Replicas successes error", e);
+                    log.error("Replicas DELETE successes error", e);
                     return Collections.singleton(ResponseUtils.emptyResponse(Response.BAD_REQUEST));
                 })
                 .thenApply(r -> ResponseUtils.emptyResponse(Response.ACCEPTED));
@@ -294,7 +263,6 @@ public final class ServiceImpl extends HttpServer implements Service {
                 executor.shutdownNow();
             }
         } catch (InterruptedException ie) {
-            log.error("Can't stop the executor", ie);
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
