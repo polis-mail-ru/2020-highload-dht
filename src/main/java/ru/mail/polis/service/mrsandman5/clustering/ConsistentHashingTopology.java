@@ -55,7 +55,7 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
                               @NotNull final ReplicasFactor replicasFactor) {
         if (replicasFactor.getFrom() > topology.size()) {
-            throw new IllegalArgumentException("Number of nodes is bigger than from!");
+            throw new IllegalArgumentException("From replicas is bigger than number of nodes.");
         }
         final long hash = hashFunction.hashBytes(key.duplicate()).asLong();
         final Set<T> result = new HashSet<>();

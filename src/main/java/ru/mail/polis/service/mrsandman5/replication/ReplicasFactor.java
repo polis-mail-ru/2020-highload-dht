@@ -29,6 +29,7 @@ public final class ReplicasFactor {
     @SuppressWarnings("UnstableApiUsage")
     public static ReplicasFactor parser(@NotNull final String replicas) throws NumberFormatException {
         final List<String> params = Splitter.on('/').splitToList(replicas);
+        assert params.size() == 2;
         final int ackParam = Integer.parseInt(params.get(0));
         final int fromParam = Integer.parseInt(params.get(1));
         return new ReplicasFactor(ackParam, fromParam);

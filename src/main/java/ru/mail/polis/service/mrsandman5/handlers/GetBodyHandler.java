@@ -23,7 +23,10 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
             case 200:
                 final Optional<String> okTimestamp =
                         responseInfo.headers().firstValue(ResponseUtils.TIMESTAMP);
-                final String ofTimestampValue = okTimestamp.orElse(null);
+                if (okTimestamp.isEmpty()) {
+                    throw new IllegalArgumentException("No timestamp header");
+                }
+                final String ofTimestampValue = okTimestamp.get();
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
                         bytes -> Entry.present(Long.parseLong(Objects.requireNonNull(ofTimestampValue)), bytes));
@@ -34,7 +37,7 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
                     return HttpResponse.BodySubscribers.replacing(
                             Entry.absent());
                 }
-                final String notFoundTimestampValue = notFoundTimestamp.orElse(null);
+                final String notFoundTimestampValue = notFoundTimestamp.get();
                 return HttpResponse.BodySubscribers.replacing(
                         Entry.removed(Long.parseLong(notFoundTimestampValue)));
             default:

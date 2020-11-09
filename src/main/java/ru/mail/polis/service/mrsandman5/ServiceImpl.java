@@ -36,7 +36,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -124,7 +123,14 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        final ReplicasFactor replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
+        ReplicasFactor replicasFactor = null;
+        try {
+            replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
+        } catch (NumberFormatException e) {
+            log.error("Request replica parsing error", e);
+            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
+        }
+        assert replicasFactor != null;
         if (replicasFactor.getAck() < 1
                 || replicasFactor.getFrom() < replicasFactor.getAck()
                 || replicasFactor.getFrom() > this.topology.all().size()) {
@@ -136,17 +142,17 @@ public final class ServiceImpl extends HttpServer implements Service {
             case Request.METHOD_GET:
                 respond(session,
                         proxied ? simpleRequests.get(key)
-                                : Objects.requireNonNull(replicasGet(id, replicasFactor)));
+                                : replicasGet(session, id, replicasFactor));
                 break;
             case Request.METHOD_PUT:
                 respond(session,
                         proxied ? simpleRequests.put(key, request.getBody())
-                                : Objects.requireNonNull(replicasPut(id, request.getBody(), replicasFactor)));
+                                : replicasPut(session, id, request.getBody(), replicasFactor));
                 break;
             case Request.METHOD_DELETE:
                 respond(session,
                         proxied ? simpleRequests.delete(key)
-                                : Objects.requireNonNull(replicasDelete(id, replicasFactor)));
+                                : replicasDelete(session, id, replicasFactor));
                 break;
             default:
                 log.error("Non-supported request : {}", id);
@@ -173,11 +179,15 @@ public final class ServiceImpl extends HttpServer implements Service {
         }).isCancelled();
     }
 
-    private CompletableFuture<Response> replicasGet(@NotNull final String id,
+    @NotNull
+    private CompletableFuture<Response> replicasGet(@NotNull final HttpSession session,
+                                                    @NotNull final String id,
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : getTopologies(key, replicasFactor)) {
+        final Set<String> topologies = getTopologies(session, key, replicasFactor);
+        assert !topologies.isEmpty();
+        for (final String node : topologies) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
@@ -191,12 +201,16 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .thenApply(Entry::entriesToResponse);
     }
 
-    private CompletableFuture<Response> replicasPut(@NotNull final String id,
+    @NotNull
+    private CompletableFuture<Response> replicasPut(@NotNull final HttpSession session,
+                                                    @NotNull final String id,
                                                     @NotNull final byte[] value,
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : getTopologies(key, replicasFactor)) {
+        final Set<String> topologies = getTopologies(session, key, replicasFactor);
+        assert !topologies.isEmpty();
+        for (final String node : topologies) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value));
             } else {
@@ -212,11 +226,13 @@ public final class ServiceImpl extends HttpServer implements Service {
                 .thenApply(r -> ResponseUtils.emptyResponse(Response.CREATED));
     }
 
-    private CompletableFuture<Response> replicasDelete(@NotNull final String id,
+    @NotNull
+    private CompletableFuture<Response> replicasDelete(@NotNull final HttpSession session,
+                                                       @NotNull final String id,
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : getTopologies(key, replicasFactor)) {
+        for (final String node : getTopologies(session, key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
@@ -244,12 +260,14 @@ public final class ServiceImpl extends HttpServer implements Service {
         ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
     }
 
-    private Set<String> getTopologies(@NotNull final ByteBuffer key,
+    private Set<String> getTopologies(@NotNull final HttpSession session,
+                                      @NotNull final ByteBuffer key,
                                       @NotNull final ReplicasFactor replicasFactor) {
         try {
             return topology.replicasFor(key, replicasFactor);
         } catch (IllegalArgumentException e) {
             log.error("Topology size error", e);
+            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return new HashSet<>();
         }
     }
