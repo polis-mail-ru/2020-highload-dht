@@ -25,11 +25,11 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public final class Util {
+public class Util {
 
-    private static final Logger logger = LoggerFactory.getLogger(Util.class);
+    private final Logger logger = LoggerFactory.getLogger(Util.class);
 
-    private Util() {
+    public Util() {
 
     }
 
@@ -40,7 +40,7 @@ public final class Util {
      * @return - the built request.
      */
     @NotNull
-    public static Response responseWithNoBody(final String requestType) {
+    public Response responseWithNoBody(final String requestType) {
         final Response responseHttp = new Response(requestType);
         responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
         return responseHttp;
@@ -52,14 +52,14 @@ public final class Util {
      * @param nodeCount - amount of nodes.
      * @return - the node number.
      */
-    public static int getNode(final String idParam, final int nodeCount) {
+    public int getNode(final String idParam, final int nodeCount) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int hash = Math.abs(Arrays.hashCode(idArray));
         final int absoluteHash = hash < 0 ? -hash : hash;
         return absoluteHash % nodeCount;
     }
 
-    public static Response filterResponse(Response response, Throwable throwable) {
+    public Response filterResponse(Response response, Throwable throwable) {
         if (throwable == null) {
             return response;
         } else {
@@ -73,7 +73,7 @@ public final class Util {
      * @param body - body value.
      * @return - body with timestamp.
      */
-    public static byte[] addTimestamp(final byte[] body) {
+    public byte[] addTimestamp(final byte[] body) {
         final byte[] timestamp = getTimestampInternal();
         final byte[] newBody = new byte[body.length + timestamp.length];
         System.arraycopy(body, 0, newBody, 0, body.length);
@@ -87,7 +87,7 @@ public final class Util {
      * @return - the timestamp.
      */
     @NotNull
-    public static byte[] getTimestampInternal() {
+    public synchronized byte[] getTimestampInternal() {
         final String nanos = String.valueOf(getNanosSync());
         final int[] ints = nanos.chars().toArray();
         final byte[] timestamp = new byte[ints.length];
@@ -103,7 +103,7 @@ public final class Util {
      * @param body - body with timestamp.
      * @return - pair of timestamp and pure body.
      */
-    public static Pair<byte[], byte[]> getTimestamp(final byte[] body) {
+    public Pair<byte[], byte[]> getTimestamp(final byte[] body) {
         final int length = String.valueOf(getNanosSync()).length();
         final byte[] timestamp = new byte[length];
         final int realBodyLength = body.length - length;
@@ -120,7 +120,7 @@ public final class Util {
      * @param response  - the response to which to add the timestamp.
      * @return - the modified response.
      */
-    public static Response addTimestampHeader(final byte[] timestamp, final Response response) {
+    public Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
         final Integer[] integers = Bytes.asList(timestamp).stream()
                 .map(Byte::intValue)
@@ -140,9 +140,9 @@ public final class Util {
      * @param request - request from which to get the body.
      * @return - the byte buffer.
      */
-    public static ByteBuffer getByteBufferValue(final Request request) {
+    public ByteBuffer getByteBufferValue(final Request request) {
         byte[] body = request.getBody();
-        body = Util.addTimestamp(body);
+        body = addTimestamp(body);
         return Mapper.fromBytes(body);
     }
 
@@ -153,12 +153,12 @@ public final class Util {
      * @return - key byte buffer.
      */
     @NotNull
-    public static ByteBuffer getKey(final String idParam) {
+    public ByteBuffer getKey(final String idParam) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         return Mapper.fromBytes(idArray);
     }
 
-    private static synchronized long getNanosSync() {
+    private synchronized long getNanosSync() {
         return System.nanoTime();
     }
 
@@ -167,9 +167,9 @@ public final class Util {
      *
      * @param errorSession - session to which to send the error.
      */
-    public static void send503Error(final HttpSession errorSession) {
+    public void send503Error(final HttpSession errorSession) {
         try {
-            errorSession.sendResponse(Util.responseWithNoBody(Response.SERVICE_UNAVAILABLE));
+            errorSession.sendResponse(responseWithNoBody(Response.SERVICE_UNAVAILABLE));
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
@@ -181,7 +181,7 @@ public final class Util {
      * @param javaResponse - response.
      * @return one nio response.
      */
-    public static Response getOneNioResponse(final HttpResponse<byte[]> javaResponse) {
+    public Response getOneNioResponse(final HttpResponse<byte[]> javaResponse) {
         final Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
         javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
         return response;
@@ -194,7 +194,7 @@ public final class Util {
      * @param host - host.
      * @return - java net request.
      */
-    public static HttpRequest getJavaRequest(final Request oneNioRequest, final String host) {
+    public HttpRequest getJavaRequest(final Request oneNioRequest, final String host) {
         final HttpRequest.Builder builder = HttpRequest.newBuilder();
         final String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
         final String uri = host + newPath;
@@ -213,7 +213,7 @@ public final class Util {
         }
     }
 
-    public static Request getNewReplicationRequest(final Request request, final int port) {
+    public Request getNewReplicationRequest(final Request request, final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
         final String newPath = path + "/rep?" + queryString;
@@ -222,7 +222,7 @@ public final class Util {
         return requestNew;
     }
 
-    public static Request getNoRepRequest(final Request request,
+    public Request getNoRepRequest(final Request request,
                                     final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
@@ -238,7 +238,7 @@ public final class Util {
     }
 
     @NotNull
-    public static Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
+    public Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         Arrays.stream(request.getHeaders())
                 .filter(Objects::nonNull)
@@ -249,7 +249,7 @@ public final class Util {
     }
 
     @NotNull
-    public static AckFrom getRF(String replicas, int size) {
+    public AckFrom getRF(String replicas, int size) {
         int ack;
         int from;
         if (replicas == null) {

@@ -6,7 +6,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
-import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.Set;
@@ -57,7 +56,7 @@ public class OverridedServer extends ConstantsServer {
      */
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = Util.responseWithNoBody(Response.BAD_REQUEST);
+        final Response response = util.responseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
 }

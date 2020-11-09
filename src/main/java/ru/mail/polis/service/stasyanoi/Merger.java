@@ -1,21 +1,22 @@
 package ru.mail.polis.service.stasyanoi;
 
 import one.nio.http.Response;
-import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
 import static java.util.stream.Stream.concat;
-import static ru.mail.polis.service.stasyanoi.Util.*;
 
-public final class Merger {
+public class Merger {
 
-    private Merger() {
+    private final Util util;
 
+    public Merger(Util util) {
+        this.util = util;
     }
 
     /**
@@ -27,7 +28,7 @@ public final class Merger {
      * @return - merged response.
      */
     @NotNull
-    public static Response mergeGetResponses(final List<Response> responses,
+    public Response mergeGetResponses(final List<Response> responses,
                                              final Integer ack,
                                              final Map<Integer, String> nodeMapping) {
 
@@ -35,7 +36,7 @@ public final class Merger {
         final Response responseHttp;
 
         if (nodeMapping.size() < ack || ack == 0) {
-            responseHttp = responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = responses.stream()
                     .filter(response -> response.getStatus() == 200)
@@ -51,9 +52,9 @@ public final class Merger {
                         .collect(Collectors.toList());
                 responseHttp = responsesTemp.get(responsesTemp.size() - 1);
             } else if (emptyResponses.size() >= ack) {
-                responseHttp = responseWithNoBody(Response.NOT_FOUND);
+                responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
             } else {
-                responseHttp = responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;
@@ -69,25 +70,25 @@ public final class Merger {
      * @return - merged response.
      */
     @NotNull
-    public static Response mergePutDeleteResponses(final List<Response> responses,
+    public Response mergePutDeleteResponses(final List<Response> responses,
                                                    final Integer ack,
                                                    final int status,
                                                    final Map<Integer, String> nodeMapping) {
         final Response responseHttp;
         if (ack > nodeMapping.size() || ack == 0) {
-            responseHttp = responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = responses.stream()
                     .filter(response -> response.getStatus() == status)
                     .collect(Collectors.toList());
             if (goodResponses.size() >= ack) {
                 if (status == 202) {
-                    responseHttp = responseWithNoBody(Response.ACCEPTED);
+                    responseHttp = util.responseWithNoBody(Response.ACCEPTED);
                 } else {
-                    responseHttp = responseWithNoBody(Response.CREATED);
+                    responseHttp = util.responseWithNoBody(Response.CREATED);
                 }
             } else {
-                responseHttp = responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;

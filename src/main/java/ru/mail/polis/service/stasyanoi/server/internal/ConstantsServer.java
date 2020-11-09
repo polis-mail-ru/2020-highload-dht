@@ -5,12 +5,13 @@ import one.nio.http.HttpServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.stasyanoi.DAOImpl;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
+import ru.mail.polis.service.stasyanoi.Merger;
+import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -20,11 +21,12 @@ public class ConstantsServer extends HttpServer {
     protected static final String TRUE = "true";
     protected static final String REPLICAS = "replicas";
     protected static final String SHOULD_REPLICATE = "reps";
-    protected final List<String> replicationDefaults = Arrays.asList("1/1", "2/2", "2/3", "3/4", "3/5");
     protected Map<Integer, String> nodeIndexToUrlMapping;
-    protected int nodeAmmount;
+    protected int nodeAmount;
     protected int thisNodeIndex;
     protected DAO dao;
+    protected Merger merger;
+    protected Util util;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
     protected java.net.http.HttpClient asyncHttpClient;
     protected Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
@@ -40,21 +42,25 @@ public class ConstantsServer extends HttpServer {
     public ConstantsServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
             throws IOException {
         super(config);
-        this.nodeAmmount = topology.size();
+        this.nodeAmount = topology.size();
         final ArrayList<String> urls = new ArrayList<>(topology);
         urls.sort(String::compareTo);
 
-        final Map<Integer, String> nodeMappingTemp = new TreeMap<>();
+        this.nodeIndexToUrlMapping = new TreeMap<>();
 
-        asyncHttpClient = java.net.http.HttpClient.newBuilder()
-                .build();
+        asyncHttpClient = java.net.http.HttpClient.newBuilder().build();
         for (int i = 0; i < urls.size(); i++) {
-            nodeMappingTemp.put(i, urls.get(i));
+            nodeIndexToUrlMapping.put(i, urls.get(i));
             if (urls.get(i).contains(String.valueOf(super.port))) {
                 thisNodeIndex = i;
             }
         }
-        this.nodeIndexToUrlMapping = nodeMappingTemp;
+        if (dao instanceof DAOImpl) {
+            this.util = ((DAOImpl) dao).getUtil();
+        } else {
+            throw new RuntimeException("Not the proper DAOimpl");
+        }
         this.dao = dao;
+        this.merger = new Merger(this.util);
     }
 }
