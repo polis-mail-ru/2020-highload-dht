@@ -87,25 +87,9 @@ public final class Util {
      */
     public static int getNode(final String idParam, final int nodeCount) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        int hash = Math.abs(Arrays.hashCode(idArray));
-        hash = hash < 0 ? -hash : hash;
-        return hash % nodeCount;
-    }
-
-    /**
-     * Send the 500 status error.
-     *
-     * @param session - session to use.
-     * @param e       - the error that casued the 500 error.
-     */
-    public static void sendErrorInternal(final HttpSession session,
-                                         final IOException e) {
-        try {
-            logger.error(e.getMessage(), e);
-            session.sendError("500", e.getMessage());
-        } catch (IOException exception) {
-            logger.error(e.getMessage(), e);
-        }
+        final int hash = Math.abs(Arrays.hashCode(idArray));
+        final int absoluteHash = hash < 0 ? -hash : hash;
+        return absoluteHash % nodeCount;
     }
 
     /**
