@@ -4,12 +4,13 @@ import one.nio.http.Response;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static java.lang.Long.parseLong;
+import static java.util.Comparator.comparingLong;
+import static java.util.stream.Stream.concat;
 
 public final class Merger {
 
@@ -30,28 +31,25 @@ public final class Merger {
                                              final Integer ack,
                                              final Map<Integer, String> nodeMapping) {
 
-        final List<Response> goodResponses = responses.stream()
-                .filter(response -> response.getStatus() == 200)
-                .collect(Collectors.toList());
-        final List<Response> emptyResponses = responses.stream()
-                .filter(response -> response.getStatus() == 404)
-                .collect(Collectors.toList());
 
         final Response responseHttp;
 
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
+            final List<Response> goodResponses = responses.stream()
+                    .filter(response -> response.getStatus() == 200)
+                    .collect(Collectors.toList());
+            final List<Response> emptyResponses = responses.stream()
+                    .filter(response -> response.getStatus() == 404)
+                    .collect(Collectors.toList());
             final boolean hasGoodResponses = !goodResponses.isEmpty();
             if (hasGoodResponses) {
-                final List<Pair<Long, Response>> resps = Stream.concat(emptyResponses.stream(), goodResponses.stream())
+                final List<Response> responsesTemp = concat(emptyResponses.stream(), goodResponses.stream())
                         .filter(response -> response.getHeader("Time: ") != null)
-                        .map(response -> new Pair<>(Long.parseLong(response.getHeader("Time: ")), response))
+                        .sorted(comparingLong(response -> parseLong(response.getHeader("Time: "))))
                         .collect(Collectors.toList());
-                final Map<Long, Response> map = new TreeMap<>();
-                resps.forEach(pair -> map.put(pair.getValue0(), pair.getValue1()));
-                final ArrayList<Map.Entry<Long, Response>> entries = new ArrayList<>(map.entrySet());
-                responseHttp = entries.get(entries.size() - 1).getValue();
+                responseHttp = responsesTemp.get(responsesTemp.size() - 1);
             } else if (emptyResponses.size() >= ack) {
                 responseHttp = Util.responseWithNoBody(Response.NOT_FOUND);
             } else {
@@ -76,12 +74,12 @@ public final class Merger {
                                                    final int status,
                                                    final Map<Integer, String> nodeMapping) {
         final Response responseHttp;
-        final List<Response> goodResponses = responses.stream()
-                .filter(response -> response.getStatus() == status)
-                .collect(Collectors.toList());
-        if (nodeMapping.size() < ack || ack == 0) {
+        if (ack > nodeMapping.size() || ack == 0) {
             responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
+            final List<Response> goodResponses = responses.stream()
+                    .filter(response -> response.getStatus() == status)
+                    .collect(Collectors.toList());
             if (goodResponses.size() >= ack) {
                 if (status == 202) {
                     responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
