@@ -6,11 +6,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
 import static java.util.stream.Stream.concat;
+import static ru.mail.polis.service.stasyanoi.Util.*;
 
 public final class Merger {
 
@@ -35,7 +35,7 @@ public final class Merger {
         final Response responseHttp;
 
         if (nodeMapping.size() < ack || ack == 0) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = responses.stream()
                     .filter(response -> response.getStatus() == 200)
@@ -51,9 +51,9 @@ public final class Merger {
                         .collect(Collectors.toList());
                 responseHttp = responsesTemp.get(responsesTemp.size() - 1);
             } else if (emptyResponses.size() >= ack) {
-                responseHttp = Util.responseWithNoBody(Response.NOT_FOUND);
+                responseHttp = responseWithNoBody(Response.NOT_FOUND);
             } else {
-                responseHttp = Util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;
@@ -75,19 +75,19 @@ public final class Merger {
                                                    final Map<Integer, String> nodeMapping) {
         final Response responseHttp;
         if (ack > nodeMapping.size() || ack == 0) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = responses.stream()
                     .filter(response -> response.getStatus() == status)
                     .collect(Collectors.toList());
             if (goodResponses.size() >= ack) {
                 if (status == 202) {
-                    responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
+                    responseHttp = responseWithNoBody(Response.ACCEPTED);
                 } else {
-                    responseHttp = Util.responseWithNoBody(Response.CREATED);
+                    responseHttp = responseWithNoBody(Response.CREATED);
                 }
             } else {
-                responseHttp = Util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;
