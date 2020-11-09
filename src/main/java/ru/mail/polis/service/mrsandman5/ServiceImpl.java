@@ -33,6 +33,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -198,6 +199,10 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
+                .exceptionally(e -> {
+                    log.error("Replicas successes error", e);
+                    return Collections.singleton(Entry.absent());
+                })
                 .thenApply(Entry::entriesToResponse);
     }
 
@@ -223,6 +228,10 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
+                .exceptionally(e -> {
+                    log.error("Replicas successes error", e);
+                    return Collections.singleton(ResponseUtils.emptyResponse(Response.BAD_REQUEST));
+                })
                 .thenApply(r -> ResponseUtils.emptyResponse(Response.CREATED));
     }
 
@@ -243,6 +252,10 @@ public final class ServiceImpl extends HttpServer implements Service {
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
+                .exceptionally(e -> {
+                    log.error("Replicas successes error", e);
+                    return Collections.singleton(ResponseUtils.emptyResponse(Response.BAD_REQUEST));
+                })
                 .thenApply(r -> ResponseUtils.emptyResponse(Response.ACCEPTED));
     }
 
