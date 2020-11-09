@@ -73,7 +73,7 @@ public class CustomServer extends OverridedServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_GET)
-    public void getRep(final @Param("id") String idParam, final HttpSession session) {
+    public void getReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
             executorService.execute(() -> getReplicationInternal(idParam, session));
         } catch (RejectedExecutionException e) {
@@ -130,12 +130,6 @@ public class CustomServer extends OverridedServer {
         }
     }
 
-    /**
-     * Get repsponse for get request.
-     *
-     * @param dao - dao to use.
-     * @return - response.
-     */
     private Response getResponseFromLocalNode(String idParam, final DAO dao) {
         ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         try {
@@ -184,7 +178,7 @@ public class CustomServer extends OverridedServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_PUT)
-    public void putRep(final @Param("id") String idParam, final Request request, final HttpSession session) {
+    public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
             executorService.execute(() -> putRepInternal(idParam, request, session));
         } catch (RejectedExecutionException e) {
@@ -276,7 +270,7 @@ public class CustomServer extends OverridedServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteRep(final @Param("id") String idParam, final HttpSession session) {
+    public void deleteReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
             executorService.execute(() -> deleteRepInternal(idParam, session));
         } catch (RejectedExecutionException e) {
@@ -317,8 +311,8 @@ public class CustomServer extends OverridedServer {
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
                 final Pair<Integer, Integer> ackFrom = getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
                 final int from = ackFrom.getValue1();
-                final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 final Integer ack = ackFrom.getValue0();
+                final List<Response> responses = getResponsesFromReplicas(tempNodeMapping, from - 1, request, port);
                 responses.add(responseHttpTemp);
                 responseHttp = mergePutDeleteResponses(responses, ack, 202, nodeIndexToUrlMapping);
             } else {
@@ -346,15 +340,6 @@ public class CustomServer extends OverridedServer {
         return responseHttp;
     }
 
-    /**
-     * Ger replicas.
-     *
-     * @param tempNodeMapping - nodes for potential replication
-     * @param from - RF replicas ack from
-     * @param request - request to replicate
-     * @param port - this server port.
-     * @return - list of replica responses
-     */
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping,
                                                    final int from,
                                                    final Request request,
@@ -388,14 +373,6 @@ public class CustomServer extends OverridedServer {
         return responses;
     }
 
-    /**
-     * Create new request.
-     *
-     * @param request - old request.
-     * @param port - this server port.
-     * @return - new Request.
-     */
-    @NotNull
     private Request getNewReplicationRequest(final Request request, final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
@@ -405,14 +382,6 @@ public class CustomServer extends OverridedServer {
         return requestNew;
     }
 
-    /**
-     * Create no replication request.
-     *
-     * @param request - old request.
-     * @param port - this server port.
-     * @return - new request.
-     */
-    @NotNull
     private Request getNoRepRequest(final Request request,
                                    final int port) {
         final String path = request.getPath();
@@ -439,14 +408,6 @@ public class CustomServer extends OverridedServer {
         return noRepRequest;
     }
 
-    /**
-     * Hash route request.
-     *
-     * @param request - request to route.
-     * @param node - node to route the request to.
-     * @param nodeMapping - node list.
-     * @return - returned response.
-     */
     private Response routeRequestToRemoteNode(final Request request, final int node, final Map<Integer, String> nodeMapping) {
         try {
             return getOneNioResponse(asyncHttpClient.send(getJavaRequest(request,nodeMapping.get(node)),
