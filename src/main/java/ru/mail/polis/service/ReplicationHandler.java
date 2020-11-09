@@ -37,7 +37,6 @@ class ReplicationHandler {
         NOT_ALLOWED, FUTURE_ERROR
     }
 
-
     private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
             entry(ErrorNames.NOT_FOUND_ERROR, "Value not found"),
             entry(ErrorNames.IO_ERROR, "IO exception raised"),
@@ -102,8 +101,8 @@ class ReplicationHandler {
     }
 
     private void multipleFutureGet(
-            @NotNull final HttpSession session, @NotNull List<CompletableFuture<HttpResponse<byte[]>>> futures,
-            @NotNull List<Value> values, final Set<String> nodes, final int ack
+            @NotNull final HttpSession session, @NotNull final List<CompletableFuture<HttpResponse<byte[]>>> futures,
+            @NotNull final List<Value> values, final Set<String> nodes, final int ack
     ) {
         final AtomicInteger atomicInteger = new AtomicInteger(0);
         CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
@@ -111,7 +110,7 @@ class ReplicationHandler {
             try {
                 session.sendResponse(futuresHandler.execGetWithFutures(values, atomicInteger, futures, nodes, ack));
             } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         allOf.exceptionally(response -> {
@@ -122,7 +121,7 @@ class ReplicationHandler {
                     session.sendResponse(futuresHandler.execGetWithFutures(values, atomicInteger, futures, nodes, ack));
                 }
             } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
             return null;
         });
@@ -166,14 +165,14 @@ class ReplicationHandler {
             try {
                 session.sendResponse(futuresHandler.execUpsertWithFutures(atomicInteger, count, futures));
             } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
                 session.sendResponse(futuresHandler.execUpsertWithFutures(atomicInteger, count, futures));
             } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
             return null;
         });
@@ -213,14 +212,14 @@ class ReplicationHandler {
             try {
                 session.sendResponse(futuresHandler.execDeleteWithFutures(atomicInteger, count, futures));
             } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
                 session.sendResponse(futuresHandler.execDeleteWithFutures(atomicInteger, count, futures));
             } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
             return null;
         });
@@ -231,9 +230,7 @@ class ReplicationHandler {
             @NotNull final Request req,
             @NotNull final HttpSession session
     ) throws IOException {
-        final String id = req.getParameter("id=");
         final String replicas = req.getParameter("replicas");
-
         final ReplicationFactor replicationFactor;
 
         try {
@@ -244,15 +241,16 @@ class ReplicationHandler {
             return;
         }
 
+        final String id = req.getParameter("id=");
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Set<String> nodes;
         try {
-            nodes = isForwardedRequest ? ImmutableSet.of(topology.getCurrentNode()) : topology.getReplicas(key, replicationFactor.getFrom());
+            nodes = isForwardedRequest ? ImmutableSet.of(
+                    topology.getCurrentNode()) : topology.getReplicas(key, replicationFactor.getFrom());
         } catch (NotEnoughNodesException e) {
             log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
             return;
         }
-
         futuresHandler.isProxied = isForwardedRequest;
 
         try {

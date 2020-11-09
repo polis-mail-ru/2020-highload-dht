@@ -82,7 +82,7 @@ final class FuturesHandler {
      */
     Response execUpsertWithFutures(final AtomicInteger atomicInteger,
                                    final int count,
-                                   final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+                                   final List<CompletableFuture<HttpResponse<byte[]>>> futures) throws IOException {
         atomicInteger.set(incrementFutureCount(atomicInteger, 201, futures));
         if (atomicInteger.get() == futures.size() || atomicInteger.get() >= count) {
             return new Response(Response.CREATED, Response.EMPTY);
@@ -101,7 +101,7 @@ final class FuturesHandler {
             final AtomicInteger atomicInteger,
             final int count,
             final List<CompletableFuture<HttpResponse<byte[]>>> futures
-    ) {
+    ) throws IOException {
         atomicInteger.set(incrementFutureCount(atomicInteger, 202, futures));
         if (atomicInteger.get() == futures.size() || atomicInteger.get() >= count) {
             return new Response(Response.ACCEPTED, Response.EMPTY);
@@ -122,7 +122,7 @@ final class FuturesHandler {
             final AtomicInteger atomicInteger,
             final int returnCode,
             final List<CompletableFuture<HttpResponse<byte[]>>> futures
-    ) {
+    ) throws IOException {
         for (final var future : futures) {
             try {
                 if (future.isCompletedExceptionally()) {
@@ -131,8 +131,8 @@ final class FuturesHandler {
                 if (future.get().statusCode() == returnCode) {
                     atomicInteger.incrementAndGet();
                 }
-            } catch (ExecutionException | InterruptedException ignore) {
-
+            } catch (ExecutionException | InterruptedException exc) {
+                throw new IOException("Error incrementing futures count", exc);
             }
         }
         return atomicInteger.get();
@@ -140,7 +140,7 @@ final class FuturesHandler {
 
     CompletableFuture<HttpResponse<byte[]>> handleLocal(@NotNull final Request request) {
         return CompletableFuture.supplyAsync(() -> {
-            DummyHttpResponseBuilder builder = new DummyHttpResponseBuilder();
+            final DummyHttpResponseBuilder builder = new DummyHttpResponseBuilder();
             try {
                 switch (request.getMethod()) {
                     case Request.METHOD_GET:
