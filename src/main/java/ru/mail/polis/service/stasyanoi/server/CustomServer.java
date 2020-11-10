@@ -89,13 +89,19 @@ public class CustomServer extends BaseFunctionalityServer {
         }
 
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-            final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
-            responses.add(responseHttpTemp);
-            responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
+            responseHttp = replicateGet(request, node, responseHttpTemp);
         } else {
             responseHttp = responseHttpTemp;
         }
+        return responseHttp;
+    }
+
+    private Response replicateGet(final Request request, int node, final Response responseHttpTemp) {
+        final Response responseHttp;
+        final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+        final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+        responses.add(responseHttpTemp);
+        responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
         return responseHttp;
     }
 
@@ -168,13 +174,22 @@ public class CustomServer extends BaseFunctionalityServer {
                     nodeIndexToUrlMapping);
         }
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-            final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
-            responses.add(responseHttpTemp);
-            responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 201, nodeIndexToUrlMapping);
+            responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 201);
         } else {
             responseHttp = responseHttpTemp;
         }
+        return responseHttp;
+    }
+
+    private Response replicatePutOrDelete(final Request request,
+                                          final int node,
+                                          final Response responseHttpTemp,
+                                          final int i) {
+        Response responseHttp;
+        final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+        final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+        responses.add(responseHttpTemp);
+        responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), i, nodeIndexToUrlMapping);
         return responseHttp;
     }
 
@@ -257,10 +272,7 @@ public class CustomServer extends BaseFunctionalityServer {
                     nodeIndexToUrlMapping);
         }
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-            final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
-            responses.add(responseHttpTemp);
-            responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 202, nodeIndexToUrlMapping);
+            responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 202);
         } else {
             responseHttp = responseHttpTemp;
         }
