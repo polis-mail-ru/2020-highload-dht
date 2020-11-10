@@ -131,18 +131,23 @@ public class MyRequestHelper {
                     }
                     return;
                 }
-                if (results.size() <= ack) {
-                    results.add(v);
-                    if (results.size() == ack) {
-                        resultsFuture.complete(results);
-                    }
-                }
+                completeNormally(ack, results, resultsFuture, v);
             }, clientExecutor).exceptionally(e -> {
                 log.error("Error while collecting futures ", e);
                 return null;
             });
         }
         return resultsFuture;
+    }
+
+    private void completeNormally(final int ack, final List<ResponseValue> results,
+                                  final CompletableFuture<List<ResponseValue>> resultsFuture, final ResponseValue v) {
+        if (results.size() <= ack) {
+            results.add(v);
+            if (results.size() == ack) {
+                resultsFuture.complete(results);
+            }
+        }
     }
 
     /**
