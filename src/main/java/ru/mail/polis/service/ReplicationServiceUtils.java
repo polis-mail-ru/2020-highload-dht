@@ -3,13 +3,10 @@ package ru.mail.polis.service;
 import com.google.common.collect.ImmutableSet;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Set;
 
 final class ReplicationServiceUtils {

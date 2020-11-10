@@ -3,7 +3,6 @@ package ru.mail.polis.service;
 import one.nio.http.Response;
 
 import java.io.IOException;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
