@@ -77,7 +77,7 @@ public class CustomServer extends OverridedServer {
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            responseHttp = getResponseFromLocalNode(idParam, dao);
+            responseHttp = getResponseFromLocalNode(idParam);
         }
 
         try {
@@ -95,7 +95,7 @@ public class CustomServer extends OverridedServer {
             final int node = util.getNode(idParam, nodeAmount);
             final Response responseHttpTemp;
             if (node == thisNodeIndex) {
-                responseHttpTemp = getResponseFromLocalNode(idParam, dao);
+                responseHttpTemp = getResponseFromLocalNode(idParam);
             } else {
                 responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
                         nodeIndexToUrlMapping);
@@ -119,7 +119,7 @@ public class CustomServer extends OverridedServer {
         }
     }
 
-    private Response getResponseFromLocalNode(final String idParam, final DAO dao) {
+    private Response getResponseFromLocalNode(final String idParam) {
         final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         try {
             final ByteBuffer body = dao.get(id);
@@ -169,13 +169,14 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_PUT)
     public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> putRepInternal(idParam, request, session));
+            executorService.execute(() -> putReplicationInternal(idParam, request, session));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private void putRepInternal(final String idParam, final Request request, final HttpSession session) {
+    private void putReplicationInternal(final String idParam, final Request request,
+                                        final HttpSession session) {
         Response responseHttp;
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
