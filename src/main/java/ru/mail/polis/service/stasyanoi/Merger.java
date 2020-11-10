@@ -1,6 +1,9 @@
 package ru.mail.polis.service.stasyanoi;
 
 import one.nio.http.Response;
+
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,23 +35,23 @@ public class Merger {
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final List<Response> goodResponses = responses.stream()
-                    .filter(response -> response.getStatus() == 200)
-                    .collect(Collectors.toList());
-            final List<Response> emptyResponses = responses.stream()
-                    .filter(response -> response.getStatus() == 404)
-                    .collect(Collectors.toList());
-            final boolean hasGoodResponses = !goodResponses.isEmpty();
+            final boolean hasGoodResponses = responses.stream().anyMatch(response -> response.getStatus() == 200);
             if (hasGoodResponses) {
-                final List<Response> responsesTemp = concat(emptyResponses.stream(), goodResponses.stream())
+                final List<Response> responsesTemp = responses.stream()
+                        .filter(response -> response.getStatus() == 200 || response.getStatus() == 404)
                         .filter(response -> response.getHeader("Time: ") != null)
                         .sorted(comparingLong(response -> parseLong(response.getHeader("Time: "))))
                         .collect(Collectors.toList());
                 responseHttp = responsesTemp.get(responsesTemp.size() - 1);
-            } else if (emptyResponses.size() >= ack) {
-                responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
             } else {
-                responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                final boolean hasNotFoundResponses = responses.stream()
+                        .filter(response -> response.getStatus() == 404)
+                        .count() >= ack;
+                if (hasNotFoundResponses) {
+                    responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
+                } else {
+                    responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                }
             }
         }
         return responseHttp;
