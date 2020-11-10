@@ -2,14 +2,12 @@ package ru.mail.polis.service;
 
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
-import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -18,9 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.concurrent.RejectedExecutionException;
 
 import static java.util.Map.entry;
 import static ru.mail.polis.service.ReplicationServiceUtils.getNodeReplica;
@@ -31,7 +27,6 @@ class ReplicationHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
     private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
-    private static final String PROXY_HEADER = "X-Proxy-For: ";
     private final DAO dao;
     private final Topology topology;
     private final Map<String, HttpClient> nodesToClients;
@@ -58,28 +53,6 @@ class ReplicationHandler {
         this.topology = topology;
         this.nodesToClients = nodesToClients;
         this.replicationFactor = replicationFactor;
-    }
-
-    Response singleGet(@NotNull final ByteBuffer key, @NotNull final Request req) {
-        final String owner = topology.primaryFor(key);
-        ByteBuffer buf;
-        if (topology.isSelfId(owner)) {
-            try {
-                buf = dao.get(key);
-                return new Response(Response.ok(Util.toByteArray(buf)));
-            } catch (NoSuchElementException exc) {
-                log.info(MESSAGE_MAP.get(ErrorNames.NOT_FOUND_ERROR));
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            } catch (RejectedExecutionException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-                return new Response(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } else {
-            return proxy(owner, req);
-        }
     }
 
     Response multipleGet(
@@ -123,28 +96,6 @@ class ReplicationHandler {
         }
     }
 
-    Response singleUpsert(
-            @NotNull final ByteBuffer key,
-            final byte[] byteVal,
-            @NotNull final Request req) {
-        final String owner = topology.primaryFor(key);
-        final ByteBuffer val = ByteBuffer.wrap(byteVal);
-        if (topology.isSelfId(owner)) {
-            try {
-                dao.upsert(key, val);
-                return new Response(Response.CREATED, Response.EMPTY);
-            } catch (RejectedExecutionException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-                return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } else {
-            return proxy(owner, req);
-        }
-    }
-
     Response multipleUpsert(
             final String id, final byte[] value, final int ackValue, final boolean isForwardedRequest
     ) throws NotEnoughNodesException {
@@ -180,27 +131,6 @@ class ReplicationHandler {
         } else {
             log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
-    }
-
-    Response singleDelete(
-            @NotNull final ByteBuffer key,
-            @NotNull final Request req
-    ) {
-        final String target = topology.primaryFor(key);
-        if (topology.isSelfId(target)) {
-            try {
-                dao.remove(key);
-                return new Response(Response.ACCEPTED, Response.EMPTY);
-            } catch (RejectedExecutionException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-                return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
-                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-            }
-        } else {
-            return proxy(target, req);
         }
     }
 
@@ -245,13 +175,4 @@ class ReplicationHandler {
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    private Response proxy(@NotNull final String nodeId, @NotNull final Request req) {
-        try {
-            req.addHeader(PROXY_HEADER + nodeId);
-            return nodesToClients.get(nodeId).invoke(req);
-        } catch (IOException | InterruptedException | HttpException | PoolException exc) {
-            log.error(MESSAGE_MAP.get(ErrorNames.PROXY_ERROR), exc);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
 }
