@@ -7,7 +7,7 @@ key = 0;
 request = function()
     path = "/v0/entity?id=" .. key
     wrk.method = "PUT"
-    wrk.body = "123"
+    wrk.body = "{data:" .. tostring(key) .. "123" .. "}"
     key = key + 1
     return wrk.format(nil, path)
 end
