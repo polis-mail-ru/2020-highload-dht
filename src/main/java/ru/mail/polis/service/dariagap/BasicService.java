@@ -1,7 +1,6 @@
 package ru.mail.polis.service.dariagap;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
@@ -22,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static one.nio.http.Request.METHOD_DELETE;
@@ -33,14 +33,13 @@ public class BasicService {
     private final HttpClient client;
     private final ExecutorService execPool;
 
-    private final Logger log = LoggerFactory.getLogger(BasicService.class);
+    private static final Logger log = LoggerFactory.getLogger(BasicService.class);
 
     private static final String PROXY_HEADER = "X-OK-Proxy";
     private static final Duration TIMEOUT = Duration.ofSeconds(1);
 
     private static final String INTERNAL_ERROR = "Internal Server Error";
     private static final String NOT_FOUND_ERROR = "Data not found";
-    private static final String RESPONSE_ERROR = "Can not send response.";
 
     /**
      * Config HttpClient, DAO and ExecutorService.
@@ -116,43 +115,6 @@ public class BasicService {
         }, execPool);
     }
 
-    /**
-     * Send given response.
-     */
-    public void sendResponse(final HttpSession session, final Response response) {
-        try {
-            session.sendResponse(response);
-        } catch (IOException ex) {
-            log.error(RESPONSE_ERROR, ex);
-        }
-    }
-
-    /**
-     * Send given response when future completes.
-     */
-    public void sendResponseFromFuture(final HttpSession session,
-                                       final CompletableFuture<Response> response) {
-        if (response.whenComplete((r,t) -> {
-            if (t == null) {
-                try {
-                    session.sendResponse(r);
-                } catch (IOException ex) {
-                    log.error(RESPONSE_ERROR, ex);
-                }
-            } else {
-                try {
-                    session.sendError(INTERNAL_ERROR, t.getMessage());
-                } catch (IOException ex) {
-                    log.error("Can not send error.", ex);
-                }
-
-            }
-        }).isCancelled()) {
-            log.error(RESPONSE_ERROR);
-        }
-
-    }
-
     private HttpRequest.Builder formHttpRequestBuilder(final String node, final String id)
             throws IllegalArgumentException {
         final URI uri = URI.create(node + "/v0/entity?id" + id);
@@ -211,6 +173,16 @@ public class BasicService {
             log.error("Unknown method");
             return CompletableFuture.supplyAsync(() ->
                     new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+        }
+    }
+
+    public synchronized void stop() {
+        execPool.shutdown();
+        try {
+            execPool.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            log.error("Can not stop server.", ex);
+            Thread.currentThread().interrupt();
         }
     }
 }

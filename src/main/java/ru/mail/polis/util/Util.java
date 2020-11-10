@@ -1,16 +1,27 @@
 package ru.mail.polis.util;
 
+import one.nio.http.HttpSession;
+import one.nio.http.Response;
 import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public final class Util {
+    private static final Logger log = LoggerFactory.getLogger(Util.class);
+
+    private static final String INTERNAL_ERROR = "Internal Server Error";
+    private static final String RESPONSE_ERROR = "Can not send response.";
+
     private Util() {
 
     }
@@ -78,5 +89,41 @@ public final class Util {
             resultNodes.add(hash.get(keys[i]));
         }
         return resultNodes;
+    }
+
+    /**
+     * Send given response.
+     */
+    public static void sendResponse(final HttpSession session, final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException ex) {
+            log.error(RESPONSE_ERROR, ex);
+        }
+    }
+
+    /**
+     * Send given response when future completes.
+     */
+    public static void sendResponseFromFuture(final HttpSession session,
+                                       final CompletableFuture<Response> response) {
+        if (response.whenComplete((r,t) -> {
+            if (t == null) {
+                try {
+                    session.sendResponse(r);
+                } catch (IOException ex) {
+                    log.error(RESPONSE_ERROR, ex);
+                }
+            } else {
+                try {
+                    session.sendError(INTERNAL_ERROR, t.getMessage());
+                } catch (IOException ex) {
+                    log.error("Can not send error.", ex);
+                }
+
+            }
+        }).isCancelled()) {
+            log.error(RESPONSE_ERROR);
+        }
     }
 }

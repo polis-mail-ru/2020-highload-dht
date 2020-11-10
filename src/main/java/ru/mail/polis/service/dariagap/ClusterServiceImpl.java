@@ -93,7 +93,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/status")
     public void status(final HttpSession session) {
-        basicService.sendResponse(session, Response.ok("OK"));
+        Util.sendResponse(session, Response.ok("OK"));
     }
 
     /**
@@ -115,7 +115,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
         } else {
             response = getResponseFromCurrent(request, id);
         }
-        basicService.sendResponseFromFuture(session, response);
+        Util.sendResponseFromFuture(session, response);
     }
 
     private CompletableFuture<Response> getResponseFromGateNode(final String id,
@@ -170,7 +170,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
-        basicService.sendResponse(session,new Response(Response.BAD_REQUEST, Response.EMPTY));
+        Util.sendResponse(session,new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
@@ -183,5 +183,6 @@ public class ClusterServiceImpl extends HttpServer implements Service {
             log.error("Can not stop server.", ex);
             Thread.currentThread().interrupt();
         }
+        basicService.stop();
     }
 }
