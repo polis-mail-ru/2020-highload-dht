@@ -17,7 +17,7 @@ public class Arguments {
      * @param idParam - key.
      * @param session - session.
      */
-    public Arguments(String idParam, HttpSession session) {
+    public Arguments(final String idParam, final HttpSession session) {
         this.idParam = idParam;
         this.session = session;
     }
