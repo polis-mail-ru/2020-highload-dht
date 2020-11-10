@@ -142,10 +142,10 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 .defaultRepliFactor(req.getParameter("replicas"), repliFactor, session);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
-        if (req.getHeader(FORWARD_REQUEST_HEADER) != null) {
-            nodes = new String[]{ topology.getThisNode() };
-        } else {
+        if (req.getHeader(FORWARD_REQUEST_HEADER) == null) {
             nodes = topology.replicasFor(key, repliFactorObj.getFromValue());
+        } else {
+            nodes = new String[]{ topology.getThisNode() };
         }
 
         try {

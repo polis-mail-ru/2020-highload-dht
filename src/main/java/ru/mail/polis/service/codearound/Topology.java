@@ -1,6 +1,5 @@
 package ru.mail.polis.service.codearound;
 
-import one.nio.http.Request;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.concurrent.ThreadSafe;
