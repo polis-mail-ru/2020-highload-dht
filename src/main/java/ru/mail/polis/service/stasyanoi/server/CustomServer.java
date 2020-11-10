@@ -283,8 +283,8 @@ public class CustomServer extends BaseFunctionalityServer {
                 .limit(from)
                 .map(nodeHost -> {
                     try {
-                        final HttpClient client = httpClientMap.get(nodeHost.getValue());
-                        return client.invoke(util.getNewReplicationRequest(request, port));
+                        return httpClientMap.get(nodeHost.getValue()).invoke(util.getNewReplicationRequest(request,
+                                port));
                     } catch (InterruptedException | PoolException | IOException | HttpException e) {
                         return util.responseWithNoBody(Response.INTERNAL_ERROR);
                     }
@@ -294,9 +294,8 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private Response routeRequestToRemoteNode(final Request request, final int node,
                                               final Map<Integer, String> nodeMapping) {
-        final HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
         try {
-            return httpClient.invoke(request);
+            return httpClientMap.get(nodeMapping.get(node)).invoke(request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
