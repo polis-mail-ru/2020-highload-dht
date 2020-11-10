@@ -25,7 +25,10 @@ public final class ReplicasFactor {
     @SuppressWarnings("UnstableApiUsage")
     public static ReplicasFactor parser(@NotNull final String replicas) {
         final List<String> params = Splitter.on('/').splitToList(replicas);
-        return new ReplicasFactor(Integer.parseInt(params.get(0)), Integer.parseInt(params.get(1)));
+        assert params.size() == 2;
+        final int ackParam = Integer.parseInt(params.get(0));
+        final int fromParam = Integer.parseInt(params.get(1));
+        return new ReplicasFactor(ackParam, fromParam);
     }
 
     public int getFrom() {

@@ -37,6 +37,7 @@ public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
     private static final int VNODE_COUNT = 100;
     private static final int WORKERS = Runtime.getRuntime().availableProcessors();
+    private static final int QUEUE_SIZE = 1024;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -68,7 +69,7 @@ public final class ServiceFactory {
                 WORKERS,
                 0L,
                 TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(1024));
+                new ArrayBlockingQueue<>(QUEUE_SIZE));
         return ServiceImpl.create(port, nodes, dao, executor);
     }
 }

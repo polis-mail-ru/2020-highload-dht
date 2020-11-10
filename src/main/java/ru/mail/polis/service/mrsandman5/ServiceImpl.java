@@ -38,7 +38,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 public final class ServiceImpl extends HttpServer implements Service {
-
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     @NotNull
@@ -67,10 +66,8 @@ public final class ServiceImpl extends HttpServer implements Service {
         acceptor.port = port;
         acceptor.deferAccept = true;
         acceptor.reusePort = true;
-
         final HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptor};
-
         return new ServiceImpl(config, topology, dao, executor);
     }
 
@@ -107,12 +104,18 @@ public final class ServiceImpl extends HttpServer implements Service {
                          @Param(value = "replicas") final String replicas,
                          @NotNull final Request request,
                          @NotNull final HttpSession session) {
-        if (id == null || id.isEmpty()) {
+        if (id.isEmpty()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        final ReplicasFactor replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
+        ReplicasFactor replicasFactor;
+        try {
+            replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
+        } catch (NumberFormatException e) {
+            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
+            return;
+        }
         if (replicasFactor.getAck() < 1
                 || replicasFactor.getFrom() < replicasFactor.getAck()
                 || replicasFactor.getFrom() > this.topology.all().size()) {
@@ -141,8 +144,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                        @NotNull final Request request,
                                        @NotNull final ByteBuffer key,
                                        @NotNull final ReplicasFactor replicasFactor) {
-        return topology.replicasFor(key, replicasFactor)
-                .stream()
+        return topology.replicasFor(key, replicasFactor).stream()
                 .map(node -> {
                     try {
                         return topology.isMe(node)
@@ -165,25 +167,22 @@ public final class ServiceImpl extends HttpServer implements Service {
             asyncExecute(session, () -> simpleRequests.get(key));
             return;
         }
-        asyncExecute(() -> {
+        asyncExecute(session, () -> {
             try {
-                final List<Entry> result = new ArrayList<>();
+                final List<Entry> result = new ArrayList<>(replicasFactor.getFrom());
                 for (final Response response : replication(() ->
                         simpleRequests.get(key), request, key, replicasFactor)) {
                     if (ResponseUtils.getStatus(response).equals(Response.OK)
                             || ResponseUtils.getStatus(response).equals(Response.NOT_FOUND)) {
-                        final Entry resp = Entry.responseToEntry(response);
-                        result.add(resp);
+                        result.add(Entry.responseToEntry(response));
                     }
                 }
-                if (result.size() < replicasFactor.getAck()) {
-                    ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
-                } else {
-                    ResponseUtils.sendResponse(session, Entry.entryToResponse(Entry.mergeEntries(result)));
-                }
+                return result.size() < replicasFactor.getAck()
+                        ? ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS)
+                        : Entry.entryToResponse(Entry.mergeEntries(result));
             } catch (IOException e) {
                log.error("Replication error: ", e);
-               ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
+               return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);
             }
         });
     }
@@ -197,17 +196,15 @@ public final class ServiceImpl extends HttpServer implements Service {
             asyncExecute(session, () -> simpleRequests.put(key, request.getBody()));
             return;
         }
-        asyncExecute(() -> {
+        asyncExecute(session, () -> {
             final List<Response> result = replication(() ->
                     simpleRequests.put(key, request.getBody()), request, key, replicasFactor)
                     .stream()
                     .filter(node -> ResponseUtils.getStatus(node).equals(Response.CREATED))
                     .collect(Collectors.toList());
-            if (result.size() < replicasFactor.getAck()) {
-                ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
-            } else {
-                ResponseUtils.sendEmptyResponse(session, Response.CREATED);
-            }
+            return result.size() < replicasFactor.getAck()
+                    ? ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS)
+                    : ResponseUtils.emptyResponse(Response.CREATED);
         });
     }
 
@@ -220,16 +217,14 @@ public final class ServiceImpl extends HttpServer implements Service {
             asyncExecute(session, () -> simpleRequests.delete(key));
             return;
         }
-        asyncExecute(() -> {
+        asyncExecute(session, () -> {
             final List<Response> result = replication(() -> simpleRequests.delete(key), request, key, replicasFactor)
                     .stream()
                     .filter(node -> ResponseUtils.getStatus(node).equals(Response.ACCEPTED))
                     .collect(Collectors.toList());
-            if (result.size() < replicasFactor.getAck()) {
-                ResponseUtils.sendEmptyResponse(session, ResponseUtils.NOT_ENOUGH_REPLICAS);
-            } else {
-                ResponseUtils.sendEmptyResponse(session, Response.ACCEPTED);
-            }
+            return result.size() < replicasFactor.getAck()
+                    ? ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS)
+                    : ResponseUtils.emptyResponse(Response.ACCEPTED);
         });
     }
 
