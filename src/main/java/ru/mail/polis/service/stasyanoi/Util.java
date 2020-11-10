@@ -29,10 +29,6 @@ public class Util {
 
     private final Logger logger = LoggerFactory.getLogger(Util.class);
 
-    public Util() {
-
-    }
-
     /**
      * Get response with no Body.
      *
@@ -213,6 +209,13 @@ public class Util {
         }
     }
 
+    /**
+     * Get request with replication path.
+     *
+     * @param request - input request.
+     * @param port - post for the current server.
+     * @return new request with replication path.
+     */
     public Request getNewReplicationRequest(final Request request, final int port) {
         final String path = request.getPath();
         final String queryString = request.getQueryString();
@@ -222,6 +225,13 @@ public class Util {
         return requestNew;
     }
 
+    /**
+     * Get request with no replication header.
+     *
+     * @param request - the request to which to add the header.
+     * @param port - port of the current server.
+     * @return - new no replication request
+     */
     public Request getNoRepRequest(final Request request,
                                     final int port) {
         final String path = request.getPath();
@@ -237,7 +247,14 @@ public class Util {
         return noRepRequest;
     }
 
-    @NotNull
+    /**
+     * Get clone of input request:
+     *
+     * @param request - input request.
+     * @param newPath - new path to which to send.
+     * @param thisServerPort - the port of the sender server.
+     * @return - cloned request.
+     */
     public Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         Arrays.stream(request.getHeaders())
@@ -248,17 +265,23 @@ public class Util {
         return noRepRequest;
     }
 
-    @NotNull
-    public AckFrom getRF(String replicas, int size) {
-        int ack;
-        int from;
+    /**
+     * Get replication factor object.
+     *
+     * @param replicas - replicas header.
+     * @param size - size of cluster.
+     * @return AckFrom object.
+     */
+    public AckFrom getRF(final String replicas, final int size) {
+        final int ack;
+        final int from;
         if (replicas == null) {
             ack = size / 2 + 1;
             from = size;
         } else {
-            replicas = replicas.substring(1);
-            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
-            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 1));
+            String pureReplicasHeader = replicas.substring(1);
+            ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(pureReplicasHeader), 0));
+            from = Integer.parseInt(Iterables.get(Splitter.on('/').split(pureReplicasHeader), 1));
         }
         return new AckFrom(ack, from);
     }

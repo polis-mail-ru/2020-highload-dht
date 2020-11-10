@@ -117,8 +117,8 @@ public class CustomServer extends OverridedServer {
         }
     }
 
-    private Response getResponseFromLocalNode(String idParam, final DAO dao) {
-        ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+    private Response getResponseFromLocalNode(final String idParam, final DAO dao) {
+        final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         try {
             final ByteBuffer body = dao.get(id);
             final byte[] bytes = Mapper.toBytes(body);
@@ -217,7 +217,7 @@ public class CustomServer extends OverridedServer {
     }
 
     @NotNull
-    private List<Response> getReplicaResponses(Request request, int node, int fromOtherReplicas) {
+    private List<Response> getReplicaResponses(final Request request, int node, int fromOtherReplicas) {
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
         tempNodeMapping.remove(node);
         return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request, port);
@@ -309,7 +309,7 @@ public class CustomServer extends OverridedServer {
     }
 
     @NotNull
-    private Response deleteInLocalNode(String idParam) {
+    private Response deleteInLocalNode(final String idParam) {
         Response responseHttp;
         final ByteBuffer key = util.getKey(idParam);
         try {
