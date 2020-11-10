@@ -7,12 +7,12 @@ import com.google.common.primitives.Bytes;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
+import ru.mail.polis.service.stasyanoi.server.helpers.BodyWithTimestamp;
 
 import java.io.IOException;
 import java.net.URI;
@@ -91,7 +91,7 @@ public class Util {
      */
     @NotNull
     public synchronized byte[] getTimestampInternal() {
-        final String nanos = String.valueOf(getNanosSync());
+        final String nanos = String.valueOf(System.nanoTime());
         final int[] ints = nanos.chars().toArray();
         final byte[] timestamp = new byte[ints.length];
         for (int i = 0; i < ints.length; i++) {
@@ -99,23 +99,7 @@ public class Util {
         }
         return timestamp;
     }
-
-    /**
-     * Separate out the timestamp from body.
-     *
-     * @param body - body with timestamp.
-     * @return - pair of timestamp and pure body.
-     */
-    public Pair<byte[], byte[]> getTimestamp(final byte[] body) {
-        final int length = String.valueOf(getNanosSync()).length();
-        final byte[] timestamp = new byte[length];
-        final int realBodyLength = body.length - length;
-        System.arraycopy(body, realBodyLength, timestamp, 0, timestamp.length);
-        final byte[] newBody = new byte[realBodyLength];
-        System.arraycopy(body, 0, newBody, 0, newBody.length);
-        return new Pair<>(newBody, timestamp);
-    }
-
+    
     /**
      * Add timestamp to header.
      *
@@ -159,10 +143,6 @@ public class Util {
     public ByteBuffer getKey(final String idParam) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         return Mapper.fromBytes(idArray);
-    }
-
-    private synchronized long getNanosSync() {
-        return System.nanoTime();
     }
 
     /**
@@ -317,9 +297,9 @@ public class Util {
      */
     public Response getResponseWithTimestamp(final ByteBuffer body) {
         final byte[] bytes = Mapper.toBytes(body);
-        final Pair<byte[], byte[]> bodyTimestamp = getTimestamp(bytes);
-        final byte[] newBody = bodyTimestamp.getValue0();
-        final byte[] time = bodyTimestamp.getValue1();
+        final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
+        final byte[] newBody = bodyTimestamp.getPureBody();
+        final byte[] time = bodyTimestamp.getTimestamp();
         final Response okResponse = Response.ok(newBody);
         addTimestampHeader(time, okResponse);
         return okResponse;
