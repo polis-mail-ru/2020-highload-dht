@@ -19,7 +19,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class Util {
 
@@ -71,7 +70,7 @@ public class Util {
      * @return - the timestamp.
      */
     @NotNull
-    public synchronized byte[] getTimestampInternal() {
+    public byte[] getTimestampInternal() {
         final String nanos = String.valueOf(System.nanoTime());
         final int[] ints = nanos.chars().toArray();
         final byte[] timestamp = new byte[ints.length];
@@ -90,14 +89,10 @@ public class Util {
      */
     public Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
-        final Integer[] integers = Bytes.asList(timestamp).stream()
-                .map(Byte::intValue)
-                .toArray(Integer[]::new);
-        final String nanoTime = Arrays.stream(integers)
-                .mapToInt(value -> value)
-                .mapToObj(value -> (char) value)
-                .map(String::valueOf)
-                .collect(Collectors.joining());
+        final StringBuilder nanoTime = new StringBuilder();
+        for (byte b : timestamp) {
+            nanoTime.append((char) b);
+        }
         response.addHeader(timestampHeader + nanoTime);
         return response;
     }
@@ -187,10 +182,11 @@ public class Util {
      */
     public Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
-        Arrays.stream(request.getHeaders())
-                .filter(Objects::nonNull)
-                .filter(header -> !header.contains("Host: "))
-                .forEach(noRepRequest::addHeader);
+        for (String header : request.getHeaders()) {
+            if (Objects.nonNull(header) && !header.contains("Host: ")) {
+                noRepRequest.addHeader(header);
+            }
+        }
         noRepRequest.addHeader("Host: localhost:" + thisServerPort);
         return noRepRequest;
     }

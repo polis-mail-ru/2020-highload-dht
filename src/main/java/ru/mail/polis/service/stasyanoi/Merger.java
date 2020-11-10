@@ -2,9 +2,9 @@ package ru.mail.polis.service.stasyanoi;
 
 import one.nio.http.Response;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
@@ -32,19 +32,25 @@ public class Merger {
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final boolean hasGoodResponses = responses.stream().anyMatch(response -> response.getStatus() == 200);
+            boolean hasGoodResponses = false;
+            int notFoundResponses = 0;
+            List<Response> validResponses = new ArrayList<>();
+            for (Response response : responses) {
+                if (response.getStatus() == 200) {
+                    hasGoodResponses = true;
+                } else if (response.getStatus() == 404) {
+                    notFoundResponses++;
+                }
+                if ((response.getStatus() == 200 || response.getStatus() == 404) && response.getHeader("Time: ")
+                        != null) {
+                    validResponses.add(response);
+                }
+            }
             if (hasGoodResponses) {
-                final List<Response> responsesTemp = responses.stream()
-                        .filter(response -> response.getStatus() == 200 || response.getStatus() == 404)
-                        .filter(response -> response.getHeader("Time: ") != null)
-                        .sorted(comparingLong(response -> parseLong(response.getHeader("Time: "))))
-                        .collect(Collectors.toList());
-                responseHttp = responsesTemp.get(responsesTemp.size() - 1);
+                validResponses.sort(comparingLong(response -> parseLong(response.getHeader("Time: "))));
+                responseHttp = validResponses.get(validResponses.size() - 1);
             } else {
-                final boolean hasNotFoundResponses = responses.stream()
-                        .filter(response -> response.getStatus() == 404)
-                        .count() >= ack;
-                if (hasNotFoundResponses) {
+                if (notFoundResponses >= ack) {
                     responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
                 } else {
                     responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
@@ -71,9 +77,12 @@ public class Merger {
         if (ack > nodeMapping.size() || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final List<Response> goodResponses = responses.stream()
-                    .filter(response -> response.getStatus() == status)
-                    .collect(Collectors.toList());
+            final List<Response> goodResponses = new ArrayList<>();
+            for (Response response : responses) {
+                if (response.getStatus() == status) {
+                    goodResponses.add(response);
+                }
+            }
             if (goodResponses.size() >= ack) {
                 if (status == 202) {
                     responseHttp = util.responseWithNoBody(Response.ACCEPTED);

@@ -18,6 +18,7 @@ import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -25,7 +26,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public class CustomServer extends BaseFunctionalityServer {
 
@@ -273,18 +273,18 @@ public class CustomServer extends BaseFunctionalityServer {
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
                                                    final Request request,
                                                    final int port) {
-        return tempNodeMapping.entrySet()
-                .stream()
-                .limit(from)
-                .map(nodeHost -> {
-                    try {
-                        return httpClientMap.get(nodeHost.getValue()).invoke(util.getNewReplicationRequest(request,
-                                port));
-                    } catch (InterruptedException | PoolException | IOException | HttpException e) {
-                        return util.responseWithNoBody(Response.INTERNAL_ERROR);
-                    }
-                })
-                .collect(Collectors.toList());
+        List<String> urls = new ArrayList<>(tempNodeMapping.values());
+        urls = urls.subList(0, from);
+        List<Response> responses = new ArrayList<>();
+        for (String url : urls) {
+            try {
+                responses.add(httpClientMap.get(url).invoke(util.getNewReplicationRequest(request,
+                        port)));
+            } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                responses.add(util.responseWithNoBody(Response.INTERNAL_ERROR));
+            }
+        }
+        return responses;
     }
 
     private Response routeRequestToRemoteNode(final Request request, final int node,
