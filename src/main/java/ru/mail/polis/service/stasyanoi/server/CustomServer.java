@@ -7,25 +7,31 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
-import ru.mail.polis.service.stasyanoi.Util;
-import ru.mail.polis.service.stasyanoi.server.internal.FrameServer;
+import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
+import ru.mail.polis.service.stasyanoi.server.helpers.Arguments;
+import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 
 import java.io.IOException;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Supplier;
 
-public class CustomServer extends FrameServer {
+public class CustomServer extends BaseFunctionalityServer {
 
     /**
-     * Create custom server.
+     * Custom server.
      *
      * @param dao - DAO to use.
      * @param config - config for server.
@@ -45,9 +51,10 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_GET)
     public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> getInternal(idParam, session, request));
+            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+                    () -> getResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
+            util.send503Error(session);
         }
     }
 
@@ -59,61 +66,51 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_GET)
-    public void getRep(final @Param("id") String idParam, final HttpSession session) {
+    public void getReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> getRepInternal(idParam, session));
+            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+                    () -> getResponseFromLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
+            util.send503Error(session);
         }
     }
 
-    private void getRepInternal(final String idParam, final HttpSession session) {
+    private Response getResponseFromLocalAndReplicas(final String idParam, final Request request) {
         final Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+        final int node = util.getNode(idParam, nodeAmount);
+        final Response responseHttpTemp;
+        if (node == thisNodeIndex) {
+            responseHttpTemp = getResponseFromLocalNode(idParam);
         } else {
-            final ByteBuffer id = Util.getKey(idParam);
-            responseHttp = getResponseIfIdNotNull(id, dao);
+            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                    nodeIndexToUrlMapping);
         }
-
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    private void getInternal(final String idParam, final HttpSession session, final Request request) {
-        final Response responseHttp;
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            responseHttp = replicateGet(request, node, responseHttpTemp);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int node = Util.getNode(idArray, nodeCount);
-            final ByteBuffer id = Mapper.fromBytes(idArray);
-            final Request noRepRequest = getNoRepRequest(request, super.port);
-            final Response responseHttpCurrent = getProxy(noRepRequest, node, id);
-            tempNodeMapping.remove(node);
-            responseHttp = getReplicaGetResponse(request,
-                    tempNodeMapping, responseHttpCurrent, nodeMapping, super.port);
-        }
-
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    private Response getProxy(final Request request, final int node, final ByteBuffer id) {
-        final Response responseHttp;
-        if (node == nodeNum) {
-            responseHttp = getResponseIfIdNotNull(id, dao);
-        } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
+            responseHttp = responseHttpTemp;
         }
         return responseHttp;
+    }
+
+    private Response replicateGet(final Request request, final int node, final Response responseHttpTemp) {
+        final Response responseHttp;
+        final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+        final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+        responses.add(responseHttpTemp);
+        responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
+        return responseHttp;
+    }
+
+    private Response getResponseFromLocalNode(final String idParam) {
+        final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
+        try {
+            final ByteBuffer body = dao.get(id);
+            return util.getResponseWithTimestamp(body);
+        } catch (NoSuchElementException | IOException e) {
+            final byte[] deleteTime = dao.getDeleteTime(id);
+            return util.getDeleteOrNotFoundResponse(deleteTime);
+        }
     }
 
     /**
@@ -126,9 +123,10 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_PUT)
     public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> putInternal(idParam, request, session));
+            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+                    () -> putResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
+            util.send503Error(session);
         }
     }
 
@@ -141,72 +139,58 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_PUT)
-    public void putRep(final @Param("id") String idParam, final Request request, final HttpSession session) {
+    public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> putRepInternal(idParam, request, session));
+            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+                    () -> putIntoLocalNode(request, idParam)));
         } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
+            util.send503Error(session);
         }
     }
 
-    private void putRepInternal(final String idParam, final Request request, final HttpSession session) {
+    private Response putResponseFromLocalAndReplicas(final String idParam, final Request request) {
         Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+        final int node = util.getNode(idParam, nodeAmount);
+        Response responseHttpTemp;
+        if (node == thisNodeIndex) {
+            responseHttpTemp = putIntoLocalNode(request, idParam);
         } else {
-            responseHttp = putHere(request, Util.getKey(idParam));
+            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                    nodeIndexToUrlMapping);
         }
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    private void putInternal(final String idParam, final Request request, final HttpSession session) {
-
-        final Response responseHttp;
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 201);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = getNoRepRequest(request, super.port);
-            final Response responseHttpCurrent = putProxy(noRepRequest, idArray, node);
-            tempNodeMapping.remove(node);
-            final Pair<Map<Integer, String>, Map<Integer, String>> mappings =
-                    new Pair<>(tempNodeMapping, nodeMapping);
-            responseHttp = getPutReplicaResponse(request, mappings,
-                    responseHttpCurrent, super.port);
-        }
-
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    private Response putProxy(final Request request, final byte[] idArray, final int node) {
-        Response responseHttp;
-        if (node == nodeNum) {
-            responseHttp = putHere(request, Mapper.fromBytes(idArray));
-        } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
+            responseHttp = responseHttpTemp;
         }
         return responseHttp;
     }
 
-    @NotNull
-    private Response putHere(final Request request, final ByteBuffer key) {
+    private Response replicatePutOrDelete(final Request request, final int node, final Response responseHttpTemp,
+                                          final int i) {
         Response responseHttp;
-        final ByteBuffer value = Util.getByteBufferValue(request);
+        final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+        final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+        responses.add(responseHttpTemp);
+        responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), i, nodeIndexToUrlMapping);
+        return responseHttp;
+    }
+
+    @NotNull
+    private List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
+        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
+        tempNodeMapping.remove(node);
+        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request, port);
+    }
+
+    @NotNull
+    private Response putIntoLocalNode(final Request request, final String keyString) {
+        Response responseHttp;
         try {
-            dao.upsert(key, value);
-            responseHttp = Util.responseWithNoBody(Response.CREATED);
+            dao.upsert(util.getKey(keyString), util.getByteBufferValue(request));
+            responseHttp = util.responseWithNoBody(Response.CREATED);
         } catch (IOException e) {
-            responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
+            responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
         return responseHttp;
     }
@@ -220,9 +204,10 @@ public class CustomServer extends FrameServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> deleteInternal(idParam, request, session));
+            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+                    () -> deleteResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
+            util.send503Error(session);
         }
     }
 
@@ -234,70 +219,84 @@ public class CustomServer extends FrameServer {
      */
     @Path("/v0/entity/rep")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteRep(final @Param("id") String idParam, final HttpSession session) {
+    public void deleteReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> deleteRepInternal(idParam, session));
+            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+                    () -> deleteInLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
+            util.send503Error(session);
         }
     }
 
-    private void deleteRepInternal(final String idParam, final HttpSession session) {
+    private void internalRun(final Arguments replicationArguments, final Supplier<Response> responseSupplier) {
         Response responseHttp;
+        final String idParam = replicationArguments.getIdParam();
         if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            final ByteBuffer key = Util.getKey(idParam);
-            try {
-                dao.remove(key);
-                responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
-            } catch (IOException e) {
-                responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
-            }
+            responseHttp = responseSupplier.get();
         }
-
         try {
-            session.sendResponse(responseHttp);
+            replicationArguments.getSession().sendResponse(responseHttp);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }
     }
 
-    private void deleteInternal(final String idParam, final Request request, final HttpSession session) {
-        final Response responseHttp;
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeMapping);
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+    private Response deleteResponseFromLocalAndReplicas(final String idParam, final Request request) {
+        final int node = util.getNode(idParam, nodeAmount);
+        Response responseHttpTemp;
+        if (node == thisNodeIndex) {
+            responseHttpTemp = deleteInLocalNode(idParam);
         } else {
-            final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-            final int node = Util.getNode(idArray, nodeCount);
-            final Request noRepRequest = getNoRepRequest(request, super.port);
-            final Response responseHttpCurrent = deleteProxy(noRepRequest, idArray, node);
-            tempNodeMapping.remove(node);
-            responseHttp = getDeleteReplicaResponse(request, tempNodeMapping,
-                    responseHttpCurrent, nodeMapping, super.port);
+            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                    nodeIndexToUrlMapping);
         }
-
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(),e);
-        }
-    }
-
-    private Response deleteProxy(final Request request, final byte[] idArray, final int node) {
         Response responseHttp;
-        if (node == nodeNum) {
-            final ByteBuffer key = Mapper.fromBytes(idArray);
-            try {
-                dao.remove(key);
-                responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
-            } catch (IOException e) {
-                responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
-            }
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 202);
         } else {
-            responseHttp = routeRequest(request, node, nodeMapping);
+            responseHttp = responseHttpTemp;
         }
         return responseHttp;
+    }
+
+    @NotNull
+    private Response deleteInLocalNode(final String idParam) {
+        Response responseHttp;
+        final ByteBuffer key = util.getKey(idParam);
+        try {
+            dao.remove(key);
+            responseHttp = util.responseWithNoBody(Response.ACCEPTED);
+        } catch (IOException e) {
+            responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
+        return responseHttp;
+    }
+
+    private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
+                                                   final Request request,
+                                                   final int port) {
+        final List<Response> responses = new CopyOnWriteArrayList<>();
+        final var completableFutures = tempNodeMapping.entrySet()
+                .stream()
+                .limit(from)
+                .map(nodeHost -> asyncHttpClient.sendAsync(
+                        util.getJavaRequest(util.getNewReplicationRequest(request, port), nodeHost.getValue()),
+                        HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(util::getOneNioResponse)
+                        .handleAsync(util::filterResponse).thenAcceptAsync(responses::add))
+                .toArray(CompletableFuture[]::new);
+        CompletableFuture.allOf(completableFutures).join();
+        return responses;
+    }
+
+    private Response routeRequestToRemoteNode(final Request request, final int node,
+                                              final Map<Integer, String> nodeMapping) {
+        try {
+            return util.getOneNioResponse(asyncHttpClient.send(util.getJavaRequest(request,nodeMapping.get(node)),
+                    HttpResponse.BodyHandlers.ofByteArray()));
+        } catch (InterruptedException | IOException e) {
+            return util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
     }
 }

@@ -26,6 +26,7 @@ public class DAOImpl implements DAO {
     private RocksDB storageInstance;
     private IteratorImpl recordIterator;
     private final String path;
+    private final Util util;
 
     private final ConcurrentHashMap<ByteBuffer, byte[]> deleteLog = new ConcurrentHashMap<>();
 
@@ -38,12 +39,17 @@ public class DAOImpl implements DAO {
         Options options = new Options().setCreateIfMissing(true);
         final ComparatorOptions comparatorOptions = new ComparatorOptions();
         options = options.setComparator(new ComparatorImpl(comparatorOptions));
+        this.util = new Util();
         try {
             path = data.getAbsolutePath();
             storageInstance = RocksDB.open(options, path);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Util getUtil() {
+        return util;
     }
 
     @NotNull
@@ -88,7 +94,7 @@ public class DAOImpl implements DAO {
     public void remove(final @NotNull ByteBuffer key) {
         try {
             final byte[] keyDelete = Mapper.toBytes(key);
-            deleteLog.put(key, Util.getTimestampInternal());
+            deleteLog.put(key, util.getTimestampInternal());
             storageInstance.delete(keyDelete);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
