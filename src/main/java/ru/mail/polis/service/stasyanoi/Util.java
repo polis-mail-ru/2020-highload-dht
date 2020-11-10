@@ -292,4 +292,36 @@ public class Util {
         }
         return new AckFrom(ack, from);
     }
+
+    /**
+     * Get response based on the delete time.
+     *
+     * @param deleteTime - delete time of the response
+     * @return - the response
+     */
+    public Response getDeleteOrNotFoundResponse(final byte[] deleteTime) {
+        if (deleteTime.length == 0) {
+            return responseWithNoBody(Response.NOT_FOUND);
+        } else {
+            final Response deletedResponse = responseWithNoBody(Response.NOT_FOUND);
+            addTimestampHeader(deleteTime, deletedResponse);
+            return deletedResponse;
+        }
+    }
+
+    /**
+     * Get response with timestamp header.
+     *
+     * @param body - body with timestamp.
+     * @return - the response with timestamp
+     */
+    public Response getResponseWithTimestamp(final ByteBuffer body) {
+        final byte[] bytes = Mapper.toBytes(body);
+        final Pair<byte[], byte[]> bodyTimestamp = getTimestamp(bytes);
+        final byte[] newBody = bodyTimestamp.getValue0();
+        final byte[] time = bodyTimestamp.getValue1();
+        final Response okResponse = Response.ok(newBody);
+        addTimestampHeader(time, okResponse);
+        return okResponse;
+    }
 }

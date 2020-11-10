@@ -107,22 +107,10 @@ public class CustomServer extends BaseFunctionalityServer {
         final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         try {
             final ByteBuffer body = dao.get(id);
-            final byte[] bytes = Mapper.toBytes(body);
-            final Pair<byte[], byte[]> bodyTimestamp = util.getTimestamp(bytes);
-            final byte[] newBody = bodyTimestamp.getValue0();
-            final byte[] time = bodyTimestamp.getValue1();
-            final Response okResponse = Response.ok(newBody);
-            util.addTimestampHeader(time, okResponse);
-            return okResponse;
+            return util.getResponseWithTimestamp(body);
         } catch (NoSuchElementException | IOException e) {
             final byte[] deleteTime = dao.getDeleteTime(id);
-            if (deleteTime.length == 0) {
-                return util.responseWithNoBody(Response.NOT_FOUND);
-            } else {
-                final Response deletedResponse = util.responseWithNoBody(Response.NOT_FOUND);
-                util.addTimestampHeader(deleteTime, deletedResponse);
-                return deletedResponse;
-            }
+            return util.getDeleteOrNotFoundResponse(deleteTime);
         }
     }
 
