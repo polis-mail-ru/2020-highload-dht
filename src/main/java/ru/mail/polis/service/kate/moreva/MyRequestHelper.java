@@ -115,7 +115,11 @@ public class MyRequestHelper {
      * Collects responses.
      */
     public CompletableFuture<List<ResponseValue>> collect(final List<CompletableFuture<ResponseValue>> responseValues,
-                                                          final int ack, final Executor clientExecutor) {
+                                                          final int ack, final Executor clientExecutor)
+            throws IllegalArgumentException {
+        if (responseValues.size() < ack) {
+            throw new IllegalArgumentException("Wrong input replica factor");
+        }
         final AtomicInteger numberOfErrors = new AtomicInteger(0);
         final List<ResponseValue> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<List<ResponseValue>> resultsFuture = new CompletableFuture<>();

@@ -155,7 +155,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
-    private void defineMethod(final ByteBuffer key,final Context context) {
+    private void defineMethod(final ByteBuffer key, final Context context) {
         CompletableFuture.runAsync(() -> {
             switch (context.getRequest().getMethod()) {
                 case Request.METHOD_GET:
@@ -184,55 +184,52 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(context.getSession(), action.act());
             return;
         }
-        final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
-                replication(action, key, topology, context),
-                context.getReplicaFactor().getAck(), clientExecutor);
-        final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
-        result.thenAccept(v -> requestHelper.sendLoggedResponse(
-                context.getSession(), new Response(v.getStatus(), v.getBody())))
-                .exceptionally(e -> {
-                    log.error("Error while executing method ", e);
-                    requestHelper.sendLoggedResponse(context.getSession(),
-                            new Response(requestHelper.parseStatusCode(504), Response.EMPTY));
-                    return null;
-                });
+        try {
+            final CompletableFuture<List<ResponseValue>> future = requestHelper.collect(
+                    replication(action, key, topology, context),
+                    context.getReplicaFactor().getAck(), clientExecutor);
+            final CompletableFuture<ResponseValue> result = requestHelper.merge(future);
+            result.thenAccept(v -> requestHelper.sendLoggedResponse(
+                    context.getSession(), new Response(v.getStatus(), v.getBody())))
+                    .exceptionally(e -> {
+                        log.error("Error while executing method ", e);
+                        requestHelper.sendLoggedResponse(context.getSession(),
+                                new Response(requestHelper.parseStatusCode(504), Response.EMPTY));
+                        return null;
+                    });
+        } catch (IllegalArgumentException e) {
+            requestHelper.sendLoggedResponse(context.getSession(),
+                    new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
     }
 
     private List<CompletableFuture<ResponseValue>> replication(final Action action, final ByteBuffer key,
-                                                               final Topology<String> topology, final Context context) {
+                                                               final Topology<String> topology, final Context context)
+            throws IllegalArgumentException {
         final List<CompletableFuture<ResponseValue>> results = new ArrayList<>();
-        try {
-            final Set<String> nodes = topology.primaryFor(key, context.getReplicaFactor(),
-                    context.getReplicaFactor().getAck());
-            for (final String node : nodes) {
-                if (topology.isMe(node)) {
-                    results.add(getLocalResults(action));
-                } else {
-                    final HttpRequest request = requestForReplica(context.getRequest(), key, node);
-                    final CompletableFuture<ResponseValue> result = this.client
-                            .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                            .thenApply(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
-                                    r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)));
-                    results.add(result);
-                }
+        final Set<String> nodes = topology.primaryFor(key, context.getReplicaFactor(),
+                context.getReplicaFactor().getAck());
+        for (final String node : nodes) {
+            if (topology.isMe(node)) {
+                results.add(getLocalResults(action));
+            } else {
+                final HttpRequest request = requestForReplica(context.getRequest(), key, node);
+                final CompletableFuture<ResponseValue> result = this.client
+                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                        .thenApply(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
+                                r.headers().firstValueAsLong(TIMESTAMP).orElse(-1)));
+                results.add(result);
             }
-        } catch (IllegalArgumentException e) {
-            requestHelper.sendLoggedResponse(context.getSession(), new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
         return results;
     }
 
-    private CompletableFuture<ResponseValue> getLocalResults(final Action action) {
-        final Response response = action.act();
-        ResponseValue responseValue;
-        try {
-            responseValue = new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
+    private CompletableFuture<ResponseValue> getLocalResults(final Action action) throws IllegalArgumentException {
+        return CompletableFuture.supplyAsync(() -> {
+            final Response response = action.act();
+            return new ResponseValue(requestHelper.parseStatusCode(response.getStatus()),
                     response.getBody(), requestHelper.getTimestamp(response));
-        } catch (IllegalArgumentException e) {
-            log.error("Response value with invalid timestamp", e);
-            responseValue = new ResponseValue(Response.INTERNAL_ERROR, Response.EMPTY, -1);
-        }
-        return CompletableFuture.completedFuture(responseValue);
+        }, clientExecutor);
     }
 
     private HttpRequest requestForReplica(final Request request, final ByteBuffer key, final String node) {
