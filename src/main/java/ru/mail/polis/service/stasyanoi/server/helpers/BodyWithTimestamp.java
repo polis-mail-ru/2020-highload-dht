@@ -1,12 +1,14 @@
 package ru.mail.polis.service.stasyanoi.server.helpers;
 
+import java.util.Arrays;
+
 /**
  * Body with timestamp object.
  */
 public class BodyWithTimestamp {
 
     private final byte[] pureBody;
-    private final byte[] timestamp;
+    private final byte[] timestampObj;
 
     /**
      * Create body with timestamp object.
@@ -21,14 +23,14 @@ public class BodyWithTimestamp {
         final byte[] newBody = new byte[realBodyLength];
         System.arraycopy(body, 0, newBody, 0, newBody.length);
         this.pureBody = newBody;
-        this.timestamp = timestamp;
+        this.timestampObj = timestamp;
     }
 
     public byte[] getPureBody() {
-        return pureBody;
+        return Arrays.copyOf(pureBody, pureBody.length);
     }
 
-    public byte[] getTimestamp() {
-        return timestamp;
+    public byte[] getTimestampObj() {
+        return Arrays.copyOf(timestampObj, timestampObj.length);
     }
 }

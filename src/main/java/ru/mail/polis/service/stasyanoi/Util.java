@@ -299,7 +299,7 @@ public class Util {
         final byte[] bytes = Mapper.toBytes(body);
         final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
         final byte[] newBody = bodyTimestamp.getPureBody();
-        final byte[] time = bodyTimestamp.getTimestamp();
+        final byte[] time = bodyTimestamp.getTimestampObj();
         final Response okResponse = Response.ok(newBody);
         addTimestampHeader(time, okResponse);
         return okResponse;
