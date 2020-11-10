@@ -198,13 +198,16 @@ public class CustomServer extends OverridedServer {
             if (node == thisNodeIndex) {
                 responseHttpTemp = putIntoLocalNode(request, idParam);
             } else {
-                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
+                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                        nodeIndexToUrlMapping);
             }
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
                 final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+                final List<Response> responses = getReplicaResponses(request, node,
+                        ackFrom.getFrom() - 1);
                 responses.add(responseHttpTemp);
-                responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 201, nodeIndexToUrlMapping);
+                responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 201,
+                        nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -290,13 +293,16 @@ public class CustomServer extends OverridedServer {
             if (node == thisNodeIndex) {
                 responseHttpTemp = deleteInLocalNode(idParam);
             } else {
-                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
+                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                        nodeIndexToUrlMapping);
             }
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
                 final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+                final List<Response> responses = getReplicaResponses(request, node,
+                        ackFrom.getFrom() - 1);
                 responses.add(responseHttpTemp);
-                responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 202, nodeIndexToUrlMapping);
+                responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 202,
+                        nodeIndexToUrlMapping);
             } else {
                 responseHttp = responseHttpTemp;
             }
@@ -338,7 +344,8 @@ public class CustomServer extends OverridedServer {
         return responses;
     }
 
-    private Response routeRequestToRemoteNode(final Request request, final int node, final Map<Integer, String> nodeMapping) {
+    private Response routeRequestToRemoteNode(final Request request, final int node,
+                                              final Map<Integer, String> nodeMapping) {
         try {
             return util.getOneNioResponse(asyncHttpClient.send(util.getJavaRequest(request,nodeMapping.get(node)),
                     HttpResponse.BodyHandlers.ofByteArray()));
