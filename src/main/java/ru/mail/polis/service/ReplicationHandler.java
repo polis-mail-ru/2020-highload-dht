@@ -2,6 +2,7 @@ package ru.mail.polis.service;
 
 import com.google.common.collect.ImmutableSet;
 import one.nio.http.HttpSession;
+import one.nio.http.Param;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
@@ -79,7 +80,7 @@ class ReplicationHandler {
 
     private void multipleGet(
             final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session
-    ) throws IOException {
+    ) {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         final List<Value> values = new ArrayList<>();
         for (final String node : nodes) {
@@ -137,7 +138,7 @@ class ReplicationHandler {
     private void multipleUpsert(
             final Set<String> nodes, @NotNull final Request req,
             final int count, @NotNull final HttpSession session
-    ) throws IOException {
+    ) {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) futures.add(futuresHandler.handleLocal(req));
@@ -183,7 +184,7 @@ class ReplicationHandler {
     private void multipleDelete(
             final Set<String> nodes, @NotNull final Request req,
             final int count, final HttpSession session
-    ) throws IOException {
+    ) {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) futures.add(futuresHandler.handleLocal(req));
@@ -214,9 +215,9 @@ class ReplicationHandler {
     }
 
     void handle(
-            final boolean isForwardedRequest, @NotNull final Request req, @NotNull final HttpSession session
+            final boolean isForwardedRequest, @NotNull final Request req, @NotNull final HttpSession session,
+            final String id, final String replicas
     ) throws IOException {
-        final String replicas = req.getParameter("replicas");
         final ReplicationFactor replicationFactor;
 
         try {
@@ -227,7 +228,6 @@ class ReplicationHandler {
             return;
         }
 
-        final String id = req.getParameter("id=");
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Set<String> nodes;
         try {

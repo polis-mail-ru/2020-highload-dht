@@ -153,7 +153,7 @@ final class FuturesHandler {
     }
 
     private static ByteBuffer getKeyFromRequest(@NotNull final Request req) {
-        final String strKey = req.getParameter("id=");
+        final String strKey = req.getParameter("id");
         return ByteBuffer.wrap(strKey.getBytes(StandardCharsets.UTF_8));
     }
 

@@ -112,7 +112,8 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     public void entity(
             @Param(value = "id", required = true) final String id,
             @NotNull final Request req,
-            @NotNull final HttpSession session
+            @NotNull final HttpSession session,
+            @Param("replicas") final String replicas
     ) throws IOException {
 
         if (id.isEmpty()) {
@@ -125,16 +126,18 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
         if (isForwardedRequest || topology.getNodes().size() > 1) {
-            handler.handle(isForwardedRequest, req, session);
+            handler.handle(isForwardedRequest, req, session, id, replicas);
         } else {
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             executeAsync(req, key, session);
         }
     }
 
-    private void executeAsync(@NotNull final Request req,
-                              @NotNull final ByteBuffer key,
-                              @NotNull final HttpSession session) throws IOException {
+    private void executeAsync(
+            @NotNull final Request req,
+            @NotNull final ByteBuffer key,
+            @NotNull final HttpSession session
+    ) throws IOException {
         try {
             switch (req.getMethod()) {
                 case Request.METHOD_GET:
