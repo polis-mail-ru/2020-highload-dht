@@ -2,7 +2,6 @@ package ru.mail.polis.dao.boriskin;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;

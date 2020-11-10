@@ -112,12 +112,12 @@ final class Value implements Comparable<Value> {
         } else {
             final ByteBuffer data = tableCell.getVal().getData();
             final byte[] buffer;
-            if (!data.hasRemaining()) {
-                buffer = Response.EMPTY;
-            } else {
+            if (data.hasRemaining()) {
                 final byte[] bytes = new byte[data.remaining()];
                 data.duplicate().get(bytes);
                 buffer = bytes;
+            } else {
+                buffer = Response.EMPTY;
             }
             return Value.isPresent(buffer, tableCell.getVal().getTimeStamp());
         }
