@@ -29,9 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -112,15 +110,17 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        ReplicasFactor replicasFactor = null;
+        ReplicasFactor replicasFactor;
         try {
             replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
         } catch (NumberFormatException e) {
             log.error("Request replica parsing error", e);
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
+            return;
         }
-        assert replicasFactor != null;
-        if (replicasFactor.getAck() < 1 || replicasFactor.getFrom() < replicasFactor.getAck()) {
+        if (replicasFactor.getAck() < 1
+                || replicasFactor.getFrom() < replicasFactor.getAck()
+                || replicasFactor.getFrom() > topology.all().size()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
@@ -164,9 +164,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
-        final Set<String> topologies = getTopologies(key, replicasFactor);
-        assert !topologies.isEmpty();
-        for (final String node : topologies) {
+        for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
@@ -184,9 +182,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        final Set<String> topologies = getTopologies(key, replicasFactor);
-        assert !topologies.isEmpty();
-        for (final String node : topologies) {
+        for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value));
             } else {
@@ -203,7 +199,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                        @NotNull final ReplicasFactor replicasFactor) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : getTopologies(key, replicasFactor)) {
+        for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
@@ -227,16 +223,6 @@ public final class ServiceImpl extends HttpServer implements Service {
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
         ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
-    }
-
-    private Set<String> getTopologies(@NotNull final ByteBuffer key,
-                                      @NotNull final ReplicasFactor replicasFactor) {
-        try {
-            return topology.replicasFor(key, replicasFactor);
-        } catch (IllegalStateException e) {
-            log.error("Topology size error", e);
-            return new HashSet<>();
-        }
     }
 
     @Override

@@ -54,9 +54,6 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
     @Override
     public Set<T> replicasFor(@NotNull final ByteBuffer key,
                               @NotNull final ReplicasFactor replicasFactor) {
-        if (replicasFactor.getFrom() > topology.size()) {
-            throw new IllegalStateException("From replicas is bigger than number of nodes.");
-        }
         final long hash = hashFunction.hashBytes(key.duplicate()).asLong();
         final Set<T> result = new HashSet<>();
         Iterator<VirtualNode<T>> it = ring.tailMap(hash).values().iterator();
