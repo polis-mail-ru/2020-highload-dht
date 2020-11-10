@@ -18,7 +18,7 @@ public final class ServiceFactory {
 
     private static final long MAX_HEAP = 256 * 1024 * 1024;
     public static final int QUEUE_CAP = 1024;
-    public static final int TIMEOUT = 1;
+    public static final int TIMEOUT_SECONDS = 1;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -52,6 +52,6 @@ public final class ServiceFactory {
                 Runtime.getRuntime().availableProcessors(),
                 QUEUE_CAP,
                 topology1,
-                TIMEOUT);
+                TIMEOUT_SECONDS);
     }
 }

@@ -14,9 +14,10 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  *  class to feature topology-bound implementations of project-required DAO methods (get, put, delete).
@@ -26,13 +27,12 @@ public class ReplicationLsm {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     public static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
-
     @NotNull
     private final DAO dao;
     @NotNull
     private final Topology<String> topology;
     @NotNull
-    private final Map<String, HttpClient> nodesToClients;
+    private final HttpClient client;
     @NotNull
     private final ExecutorService exec;
     private AsyncConnectUtils response;
@@ -42,17 +42,17 @@ public class ReplicationLsm {
      *
      * @param dao - DAO instance
      * @param topology - topology implementation instance
-     * @param nodesToClients - HashMap-implemented mapping available nodes over HTTP clients
      * @param exec - service to run threads
+     * @param client - async Java http client
      */
     ReplicationLsm(@NotNull final DAO dao,
                    @NotNull final Topology<String> topology,
-                   @NotNull final Map<String, HttpClient> nodesToClients,
-                   @NotNull final ExecutorService exec) {
+                   @NotNull final ExecutorService exec,
+                   @NotNull final HttpClient client) {
         this.dao = dao;
         this.topology = topology;
-        this.nodesToClients = nodesToClients;
         this.exec = exec;
+        this.client = client;
     }
 
     /**
@@ -62,7 +62,7 @@ public class ReplicationLsm {
      * @return HTTP response
      */
     Response getWithOnlyNode(@NotNull final ByteBuffer key) {
-        ByteBuffer buf;
+        final ByteBuffer buf;
         try {
             buf = dao.get(key);
             return new Response(Response.ok(DAOByteOnlyConverter.readByteArray(buf)));
@@ -88,6 +88,7 @@ public class ReplicationLsm {
      * @param session - ongoing HTTP session instance
      *
      */
+    @SuppressWarnings("FutureReturnValueIgnored")
     void getWithMultipleNodes(@NotNull final ByteBuffer key,
                               final String[] nodes,
                               @NotNull final Request req,
@@ -111,27 +112,17 @@ public class ReplicationLsm {
                         }, exec));
             } else {
                 final HttpRequest request = FutureUtils.setRequestPattern(node, req).GET().build();
-                final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
-                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
+                final CompletableFuture<HttpResponse<byte[]>> responses =
+                        client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
                 futures.add(responses);
             }
         }
-        var allFutures = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        var allFuturesExec = allFutures.thenAccept(r -> {
-            try {
-                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
-            } catch (IOException exc) {
-                LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
-            }
-        });
-        allFuturesExec.exceptionally(r -> {
-            try {
-                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
-            } catch (IOException exc) {
-                LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
-            }
-            return null;
-        });
+
+        try {
+              session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req, exec));
+        } catch (IOException exc) {
+              LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
+        }
     }
 
     /**
@@ -142,7 +133,6 @@ public class ReplicationLsm {
      * @return HTTP response
      */
     Response upsertWithOnlyNode(@NotNull final ByteBuffer key, final byte[] byteVal) {
-
         final ByteBuffer val = ByteBuffer.wrap(byteVal);
         try {
             dao.upsert(key, val);
@@ -164,6 +154,7 @@ public class ReplicationLsm {
      * @param count - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
      */
+    @SuppressWarnings("FutureReturnValueIgnored")
     void upsertWithMultipleNodes(@NotNull final ByteBuffer key,
                                  final String[] nodes,
                                  @NotNull final Request req,
@@ -186,27 +177,17 @@ public class ReplicationLsm {
                 final HttpRequest request = FutureUtils.setRequestPattern(node, req)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
                         .build();
-                final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
-                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
+                final CompletableFuture<HttpResponse<byte[]>> responses =
+                        client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
                 futures.add(responses);
             }
         }
-        var allFutures = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        var allFuturesExec = allFutures.thenAccept(r -> {
-            try {
-                session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
-            } catch (IOException exc) {
-                LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
-            }
-        });
-        allFuturesExec.exceptionally(r -> {
-            try {
-                session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
-            } catch (IOException exc) {
-                LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
-            }
-            return null;
-        });
+
+       try {
+           session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
+       } catch (IOException exc) {
+             LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
+       }
     }
 
     /**
@@ -236,12 +217,12 @@ public class ReplicationLsm {
      * @param count - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
      */
+    @SuppressWarnings("FutureReturnValueIgnored")
     void deleteWithMultipleNodes(@NotNull final ByteBuffer key,
                                  final String[] nodes,
                                  @NotNull final Request req,
                                  final int count,
                                  final HttpSession session) throws IOException {
-
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
         for (final String node : nodes) {
             if (topology.isThisNode(node)) {
@@ -257,26 +238,16 @@ public class ReplicationLsm {
                         }, exec));
             } else {
                 final HttpRequest request = FutureUtils.setRequestPattern(node, req).DELETE().build();
-                final CompletableFuture<HttpResponse<byte[]>> responses = nodesToClients.get(node)
-                        .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
+                final CompletableFuture<HttpResponse<byte[]>> responses =
+                        client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
                 futures.add(responses);
             }
         }
-        var allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
-        var allFuturesExec = allFutures.thenAccept((r) -> {
-            try {
-                session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
-            } catch (IOException exc) {
-                LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
-            }
-        });
-        allFuturesExec.exceptionally(r -> {
-            try {
-                session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
-            } catch (IOException exc) {
-                LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
-            }
-            return null;
-        });
+
+       try {
+            session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
+        } catch (IOException exc) {
+            LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
+       }
     }
 }

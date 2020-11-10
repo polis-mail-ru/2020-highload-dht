@@ -18,8 +18,6 @@ import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -74,23 +72,15 @@ public class RepliServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy());
         this.topology = topology;
-        final Map<String, HttpClient> nodesToClients = new HashMap<>();
         repliFactor = new ReplicationFactor(
                 topology.getClusterSize() / 2 + 1,
                 topology.getClusterSize());
-
-        for (final String node : topology.getNodes()) {
-            if (topology.isThisNode(node)) {
-                continue;
-            }
-            HttpClient client = HttpClient.newBuilder()
-                    .executor(exec)
-                    .connectTimeout(Duration.ofSeconds(timeout))
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .build();
-            nodesToClients.put(node, client);
-        }
-        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, exec);
+        final HttpClient client = HttpClient.newBuilder()
+                .executor(exec)
+                .connectTimeout(Duration.ofSeconds(timeout))
+                .version(HttpClient.Version.HTTP_1_1)
+                .build();
+        this.lsm = new ReplicationLsm(dao, topology, exec, client);
     }
 
     /**

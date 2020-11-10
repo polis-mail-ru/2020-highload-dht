@@ -12,9 +12,12 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -45,7 +48,7 @@ public final class FutureUtils {
     public static HttpRequest.Builder setRequestPattern(final String node, @NotNull final Request req) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(node + req.getURI()))
-                .timeout(Duration.ofSeconds(ServiceFactory.TIMEOUT))
+                .timeout(Duration.ofSeconds(ServiceFactory.TIMEOUT_SECONDS))
                 .setHeader("PROXY_HEADER", PROXY_HEADER);
     }
 
@@ -57,13 +60,14 @@ public final class FutureUtils {
      * @param futures - collection of future responses
      * @param count - cluster-wide success quorum to send response
      * @param req - HTTP request
-     * @return - HTTP response
+     * @return HTTP response
      */
     public static Response execGetWithFutures(final List<Value> values,
                                               final List<CompletableFuture<HttpResponse<byte[]>>> futures,
                                               final String[] nodes,
                                               final int count,
-                                              @NotNull final Request req) throws IOException {
+                                              @NotNull final Request req,
+                                              final ExecutorService exec) throws IOException {
         final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
             try {
@@ -74,10 +78,10 @@ public final class FutureUtils {
                 }
                 quant.incrementAndGet();
             } catch (ExecutionException | InterruptedException exc) {
-                LOGGER.error(UPSERT_COMPLETION_ERROR_LOG);
+                LOGGER.error(GET_COMPLETION_ERROR_LOG);
             }
         }
-        if (quant.get() >= futures.size() || quant.get() >= count) {
+        if (quant.get() == futures.size() || quant.get() == count) {
             return RepliServiceUtils.processResponses(nodes, values, req);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
@@ -95,7 +99,7 @@ public final class FutureUtils {
                                                  final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         final AtomicInteger quant = new AtomicInteger(0);
         incrementFutureCount(quant, 201, futures);
-        if (quant.get() >= futures.size() || quant.get() >= count) {
+        if (quant.get() == futures.size() || quant.get() == count) {
             return new Response(Response.CREATED, Response.EMPTY);
         } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
@@ -111,7 +115,7 @@ public final class FutureUtils {
                                                  final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         final AtomicInteger quant = new AtomicInteger(0);
         incrementFutureCount(quant, 202, futures);
-        if (quant.get() >= futures.size() || quant.get() >= count) {
+        if (quant.get() == futures.size() || quant.get() == count) {
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
@@ -119,15 +123,15 @@ public final class FutureUtils {
     }
 
     /**
-     * increment number of futures for response.
+     * increments number of futures for response.
      *
      * @param quant - quantity of success responses
      * @param returnCode - HTTP return code
      * @param futures - collection of future responses
      */
     private static void incrementFutureCount(final AtomicInteger quant,
-                                      final int returnCode,
-                                      final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+                                             final int returnCode,
+                                             final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         for (final var future : futures) {
             try {
                 if (future.get().statusCode() == returnCode) {
@@ -138,5 +142,41 @@ public final class FutureUtils {
             }
         }
         quant.get();
+    }
+
+    /**
+     * completes (either normally or exceptionally) the future collection contents up to ack successes precisely.
+     *
+     * @param ack - cluster-wide success quorum to send response
+     * @param futures - collection of future responses
+     * @param exec - service to run threads
+     * @return collection of future responses complete to advance to http client
+     */
+    @SuppressWarnings("FutureReturnValueIgnored")
+    public static <T> CompletableFuture<Collection<T>> completeOnceAckSuccesses(
+            final int ack,
+            @NotNull final Collection<CompletableFuture<T>> futures,
+            @NotNull final ExecutorService exec) {
+
+        assert 0 < ack && ack <= futures.size();
+        final CompletableFuture<Collection<T>> future = new CompletableFuture<>();
+        final AtomicInteger successesRemaining = new AtomicInteger(ack);
+        final AtomicInteger failuresRemaining = new AtomicInteger(futures.size() - ack + 1);
+        final Collection<T> results = new CopyOnWriteArrayList<>();
+
+        futures.forEach(f -> f.whenCompleteAsync((v, t) -> {
+            if (t == null) {
+                results.add(v);
+                if (successesRemaining.decrementAndGet() == 0) {
+                    future.complete(results);
+                }
+            } else {
+                if (failuresRemaining.decrementAndGet() == 0) {
+                    future.completeExceptionally(t);
+                }
+            }
+        }, exec));
+
+        return future;
     }
 }
