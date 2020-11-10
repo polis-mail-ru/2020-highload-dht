@@ -2,15 +2,12 @@ package ru.mail.polis.service.stasyanoi;
 
 import one.nio.http.Response;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
-import static java.util.stream.Stream.concat;
 
 public class Merger {
 
