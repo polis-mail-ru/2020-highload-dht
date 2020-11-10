@@ -47,6 +47,16 @@ public class NewDAO implements DAO {
     private TableSet tables;
 
     /**
+     * Возвращает набор таблиц, с которыми работаем.
+     *
+     * @return набор таблиц
+     */
+    @NotNull
+    public TableSet getTableSet() {
+        return tables;
+    }
+
+    /**
      * Конструктор {link NewDAO} instance.
      *
      * @param base папка диска, где хранятся данные
@@ -170,26 +180,6 @@ public class NewDAO implements DAO {
         // может быть "живое" значение, а может быть, что значение по ключу удалили в момент времени Time Stamp
         return Iterators.filter(
                 alive, cell -> !cell.getVal().wasRemoved());
-    }
-
-    /**
-     * Возвращает ячейку по ключу.
-     *
-     * @param key ключ
-     * @return ячейка; если не найдена, то null
-     * @throws IOException если ошибка ввод-вывод
-     */
-    @Nullable
-    public TableCell getTableCell(@NotNull final ByteBuffer key) throws IOException {
-        final Iterator<TableCell> iter = iterateThroughTableCells(key);
-        if (!iter.hasNext()) {
-            return null;
-        }
-        final TableCell tableCell = iter.next();
-        if (!tableCell.getKey().equals(key)) {
-            return null;
-        }
-        return tableCell;
     }
 
     @Override

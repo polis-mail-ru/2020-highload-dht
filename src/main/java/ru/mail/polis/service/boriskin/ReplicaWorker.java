@@ -65,20 +65,13 @@ final class ReplicaWorker {
         runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 values.add(
-                        Value.from(dao.getTableCell(
-                                ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))));
+                        Value.from(dao, ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8))));
             } catch (IOException ioException) {
                 logger.error("Нода: {}. Ошибка в GET {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
         }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
         ).whenCompleteAsync((responses, error) -> {
-            for (final HttpResponse<byte[]> response : responses) {
-                if (response.statusCode() == 404) {
-                    resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
-                    return;
-                }
-            }
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
             final int acks = getNumberOfSuccessfulResponses(
                     getStartAcks(replicas), responses, success);
@@ -102,8 +95,7 @@ final class ReplicaWorker {
         CompletableFuture.runAsync(() -> {
             try {
                 final Response response = Value.transform(
-                        Value.from(dao.getTableCell(
-                                ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
+                        Value.from(dao, ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8))),
                         true);
                 resp(httpSession, response);
             } catch (IOException ioException) {
