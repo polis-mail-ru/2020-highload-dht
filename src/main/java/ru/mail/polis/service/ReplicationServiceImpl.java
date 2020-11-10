@@ -17,13 +17,10 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -142,42 +139,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private void handleLocal(
-            final Request request,
-            final HttpSession session,
-            final ByteBuffer key
-    ) throws IOException {
-        try {
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    runExecutor(session, () -> handler.singleGet(key, request));
-                    break;
-                case Request.METHOD_PUT:
-                    runExecutor(session, () -> handler.singleUpsert(key, request.getBody(), request));
-                    break;
-                case Request.METHOD_DELETE:
-                    runExecutor(session, () -> handler.singleDelete(key, request));
-                    break;
-                default:
-                    session.sendError(
-                            Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED_METHOD_ERROR)
-                    );
-                    break;
-            }
-        } catch (RejectedExecutionException e) {
-            log.error(MESSAGE_MAP.get(ErrorNames.REJECTED), e);
-            handleError(session);
-        }
-    }
-
-    private void handleError(final HttpSession session) {
-        try {
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("Couldn't send response", e);
-        }
-    }
-
     private void handle(
             final Request request,
             final HttpSession session,
@@ -186,11 +147,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             final boolean isForwardedRequest
     ) throws IOException {
         try {
-            if (topology.getSize() == 1) {
-                final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-                handleLocal(request, session, byteBuffer);
-                return;
-            }
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
                     session.sendResponse(
@@ -232,18 +188,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    private void runExecutor(
-            @NotNull final HttpSession session, final Runner runner
-    ) throws RejectedExecutionException {
-        exec.execute(() -> {
-            try {
-                session.sendResponse(runner.execute());
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
-            }
-        });
     }
 
     @Override
