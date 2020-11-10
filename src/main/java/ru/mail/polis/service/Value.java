@@ -1,11 +1,10 @@
 package ru.mail.polis.service;
 
 import one.nio.http.Response;
-import ru.mail.polis.util.Util;
+
 import java.io.IOException;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -33,12 +32,6 @@ public final class Value {
 
     public static Value resolveDeletedValue(final long timestamp) {
         return new Value(true, timestamp, EMPTY_BUFFER);
-    }
-
-    static boolean isDeleted(final ByteBuffer buffer, final String marker) {
-        final byte[] value = Util.toByteArray(buffer);
-        final byte[] markerValue = marker.getBytes(StandardCharsets.UTF_8);
-        return Arrays.equals(value, markerValue);
     }
 
     static Value resolveMissingValue() {
@@ -97,6 +90,20 @@ public final class Value {
                 .putShort(isDeleted)
                 .putLong(timestamp)
                 .put(buffer.duplicate()).array();
+    }
+
+    static Value fromResponse(final Response response) {
+        final long timestamp = ReplicationServiceUtils.getTimestamp(response);
+
+        if (response.getStatus() == 200) {
+            return Value.resolveExistingValue(ByteBuffer.wrap(response.getBody()), timestamp);
+        }
+
+        if (response.getStatus() == 404 && timestamp > 0) {
+            return Value.resolveDeletedValue(timestamp);
+        }
+
+        return Value.resolveMissingValue();
     }
 
     static Response toResponse(
