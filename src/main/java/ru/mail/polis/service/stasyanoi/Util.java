@@ -15,12 +15,8 @@ import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
 import ru.mail.polis.service.stasyanoi.server.helpers.BodyWithTimestamp;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -53,21 +49,6 @@ public class Util {
         final int hash = Math.abs(Arrays.hashCode(idArray));
         final int absoluteHash = hash < 0 ? -hash : hash;
         return absoluteHash % nodeCount;
-    }
-
-    /**
-     * Filter responses for throwables.
-     *
-     * @param response  - response received.
-     * @param throwable - throwable that has been thrown.
-     * @return the response after filtration.
-     */
-    public Response filterResponse(final Response response, final Throwable throwable) {
-        if (throwable == null) {
-            return response;
-        } else {
-            return responseWithNoBody(Response.INTERNAL_ERROR);
-        }
     }
 
     /**
