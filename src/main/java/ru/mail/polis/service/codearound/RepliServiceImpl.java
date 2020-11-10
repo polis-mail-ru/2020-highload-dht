@@ -29,16 +29,20 @@ public class RepliServiceImpl extends HttpServer implements Service {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
-    public static final String IO_ERROR_LOG = "IO exception raised";
-    public static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
-    public static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
+    private static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
+            + "Request failed as gateway closed past timeout";
+    private static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
+    private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
             + "Failed determining response";
+    public static final String IO_ERROR_LOG = "IO exception raised";
     @NotNull
     private final ExecutorService exec;
     @NotNull
     private final Topology<String> topology;
     @NotNull
     private final ReplicationLsm lsm;
+    @NotNull
+    private final ReplicationFactor repliFactor;
 
     /**
      * class const.
@@ -70,10 +74,10 @@ public class RepliServiceImpl extends HttpServer implements Service {
         );
         this.topology = topology;
         final Map<String, HttpClient> nodesToClients = new HashMap<>();
-        final ReplicationFactor repliFactor = new ReplicationFactor(
+        repliFactor = new ReplicationFactor(
                 topology.getClusterSize() / 2 + 1,
                 topology.getClusterSize());
-        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor, exec);
+        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, exec);
 
         for (final String node : topology.getNodes()) {
             if (topology.isThisNode(node)) {
@@ -123,10 +127,54 @@ public class RepliServiceImpl extends HttpServer implements Service {
         }
 
         if (isForwardedRequest || topology.getNodes().size() > 1) {
-            lsm.invokeHandlerByMethod(id, isForwardedRequest, req, session);
+            invokeHandlerByMethod(id, isForwardedRequest, req, session);
         } else {
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             executeAsync(req, key, session);
+        }
+    }
+
+    /**
+     * coordinator for method-specific handlers to manage consistent processing, response as well.
+     *
+     * @param id - target key (as String-defined data)
+     * @param isForwardedRequest - true if incoming request header indicates
+     *                             invocation of proxy-providing method on a previous node
+     * @param req - HTTP request
+     * @param session - ongoing HTTP session instance
+     */
+    public void invokeHandlerByMethod(@NotNull final String id,
+                                      final boolean isForwardedRequest,
+                                      @NotNull final Request req,
+                                      @NotNull final HttpSession session) throws IOException {
+        final String[] nodes;
+        final ReplicationFactor repliFactorObj = ReplicationFactor
+                .defaultRepliFactor(req.getParameter("replicas"), repliFactor, session);
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        if (isForwardedRequest) {
+            nodes = new String[]{ topology.getThisNode() };
+        } else {
+            nodes = topology.replicasFor(key, repliFactorObj.getFromValue());
+        }
+
+        try {
+            switch (req.getMethod()) {
+                case Request.METHOD_GET:
+                    lsm.getWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session, isForwardedRequest);
+                    return;
+                case Request.METHOD_PUT:
+                    lsm.upsertWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
+                    return;
+                case Request.METHOD_DELETE:
+                    lsm.deleteWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
+                    return;
+                default:
+                    session.sendError(Response.METHOD_NOT_ALLOWED, RepliServiceImpl.REJECT_METHOD_ERROR_LOG);
+                    break;
+            }
+        } catch (IOException e) {
+            session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
         }
     }
 

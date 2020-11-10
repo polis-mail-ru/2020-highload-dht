@@ -11,8 +11,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -141,10 +139,5 @@ public final class FutureUtils {
             }
         }
         quant.get();
-    }
-
-    public static ByteBuffer getKeyFromRequest(@NotNull final Request req) {
-        final String key = req.getParameter("id=");
-        return ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8));
     }
 }
