@@ -120,7 +120,7 @@ public final class Value {
 
         // Value is deleted
         if (value.isValueDeleted()) {
-            response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
             return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
         }
 
