@@ -97,12 +97,14 @@ public class CustomServer extends OverridedServer {
             if (node == thisNodeIndex) {
                 responseHttpTemp = getResponseFromLocalNode(idParam, dao);
             } else {
-                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node, nodeIndexToUrlMapping);
+                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                        nodeIndexToUrlMapping);
             }
 
             if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
                 final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+                final List<Response> responses = getReplicaResponses(request, node,
+                        ackFrom.getFrom() - 1);
                 responses.add(responseHttpTemp);
                 responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
             } else {
@@ -220,7 +222,7 @@ public class CustomServer extends OverridedServer {
     }
 
     @NotNull
-    private List<Response> getReplicaResponses(final Request request, int node, int fromOtherReplicas) {
+    private List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
         tempNodeMapping.remove(node);
         return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request, port);

@@ -55,7 +55,14 @@ public class Util {
         return absoluteHash % nodeCount;
     }
 
-    public Response filterResponse(Response response, Throwable throwable) {
+    /**
+     * Filter responses for throwables.
+     *
+     * @param response  - response received.
+     * @param throwable - throwable that has been thrown.
+     * @return the response after filtration.
+     */
+    public Response filterResponse(final Response response, final Throwable throwable) {
         if (throwable == null) {
             return response;
         } else {
@@ -248,7 +255,7 @@ public class Util {
     }
 
     /**
-     * Get clone of input request:
+     * Get clone of input request.
      *
      * @param request - input request.
      * @param newPath - new path to which to send.
@@ -279,7 +286,7 @@ public class Util {
             ack = size / 2 + 1;
             from = size;
         } else {
-            String pureReplicasHeader = replicas.substring(1);
+            final String pureReplicasHeader = replicas.substring(1);
             ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(pureReplicasHeader), 0));
             from = Integer.parseInt(Iterables.get(Splitter.on('/').split(pureReplicasHeader), 1));
         }
