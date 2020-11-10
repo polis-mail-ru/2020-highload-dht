@@ -1,6 +1,11 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.*;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.RequestMethod;
+import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
 
@@ -11,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 public class BaseFunctionalityServer extends ConstantsServer {
 
     /**
-     * Server for overwridden methods.
+     * Server for basic functionality methods.
      *
      * @param dao - dao.
      * @param config - config.
