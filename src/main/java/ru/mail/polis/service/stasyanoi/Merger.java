@@ -1,8 +1,6 @@
 package ru.mail.polis.service.stasyanoi;
 
 import one.nio.http.Response;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,10 +28,7 @@ public class Merger {
     public Response mergeGetResponses(final List<Response> responses,
                                              final Integer ack,
                                              final Map<Integer, String> nodeMapping) {
-
-
         final Response responseHttp;
-
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
