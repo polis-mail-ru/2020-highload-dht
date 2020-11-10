@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
-import ru.mail.polis.service.stasyanoi.server.helpers.Arguments;
 import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 
 import java.io.IOException;
@@ -51,7 +50,7 @@ public class CustomServer extends BaseFunctionalityServer {
     @RequestMethod(Request.METHOD_GET)
     public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+            executorService.execute(() -> internalRun(idParam, session,
                     () -> getResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
@@ -68,8 +67,7 @@ public class CustomServer extends BaseFunctionalityServer {
     @RequestMethod(Request.METHOD_GET)
     public void getReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> internalRun(new Arguments(idParam, session),
-                    () -> getResponseFromLocalNode(idParam)));
+            executorService.execute(() -> internalRun(idParam, session, () -> getResponseFromLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
@@ -123,7 +121,7 @@ public class CustomServer extends BaseFunctionalityServer {
     @RequestMethod(Request.METHOD_PUT)
     public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+            executorService.execute(() -> internalRun(idParam, session,
                     () -> putResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
@@ -141,8 +139,7 @@ public class CustomServer extends BaseFunctionalityServer {
     @RequestMethod(Request.METHOD_PUT)
     public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> internalRun(new Arguments(idParam, session),
-                    () -> putIntoLocalNode(request, idParam)));
+            executorService.execute(() -> internalRun(idParam, session, () -> putIntoLocalNode(request, idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
@@ -204,7 +201,7 @@ public class CustomServer extends BaseFunctionalityServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> internalRun(new Arguments(idParam, session),
+            executorService.execute(() -> internalRun(idParam, session,
                     () -> deleteResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
@@ -221,23 +218,22 @@ public class CustomServer extends BaseFunctionalityServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> internalRun(new Arguments(idParam, session),
-                    () -> deleteInLocalNode(idParam)));
+            executorService.execute(() -> internalRun(idParam, session, () -> deleteInLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private void internalRun(final Arguments replicationArguments, final Supplier<Response> responseSupplier) {
+    private void internalRun(final String idParam, final HttpSession session,
+                             final Supplier<Response> responseSupplier) {
         Response responseHttp;
-        final String idParam = replicationArguments.getIdParam();
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             responseHttp = responseSupplier.get();
         }
         try {
-            replicationArguments.getSession().sendResponse(responseHttp);
+            session.sendResponse(responseHttp);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }
