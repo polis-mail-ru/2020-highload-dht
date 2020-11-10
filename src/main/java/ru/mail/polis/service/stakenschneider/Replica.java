@@ -1,13 +1,8 @@
 package ru.mail.polis.service.stakenschneider;
 
 import com.google.common.base.Splitter;
-import one.nio.http.HttpSession;
 import org.jetbrains.annotations.NotNull;
-
-import java.io.IOException;
 import java.util.List;
-
-import static one.nio.http.Response.BAD_REQUEST;
 
 public class Replica {
     private final int ack;
@@ -35,7 +30,7 @@ public class Replica {
     public static Replica calculateRF(final String replicas,
                                       final Replica defaultReplicaFactor,
                                       final int clusterSize) throws IllegalArgumentException {
-        Replica replicaFactor = replicas == null ? defaultReplicaFactor : Replica.of(replicas);
+        final Replica replicaFactor = replicas == null ? defaultReplicaFactor : Replica.of(replicas);
         if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack || replicaFactor.from > clusterSize) {
             throw new IllegalArgumentException("From is too big");
         }

@@ -211,7 +211,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         final boolean proxied = request.getHeader(PROXY_HEADER) != null;
         final String replicaParameter = request.getParameter("replicas");
-        final String replicas = replicaParameter != null ? replicaParameter.replace("=", "") : null;
+        final String replicas = replicaParameter == null ? null : replicaParameter.replace("=", "");
         try {
             final Replica replicaFactor =
                     Replica.calculateRF(replicas, defaultReplicaFactor, clusterSize);
