@@ -16,7 +16,11 @@ import ru.mail.polis.dao.TimestampRecord;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 public class Coordinator {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
