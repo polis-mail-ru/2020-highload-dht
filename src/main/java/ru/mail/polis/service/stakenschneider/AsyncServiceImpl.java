@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.NoSuchElementLiteException;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -139,7 +138,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 session.sendError(Response.INTERNAL_ERROR, e.getMessage());
             } catch (IOException ex) {
                 log.error("something has gone terribly wrong", e);
-                e.printStackTrace();
             }
         }
         return null;
@@ -212,33 +210,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final boolean proxied = request.getHeader(PROXY_HEADER) != null;
-        final String replicas = request.getParameter("replicas");
-        final Replica replicaFactor =
-                Replica.calculateRF(replicas, session, defaultReplicaFactor, clusterSize);
-
-        if (proxied || nodes.getNodes().size() > 1) {
-            final Set<String> replicaClusters = proxied ? Set.of(nodes.getId())
+        final String replicaParameter = request.getParameter("replicas");
+        final String replicas = replicaParameter != null ? replicaParameter.replace("=", "") : null;
+        try {
+            final Replica replicaFactor =
+                    Replica.calculateRF(replicas, defaultReplicaFactor, clusterSize);
+            final Set<String> replicaClusters = proxied || nodes.getNodes().size() > 1 ? Set.of(nodes.getId())
                     : nodes.replicas(replicaFactor.getFrom(), key);
             clusterCoordinator.coordinateRequest(replicaClusters, request, replicaFactor.getAck(), session);
-        } else {
-            try {
-                switch (request.getMethod()) {
-                    case Request.METHOD_GET:
-                        executeAsync(session, () -> get(key));
-                        break;
-                    case Request.METHOD_PUT:
-                        executeAsync(session, () -> put(key, request));
-                        break;
-                    case Request.METHOD_DELETE:
-                        executeAsync(session, () -> delete(key));
-                        break;
-                    default:
-                        session.sendError(Response.METHOD_NOT_ALLOWED, "Wrong method");
-                        break;
-                }
-            } catch (IOException e) {
-                log.error("Internal error", e);
-            }
+        } catch (IllegalArgumentException e) {
+            session.sendError(Response.BAD_REQUEST, "Wrong ReplicaFactor");
         }
     }
 
@@ -275,31 +256,5 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         end == null ? null : ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8)));
         ((StorageSession) session).stream(records);
 
-    }
-
-    private Response get(final ByteBuffer key) {
-        try {
-            final ByteBuffer value = dao.get(key);
-            final ByteBuffer duplicate = value.duplicate();
-            final var body = new byte[duplicate.remaining()];
-            duplicate.get(body);
-            return new Response(Response.OK, body);
-        } catch (NoSuchElementLiteException e) {
-            log.error("element not found", e);
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            log.error("internal error", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
-    private Response put(final ByteBuffer key, final Request request) throws IOException {
-        dao.upsert(key, ByteBuffer.wrap(request.getBody()));
-        return new Response(Response.CREATED, Response.EMPTY);
-    }
-
-    private Response delete(final ByteBuffer key) throws IOException {
-        dao.remove(key);
-        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 }

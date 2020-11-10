@@ -20,8 +20,7 @@ public class Replica {
 
     @NotNull
     private static Replica of(@NotNull final String value) {
-        final String rem = value.replace("=", "");
-        final List<String> values = Splitter.on('/').splitToList(rem);
+        final List<String> values = Splitter.on('/').splitToList(value);
         if (values.size() != 2) {
             throw new IllegalArgumentException("Wrong replica factor:" + value);
         }
@@ -34,18 +33,11 @@ public class Replica {
      * @return ReplicaFactor value
      */
     public static Replica calculateRF(final String replicas,
-                                      @NotNull final HttpSession session,
                                       final Replica defaultReplicaFactor,
-                                      final int clusterSize) throws IOException {
-        Replica replicaFactor = null;
-        try {
-            replicaFactor = replicas == null ? defaultReplicaFactor : Replica.of(replicas);
-            if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack || replicaFactor.from > clusterSize) {
-                throw new IllegalArgumentException("From is too big");
-            }
-            return replicaFactor;
-        } catch (IllegalArgumentException e) {
-            session.sendError(BAD_REQUEST, "Wrong ReplicaFactor");
+                                      final int clusterSize) throws IllegalArgumentException {
+        Replica replicaFactor = replicas == null ? defaultReplicaFactor : Replica.of(replicas);
+        if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack || replicaFactor.from > clusterSize) {
+            throw new IllegalArgumentException("From is too big");
         }
         return replicaFactor;
     }

@@ -144,12 +144,9 @@ public class TimestampRecord {
      * @return latest timestamp record instance
      */
     public static TimestampRecord merge(final List<TimestampRecord> responses) {
-        if (responses.size() == 1) return responses.get(0);
-        else {
-            return responses.stream()
-                    .filter(timestampRecord -> !timestampRecord.isEmpty())
-                    .max(Comparator.comparingLong(TimestampRecord::getTimestamp))
-                    .orElseGet(TimestampRecord::getEmpty);
-        }
+        return responses.stream()
+                .filter(timestampRecord -> !timestampRecord.isEmpty())
+                .max(Comparator.comparingLong(TimestampRecord::getTimestamp))
+                .orElseGet(TimestampRecord::getEmpty);
     }
 }
