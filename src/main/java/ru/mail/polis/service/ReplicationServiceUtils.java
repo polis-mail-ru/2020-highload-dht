@@ -37,26 +37,6 @@ final class ReplicationServiceUtils {
         ) : topology.getReplicas(key, replicationFactor.getFrom());
     }
 
-    static Response handleExternal(
-            final List<Value> values,
-            final Set<String> nodeReplicas,
-            final boolean isForwardedRequest) throws IOException {
-
-        final Value value = syncValues(values);
-
-        if (value.isValueDeleted()) {
-            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
-            return addTimestampHeader(response, value.getTimestamp());
-        }
-
-        if (nodeReplicas.size() == 1 && isForwardedRequest) {
-            final Response response = new Response(Response.OK, value.getValueBytes());
-            return addTimestampHeader(response, value.getTimestamp());
-        }
-
-        return new Response(Response.OK, value.getBytes());
-    }
-
     static long getTimestamp(final Response response) throws NumberFormatException {
         final String timestamp = response.getHeader(TIMESTAMP);
         return timestamp == null ? -1 : Long.parseLong(timestamp);
@@ -67,18 +47,4 @@ final class ReplicationServiceUtils {
         return response;
     }
 
-    static Response handleInternal(
-            @NotNull final ByteBuffer key,
-            @NotNull final DAO dao) {
-
-        try {
-            final Value value = dao.getValue(key);
-            final Response response = new Response(Response.OK, value.getValueBytes());
-            return addTimestampHeader(response, value.getTimestamp());
-        } catch (IOException exc) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        } catch (NoSuchElementException exc) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
-    }
 }

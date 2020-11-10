@@ -230,8 +230,7 @@ class ReplicationHandler {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Set<String> nodes;
         try {
-            nodes = isForwardedRequest ? ImmutableSet.of(
-                    topology.getCurrentNode()) : topology.getReplicas(key, replicationFactor.getFrom());
+            nodes = ReplicationServiceUtils.getNodeReplica(key, replicationFactor, isForwardedRequest, topology);
         } catch (NotEnoughNodesException e) {
             log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
             return;
