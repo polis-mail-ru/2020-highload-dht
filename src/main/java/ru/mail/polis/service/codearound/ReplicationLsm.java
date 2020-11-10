@@ -119,7 +119,7 @@ public class ReplicationLsm {
         }
 
         try {
-              session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req, exec));
+              session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
         } catch (IOException exc) {
               LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
         }

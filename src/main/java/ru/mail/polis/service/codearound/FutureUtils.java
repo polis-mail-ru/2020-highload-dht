@@ -66,8 +66,7 @@ public final class FutureUtils {
                                               final List<CompletableFuture<HttpResponse<byte[]>>> futures,
                                               final String[] nodes,
                                               final int count,
-                                              @NotNull final Request req,
-                                              final ExecutorService exec) throws IOException {
+                                              @NotNull final Request req) throws IOException {
         final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
             try {
