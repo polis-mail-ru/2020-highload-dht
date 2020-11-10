@@ -15,7 +15,7 @@ public class Merger {
 
     private final Util util;
 
-    public Merger(Util util) {
+    public Merger(final Util util) {
         this.util = util;
     }
 
@@ -27,7 +27,6 @@ public class Merger {
      * @param nodeMapping - nodes.
      * @return - merged response.
      */
-    @NotNull
     public Response mergeGetResponses(final List<Response> responses,
                                              final Integer ack,
                                              final Map<Integer, String> nodeMapping) {
@@ -69,7 +68,6 @@ public class Merger {
      * @param nodeMapping - nodes.
      * @return - merged response.
      */
-    @NotNull
     public Response mergePutDeleteResponses(final List<Response> responses,
                                                    final Integer ack,
                                                    final int status,
