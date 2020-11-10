@@ -35,8 +35,6 @@ public class ReplicationLsm {
     private final Topology<String> topology;
     @NotNull
     private final Map<String, HttpClient> nodesToClients;
-   /* @NotNull
-    private final ReplicationFactor repliFactor;*/
     @NotNull
     private final ExecutorService exec;
     private AsyncConnectUtils response;
@@ -56,7 +54,6 @@ public class ReplicationLsm {
         this.dao = dao;
         this.topology = topology;
         this.nodesToClients = nodesToClients;
-        //this.repliFactor = repliFactor;
         this.exec = exec;
     }
 
@@ -86,20 +83,19 @@ public class ReplicationLsm {
     /**
      * GET handler to run async processing in multi-node cluster.
      *
+     * @param key - key searched
      * @param nodes - array of node IDs the cluster is build upon
      * @param req - HTTP request
      * @param ack - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
-     * @param isForwardedRequest - true if incoming request header indicates
-     *                             invocation of proxy-providing method on a previous node
+     *
      */
     @SuppressWarnings("FutureReturnValueIgnored")
     void getWithMultipleNodes(@NotNull final ByteBuffer key,
                               final String[] nodes,
                               @NotNull final Request req,
                               final int ack,
-                              @NotNull final HttpSession session,
-                              final boolean isForwardedRequest) throws IOException {
+                              @NotNull final HttpSession session) throws IOException {
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
         final List<Value> values = new ArrayList<>();
         for (final String node : nodes) {
@@ -126,14 +122,14 @@ public class ReplicationLsm {
         final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
         all.thenAccept(r -> {
             try {
-                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, isForwardedRequest));
+                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
             }
         });
         all.exceptionally(r -> {
             try {
-                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, isForwardedRequest));
+                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
             }

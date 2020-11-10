@@ -31,10 +31,10 @@ public class RepliServiceImpl extends HttpServer implements Service {
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
     private static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
             + "Request failed as gateway closed past timeout";
-    private static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
     private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
             + "Failed determining response";
     public static final String IO_ERROR_LOG = "IO exception raised";
+    public static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
     @NotNull
     private final ExecutorService exec;
     @NotNull
@@ -118,16 +118,9 @@ public class RepliServiceImpl extends HttpServer implements Service {
 
         if (id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request");
-            return;
         }
-
-        boolean isForwardedRequest = false;
-        if (req.getHeader(FORWARD_REQUEST_HEADER) != null) {
-            isForwardedRequest = true;
-        }
-
-        if (isForwardedRequest || topology.getNodes().size() > 1) {
-            invokeHandlerByMethod(id, isForwardedRequest, req, session);
+        if (topology.getNodes().size() > 1) {
+            invokeHandlerByMethod(id, req, session);
         } else {
             final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
             executeAsync(req, key, session);
@@ -138,13 +131,10 @@ public class RepliServiceImpl extends HttpServer implements Service {
      * coordinator for method-specific handlers to manage consistent processing, response as well.
      *
      * @param id - target key (as String-defined data)
-     * @param isForwardedRequest - true if incoming request header indicates
-     *                             invocation of proxy-providing method on a previous node
      * @param req - HTTP request
      * @param session - ongoing HTTP session instance
      */
     public void invokeHandlerByMethod(@NotNull final String id,
-                                      final boolean isForwardedRequest,
                                       @NotNull final Request req,
                                       @NotNull final HttpSession session) throws IOException {
         final String[] nodes;
@@ -152,7 +142,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 .defaultRepliFactor(req.getParameter("replicas"), repliFactor, session);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
-        if (isForwardedRequest) {
+        if (req.getHeader(FORWARD_REQUEST_HEADER) != null) {
             nodes = new String[]{ topology.getThisNode() };
         } else {
             nodes = topology.replicasFor(key, repliFactorObj.getFromValue());
@@ -161,7 +151,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         try {
             switch (req.getMethod()) {
                 case Request.METHOD_GET:
-                    lsm.getWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session, isForwardedRequest);
+                    lsm.getWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
                     return;
                 case Request.METHOD_PUT:
                     lsm.upsertWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
@@ -179,7 +169,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * resolves async request processing in single-node cluster.
+     * resolves async request processing in single node cluster.
      *
      * @param req - HTTP request
      * @param key - String object to be processed as a key in terms of data storage design

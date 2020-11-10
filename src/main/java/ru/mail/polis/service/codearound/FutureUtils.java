@@ -23,10 +23,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class FutureUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
+    private static final String PROXY_HEADER = "X-OK-Proxy: True";
     public static final String GET_COMPLETION_ERROR_LOG = "Future return error when running GET request handler";
     public static final String UPSERT_COMPLETION_ERROR_LOG = "Future return error when running PUT request handler";
     public static final String DELETE_COMPLETION_ERROR_LOG = "Future return error when running DELETE request handler";
-    private static final String PROXY_HEADER = "X-OK-Proxy: True";
 
     /**
      * class const.
@@ -56,15 +56,14 @@ public final class FutureUtils {
      * @param nodes - array of cluster-belonging node IDs
      * @param futures - collection of future responses
      * @param count - cluster-wide success quorum to send response
-     * @param isForwardedRequest - true if incoming request header indicates
-     *                             invocation of proxy-providing method on a previous node
+     * @param req - HTTP request
      * @return - HTTP response
      */
     public static Response execGetWithFutures(final List<Value> values,
                                               final List<CompletableFuture<HttpResponse<byte[]>>> futures,
                                               final String[] nodes,
                                               final int count,
-                                              final boolean isForwardedRequest) throws IOException {
+                                              @NotNull final Request req) throws IOException {
         final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
             try {
@@ -79,7 +78,7 @@ public final class FutureUtils {
             }
         }
         if (quant.get() >= futures.size() || quant.get() >= count) {
-            return RepliServiceUtils.processResponses(nodes, values, isForwardedRequest);
+            return RepliServiceUtils.processResponses(nodes, values, req);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }

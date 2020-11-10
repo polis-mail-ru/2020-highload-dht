@@ -1,5 +1,6 @@
 package ru.mail.polis.service.codearound;
 
+import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -52,9 +53,9 @@ public final class RepliServiceUtils {
      * @return array of node IDs that belong same cluster
      */
     public static String[] getNodes(final String id,
-                                      @NotNull final Topology<String> topology,
-                                      final boolean isForwardedRequest,
-                                      @NotNull final ReplicationFactor repliFactor) {
+                                    @NotNull final Topology<String> topology,
+                                    final boolean isForwardedRequest,
+                                    @NotNull final ReplicationFactor repliFactor) {
         if (isForwardedRequest) {
             return new String[]{topology.getThisNode()};
         } else {
@@ -73,10 +74,9 @@ public final class RepliServiceUtils {
      *                                 invocation of proxy-providing method on a previous node
      * @return HTTP response
      */
-    public static Response issueExternalResponse(
-            final List<Value> values,
-            final String[] replicas,
-            final boolean isForwardedRequest) throws IOException {
+    public static Response issueExternalResponse(final List<Value> values,
+                                                 final String[] replicas,
+                                                 final boolean isForwardedRequest) throws IOException {
         final Value value = syncReplicaValues(values);
         if (value.isValueDeleted()) {
             return new Response(Response.NOT_FOUND, value.getBytesFromValue());
@@ -96,9 +96,8 @@ public final class RepliServiceUtils {
      * @param dao - implementable DAO
      * @return HTTP response
      */
-    public static Response issueInternalResponse(
-            @NotNull final ByteBuffer key,
-            @NotNull final DAO dao) {
+    public static Response issueInternalResponse(@NotNull final ByteBuffer key,
+                                                 @NotNull final DAO dao) {
         try {
             final Value value = dao.getValue(key);
             return new Response(Response.OK, value.getBytesFromValue());
@@ -116,14 +115,17 @@ public final class RepliServiceUtils {
      *
      * @param nodes - array of node IDs the cluster is build upon
      * @param responses - collection of values to send back
-     * @param isForwardedRequest - true if incoming request header indicates
-     *                            invocation of proxy-providing method on a previous node
+     * @param req - HTTP request
      * @return HTTP response
      */
     public static Response processResponses(final String[] nodes,
-                                     final List<Value> responses,
-                                     final boolean isForwardedRequest) throws IOException {
+                                            final List<Value> responses,
+                                            @NotNull final Request req) throws IOException {
         final Value value = syncReplicaValues(responses);
+        boolean isForwardedRequest = false;
+        if (req.getHeader(RepliServiceImpl.FORWARD_REQUEST_HEADER) != null) {
+            isForwardedRequest = true;
+        }
         if (value.isValueExisting()) {
             if (!isForwardedRequest && nodes.length == 1) {
                 return new Response(Response.OK, value.getBytes());

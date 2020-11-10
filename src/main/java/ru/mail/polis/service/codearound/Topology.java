@@ -1,5 +1,6 @@
 package ru.mail.polis.service.codearound;
 
+import one.nio.http.Request;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -18,7 +19,7 @@ public interface Topology<T> {
     Set<T> getNodes();
 
     @NotNull
-    String[] replicasFor(@NotNull final ByteBuffer id, int numOfReplicas);
+    String[] replicasFor(@NotNull final ByteBuffer id, final int numOfReplicas);
 
     @NotNull
     String getThisNode();
