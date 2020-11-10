@@ -18,7 +18,6 @@ public final class Value {
             final long timestamp,
             final ByteBuffer buffer
     ) {
-
         this.isValueDeleted = isValueDeleted;
         this.timestamp = timestamp;
         this.buffer = buffer;
