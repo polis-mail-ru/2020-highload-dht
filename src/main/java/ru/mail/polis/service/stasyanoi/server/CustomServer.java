@@ -12,7 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
-import ru.mail.polis.service.stasyanoi.server.helpers.ReplicationArguments;
+import ru.mail.polis.service.stasyanoi.server.helpers.Arguments;
 import ru.mail.polis.service.stasyanoi.server.internal.OverridedServer;
 
 import java.io.IOException;
@@ -52,7 +52,7 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_GET)
     public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+            executorService.execute(() -> replicateInternal(new Arguments(idParam, session),
                     () -> getResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
@@ -69,14 +69,15 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_GET)
     public void getReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+            executorService.execute(() -> replicateInternal(new Arguments(idParam, session),
                     () -> getResponseFromLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private Response getResponseFromLocalAndReplicas(String idParam, Request request) {
+    private Response getResponseFromLocalAndReplicas(final String idParam,
+                                                     final Request request) {
         final Response responseHttp;
         final int node = util.getNode(idParam, nodeAmount);
         final Response responseHttpTemp;
@@ -132,7 +133,7 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_PUT)
     public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+            executorService.execute(() -> replicateInternal(new Arguments(idParam, session),
                     () -> putResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
@@ -150,14 +151,14 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_PUT)
     public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+            executorService.execute(() -> replicateInternal(new Arguments(idParam, session),
                     () -> putIntoLocalNode(request, idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private Response putResponseFromLocalAndReplicas(String idParam, Request request) {
+    private Response putResponseFromLocalAndReplicas(final String idParam, final Request request) {
         Response responseHttp;
         final int node = util.getNode(idParam, nodeAmount);
         Response responseHttpTemp;
@@ -208,7 +209,7 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+            executorService.execute(() -> replicateInternal(new Arguments(idParam, session),
                     () -> deleteResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
@@ -225,14 +226,15 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+            executorService.execute(() -> replicateInternal(new Arguments(idParam, session),
                     () -> deleteInLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private void replicateInternal(ReplicationArguments replicationArguments, Supplier<Response> responseSupplier) {
+    private void replicateInternal(final Arguments replicationArguments,
+                                   final Supplier<Response> responseSupplier) {
         Response responseHttp;
         final String idParam = replicationArguments.getIdParam();
         if (idParam == null || idParam.isEmpty()) {
@@ -241,14 +243,13 @@ public class CustomServer extends OverridedServer {
             responseHttp = responseSupplier.get();
         }
         try {
-            HttpSession session = replicationArguments.getSession();
-            session.sendResponse(responseHttp);
+            replicationArguments.getSession().sendResponse(responseHttp);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }
     }
 
-    private Response deleteResponseFromLocalAndReplicas(String idParam, Request request) {
+    private Response deleteResponseFromLocalAndReplicas(final String idParam, final Request request) {
         Response responseHttp;
         final int node = util.getNode(idParam, nodeAmount);
         Response responseHttpTemp;
