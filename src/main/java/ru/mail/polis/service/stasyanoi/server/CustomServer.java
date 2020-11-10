@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
+import ru.mail.polis.service.stasyanoi.server.helpers.ReplicationArguments;
 import ru.mail.polis.service.stasyanoi.server.internal.OverridedServer;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Supplier;
 
 public class CustomServer extends OverridedServer {
 
@@ -50,7 +52,8 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_GET)
     public void get(final @Param("id") String idParam, final HttpSession session, final Request request) {
         try {
-            executorService.execute(() -> getInternal(idParam, session, request));
+            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+                    () -> getResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
@@ -66,57 +69,34 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_GET)
     public void getReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> getReplicationInternal(idParam, session));
+            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+                    () -> getResponseFromLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private void getReplicationInternal(final String idParam, final HttpSession session) {
+    private Response getResponseFromLocalAndReplicas(String idParam, Request request) {
         final Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+        final int node = util.getNode(idParam, nodeAmount);
+        final Response responseHttpTemp;
+        if (node == thisNodeIndex) {
+            responseHttpTemp = getResponseFromLocalNode(idParam);
         } else {
-            responseHttp = getResponseFromLocalNode(idParam);
+            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                    nodeIndexToUrlMapping);
         }
 
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    private void getInternal(final String idParam, final HttpSession session, final Request request) {
-        final Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+            final List<Response> responses = getReplicaResponses(request, node,
+                    ackFrom.getFrom() - 1);
+            responses.add(responseHttpTemp);
+            responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
         } else {
-            final int node = util.getNode(idParam, nodeAmount);
-            final Response responseHttpTemp;
-            if (node == thisNodeIndex) {
-                responseHttpTemp = getResponseFromLocalNode(idParam);
-            } else {
-                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
-                        nodeIndexToUrlMapping);
-            }
-
-            if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final List<Response> responses = getReplicaResponses(request, node,
-                        ackFrom.getFrom() - 1);
-                responses.add(responseHttpTemp);
-                responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
-            } else {
-                responseHttp = responseHttpTemp;
-            }
+            responseHttp = responseHttpTemp;
         }
-
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
+        return responseHttp;
     }
 
     private Response getResponseFromLocalNode(final String idParam) {
@@ -152,7 +132,8 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_PUT)
     public void put(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> putInternal(idParam, request, session));
+            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+                    () -> putResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
@@ -169,57 +150,34 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_PUT)
     public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> putReplicationInternal(idParam, request, session));
+            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+                    () -> putIntoLocalNode(request, idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private void putReplicationInternal(final String idParam, final Request request,
-                                        final HttpSession session) {
+    private Response putResponseFromLocalAndReplicas(String idParam, Request request) {
         Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+        final int node = util.getNode(idParam, nodeAmount);
+        Response responseHttpTemp;
+        if (node == thisNodeIndex) {
+            responseHttpTemp = putIntoLocalNode(request, idParam);
         } else {
-            responseHttp = putIntoLocalNode(request, idParam);
+            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                    nodeIndexToUrlMapping);
         }
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    private void putInternal(final String idParam, final Request request, final HttpSession session) {
-
-        final Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+            final List<Response> responses = getReplicaResponses(request, node,
+                    ackFrom.getFrom() - 1);
+            responses.add(responseHttpTemp);
+            responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 201,
+                    nodeIndexToUrlMapping);
         } else {
-            final int node = util.getNode(idParam, nodeAmount);
-            Response responseHttpTemp;
-            if (node == thisNodeIndex) {
-                responseHttpTemp = putIntoLocalNode(request, idParam);
-            } else {
-                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
-                        nodeIndexToUrlMapping);
-            }
-            if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final List<Response> responses = getReplicaResponses(request, node,
-                        ackFrom.getFrom() - 1);
-                responses.add(responseHttpTemp);
-                responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 201,
-                        nodeIndexToUrlMapping);
-            } else {
-                responseHttp = responseHttpTemp;
-            }
+            responseHttp = responseHttpTemp;
         }
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
+        return responseHttp;
     }
 
     @NotNull
@@ -250,7 +208,8 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void delete(final @Param("id") String idParam, final Request request, final HttpSession session) {
         try {
-            executorService.execute(() -> deleteInternal(idParam, request, session));
+            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+                    () -> deleteResponseFromLocalAndReplicas(idParam, request)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
@@ -266,55 +225,50 @@ public class CustomServer extends OverridedServer {
     @RequestMethod(Request.METHOD_DELETE)
     public void deleteReplication(final @Param("id") String idParam, final HttpSession session) {
         try {
-            executorService.execute(() -> deleteRepInternal(idParam, session));
+            executorService.execute(() -> replicateInternal(new ReplicationArguments(idParam, session),
+                    () -> deleteInLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
     }
 
-    private void deleteRepInternal(final String idParam, final HttpSession session) {
+    private void replicateInternal(ReplicationArguments replicationArguments, Supplier<Response> responseSupplier) {
         Response responseHttp;
+        final String idParam = replicationArguments.getIdParam();
         if (idParam == null || idParam.isEmpty()) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            responseHttp = deleteInLocalNode(idParam);
+            responseHttp = responseSupplier.get();
         }
         try {
+            HttpSession session = replicationArguments.getSession();
             session.sendResponse(responseHttp);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }
     }
 
-    private void deleteInternal(final String idParam, final Request request, final HttpSession session) {
-        final Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+    private Response deleteResponseFromLocalAndReplicas(String idParam, Request request) {
+        Response responseHttp;
+        final int node = util.getNode(idParam, nodeAmount);
+        Response responseHttpTemp;
+        if (node == thisNodeIndex) {
+            responseHttpTemp = deleteInLocalNode(idParam);
         } else {
-            final int node = util.getNode(idParam, nodeAmount);
-            Response responseHttpTemp;
-            if (node == thisNodeIndex) {
-                responseHttpTemp = deleteInLocalNode(idParam);
-            } else {
-                responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
-                        nodeIndexToUrlMapping);
-            }
-            if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
-                final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-                final List<Response> responses = getReplicaResponses(request, node,
-                        ackFrom.getFrom() - 1);
-                responses.add(responseHttpTemp);
-                responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 202,
-                        nodeIndexToUrlMapping);
-            } else {
-                responseHttp = responseHttpTemp;
-            }
+            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
+                    nodeIndexToUrlMapping);
         }
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(),e);
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
+            final List<Response> responses = getReplicaResponses(request, node,
+                    ackFrom.getFrom() - 1);
+            responses.add(responseHttpTemp);
+            responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), 202,
+                    nodeIndexToUrlMapping);
+        } else {
+            responseHttp = responseHttpTemp;
         }
+        return responseHttp;
     }
 
     @NotNull
