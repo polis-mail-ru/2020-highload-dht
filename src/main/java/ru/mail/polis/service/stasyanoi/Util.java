@@ -159,44 +159,6 @@ public class Util {
     }
 
     /**
-     * Get one nio response.
-     *
-     * @param javaResponse - response.
-     * @return one nio response.
-     */
-    public Response getOneNioResponse(final HttpResponse<byte[]> javaResponse) {
-        final Response response = new Response(String.valueOf(javaResponse.statusCode()), javaResponse.body());
-        javaResponse.headers().map().forEach((s, strings) -> response.addHeader(s + ": " + strings.get(0)));
-        return response;
-    }
-
-    /**
-     * Get net java request.
-     *
-     * @param oneNioRequest - one nio request.
-     * @param host - host.
-     * @return - java net request.
-     */
-    public HttpRequest getJavaRequest(final Request oneNioRequest, final String host) {
-        final HttpRequest.Builder builder = HttpRequest.newBuilder();
-        final String newPath = oneNioRequest.getPath() + "?" + oneNioRequest.getQueryString();
-        final String uri = host + newPath;
-        final String methodName = oneNioRequest.getMethodName();
-        final HttpRequest.Builder requestBuilder = builder
-                .timeout(Duration.ofSeconds(1))
-                .uri(URI.create(uri));
-        if ("GET".equalsIgnoreCase(methodName)) {
-            return requestBuilder.GET().build();
-        } else if ("PUT".equalsIgnoreCase(methodName)) {
-            final HttpRequest.BodyPublisher bodyPublisher = HttpRequest.BodyPublishers.ofByteArray(oneNioRequest
-                    .getBody());
-            return requestBuilder.PUT(bodyPublisher).build();
-        } else {
-            return requestBuilder.DELETE().build();
-        }
-    }
-
-    /**
      * Get request with replication path.
      *
      * @param request - input request.
