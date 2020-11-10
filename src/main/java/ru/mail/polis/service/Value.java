@@ -111,22 +111,19 @@ public final class Value {
             final boolean isForwardedRequest
     ) throws IOException {
         final Value value = ReplicationServiceUtils.syncValues(responses);
-        // Value is deleted
-        if (value.isValueDeleted()) {
-            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
-            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
-        }
         // Value is present
         Response response;
-        if (!value.isValueMissing()) {
-            if (isForwardedRequest && nodes.size() == 1) {
-                response = new Response(Response.OK, value.getBytes());
-                return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
-            }
-
+        if (!value.isValueMissing() && !value.isValueDeleted()) {
             response = new Response(Response.OK, value.getBytes());
             return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
         }
+
+        // Value is deleted
+        if (value.isValueDeleted()) {
+            response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        }
+
         // Value is missing
         return new Response(Response.NOT_FOUND, Response.EMPTY);
     }
