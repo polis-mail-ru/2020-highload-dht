@@ -243,13 +243,13 @@ class ReplicationHandler {
             switch (req.getMethod()) {
                 case Request.METHOD_GET:
                     multipleGet(nodes, req, replicationFactor.getAck(), session);
-                    return;
+                    break;
                 case Request.METHOD_PUT:
                     multipleUpsert(nodes, req, replicationFactor.getAck(), session);
-                    return;
+                    break;
                 case Request.METHOD_DELETE:
                     multipleDelete(nodes, req, replicationFactor.getAck(), session);
-                    return;
+                    break;
                 default:
                     session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED));
                     break;
