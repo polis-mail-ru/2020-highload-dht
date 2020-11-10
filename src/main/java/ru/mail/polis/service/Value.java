@@ -1,7 +1,11 @@
 package ru.mail.polis.service;
 
+import one.nio.http.Response;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Set;
 
 public final class Value {
     private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
@@ -85,5 +89,45 @@ public final class Value {
                 .putShort(isDeleted)
                 .putLong(timestamp)
                 .put(buffer.duplicate()).array();
+    }
+
+    static Value fromResponse(final Response response) {
+        final long timestamp = ReplicationServiceUtils.getTimestamp(response);
+
+        if (response.getStatus() == 404 && timestamp > 0) {
+            return Value.resolveDeletedValue(timestamp);
+        }
+
+        if (response.getStatus() != 500 && timestamp > 0) {
+            return Value.resolveExistingValue(ByteBuffer.wrap(response.getBody()), timestamp);
+        }
+
+        return Value.resolveMissingValue();
+    }
+
+    static Response toResponse(
+            final Set<String> nodes,
+            final List<Value> responses,
+            final boolean isForwardedRequest
+    ) throws IOException {
+        final Value value = ReplicationServiceUtils.syncValues(responses);
+        // Value is deleted
+        if (value.isValueDeleted()) {
+            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        }
+        // Value is present
+        Response response;
+        if (!value.isValueMissing()) {
+            if (isForwardedRequest && nodes.size() == 1) {
+                response = new Response(Response.OK, value.getBytes());
+                return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+            }
+
+            response = new Response(Response.OK, value.getBytes());
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        }
+        // Value is missing
+        return new Response(Response.NOT_FOUND, Response.EMPTY);
     }
 }

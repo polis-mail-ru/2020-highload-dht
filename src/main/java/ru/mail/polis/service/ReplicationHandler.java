@@ -102,12 +102,7 @@ class ReplicationHandler {
                     response = nodesToClients.get(node)
                             .get(NORMAL_REQUEST_HEADER + id, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
                 }
-                final long timestamp = ReplicationServiceUtils.getTimestamp(response);
-                if (response.getStatus() == 404) {
-                    values.add(timestamp > 0 ? Value.resolveDeletedValue(timestamp) : Value.resolveMissingValue());
-                } else if (response.getStatus() != 500) {
-                    values.add(Value.composeFromBytes(response.getBody()));
-                }
+                values.add(Value.fromResponse(response));
             } catch (HttpException | PoolException | InterruptedException | IOException | NumberFormatException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }

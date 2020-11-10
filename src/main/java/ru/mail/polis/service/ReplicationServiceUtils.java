@@ -19,7 +19,7 @@ final class ReplicationServiceUtils {
 
     }
 
-    private static Value syncValues(final List<Value> values) {
+    static Value syncValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))
@@ -40,21 +40,9 @@ final class ReplicationServiceUtils {
     static Response handleExternal(
             final List<Value> values,
             final Set<String> nodeReplicas,
-            final boolean isForwardedRequest) throws IOException {
-
-        final Value value = syncValues(values);
-
-        if (value.isValueDeleted()) {
-            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
-            return addTimestampHeader(response, value.getTimestamp());
-        }
-
-        if (nodeReplicas.size() == 1 && isForwardedRequest) {
-            final Response response = new Response(Response.OK, value.getValueBytes());
-            return addTimestampHeader(response, value.getTimestamp());
-        }
-
-        return new Response(Response.OK, value.getBytes());
+            final boolean isForwardedRequest
+    ) throws IOException {
+        return Value.toResponse(nodeReplicas, values, isForwardedRequest);
     }
 
     static long getTimestamp(final Response response) throws NumberFormatException {
@@ -62,7 +50,7 @@ final class ReplicationServiceUtils {
         return timestamp == null ? -1 : Long.parseLong(timestamp);
     }
 
-    private static Response addTimestampHeader(final Response response, final long timestamp) {
+    static Response addTimestampHeader(final Response response, final long timestamp) {
         response.addHeader(TIMESTAMP + timestamp);
         return response;
     }
@@ -73,7 +61,17 @@ final class ReplicationServiceUtils {
 
         try {
             final Value value = dao.getValue(key);
-            final Response response = new Response(Response.OK, value.getValueBytes());
+
+            if (value.isValueMissing()) {
+                new Response(Response.NOT_FOUND, Response.EMPTY);
+            }
+
+            if (value.isValueDeleted()) {
+                final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                return addTimestampHeader(response, value.getTimestamp());
+            }
+
+            final Response response = new Response(Response.OK, value.getBytes());
             return addTimestampHeader(response, value.getTimestamp());
         } catch (IOException exc) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
