@@ -21,6 +21,10 @@ public final class ReplicasFactor {
         return new ReplicasFactor(nodes / 2 + 1, nodes);
     }
 
+    /** Get ack and from parameters from request body.
+     * @param replicas - ack and from parameters in string.
+     * @return ReplicasFactor with ack and from.
+     * */
     @NotNull
     @SuppressWarnings("UnstableApiUsage")
     public static ReplicasFactor parser(@NotNull final String replicas) {
