@@ -176,6 +176,9 @@ public class BasicService {
         }
     }
 
+    /**
+     * Stop executorService.
+     */
     public synchronized void stop() {
         execPool.shutdown();
         try {
