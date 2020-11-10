@@ -63,35 +63,34 @@ public class RepliServiceImpl extends HttpServer implements Service {
         super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
         assert queueSize > 0;
-        this.exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
+        this.exec = new ThreadPoolExecutor(
+                workerPoolSize,
+                workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
                         .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
                         .build(),
-                new ThreadPoolExecutor.AbortPolicy()
-        );
+                new ThreadPoolExecutor.AbortPolicy());
         this.topology = topology;
         final Map<String, HttpClient> nodesToClients = new HashMap<>();
         repliFactor = new ReplicationFactor(
                 topology.getClusterSize() / 2 + 1,
                 topology.getClusterSize());
-        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, exec);
 
         for (final String node : topology.getNodes()) {
             if (topology.isThisNode(node)) {
                 continue;
             }
-            final HttpClient client = HttpClient.newBuilder()
+            HttpClient client = HttpClient.newBuilder()
                     .executor(exec)
                     .connectTimeout(Duration.ofSeconds(timeout))
                     .version(HttpClient.Version.HTTP_1_1)
                     .build();
-            if (nodesToClients.put(node, client) != null) {
-                throw new IllegalStateException("Multiple nodes found by same ID");
-            }
+            nodesToClients.put(node, client);
         }
+        this.lsm = new ReplicationLsm(dao, topology, nodesToClients, exec);
     }
 
     /**
@@ -152,13 +151,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
             switch (req.getMethod()) {
                 case Request.METHOD_GET:
                     lsm.getWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
-                    return;
+                    break;
                 case Request.METHOD_PUT:
                     lsm.upsertWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
-                    return;
+                    break;
                 case Request.METHOD_DELETE:
                     lsm.deleteWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
-                    return;
+                    break;
                 default:
                     session.sendError(Response.METHOD_NOT_ALLOWED, RepliServiceImpl.REJECT_METHOD_ERROR_LOG);
                     break;

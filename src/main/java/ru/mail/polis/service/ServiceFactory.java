@@ -17,6 +17,7 @@ import java.util.Set;
 public final class ServiceFactory {
 
     private static final long MAX_HEAP = 256 * 1024 * 1024;
+    public static final int QUEUE_CAP = 1024;
     public static final int TIMEOUT = 1;
 
     private ServiceFactory() {
@@ -49,7 +50,7 @@ public final class ServiceFactory {
                 port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),
-                1024,
+                QUEUE_CAP,
                 topology1,
                 TIMEOUT);
     }

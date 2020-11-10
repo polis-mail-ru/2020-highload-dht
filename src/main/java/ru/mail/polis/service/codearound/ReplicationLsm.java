@@ -16,9 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.*;
 
 /**
  *  class to feature topology-bound implementations of project-required DAO methods (get, put, delete).
@@ -90,7 +88,6 @@ public class ReplicationLsm {
      * @param session - ongoing HTTP session instance
      *
      */
-    @SuppressWarnings("FutureReturnValueIgnored")
     void getWithMultipleNodes(@NotNull final ByteBuffer key,
                               final String[] nodes,
                               @NotNull final Request req,
@@ -119,15 +116,15 @@ public class ReplicationLsm {
                 futures.add(responses);
             }
         }
-        final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        all.thenAccept(r -> {
+        var allFutures = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
+        var allFuturesExec = allFutures.thenAccept(r -> {
             try {
                 session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
             }
         });
-        all.exceptionally(r -> {
+        allFuturesExec.exceptionally(r -> {
             try {
                 session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, req));
             } catch (IOException exc) {
@@ -167,7 +164,6 @@ public class ReplicationLsm {
      * @param count - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
      */
-    @SuppressWarnings("FutureReturnValueIgnored")
     void upsertWithMultipleNodes(@NotNull final ByteBuffer key,
                                  final String[] nodes,
                                  @NotNull final Request req,
@@ -195,15 +191,15 @@ public class ReplicationLsm {
                 futures.add(responses);
             }
         }
-        final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        all.thenAccept(r -> {
+        var allFutures = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
+        var allFuturesExec = allFutures.thenAccept(r -> {
             try {
                 session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
             }
         });
-        all.exceptionally(r -> {
+        allFuturesExec.exceptionally(r -> {
             try {
                 session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
             } catch (IOException exc) {
@@ -240,7 +236,6 @@ public class ReplicationLsm {
      * @param count - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
      */
-    @SuppressWarnings("FutureReturnValueIgnored")
     void deleteWithMultipleNodes(@NotNull final ByteBuffer key,
                                  final String[] nodes,
                                  @NotNull final Request req,
@@ -267,15 +262,15 @@ public class ReplicationLsm {
                 futures.add(responses);
             }
         }
-        final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        all.thenAccept(r -> {
+        var allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
+        var allFuturesExec = allFutures.thenAccept((r) -> {
             try {
                 session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
             }
         });
-        all.exceptionally(r -> {
+        allFuturesExec.exceptionally(r -> {
             try {
                 session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
             } catch (IOException exc) {
