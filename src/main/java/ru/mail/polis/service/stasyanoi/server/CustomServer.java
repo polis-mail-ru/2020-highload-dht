@@ -76,8 +76,7 @@ public class CustomServer extends BaseFunctionalityServer {
         }
     }
 
-    private Response getResponseFromLocalAndReplicas(final String idParam,
-                                                     final Request request) {
+    private Response getResponseFromLocalAndReplicas(final String idParam, final Request request) {
         final Response responseHttp;
         final int node = util.getNode(idParam, nodeAmount);
         final Response responseHttpTemp;
@@ -87,7 +86,6 @@ public class CustomServer extends BaseFunctionalityServer {
             responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
                     nodeIndexToUrlMapping);
         }
-
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
             responseHttp = replicateGet(request, node, responseHttpTemp);
         } else {
@@ -96,7 +94,7 @@ public class CustomServer extends BaseFunctionalityServer {
         return responseHttp;
     }
 
-    private Response replicateGet(final Request request, int node, final Response responseHttpTemp) {
+    private Response replicateGet(final Request request, final int node, final Response responseHttpTemp) {
         final Response responseHttp;
         final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
         final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
@@ -181,9 +179,7 @@ public class CustomServer extends BaseFunctionalityServer {
         return responseHttp;
     }
 
-    private Response replicatePutOrDelete(final Request request,
-                                          final int node,
-                                          final Response responseHttpTemp,
+    private Response replicatePutOrDelete(final Request request, final int node, final Response responseHttpTemp,
                                           final int i) {
         Response responseHttp;
         final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
@@ -245,8 +241,7 @@ public class CustomServer extends BaseFunctionalityServer {
         }
     }
 
-    private void internalRun(final Arguments replicationArguments,
-                             final Supplier<Response> responseSupplier) {
+    private void internalRun(final Arguments replicationArguments, final Supplier<Response> responseSupplier) {
         Response responseHttp;
         final String idParam = replicationArguments.getIdParam();
         if (idParam == null || idParam.isEmpty()) {
@@ -262,7 +257,6 @@ public class CustomServer extends BaseFunctionalityServer {
     }
 
     private Response deleteResponseFromLocalAndReplicas(final String idParam, final Request request) {
-        Response responseHttp;
         final int node = util.getNode(idParam, nodeAmount);
         Response responseHttpTemp;
         if (node == thisNodeIndex) {
@@ -271,6 +265,7 @@ public class CustomServer extends BaseFunctionalityServer {
             responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
                     nodeIndexToUrlMapping);
         }
+        Response responseHttp;
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
             responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 202);
         } else {
@@ -292,8 +287,7 @@ public class CustomServer extends BaseFunctionalityServer {
         return responseHttp;
     }
 
-    private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping,
-                                                   final int from,
+    private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
                                                    final Request request,
                                                    final int port) {
         final List<Response> responses = new CopyOnWriteArrayList<>();
