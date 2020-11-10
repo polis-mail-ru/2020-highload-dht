@@ -106,9 +106,7 @@ public final class Value {
     }
 
     static Response toResponse(
-            final Set<String> nodes,
-            final List<Value> responses,
-            final boolean isForwardedRequest
+            final List<Value> responses
     ) throws IOException {
         final Value value = ReplicationServiceUtils.syncValues(responses);
         // Value is present

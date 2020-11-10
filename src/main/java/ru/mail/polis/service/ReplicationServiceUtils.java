@@ -38,11 +38,9 @@ final class ReplicationServiceUtils {
     }
 
     static Response handleExternal(
-            final List<Value> values,
-            final Set<String> nodeReplicas,
-            final boolean isForwardedRequest
+            final List<Value> values
     ) throws IOException {
-        return Value.toResponse(nodeReplicas, values, isForwardedRequest);
+        return Value.toResponse(values);
     }
 
     static long getTimestamp(final Response response) throws NumberFormatException {
