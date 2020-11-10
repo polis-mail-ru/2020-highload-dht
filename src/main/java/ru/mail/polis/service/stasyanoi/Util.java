@@ -99,7 +99,7 @@ public class Util {
         }
         return timestamp;
     }
-    
+
     /**
      * Add timestamp to header.
      *
