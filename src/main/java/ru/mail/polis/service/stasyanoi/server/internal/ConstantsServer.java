@@ -3,6 +3,7 @@ package ru.mail.polis.service.stasyanoi.server.internal;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
+import one.nio.net.ConnectionString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -13,6 +14,7 @@ import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -29,8 +31,7 @@ public class ConstantsServer extends HttpServer {
     protected Merger merger;
     protected Util util;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
-    protected Map<String, HttpClient> httpClientMap;
-    protected java.net.http.HttpClient asyncHttpClient;
+    protected Map<String, HttpClient> httpClientMap = new HashMap<>();
     protected Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
 
     /**
@@ -50,7 +51,6 @@ public class ConstantsServer extends HttpServer {
 
         this.nodeIndexToUrlMapping = new TreeMap<>();
 
-        asyncHttpClient = java.net.http.HttpClient.newBuilder().build();
         for (int i = 0; i < urls.size(); i++) {
             nodeIndexToUrlMapping.put(i, urls.get(i));
             httpClientMap.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));

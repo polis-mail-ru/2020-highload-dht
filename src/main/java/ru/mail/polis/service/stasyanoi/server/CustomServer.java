@@ -1,5 +1,7 @@
 package ru.mail.polis.service.stasyanoi.server;
 
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -7,6 +9,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
@@ -15,7 +18,6 @@ import ru.mail.polis.service.stasyanoi.server.helpers.Arguments;
 import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 
 import java.io.IOException;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -23,10 +25,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class CustomServer extends BaseFunctionalityServer {
 
@@ -277,25 +278,26 @@ public class CustomServer extends BaseFunctionalityServer {
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
                                                    final Request request,
                                                    final int port) {
-        final List<Response> responses = new CopyOnWriteArrayList<>();
-        final var completableFutures = tempNodeMapping.entrySet()
+        return tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
-                .map(nodeHost -> asyncHttpClient.sendAsync(
-                        util.getJavaRequest(util.getNewReplicationRequest(request, port), nodeHost.getValue()),
-                        HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(util::getOneNioResponse)
-                        .handleAsync(util::filterResponse).thenAcceptAsync(responses::add))
-                .toArray(CompletableFuture[]::new);
-        CompletableFuture.allOf(completableFutures).join();
-        return responses;
+                .map(nodeHost ->  {
+                    try {
+                        final HttpClient client = httpClientMap.get(nodeHost.getValue());
+                        return client.invoke(util.getNewReplicationRequest(request, port));
+                    } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                        return util.responseWithNoBody(Response.INTERNAL_ERROR);
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
     private Response routeRequestToRemoteNode(final Request request, final int node,
                                               final Map<Integer, String> nodeMapping) {
+        final HttpClient httpClient = httpClientMap.get(nodeMapping.get(node));
         try {
-            return util.getOneNioResponse(asyncHttpClient.send(util.getJavaRequest(request,nodeMapping.get(node)),
-                    HttpResponse.BodyHandlers.ofByteArray()));
-        } catch (InterruptedException | IOException e) {
+            return httpClient.invoke(request);
+        } catch (InterruptedException | PoolException | HttpException | IOException e) {
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
