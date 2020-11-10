@@ -1,9 +1,6 @@
 package ru.mail.polis.service.stasyanoi.server.internal;
 
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
 
@@ -11,7 +8,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-public class OverridedServer extends ConstantsServer {
+public class BaseFunctionalityServer extends ConstantsServer {
 
     /**
      * Server for overwridden methods.
@@ -21,7 +18,7 @@ public class OverridedServer extends ConstantsServer {
      * @param topology - topology.
      * @throws IOException - IOException.
      */
-    public OverridedServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
+    public BaseFunctionalityServer(final DAO dao, final HttpServerConfig config, final Set<String> topology)
             throws IOException {
         super(dao, config, topology);
     }
@@ -58,5 +55,16 @@ public class OverridedServer extends ConstantsServer {
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = util.responseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
+    }
+
+    /**
+     * Status check.
+     *
+     * @return Response with status.
+     */
+    @Path("/v0/status")
+    @RequestMethod(Request.METHOD_GET)
+    public Response status() {
+        return util.responseWithNoBody(Response.OK);
     }
 }
