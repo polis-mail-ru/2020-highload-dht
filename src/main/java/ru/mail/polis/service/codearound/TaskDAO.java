@@ -19,7 +19,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.logging.Level;
 
 public class TaskDAO implements DAO {
 

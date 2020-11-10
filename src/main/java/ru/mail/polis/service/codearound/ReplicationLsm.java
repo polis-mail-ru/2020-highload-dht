@@ -129,18 +129,17 @@ public class ReplicationLsm {
                 futures.add(responses);
             }
         }
-        final AtomicInteger asks = new AtomicInteger(0);
-        var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        all.thenAccept(response -> {
+        final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
+        all.thenAccept(r -> {
             try {
-                session.sendResponse(FutureUtils.execGetWithFutures(values, asks, futures, nodes, ack, isForwardedRequest));
+                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, isForwardedRequest));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
             }
         });
-        all.exceptionally(response -> {
+        all.exceptionally(r -> {
             try {
-                session.sendResponse(FutureUtils.execGetWithFutures(values, asks, futures, nodes, ack, isForwardedRequest));
+                session.sendResponse(FutureUtils.execGetWithFutures(values, futures, nodes, ack, isForwardedRequest));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.GET_COMPLETION_ERROR_LOG);
             }
@@ -206,18 +205,17 @@ public class ReplicationLsm {
                 futures.add(responses);
             }
         }
-        final AtomicInteger quant = new AtomicInteger(0);
-        var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        all.thenAccept(response -> {
+        final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
+        all.thenAccept(r -> {
             try {
-                session.sendResponse(FutureUtils.execUpsertWithFutures(quant, count, futures));
+                session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
             }
         });
-        all.exceptionally(response -> {
+        all.exceptionally(r -> {
             try {
-                session.sendResponse(FutureUtils.execUpsertWithFutures(quant, count, futures));
+                session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
             }
@@ -279,18 +277,17 @@ public class ReplicationLsm {
                 futures.add(responses);
             }
         }
-        final AtomicInteger quant = new AtomicInteger(0);
-        var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
-        all.thenAccept(response -> {
+        final var all = CompletableFuture.anyOf(futures.toArray(new CompletableFuture<?>[0]));
+        all.thenAccept(r -> {
             try {
-                session.sendResponse(FutureUtils.execDeleteWithFutures(quant, count, futures));
+                session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
             }
         });
-        all.exceptionally(response -> {
+        all.exceptionally(r -> {
             try {
-                session.sendResponse(FutureUtils.execDeleteWithFutures(quant, count, futures));
+                session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
             } catch (IOException exc) {
                 LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
             }
@@ -310,7 +307,7 @@ public class ReplicationLsm {
     public void invokeHandlerByMethod(@NotNull final String id,
                                       final boolean isForwardedRequest,
                                       @NotNull final Request req,
-                                      @NotNull final HttpSession session) throws IOException  {
+                                      @NotNull final HttpSession session) throws IOException {
 
         final String[] nodes;
         final ReplicationFactor repliFactorObj = ReplicationFactor

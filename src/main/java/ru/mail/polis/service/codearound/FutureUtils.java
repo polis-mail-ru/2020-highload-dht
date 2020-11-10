@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -53,7 +55,6 @@ public final class FutureUtils {
      * async handler to respond GET request.
      *
      * @param values - collection of values to be sent by HTTP response
-     * @param quant - quantity of success responses
      * @param nodes - array of cluster-belonging node IDs
      * @param futures - collection of future responses
      * @param count - cluster-wide success quorum to send response
@@ -62,11 +63,11 @@ public final class FutureUtils {
      * @return - HTTP response
      */
     public static Response execGetWithFutures(final List<Value> values,
-                                       final AtomicInteger quant,
-                                       final List<CompletableFuture<HttpResponse<byte[]>>> futures,
-                                       final String[] nodes,
-                                       final int count,
-                                       final boolean isForwardedRequest) throws IOException {
+                                              final List<CompletableFuture<HttpResponse<byte[]>>> futures,
+                                              final String[] nodes,
+                                              final int count,
+                                              final boolean isForwardedRequest) throws IOException {
+        final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
             try {
                 if (future.get().body().length == 0) {
@@ -89,14 +90,13 @@ public final class FutureUtils {
     /**
      * async handler to respond PUT request.
      *
-     * @param quant - quantity of success responses
      * @param count - cluster-wide success quorum to send response
      * @param futures - collection of future responses
      * @return HTTP response
      */
-    public static Response execUpsertWithFutures(final AtomicInteger quant,
-                                          final int count,
-                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+    public static Response execUpsertWithFutures(final int count,
+                                                 final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+        final AtomicInteger quant = new AtomicInteger(0);
         incrementFutureCount(quant, 201, futures);
         if (quant.get() >= futures.size() || quant.get() >= count) {
             return new Response(Response.CREATED, Response.EMPTY);
@@ -106,14 +106,13 @@ public final class FutureUtils {
     /**
      * async handler to respond DELETE request.
      *
-     * @param quant - quantity of success responses
      * @param count - cluster-wide success quorum to send response
      * @param futures - collection of future responses
      * @return HTTP response
      */
-    public static Response execDeleteWithFutures(final AtomicInteger quant,
-                                          final int count,
-                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+    public static Response execDeleteWithFutures(final int count,
+                                                 final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+        final AtomicInteger quant = new AtomicInteger(0);
         incrementFutureCount(quant, 202, futures);
         if (quant.get() >= futures.size() || quant.get() >= count) {
             return new Response(Response.ACCEPTED, Response.EMPTY);
@@ -142,5 +141,10 @@ public final class FutureUtils {
             }
         }
         quant.get();
+    }
+
+    public static ByteBuffer getKeyFromRequest(@NotNull final Request req) {
+        final String key = req.getParameter("id=");
+        return ByteBuffer.wrap(key.getBytes(StandardCharsets.UTF_8));
     }
 }
