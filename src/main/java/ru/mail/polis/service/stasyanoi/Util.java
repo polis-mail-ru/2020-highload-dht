@@ -253,22 +253,8 @@ public class Util {
         int ack;
         int from;
         if (replicas == null) {
-            if (size == 1) {
-                ack = 1;
-                from = 1;
-            } else if (size == 2) {
-                ack = 2;
-                from = 2;
-            } else if (size == 3) {
-                ack = 2;
-                from = 3;
-            } else if (size == 4) {
-                ack = 3;
-                from = 4;
-            } else {
-                ack = 3;
-                from = 5;
-            }
+            ack = size / 2 + 1;
+            from = size;
         } else {
             replicas = replicas.substring(1);
             ack = Integer.parseInt(Iterables.get(Splitter.on('/').split(replicas), 0));
