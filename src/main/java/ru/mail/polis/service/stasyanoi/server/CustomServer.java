@@ -281,7 +281,7 @@ public class CustomServer extends BaseFunctionalityServer {
         return tempNodeMapping.entrySet()
                 .stream()
                 .limit(from)
-                .map(nodeHost ->  {
+                .map(nodeHost -> {
                     try {
                         final HttpClient client = httpClientMap.get(nodeHost.getValue());
                         return client.invoke(util.getNewReplicationRequest(request, port));
