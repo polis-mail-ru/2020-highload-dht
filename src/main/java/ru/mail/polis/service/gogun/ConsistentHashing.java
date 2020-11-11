@@ -21,6 +21,7 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     private final NavigableMap<Integer, String> circle = new TreeMap<>();
     private final int vnodes;
+    private final Set<String> uniqueValues;
 
     /**
      * Class provides sharding via consistent hashing.
@@ -38,6 +39,8 @@ public class ConsistentHashing implements Hashing<String> {
         for (final String node : nodes) {
             add(node);
         }
+
+        this.uniqueValues = new TreeSet<>(circle.values());
     }
 
     @Override
@@ -68,9 +71,8 @@ public class ConsistentHashing implements Hashing<String> {
     @Override
     public Set<String> getReplNodes(@NotNull final String startNode, final int count) {
         final Set<String> nodes = new HashSet<>();
-        final Set<String> set = new TreeSet<>(circle.values());
         int counter = count;
-        Iterator<String> iterator = set.iterator();
+        Iterator<String> iterator = uniqueValues.iterator();
 
         while (iterator.hasNext()) {
             final String node = iterator.next();
@@ -84,7 +86,7 @@ public class ConsistentHashing implements Hashing<String> {
             }
 
             if (!iterator.hasNext()) {
-                iterator = set.iterator();
+                iterator = uniqueValues.iterator();
             }
         }
 
@@ -99,6 +101,6 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     @Override
     public List<String> all() {
-        return Arrays.asList(new TreeSet<>(circle.values()).toArray(new String[0]));
+        return Arrays.asList(uniqueValues.toArray(new String[0]));
     }
 }
