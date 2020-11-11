@@ -186,7 +186,6 @@ public class CustomServer extends BaseFunctionalityServer {
             dao.upsert(util.getKey(keyString), util.getByteBufferValue(request));
             responseHttp = util.responseWithNoBody(Response.CREATED);
         } catch (IOException e) {
-            logger.error(e.getMessage(), e);
             responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
         return responseHttp;
@@ -279,7 +278,6 @@ public class CustomServer extends BaseFunctionalityServer {
                 HttpClient httpClient = httpClientMap.get(url);
                 responses.add(util.sendRequestToReplicas(httpClient, request));
             } catch (InterruptedException | PoolException | IOException | HttpException e) {
-                logger.error(e.getMessage(), e);
                 responses.add(util.responseWithNoBody(Response.INTERNAL_ERROR));
             }
         }
@@ -291,7 +289,6 @@ public class CustomServer extends BaseFunctionalityServer {
         try {
             return util.sendRequestToRemote(httpClientMap.get(nodeMapping.get(node)), request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
-            logger.error(e.getMessage(), e);
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
