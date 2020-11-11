@@ -270,13 +270,11 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
                                                     final Request request) {
-        List<String> urls = new ArrayList<>(tempNodeMapping.values());
-        urls = urls.subList(0, from);
-        List<Response> responses = new ArrayList<>();
-        for (String url : urls) {
+        final List<String> urls = new ArrayList<>(tempNodeMapping.values()).subList(0, from);
+        final List<Response> responses = new ArrayList<>();
+        for (final String url : urls) {
             try {
-                HttpClient httpClient = httpClientMap.get(url);
-                responses.add(util.sendRequestToReplicas(httpClient, request));
+                responses.add(util.sendRequestToReplicas(httpClientMap.get(url), request));
             } catch (InterruptedException | PoolException | IOException | HttpException e) {
                 responses.add(util.responseWithNoBody(Response.INTERNAL_ERROR));
             }

@@ -3,7 +3,11 @@ package ru.mail.polis.service.stasyanoi;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpSession;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -87,7 +91,7 @@ public class Util {
     public Response addTimestampHeader(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
         final StringBuilder nanoTime = new StringBuilder();
-        for (byte b : timestamp) {
+        for (final byte b : timestamp) {
             nanoTime.append((char) b);
         }
         response.addHeader(timestampHeader + nanoTime);
@@ -195,10 +199,10 @@ public class Util {
      * @throws HttpException - thrown if http protocol exception encountered.
      * @throws PoolException - thrown if problems with pooling occurs.
      */
-    public Response sendRequestToReplicas(HttpClient httpClient, Request request)
+    public Response sendRequestToReplicas(final HttpClient httpClient, final Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
         final Response response;
-        String newPath = request.getPath() + "/rep?" + request.getQueryString();
+        final String newPath = request.getPath() + "/rep?" + request.getQueryString();
         if (request.getMethodName().equals("GET")) {
             response = httpClient.get(newPath);
         } else if (request.getMethodName().equals("PUT")) {
@@ -220,16 +224,14 @@ public class Util {
      * @throws HttpException - thrown if http protocol exception encountered.
      * @throws PoolException - thrown if problems with pooling occurs.
      */
-    public Response sendRequestToRemote(HttpClient httpClient, Request request)
+    public Response sendRequestToRemote(final HttpClient httpClient, final Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
 
-        String path = request.getPath();
-        String queryString = request.getQueryString();
-        String newPath;
+        final String newPath;
         if (request.getQueryString().contains("&reps=false")) {
-            newPath = path + "?" + queryString;
+            newPath = request.getPath() + "?" + request.getQueryString();
         } else {
-            newPath = path + "?" + queryString + "&reps=false";
+            newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
         }
         final Response response;
         if (request.getMethodName().equals("GET")) {

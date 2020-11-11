@@ -34,8 +34,8 @@ public class Merger {
         } else {
             boolean hasGoodResponses = false;
             int notFoundResponses = 0;
-            List<Response> validResponses = new ArrayList<>();
-            for (Response response : responses) {
+            final List<Response> validResponses = new ArrayList<>();
+            for (final Response response : responses) {
                 if ((response.getStatus() == 200 || response.getStatus() == 404) && response.getHeader("Time: ")
                         != null) {
                     if (response.getStatus() == 200 && !hasGoodResponses) {
