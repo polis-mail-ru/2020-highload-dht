@@ -43,9 +43,13 @@ public class Util {
      */
     public int getNode(final String idParam, final int nodeCount) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
-        final int hash = Math.abs(Arrays.hashCode(idArray));
-        final int absoluteHash = hash < 0 ? -hash : hash;
+        final int absoluteHash = getAbsoluteHash(idArray);
         return absoluteHash % nodeCount;
+    }
+
+    private int getAbsoluteHash(final byte[] idArray) {
+        final int hash = Arrays.hashCode(idArray) % Constants.HASH_THRESHOLD;
+        return hash < 0 ? -hash : hash;
     }
 
     /**

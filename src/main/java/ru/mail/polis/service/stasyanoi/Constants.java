@@ -8,6 +8,7 @@ public final class Constants {
     public static final String TRUE = "true";
     public static final String REPLICAS = "replicas";
     public static final String SHOULD_REPLICATE = "reps";
+    public static final int HASH_THRESHOLD = 30000;
 
     private Constants() {
 
