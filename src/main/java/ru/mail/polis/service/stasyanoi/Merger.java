@@ -51,7 +51,8 @@ public class Merger {
         return responseHttp;
     }
 
-    private Response mergeGetInternal(Integer ack, boolean hasGoodResponses, int notFoundResponses, List<Response> validResponses) {
+    private Response mergeGetInternal(final Integer ack, final boolean hasGoodResponses,
+                                      final int notFoundResponses, final List<Response> validResponses) {
         final Response responseHttp;
         if (hasGoodResponses) {
             validResponses.sort(comparingLong(response -> parseLong(response.getHeader("Time: "))));
