@@ -26,7 +26,7 @@ public class ResponseMerger {
      * @return - merged response.
      */
     public Response mergeGetResponses(final List<Response> responses,
-                                             final Integer ack,
+                                             final int ack,
                                              final Map<Integer, String> nodeMapping) {
         final Response responseHttp;
         if (nodeMapping.size() < ack || ack == 0) {
@@ -51,7 +51,7 @@ public class ResponseMerger {
         return responseHttp;
     }
 
-    private Response mergeGetInternal(final Integer ack, final boolean hasGoodResponses,
+    private Response mergeGetInternal(final int ack, final boolean hasGoodResponses,
                                       final int notFoundResponses, final List<Response> validResponses) {
         final Response responseHttp;
         if (hasGoodResponses) {
@@ -77,7 +77,7 @@ public class ResponseMerger {
      * @return - merged response.
      */
     public Response mergePutDeleteResponses(final List<Response> responses,
-                                                   final Integer ack,
+                                                   final int ack,
                                                    final int status,
                                                    final Map<Integer, String> nodeMapping) {
         final Response responseHttp;

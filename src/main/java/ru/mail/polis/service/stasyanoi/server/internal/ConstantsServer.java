@@ -24,15 +24,15 @@ public class ConstantsServer extends HttpServer {
     protected static final String TRUE = "true";
     protected static final String REPLICAS = "replicas";
     protected static final String SHOULD_REPLICATE = "reps";
-    protected Map<Integer, String> nodeIndexToUrlMapping;
-    protected int nodeAmount;
+    protected final Map<Integer, String> nodeIndexToUrlMapping;
+    protected final int nodeAmount;
     protected int thisNodeIndex;
-    protected DAO dao;
-    protected ResponseMerger merger;
-    protected Util util;
+    protected final DAO dao;
+    protected final ResponseMerger merger;
+    protected final Util util;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
-    protected Map<String, HttpClient> httpClientMap = new HashMap<>();
-    protected Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
+    protected final Map<String, HttpClient> httpClientMap = new HashMap<>();
+    protected final Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
 
     /**
      * Fields server.

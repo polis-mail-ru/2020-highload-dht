@@ -57,7 +57,7 @@ public class Util {
      * @param body - body value.
      * @return - body with timestamp.
      */
-    public byte[] addTimestamp(final byte[] body) {
+    public byte[] addTimestampToBody(final byte[] body) {
         final byte[] timestamp = getTimestampInternal();
         final byte[] newBody = new byte[body.length + timestamp.length];
         System.arraycopy(body, 0, newBody, 0, body.length);
@@ -88,7 +88,7 @@ public class Util {
      * @param response  - the response to which to add the timestamp.
      * @return - the modified response.
      */
-    public Response addTimestampHeader(final byte[] timestamp, final Response response) {
+    public Response addTimestampHeaderToResponse(final byte[] timestamp, final Response response) {
         final String timestampHeader = "Time: ";
         final StringBuilder nanoTime = new StringBuilder();
         for (final byte b : timestamp) {
@@ -106,7 +106,7 @@ public class Util {
      */
     public ByteBuffer getByteBufferValue(final Request request) {
         byte[] body = request.getBody();
-        body = addTimestamp(body);
+        body = addTimestampToBody(body);
         return Mapper.fromBytes(body);
     }
 
@@ -167,7 +167,7 @@ public class Util {
             return responseWithNoBody(Response.NOT_FOUND);
         } else {
             final Response deletedResponse = responseWithNoBody(Response.NOT_FOUND);
-            addTimestampHeader(deleteTime, deletedResponse);
+            addTimestampHeaderToResponse(deleteTime, deletedResponse);
             return deletedResponse;
         }
     }
@@ -182,9 +182,9 @@ public class Util {
         final byte[] bytes = Mapper.toBytes(body);
         final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
         final byte[] newBody = bodyTimestamp.getPureBody();
-        final byte[] time = bodyTimestamp.getTimestampObj();
+        final byte[] time = bodyTimestamp.getTimestamp();
         final Response okResponse = Response.ok(newBody);
-        addTimestampHeader(time, okResponse);
+        addTimestampHeaderToResponse(time, okResponse);
         return okResponse;
     }
 
