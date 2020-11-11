@@ -86,7 +86,6 @@ public class ReplicationLsm {
      * @param req - HTTP request
      * @param ack - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
-     *
      */
     void execGetAsync(@NotNull final ByteBuffer key,
                       final String[] nodes,
@@ -197,7 +196,7 @@ public class ReplicationLsm {
         try {
             session.sendResponse(FutureUtils.execDualWithFutures(req, ack, futures));
         } catch (IOException exc) {
-             LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
+            LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
         }
     }
 

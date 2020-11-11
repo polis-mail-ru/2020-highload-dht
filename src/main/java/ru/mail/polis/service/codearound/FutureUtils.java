@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class FutureUtils {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FutureUtils.class);
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
     private static final String GET_FUTURE_ERROR_LOG = "Failed obtaining a future result";
     public static final String GET_COMPLETION_ERROR_LOG = "Future return error when running GET request handler";
@@ -71,9 +71,10 @@ public final class FutureUtils {
         final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
             try {
-                if (future.get().body().length == 0) {
+                var result = future.get();
+                if (result.body().length == 0) {
                     values.add(Value.resolveMissingValue());
-                } else if (future.get().statusCode() != 500) {
+                } else if (result.statusCode() != 500) {
                     values.add(Value.getValueFromBytes(future.get().body()));
                 }
                 quant.incrementAndGet();
@@ -91,13 +92,14 @@ public final class FutureUtils {
     /**
      * dual async handler to respond both PUT and DELETE requests.
      *
+     * @param req - HTTP request to be handled
      * @param ack - success quorum to send response
      * @param futures - collection of future responses
      * @return HTTP response
      */
     public static Response execDualWithFutures(@NotNull final Request req,
-                                           final int ack,
-                                           final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+                                               final int ack,
+                                               final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         final AtomicInteger quant = new AtomicInteger(0);
         final boolean res;
         if (req.getMethod() == Request.METHOD_PUT) {
@@ -111,7 +113,6 @@ public final class FutureUtils {
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             }
         }
-
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
@@ -129,7 +130,8 @@ public final class FutureUtils {
                                           final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         for (final var future : futures) {
             try {
-                if (future.get().statusCode() == returnCode) {
+                var result = future.get();
+                if (result.statusCode() == returnCode) {
                     quant.incrementAndGet();
                     if (quant.get() == futures.size() || quant.get() == ack) {
                         return true;
@@ -139,7 +141,6 @@ public final class FutureUtils {
                 LOGGER.error(GET_FUTURE_ERROR_LOG);
             }
         }
-
         return false;
     }
 
