@@ -18,6 +18,7 @@ package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.RocksDBException;
 import ru.mail.polis.Record;
 
 import java.io.Closeable;

@@ -2,7 +2,6 @@ package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
-import com.google.common.net.HttpHeaders;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
@@ -154,20 +153,6 @@ public class Util {
     }
 
     /**
-     * Get response based on the delete time.
-     *
-     * @param deleteTime - delete time of the response
-     * @return - the response
-     */
-    public Response getDeleteOrNotFoundResponse(final byte[] deleteTime) {
-        if (deleteTime.length == 0) {
-            return responseWithNoBody(Response.NOT_FOUND);
-        } else {
-            return addTimestampHeaderToResponse(deleteTime,  responseWithNoBody(Response.NOT_FOUND));
-        }
-    }
-
-    /**
      * Get response with timestamp header.
      *
      * @param body - body with timestamp.
@@ -178,9 +163,7 @@ public class Util {
         final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
         final byte[] newBody = bodyTimestamp.getPureBody();
         final byte[] time = bodyTimestamp.getTimestamp();
-        final Response okResponse = Response.ok(newBody);
-        addTimestampHeaderToResponse(time, okResponse);
-        return okResponse;
+        return addTimestampHeaderToResponse(time, Response.ok(newBody));
     }
 
     /**

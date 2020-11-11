@@ -10,6 +10,7 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
+import org.rocksdb.RocksDBException;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
@@ -108,10 +109,10 @@ public class CustomServer extends BaseFunctionalityServer {
             final BodyWithTimestamp bodyWithTimestamp = new BodyWithTimestamp(Mapper.toBytes(body));
             return util.getResponseWithTimestamp(Mapper.fromBytes(bodyWithTimestamp.getPureBody()));
         } catch (DeletedElementException e) {
-            return util.addTimestampHeaderToResponse(e.getTimestamp(),  util.responseWithNoBody(Response.NOT_FOUND));
+            return util.addTimestampHeaderToResponse(e.getTimestamp(), util.responseWithNoBody(Response.NOT_FOUND));
         } catch (NoSuchElementException e) {
             return util.responseWithNoBody(Response.NOT_FOUND);
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException e) {
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
@@ -188,7 +189,7 @@ public class CustomServer extends BaseFunctionalityServer {
     private Response putIntoLocalNode(final Request request, final String keyString) {
         Response responseHttp;
         try {
-            ByteBuffer byteBufferValue = util.getByteBufferValue(request);
+            final ByteBuffer byteBufferValue = util.getByteBufferValue(request);
             dao.upsert(util.getKey(keyString),
                     Mapper.fromBytes(util.addTimestampToBody(Mapper.toBytes(byteBufferValue))));
             responseHttp = util.responseWithNoBody(Response.CREATED);

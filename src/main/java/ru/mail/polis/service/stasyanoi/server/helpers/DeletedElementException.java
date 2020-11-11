@@ -1,5 +1,6 @@
 package ru.mail.polis.service.stasyanoi.server.helpers;
 
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 
 public class DeletedElementException extends NoSuchElementException {
@@ -10,10 +11,10 @@ public class DeletedElementException extends NoSuchElementException {
 
     public DeletedElementException(final String msg, final byte[] timestamp) {
         super(msg);
-        this.timestamp = timestamp;
+        this.timestamp = Arrays.copyOf(timestamp, timestamp.length);
     }
 
     public byte[] getTimestamp() {
-        return timestamp;
+        return Arrays.copyOf(timestamp, timestamp.length);
     }
 }

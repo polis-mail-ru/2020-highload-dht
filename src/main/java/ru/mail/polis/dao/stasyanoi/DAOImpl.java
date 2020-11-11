@@ -82,11 +82,9 @@ public class DAOImpl implements DAO {
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
-
         if (body == null) {
             throw new NoSuchElementException("No such key " + key.toString());
         }
-
         if (body.length == String.valueOf(System.nanoTime()).length()) {
             try {
                 storageInstance.delete(Mapper.toBytes(key));
@@ -95,7 +93,6 @@ public class DAOImpl implements DAO {
             }
             throw new DeletedElementException("Key deleted " + key.toString(), body);
         }
-
         return Mapper.fromBytes(body);
     }
 
