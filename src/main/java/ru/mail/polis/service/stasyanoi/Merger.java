@@ -32,12 +32,12 @@ public class Merger {
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            responseHttp = mergeGetInternal(responses, ack);
+            responseHttp = mergeInternal(responses, ack);
         }
         return responseHttp;
     }
 
-    private Response mergeGetInternal(final List<Response> responses, final Integer ack) {
+    private Response mergeInternal(final List<Response> responses, final Integer ack) {
         final Response responseHttp;
         boolean hasGoodResponses = false;
         int notFoundResponses = 0;
@@ -53,12 +53,12 @@ public class Merger {
                 validResponses.add(response);
             }
         }
-        responseHttp = reduceGetResponses(ack, hasGoodResponses, notFoundResponses, validResponses);
+        responseHttp = mergeGetInternal(ack, hasGoodResponses, notFoundResponses, validResponses);
         return responseHttp;
     }
 
-    private Response reduceGetResponses(final Integer ack, final boolean hasGoodResponses,
-                                        final int notFoundResponses, final List<Response> validResponses) {
+    private Response mergeGetInternal(final Integer ack, final boolean hasGoodResponses,
+                                      final int notFoundResponses, final List<Response> validResponses) {
         final Response responseHttp;
         if (hasGoodResponses) {
             validResponses.sort(comparingLong(response -> parseLong(response.getHeader("Time: "))));
