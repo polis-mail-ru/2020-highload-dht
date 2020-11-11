@@ -59,22 +59,6 @@ public class CustomServer extends BaseFunctionalityServer {
         }
     }
 
-    /**
-     * Endpoint for get replication.
-     *
-     * @param idParam - key.
-     * @param session - session for the request.
-     */
-    @Path("/v0/entity/rep")
-    @RequestMethod(Request.METHOD_GET)
-    public void getReplication(final @Param("id") String idParam, final HttpSession session) {
-        try {
-            executorService.execute(() -> internalRun(idParam, session, () -> getResponseFromLocalNode(idParam)));
-        } catch (RejectedExecutionException e) {
-            util.send503Error(session);
-        }
-    }
-
     private Response getResponseFromLocalAndReplicas(final String idParam, final Request request) {
         final Response responseHttp;
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)){
@@ -128,23 +112,6 @@ public class CustomServer extends BaseFunctionalityServer {
         try {
             executorService.execute(() -> internalRun(idParam, session,
                     () -> putResponseFromLocalAndReplicas(idParam, request)));
-        } catch (RejectedExecutionException e) {
-            util.send503Error(session);
-        }
-    }
-
-    /**
-     * Put replication.
-     *
-     * @param idParam - key.
-     * @param request - out request.
-     * @param session - session.
-     */
-    @Path("/v0/entity/rep")
-    @RequestMethod(Request.METHOD_PUT)
-    public void putReplication(final @Param("id") String idParam, final Request request, final HttpSession session) {
-        try {
-            executorService.execute(() -> internalRun(idParam, session, () -> putIntoLocalNode(request, idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
@@ -209,22 +176,6 @@ public class CustomServer extends BaseFunctionalityServer {
         try {
             executorService.execute(() -> internalRun(idParam, session,
                     () -> deleteResponseFromLocalAndReplicas(idParam, request)));
-        } catch (RejectedExecutionException e) {
-            util.send503Error(session);
-        }
-    }
-
-    /**
-     * Delete replication.
-     *
-     * @param idParam - key.
-     * @param session - session.
-     */
-    @Path("/v0/entity/rep")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void deleteReplication(final @Param("id") String idParam, final HttpSession session) {
-        try {
-            executorService.execute(() -> internalRun(idParam, session, () -> deleteInLocalNode(idParam)));
         } catch (RejectedExecutionException e) {
             util.send503Error(session);
         }
