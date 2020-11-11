@@ -13,6 +13,8 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
+import ru.mail.polis.service.stasyanoi.server.helpers.BodyWithTimestamp;
+import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
 import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 
 import java.io.IOException;
@@ -103,10 +105,14 @@ public class CustomServer extends BaseFunctionalityServer {
         final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         try {
             final ByteBuffer body = dao.get(id);
-            return util.getResponseWithTimestamp(body);
-        } catch (NoSuchElementException | IOException e) {
-            final byte[] deleteTime = dao.getDeleteTime(id);
-            return util.getDeleteOrNotFoundResponse(deleteTime);
+            final BodyWithTimestamp bodyWithTimestamp = new BodyWithTimestamp(Mapper.toBytes(body));
+            return util.getResponseWithTimestamp(Mapper.fromBytes(bodyWithTimestamp.getPureBody()));
+        } catch (DeletedElementException e) {
+            return util.addTimestampHeaderToResponse(e.getTimestamp(),  util.responseWithNoBody(Response.NOT_FOUND));
+        } catch (NoSuchElementException e) {
+            return util.responseWithNoBody(Response.NOT_FOUND);
+        } catch (IOException | RuntimeException e) {
+            return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
 
@@ -182,7 +188,9 @@ public class CustomServer extends BaseFunctionalityServer {
     private Response putIntoLocalNode(final Request request, final String keyString) {
         Response responseHttp;
         try {
-            dao.upsert(util.getKey(keyString), util.getByteBufferValue(request));
+            ByteBuffer byteBufferValue = util.getByteBufferValue(request);
+            dao.upsert(util.getKey(keyString),
+                    Mapper.fromBytes(util.addTimestampToBody(Mapper.toBytes(byteBufferValue))));
             responseHttp = util.responseWithNoBody(Response.CREATED);
         } catch (IOException e) {
             responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
@@ -260,6 +268,7 @@ public class CustomServer extends BaseFunctionalityServer {
         final ByteBuffer key = util.getKey(idParam);
         try {
             dao.remove(key);
+            dao.upsert(key, Mapper.fromBytes(util.getTimestampInternal()));
             responseHttp = util.responseWithNoBody(Response.ACCEPTED);
         } catch (IOException e) {
             responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);

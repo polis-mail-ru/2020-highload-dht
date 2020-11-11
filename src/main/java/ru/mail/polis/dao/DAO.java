@@ -105,6 +105,4 @@ public interface DAO extends Closeable {
     }
 
     void open();
-
-    byte[] getDeleteTime(ByteBuffer id);
 }
