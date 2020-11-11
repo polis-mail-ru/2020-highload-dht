@@ -89,39 +89,30 @@ public final class FutureUtils {
     }
 
     /**
-     * async handler to respond PUT request.
+     * dual async handler to respond both PUT and DELETE requests.
      *
      * @param ack - success quorum to send response
      * @param futures - collection of future responses
      * @return HTTP response
      */
-    public static Response execUpsertWithFutures(final int ack,
-                                                 final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+    public static Response execDualWithFutures(@NotNull final Request req,
+                                           final int ack,
+                                           final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         final AtomicInteger quant = new AtomicInteger(0);
-        boolean res = countSuccesses(ack, quant, 201, futures);
-        if (res) {
-            return new Response(Response.CREATED, Response.EMPTY);
-        } else {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        final boolean res;
+        if (req.getMethod() == Request.METHOD_PUT) {
+            res = countSuccesses(ack, quant, 201, futures);
+            if (res) {
+                return new Response(Response.CREATED, Response.EMPTY);
+            }
+        } else if (req.getMethod() == Request.METHOD_DELETE) {
+            res = countSuccesses(ack, quant, 202, futures);
+            if (res) {
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            }
         }
-    }
 
-    /**
-     * async handler to respond DELETE request.
-     *
-     * @param ack - success quorum to send response
-     * @param futures - collection of future responses
-     * @return HTTP response
-     */
-    public static Response execDeleteWithFutures(final int ack,
-                                                 final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
-        final AtomicInteger quant = new AtomicInteger(0);
-        boolean res = countSuccesses(ack, quant, 202, futures);
-        if (res) {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } else {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
     /**

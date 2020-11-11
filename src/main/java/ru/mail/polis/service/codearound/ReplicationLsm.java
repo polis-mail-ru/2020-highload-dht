@@ -94,13 +94,13 @@ public class ReplicationLsm {
                       final int ack,
                       @NotNull final HttpSession session) throws IOException {
 
-        final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
-        final List<Value> values = new ArrayList<>();
-
         if (topology.getNodes().size() == 1) {
             session.sendResponse(getWithOnlyNode(key));
             return;
         }
+
+        final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
+        final List<Value> values = new ArrayList<>();
 
         for (final String node : nodes) {
             if (node.equals(topology.getThisNode())) {
@@ -195,7 +195,7 @@ public class ReplicationLsm {
         }
 
         try {
-            session.sendResponse(FutureUtils.execUpsertWithFutures(ack, futures));
+            session.sendResponse(FutureUtils.execDualWithFutures(req, ack, futures));
         } catch (IOException exc) {
              LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
         }
@@ -261,7 +261,7 @@ public class ReplicationLsm {
         }
 
         try {
-            session.sendResponse(FutureUtils.execDeleteWithFutures(ack, futures));
+            session.sendResponse(FutureUtils.execDualWithFutures(req, ack, futures));
         } catch (IOException exc) {
             LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
         }

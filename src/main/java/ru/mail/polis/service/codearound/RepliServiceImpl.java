@@ -58,7 +58,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
         assert queueSize > 0;
-        ExecutorService exec = new ThreadPoolExecutor(
+        final ExecutorService exec = new ThreadPoolExecutor(
                 workerPoolSize,
                 workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
