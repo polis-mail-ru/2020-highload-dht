@@ -33,9 +33,7 @@ public class Util {
      */
     @NotNull
     public Response responseWithNoBody(final String requestType) {
-        final Response responseHttp = new Response(requestType);
-        responseHttp.addHeader(HttpHeaders.CONTENT_LENGTH + ": " + 0);
-        return responseHttp;
+        return new Response(requestType, Response.EMPTY);
     }
 
     /**
@@ -72,9 +70,13 @@ public class Util {
      */
     @NotNull
     public byte[] getTimestampInternal() {
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.putLong(System.nanoTime());
-        return buffer.array();
+        final String nanos = String.valueOf(System.nanoTime());
+        final int[] ints = nanos.chars().toArray();
+        final byte[] timestamp = new byte[ints.length];
+        for (int i = 0; i < ints.length; i++) {
+            timestamp[i] = (byte) ints[i];
+        }
+        return timestamp;
     }
 
     /**
@@ -161,9 +163,7 @@ public class Util {
         if (deleteTime.length == 0) {
             return responseWithNoBody(Response.NOT_FOUND);
         } else {
-            final Response deletedResponse = responseWithNoBody(Response.NOT_FOUND);
-            addTimestampHeaderToResponse(deleteTime, deletedResponse);
-            return deletedResponse;
+            return addTimestampHeaderToResponse(deleteTime,  responseWithNoBody(Response.NOT_FOUND));
         }
     }
 
@@ -226,7 +226,6 @@ public class Util {
      */
     public Response sendRequestToRemote(final HttpClient httpClient, final Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
-
         final String newPath;
         if (request.getQueryString().contains("&reps=false")) {
             newPath = request.getPath() + "?" + request.getQueryString();
