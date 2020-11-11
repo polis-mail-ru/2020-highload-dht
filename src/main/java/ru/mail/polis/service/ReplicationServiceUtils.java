@@ -19,7 +19,7 @@ final class ReplicationServiceUtils {
 
     }
 
-    static Value syncValues(final List<Value> values) {
+    private static Value syncValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))
@@ -37,12 +37,6 @@ final class ReplicationServiceUtils {
         ) : topology.getReplicas(key, replicationFactor.getFrom());
     }
 
-    static Response handleExternal(
-            final List<Value> values
-    ) throws IOException {
-        return Value.toResponse(values);
-    }
-
     static long getTimestamp(final Response response) throws NumberFormatException {
         final String timestamp = response.getHeader(TIMESTAMP);
         return timestamp == null ? -1 : Long.parseLong(timestamp);
@@ -53,24 +47,17 @@ final class ReplicationServiceUtils {
         return response;
     }
 
+    static Response handleExternal(
+            final List<Value> values
+    ) throws IOException {
+        return Value.toResponse(syncValues(values));
+    }
+
     static Response handleInternal(
             @NotNull final ByteBuffer key,
             @NotNull final DAO dao) {
-
         try {
-            final Value value = dao.getValue(key);
-
-            if (value.isValueMissing()) {
-                new Response(Response.NOT_FOUND, Response.EMPTY);
-            }
-
-            if (value.isValueDeleted()) {
-                final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                return addTimestampHeader(response, value.getTimestamp());
-            }
-
-            final Response response = new Response(Response.OK, value.getBytes());
-            return addTimestampHeader(response, value.getTimestamp());
+            return Value.toResponse(dao.getValue(key));
         } catch (IOException exc) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException exc) {

@@ -81,14 +81,7 @@ class ReplicationHandler {
             }
         }
 
-        return processGet(isForwardedRequest, repliFactor, values.size(), values);
-    }
-
-    private Response processGet(
-            final boolean isForwardedRequest, final ReplicationFactor repliFactor, final int replCounter,
-            final List<Value> values
-    ) throws IOException {
-        if (isForwardedRequest || replCounter >= repliFactor.getAck()) {
+        if (isForwardedRequest || values.size() >= repliFactor.getAck()) {
             return handleExternal(values);
         } else {
             log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);

@@ -104,9 +104,8 @@ public final class Value {
     }
 
     static Response toResponse(
-            final List<Value> responses
+            final Value value
     ) throws IOException {
-        final Value value = ReplicationServiceUtils.syncValues(responses);
         // Value is present
         Response response;
         if (!value.isValueMissing() && !value.isValueDeleted()) {
