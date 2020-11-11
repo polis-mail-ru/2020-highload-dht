@@ -184,17 +184,20 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private Response handleGet(@NotNull final ByteBuffer key) {
         final Value value;
+        Response response;
         try {
             value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            response.addHeader(TOMBSTONE_HEADER + false);
+            return response;
         }
-        Response response;
+
         if (value.isTombstone()) {
-            response = Response.ok(Response.EMPTY);
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
             response.addHeader(TOMBSTONE_HEADER + true);
         } else {
             response = Response.ok(ServiceUtils.getArray(value.getData()));

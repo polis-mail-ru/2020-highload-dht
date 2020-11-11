@@ -34,7 +34,15 @@ public class ResponseMerger {
         for (final Response response : responses) {
             switch (response.getStatus()) {
                 case 404:
-                    notFoundResponsesCount++;
+                    if (response.getHeader(AsyncServiceImpl.TOMBSTONE_HEADER).equals("true")) {
+                        final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
+                        if (timestamp > latestTimestamp) {
+                            latestTimestamp = timestamp;
+                            latestResponse = response;
+                        }
+                    } else {
+                        notFoundResponsesCount++;
+                    }
                     break;
                 case 200:
                     final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
@@ -49,7 +57,7 @@ public class ResponseMerger {
         }
 
         if (responses.size() == notFoundResponsesCount
-                || latestResponse.getHeader(AsyncServiceImpl.TOMBSTONE_HEADER).equals("true")) {
+                || latestResponse.getStatus() == 404) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
