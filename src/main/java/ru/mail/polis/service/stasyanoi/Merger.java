@@ -32,22 +32,28 @@ public class Merger {
         if (nodeMapping.size() < ack || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
-            boolean hasGoodResponses = false;
-            int notFoundResponses = 0;
-            final List<Response> validResponses = new ArrayList<>();
-            for (final Response response : responses) {
-                if ((response.getStatus() == 200 || response.getStatus() == 404) && response.getHeader("Time: ")
-                        != null) {
-                    if (response.getStatus() == 200 && !hasGoodResponses) {
-                        hasGoodResponses = true;
-                    } else if (response.getStatus() == 404) {
-                        notFoundResponses++;
-                    }
-                    validResponses.add(response);
-                }
-            }
-            responseHttp = mergeGetInternal(ack, hasGoodResponses, notFoundResponses, validResponses);
+            responseHttp = mergeInternal(responses, ack);
         }
+        return responseHttp;
+    }
+
+    private Response mergeInternal(final List<Response> responses, final Integer ack) {
+        final Response responseHttp;
+        boolean hasGoodResponses = false;
+        int notFoundResponses = 0;
+        final List<Response> validResponses = new ArrayList<>();
+        for (final Response response : responses) {
+            if ((response.getStatus() == 200 || response.getStatus() == 404) && response.getHeader("Time: ")
+                    != null) {
+                if (response.getStatus() == 200 && !hasGoodResponses) {
+                    hasGoodResponses = true;
+                } else if (response.getStatus() == 404) {
+                    notFoundResponses++;
+                }
+                validResponses.add(response);
+            }
+        }
+        responseHttp = mergeGetInternal(ack, hasGoodResponses, notFoundResponses, validResponses);
         return responseHttp;
     }
 
