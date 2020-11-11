@@ -12,6 +12,7 @@ import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
+import ru.mail.polis.service.stasyanoi.Constants;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
 import ru.mail.polis.service.stasyanoi.server.helpers.BodyWithTimestamp;
 import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
@@ -28,6 +29,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
+
+import static ru.mail.polis.service.stasyanoi.Constants.REPLICAS;
+import static ru.mail.polis.service.stasyanoi.Constants.SHOULD_REPLICATE;
+import static ru.mail.polis.service.stasyanoi.Constants.TRUE;
 
 public class CustomServer extends BaseFunctionalityServer {
 
@@ -89,8 +94,7 @@ public class CustomServer extends BaseFunctionalityServer {
         final ByteBuffer id = Mapper.fromBytes(idParam.getBytes(StandardCharsets.UTF_8));
         try {
             final ByteBuffer body = dao.get(id);
-            final BodyWithTimestamp bodyWithTimestamp = new BodyWithTimestamp(Mapper.toBytes(body));
-            return util.getResponseWithTimestamp(Mapper.fromBytes(bodyWithTimestamp.getPureBody()));
+            return util.getResponseWithTimestamp(body);
         } catch (DeletedElementException e) {
             return util.addTimestampHeaderToResponse(e.getTimestamp(), util.responseWithNoBody(Response.NOT_FOUND));
         } catch (NoSuchElementException e) {
@@ -155,9 +159,8 @@ public class CustomServer extends BaseFunctionalityServer {
     private Response putIntoLocalNode(final Request request, final String keyString) {
         Response responseHttp;
         try {
-            final ByteBuffer byteBufferValue = util.getByteBufferValue(request);
             dao.upsert(util.getKey(keyString),
-                    Mapper.fromBytes(util.addTimestampToBody(Mapper.toBytes(byteBufferValue))));
+                    Mapper.fromBytes(util.addTimestampToBodyAndModifyEmptyBody(request.getBody())));
             responseHttp = util.responseWithNoBody(Response.CREATED);
         } catch (IOException e) {
             responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);

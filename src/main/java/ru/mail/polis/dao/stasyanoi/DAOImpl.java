@@ -85,7 +85,7 @@ public class DAOImpl implements DAO {
         if (body == null) {
             throw new NoSuchElementException("No such key " + key.toString());
         }
-        if (body.length == String.valueOf(System.nanoTime()).length()) {
+        if (body.length == String.valueOf(System.currentTimeMillis()).length()) {
             try {
                 storageInstance.delete(Mapper.toBytes(key));
             } catch (RocksDBException e) {

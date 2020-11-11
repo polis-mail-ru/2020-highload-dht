@@ -23,7 +23,7 @@ public class CustomExecutor extends ThreadPoolExecutor {
     public static CustomExecutor getExecutor() {
         final int nThreads = Runtime.getRuntime().availableProcessors();
         return new CustomExecutor(nThreads, nThreads,0, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(100));
+                new LinkedBlockingQueue<>(Constants.TASK_THRESHOLD));
 
     }
 }

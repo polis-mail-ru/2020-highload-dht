@@ -21,9 +21,6 @@ import java.util.TreeMap;
 
 public class ConstantsServer extends HttpServer {
 
-    protected static final String TRUE = "true";
-    protected static final String REPLICAS = "replicas";
-    protected static final String SHOULD_REPLICATE = "reps";
     protected final Map<Integer, String> nodeIndexToUrlMapping;
     protected final int nodeAmount;
     protected int thisNodeIndex;

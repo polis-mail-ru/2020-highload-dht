@@ -49,17 +49,26 @@ public class Util {
     }
 
     /**
-     * Add timestamp to body.
+     * Add timestamp to body and abb byte to empty body.
      *
      * @param body - body value.
      * @return - body with timestamp.
      */
-    public byte[] addTimestampToBody(final byte[] body) {
+    public byte[] addTimestampToBodyAndModifyEmptyBody(byte[] body) {
         final byte[] timestamp = getTimestampInternal();
+        body = addByteIfEmpty(body);
         final byte[] newBody = new byte[body.length + timestamp.length];
         System.arraycopy(body, 0, newBody, 0, body.length);
         System.arraycopy(timestamp, 0, newBody, body.length, timestamp.length);
         return newBody;
+    }
+
+    @NotNull
+    private byte[] addByteIfEmpty(byte[] body) {
+        if (body.length == 0) {
+            body = new byte[1];
+        }
+        return body;
     }
 
     /**
@@ -69,7 +78,7 @@ public class Util {
      */
     @NotNull
     public byte[] getTimestampInternal() {
-        final String nanos = String.valueOf(System.nanoTime());
+        final String nanos = String.valueOf(System.currentTimeMillis());
         final int[] ints = nanos.chars().toArray();
         final byte[] timestamp = new byte[ints.length];
         for (int i = 0; i < ints.length; i++) {
@@ -92,18 +101,6 @@ public class Util {
         }
         response.addHeader(Constants.TIMESTAMP_HEADER_NAME + nanoTime);
         return response;
-    }
-
-    /**
-     * Get byte buffer body.
-     *
-     * @param request - request from which to get the body.
-     * @return - the byte buffer.
-     */
-    public ByteBuffer getByteBufferValue(final Request request) {
-        byte[] body = request.getBody();
-        body = addTimestampToBody(body);
-        return Mapper.fromBytes(body);
     }
 
     /**
@@ -161,7 +158,12 @@ public class Util {
     public Response getResponseWithTimestamp(final ByteBuffer body) {
         final byte[] bytes = Mapper.toBytes(body);
         final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
-        final byte[] newBody = bodyTimestamp.getPureBody();
+        final byte[] newBody;
+        if (bytes.length == Constants.EMPTY_BODY_SIZE) {
+            newBody = new byte[0];
+        } else {
+            newBody = bodyTimestamp.getPureBody();
+        }
         final byte[] time = bodyTimestamp.getTimestamp();
         return addTimestampHeaderToResponse(time, Response.ok(newBody));
     }
