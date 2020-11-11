@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -69,21 +70,21 @@ public class ConsistentHashing implements Hashing<String> {
         final Set<String> nodes = new HashSet<>();
         final Set<String> set = new TreeSet<>(circle.values());
         int counter = count;
-        for (final String node : set) {
+        Iterator<String> iterator = set.iterator();
+
+        while (iterator.hasNext()) {
+            final String node = iterator.next();
             if (node.equals(startNode) || !nodes.isEmpty()) {
                 nodes.add(node);
                 counter--;
             }
+
             if (counter == 0) {
                 break;
             }
-        }
-        if (counter != 0) {
-            for (final String tmp : set) {
-                if (nodes.size() == count) {
-                    break;
-                }
-                nodes.add(tmp);
+
+            if (!iterator.hasNext()) {
+                iterator = set.iterator();
             }
         }
 
