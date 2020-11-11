@@ -11,6 +11,12 @@ public class ResponseMerger {
     @NotNull
     private final List<Response> responses;
 
+    /**
+     * This class provides merging all responses from nodes to one, that client will get.
+     *
+     * @param responses list of responses
+     * @param ack       number of responses to say, that answer is correct
+     */
     public ResponseMerger(@NotNull final List<Response> responses, final int ack) {
         this.responses = responses;
         this.ack = ack;
@@ -42,7 +48,8 @@ public class ResponseMerger {
             }
         }
 
-        if (responses.size() == notFoundResponsesCount || latestResponse.getHeader(AsyncServiceImpl.TOMBSTONE_HEADER).equals("true")) {
+        if (responses.size() == notFoundResponsesCount
+                || latestResponse.getHeader(AsyncServiceImpl.TOMBSTONE_HEADER).equals("true")) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 

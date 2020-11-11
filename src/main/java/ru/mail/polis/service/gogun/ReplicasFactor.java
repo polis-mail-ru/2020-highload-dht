@@ -18,12 +18,8 @@ public final class ReplicasFactor {
      */
     private ReplicasFactor(@NotNull final String replicas) {
         final List<String> askFrom = Splitter.on('/').splitToList(replicas);
-        try {
-            this.ack = Integer.parseInt(askFrom.get(0));
-            this.from = Integer.parseInt(askFrom.get(1));
-        } catch (IndexOutOfBoundsException e) {
-            throw new InvalidParameterException(EXCEPTION_TEXT);
-        }
+        this.ack = Integer.parseInt(askFrom.get(0));
+        this.from = Integer.parseInt(askFrom.get(1));
 
         if (this.ack == 0 || this.ack > this.from) {
             throw new InvalidParameterException(EXCEPTION_TEXT);

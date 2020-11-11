@@ -2,6 +2,7 @@ package ru.mail.polis.service.gogun;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -9,6 +10,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,7 +141,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             } else {
                 replicasFactor = ReplicasFactor.quorum(request.getParameter("replicas").substring(1));
             }
-        } catch (InvalidParameterException e) {
+        } catch (InvalidParameterException | IndexOutOfBoundsException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
@@ -233,7 +235,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             }
             request.addHeader(PROXY_HEADER + node);
             return nodeClients.get(node).invoke(request);
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException | PoolException | HttpException e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
