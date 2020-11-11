@@ -185,13 +185,15 @@ public class Util {
     }
 
     /**
-     * @param httpClient
-     * @param request
-     * @return
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws HttpException
-     * @throws PoolException
+     * Send request for replication.
+     *
+     * @param httpClient - client to use.
+     * @param request - request to send.
+     * @return received response.
+     * @throws InterruptedException - thrown if interrupted.
+     * @throws IOException - thrown if network io exception occurs in the client.
+     * @throws HttpException - thrown if http protocol exception encountered.
+     * @throws PoolException - thrown if problems with pooling occurs.
      */
     public Response sendRequestToReplicas(HttpClient httpClient, Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
@@ -208,13 +210,15 @@ public class Util {
     }
 
     /**
-     * @param httpClient
-     * @param request
-     * @return
-     * @throws InterruptedException
-     * @throws IOException
-     * @throws HttpException
-     * @throws PoolException
+     * Send request for sharding.
+     *
+     * @param httpClient - client to use.
+     * @param request - request to send.
+     * @return received response.
+     * @throws InterruptedException - thrown if interrupted.
+     * @throws IOException - thrown if network io exception occurs in the client.
+     * @throws HttpException - thrown if http protocol exception encountered.
+     * @throws PoolException - thrown if problems with pooling occurs.
      */
     public Response sendRequestToRemote(HttpClient httpClient, Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
