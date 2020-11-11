@@ -8,17 +8,17 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Optional;
 
-public class DummyHttpResponseBuilder implements HttpResponse<byte[]> {
+public class HttpResponseBuilder implements HttpResponse<byte[]> {
 
     private int code;
     private byte[] body;
 
-    DummyHttpResponseBuilder setCode(final int code) {
+    HttpResponseBuilder setCode(final int code) {
         this.code = code;
         return this;
     }
 
-    DummyHttpResponseBuilder setBody(final byte[] body) {
+    HttpResponseBuilder setBody(final byte[] body) {
         this.body = body.clone();
         return this;
     }

@@ -11,7 +11,6 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -110,7 +109,7 @@ final class FuturesHandler {
 
     CompletableFuture<HttpResponse<byte[]>> handleLocal(@NotNull final Request request) {
         return CompletableFuture.supplyAsync(() -> {
-            final DummyHttpResponseBuilder builder = new DummyHttpResponseBuilder();
+            final HttpResponseBuilder builder = new HttpResponseBuilder();
             try {
                 switch (request.getMethod()) {
                     case Request.METHOD_GET:
