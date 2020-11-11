@@ -134,11 +134,6 @@ public class DaoEngine implements DAO {
         }
     }
 
-    @Override
-    public void removeValue(@NotNull final ByteBuffer key, @NotNull final ByteBuffer marker) throws IOException {
-        upsert(key, marker);
-    }
-
     private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException {
         final byte[] array = Util.toShiftedArray(key);
         final byte[] value = db.get(array);

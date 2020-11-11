@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -187,7 +188,7 @@ class ReplicationHandler {
             return;
         }
 
-        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer key = Util.toByteBuffer(id);
         final Set<String> nodes;
         try {
             nodes = ReplicationServiceUtils.getNodeReplica(key, replicationFactor, isForwardedRequest, topology);

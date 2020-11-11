@@ -4,6 +4,7 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.net.URI;
@@ -143,6 +144,6 @@ final class FuturesHandler {
 
     private static ByteBuffer getKeyFromRequest(@NotNull final Request req) {
         final String strKey = req.getParameter("id");
-        return ByteBuffer.wrap(strKey.getBytes(StandardCharsets.UTF_8));
+        return Util.toByteBuffer(strKey);
     }
 }
