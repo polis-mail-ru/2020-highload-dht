@@ -78,7 +78,7 @@ public class Merger {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = new ArrayList<>();
-            for (Response response : responses) {
+            for (final Response response : responses) {
                 if (response.getStatus() == status) {
                     goodResponses.add(response);
                 }
