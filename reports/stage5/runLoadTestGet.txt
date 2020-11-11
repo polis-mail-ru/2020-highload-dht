@@ -4,7 +4,7 @@ rm flameGetCpu1.svg
 rm flameGetAlloc1.svg  
 rm flameGetLock1.svg 
 
-../../wrk2/wrk -c20 -d50s -R1000 -s ../../wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet1.txt &
+../../wrk2/wrk -c10 -d50s -R1000 -s ../../wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet1.txt &
 
 
 sleep 10s

@@ -4,7 +4,7 @@ rm flamePutCpu1.svg
 rm flamePutAlloc1.svg 
 rm flamePutLock1.svg
 
-../../wrk2/wrk -c20 -d50s -R1000 -s ../../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut1.txt &
+../../wrk2/wrk -c10 -d50s -R1000 -s ../../wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut1.txt &
 
 
 sleep 10s

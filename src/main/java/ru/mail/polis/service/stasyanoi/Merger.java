@@ -36,13 +36,13 @@ public class Merger {
             int notFoundResponses = 0;
             List<Response> validResponses = new ArrayList<>();
             for (Response response : responses) {
-                if (response.getStatus() == 200) {
-                    hasGoodResponses = true;
-                } else if (response.getStatus() == 404) {
-                    notFoundResponses++;
-                }
                 if ((response.getStatus() == 200 || response.getStatus() == 404) && response.getHeader("Time: ")
                         != null) {
+                    if (response.getStatus() == 200 && !hasGoodResponses) {
+                        hasGoodResponses = true;
+                    } else if (response.getStatus() == 404) {
+                        notFoundResponses++;
+                    }
                     validResponses.add(response);
                 }
             }
