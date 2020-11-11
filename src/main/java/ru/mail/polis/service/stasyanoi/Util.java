@@ -51,12 +51,12 @@ public class Util {
     /**
      * Add timestamp to body and abb byte to empty body.
      *
-     * @param body - body value.
+     * @param bodyTemp - body value.
      * @return - body with timestamp.
      */
-    public byte[] addTimestampToBodyAndModifyEmptyBody(byte[] body) {
+    public byte[] addTimestampToBodyAndModifyEmptyBody(byte[] bodyTemp) {
+        final byte[] body = addByteIfEmpty(bodyTemp);
         final byte[] timestamp = getTimestampInternal();
-        body = addByteIfEmpty(body);
         final byte[] newBody = new byte[body.length + timestamp.length];
         System.arraycopy(body, 0, newBody, 0, body.length);
         System.arraycopy(timestamp, 0, newBody, body.length, timestamp.length);
@@ -64,9 +64,9 @@ public class Util {
     }
 
     @NotNull
-    private byte[] addByteIfEmpty(byte[] body) {
+    private byte[] addByteIfEmpty(final byte[] body) {
         if (body.length == 0) {
-            body = new byte[1];
+            return new byte[1];
         }
         return body;
     }

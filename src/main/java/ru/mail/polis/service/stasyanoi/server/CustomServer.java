@@ -12,9 +12,7 @@ import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
-import ru.mail.polis.service.stasyanoi.Constants;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
-import ru.mail.polis.service.stasyanoi.server.helpers.BodyWithTimestamp;
 import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
 import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 
@@ -66,7 +64,7 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private Response getResponseFromLocalAndReplicas(final String idParam, final Request request) {
         final Response responseHttp;
-        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)){
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
             final int node = util.getNode(idParam, nodeAmount);
             final Response responseHttpTemp;
             if (node == thisNodeIndex) {

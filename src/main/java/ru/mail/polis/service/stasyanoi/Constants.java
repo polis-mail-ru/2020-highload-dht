@@ -9,7 +9,6 @@ public final class Constants {
     public static final String REPLICAS = "replicas";
     public static final String SHOULD_REPLICATE = "reps";
 
-
     private Constants() {
 
     }
