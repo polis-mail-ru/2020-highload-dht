@@ -58,7 +58,7 @@ public class Util {
      * @param bodyTemp - body value.
      * @return - body with timestamp.
      */
-    public byte[] addTimestampToBodyAndModifyEmptyBody(byte[] bodyTemp) {
+    public byte[] addTimestampToBodyAndModifyEmptyBody(final byte[] bodyTemp) {
         final byte[] body = addByteIfEmpty(bodyTemp);
         final byte[] timestamp = getTimestampInternal();
         final byte[] newBody = new byte[body.length + timestamp.length];
