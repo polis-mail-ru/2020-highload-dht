@@ -88,14 +88,20 @@ public class ReplicationLsm {
      * @param session - ongoing HTTP session instance
      *
      */
-    @SuppressWarnings("FutureReturnValueIgnored")
-    void getWithMultipleNodes(@NotNull final ByteBuffer key,
-                              final String[] nodes,
-                              @NotNull final Request req,
-                              final int ack,
-                              @NotNull final HttpSession session) throws IOException {
+    void execGetAsync(@NotNull final ByteBuffer key,
+                      final String[] nodes,
+                      @NotNull final Request req,
+                      final int ack,
+                      @NotNull final HttpSession session) throws IOException {
+
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
         final List<Value> values = new ArrayList<>();
+
+        if (topology.getNodes().size() == 1) {
+            session.sendResponse(getWithOnlyNode(key));
+            return;
+        }
+
         for (final String node : nodes) {
             if (node.equals(topology.getThisNode())) {
                 futures.add(CompletableFuture.supplyAsync(
@@ -104,7 +110,7 @@ public class ReplicationLsm {
                             try {
                                 responses = dao.getValueWithFutures(key);
                                 return new AsyncConnectUtils().setReturnCode(responses.getStatus())
-                                        .setBody(responses.getBody());
+                                                              .setBody(responses.getBody());
                             } catch (IOException exc) {
                                 response = new AsyncConnectUtils().setReturnCode(404);
                                 return response;
@@ -151,15 +157,20 @@ public class ReplicationLsm {
      *
      * @param nodes - array of node IDs the cluster is build upon
      * @param req - HTTP request
-     * @param count - number of nodes (quorum) to issue success response when processing over replicas
+     * @param ack - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
      */
-    @SuppressWarnings("FutureReturnValueIgnored")
-    void upsertWithMultipleNodes(@NotNull final ByteBuffer key,
-                                 final String[] nodes,
-                                 @NotNull final Request req,
-                                 final int count,
-                                 @NotNull final HttpSession session) throws IOException {
+    void execUpsertAsync(@NotNull final ByteBuffer key,
+                         final String[] nodes,
+                         @NotNull final Request req,
+                         final int ack,
+                         @NotNull final HttpSession session) throws IOException {
+
+        if (topology.getNodes().size() == 1) {
+            session.sendResponse(upsertWithOnlyNode(key, req.getBody()));
+            return;
+        }
+
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
         for (final String node : nodes) {
             if (topology.isThisNode(node)) {
@@ -183,11 +194,11 @@ public class ReplicationLsm {
             }
         }
 
-       try {
-           session.sendResponse(FutureUtils.execUpsertWithFutures(count, futures));
-       } catch (IOException exc) {
+        try {
+            session.sendResponse(FutureUtils.execUpsertWithFutures(ack, futures));
+        } catch (IOException exc) {
              LOGGER.error(FutureUtils.UPSERT_COMPLETION_ERROR_LOG);
-       }
+        }
     }
 
     /**
@@ -214,15 +225,20 @@ public class ReplicationLsm {
      *
      * @param nodes - array of node IDs the cluster is build upon
      * @param req - HTTP request
-     * @param count - number of nodes (quorum) to issue success response when processing over replicas
+     * @param ack - number of nodes (quorum) to issue success response when processing over replicas
      * @param session - ongoing HTTP session instance
      */
-    @SuppressWarnings("FutureReturnValueIgnored")
-    void deleteWithMultipleNodes(@NotNull final ByteBuffer key,
+    void execDeleteAsync(@NotNull final ByteBuffer key,
                                  final String[] nodes,
                                  @NotNull final Request req,
-                                 final int count,
+                                 final int ack,
                                  final HttpSession session) throws IOException {
+
+        if (topology.getNodes().size() == 1) {
+            session.sendResponse(deleteWithOnlyNode(key));
+            return;
+        }
+
         final List<CompletableFuture<HttpResponse<byte[]>>> futures = new ArrayList<>(nodes.length);
         for (final String node : nodes) {
             if (topology.isThisNode(node)) {
@@ -244,10 +260,10 @@ public class ReplicationLsm {
             }
         }
 
-       try {
-            session.sendResponse(FutureUtils.execDeleteWithFutures(count, futures));
+        try {
+            session.sendResponse(FutureUtils.execDeleteWithFutures(ack, futures));
         } catch (IOException exc) {
             LOGGER.error(FutureUtils.DELETE_COMPLETION_ERROR_LOG);
-       }
+        }
     }
 }

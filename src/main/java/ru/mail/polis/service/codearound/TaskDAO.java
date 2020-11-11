@@ -36,6 +36,7 @@ public class TaskDAO implements DAO {
 
     /**
     * class instance const.
+     *
     * @param data - file to store key-value records
     */
     public TaskDAO(@NotNull final File data) {
@@ -60,6 +61,12 @@ public class TaskDAO implements DAO {
         }
     }
 
+    /**
+     * retrieves store record iterator.
+     *
+     * @param from - record to start from
+     * @return value obtainable from ByteBuffer
+     */
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
@@ -70,8 +77,10 @@ public class TaskDAO implements DAO {
     }
 
     /**
-     * returns value by key searched.
+     * retrives value by key searched.
+     *
      * @param key - target key
+     * @return value obtainable from ByteBuffer
      */
     @NotNull
     @Override
@@ -90,6 +99,7 @@ public class TaskDAO implements DAO {
 
     /**
      * executes insertion/update on record specified.
+     *
      * @param key - key that should match for attaching a value to server response
      * @param value - key-bound value
      */
@@ -123,6 +133,7 @@ public class TaskDAO implements DAO {
      * resolves timestamp-featured reading data by key specified.
      *
      * @param key - key searched to read some value
+     * @return value obtainable from Value instance
      */
     @Override
     public Value getValue(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
@@ -171,7 +182,7 @@ public class TaskDAO implements DAO {
      * implements processing for a value derived from ByteBuffer.
      *
      * @param key - key searched to remove specific record
-     * @return value readable from byte array
+     * @return value obtainable from byte array
      */
     private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException {
         final byte[] array = DAOByteOnlyConverter.tuneBufToArray(key);
@@ -224,7 +235,7 @@ public class TaskDAO implements DAO {
      * retrieves value which is a match of key searched.
      *
      * @param key - key searched
-     * @return value written into plain byte array
+     * @return value obtainable from a plain byte array
      */
     private byte[] evaluateFromBuffer(@NotNull final ByteBuffer key) throws IOException {
         final Value value = getValue(key);

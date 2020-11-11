@@ -26,15 +26,12 @@ import java.util.concurrent.TimeUnit;
 public class RepliServiceImpl extends HttpServer implements Service {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
-    private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
     private static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
             + "Request failed as gateway closed past timeout";
     private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
             + "Failed determining response";
     public static final String IO_ERROR_LOG = "IO exception raised";
     public static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
-    @NotNull
-    private final ExecutorService exec;
     @NotNull
     private final Topology<String> topology;
     @NotNull
@@ -61,7 +58,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         super(TaskServerConfig.getConfig(port));
         assert workerPoolSize > 0;
         assert queueSize > 0;
-        this.exec = new ThreadPoolExecutor(
+        ExecutorService exec = new ThreadPoolExecutor(
                 workerPoolSize,
                 workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
@@ -108,12 +105,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         if (id.isEmpty()) {
             session.sendError(Response.BAD_REQUEST,"Identifier is required as parameter. Error handling request");
         }
-        if (topology.getNodes().size() > 1) {
-            invokeHandlerByMethod(id, req, session);
-        } else {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            executeAsync(req, key, session);
-        }
+        invokeHandlerByMethod(id, req, session);
     }
 
     /**
@@ -140,13 +132,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
         try {
             switch (req.getMethod()) {
                 case Request.METHOD_GET:
-                    lsm.getWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
+                    lsm.execGetAsync(key, nodes, req, repliFactorObj.getAckValue(), session);
                     break;
                 case Request.METHOD_PUT:
-                    lsm.upsertWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
+                    lsm.execUpsertAsync(key, nodes, req, repliFactorObj.getAckValue(), session);
                     break;
                 case Request.METHOD_DELETE:
-                    lsm.deleteWithMultipleNodes(key, nodes, req, repliFactorObj.getAckValue(), session);
+                    lsm.execDeleteAsync(key, nodes, req, repliFactorObj.getAckValue(), session);
                     break;
                 default:
                     session.sendError(Response.METHOD_NOT_ALLOWED, RepliServiceImpl.REJECT_METHOD_ERROR_LOG);
@@ -154,32 +146,6 @@ public class RepliServiceImpl extends HttpServer implements Service {
             }
         } catch (IOException e) {
             session.sendError(Response.GATEWAY_TIMEOUT, GATEWAY_TIMEOUT_ERROR_LOG);
-        }
-    }
-
-    /**
-     * resolves async request processing in single node cluster.
-     *
-     * @param req - HTTP request
-     * @param key - String object to be processed as a key in terms of data storage design
-     * @param session - ongoing session instance
-     */
-    private void executeAsync(@NotNull final Request req,
-                              @NotNull final ByteBuffer key,
-                              @NotNull final HttpSession session) throws IOException {
-        switch (req.getMethod()) {
-            case Request.METHOD_GET:
-                runAsyncHandler(session, () -> lsm.getWithOnlyNode(key));
-                break;
-            case Request.METHOD_PUT:
-                runAsyncHandler(session, () -> lsm.upsertWithOnlyNode(key, req.getBody()));
-                break;
-            case Request.METHOD_DELETE:
-                runAsyncHandler(session, () -> lsm.deleteWithOnlyNode(key));
-                break;
-            default:
-                session.sendError(Response.METHOD_NOT_ALLOWED, REJECT_METHOD_ERROR_LOG);
-                break;
         }
     }
 
@@ -192,26 +158,5 @@ public class RepliServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    /**
-     * switches request handling to async-featured process.
-     *
-     * @param session ongoing HTTP session
-     * @param async interface design object to enable async handler execution
-     */
-    private void runAsyncHandler(@NotNull final HttpSession session, final AsyncExec async) {
-        exec.execute(() -> {
-            try {
-                session.sendResponse(async.exec());
-            } catch (IOException exc) {
-                LOGGER.error(COMMON_RESPONSE_ERROR_LOG);
-                try {
-                    session.sendError(Response.INTERNAL_ERROR, COMMON_RESPONSE_ERROR_LOG);
-                } catch (IOException e) {
-                    LOGGER.error(IO_ERROR_LOG);
-                }
-            }
-        });
     }
 }

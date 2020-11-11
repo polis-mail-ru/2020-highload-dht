@@ -27,6 +27,7 @@ public final class FutureUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
+    private static final String GET_FUTURE_ERROR_LOG = "Failed obtaining a future result";
     public static final String GET_COMPLETION_ERROR_LOG = "Future return error when running GET request handler";
     public static final String UPSERT_COMPLETION_ERROR_LOG = "Future return error when running PUT request handler";
     public static final String DELETE_COMPLETION_ERROR_LOG = "Future return error when running DELETE request handler";
@@ -58,14 +59,14 @@ public final class FutureUtils {
      * @param values - collection of values to be sent by HTTP response
      * @param nodes - array of cluster-belonging node IDs
      * @param futures - collection of future responses
-     * @param count - cluster-wide success quorum to send response
+     * @param ack - success quorum to send response
      * @param req - HTTP request
      * @return HTTP response
      */
     public static Response execGetWithFutures(final List<Value> values,
                                               final List<CompletableFuture<HttpResponse<byte[]>>> futures,
                                               final String[] nodes,
-                                              final int count,
+                                              final int ack,
                                               @NotNull final Request req) throws IOException {
         final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
@@ -76,45 +77,47 @@ public final class FutureUtils {
                     values.add(Value.getValueFromBytes(future.get().body()));
                 }
                 quant.incrementAndGet();
+                if (quant.get() == futures.size() || quant.get() == ack) {
+                    return RepliServiceUtils.processResponses(nodes, values, req);
+                }
             } catch (ExecutionException | InterruptedException exc) {
                 LOGGER.error(GET_COMPLETION_ERROR_LOG);
             }
         }
-        if (quant.get() == futures.size() || quant.get() == count) {
-            return RepliServiceUtils.processResponses(nodes, values, req);
+
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    }
+
+    /**
+     * async handler to respond PUT request.
+     *
+     * @param ack - success quorum to send response
+     * @param futures - collection of future responses
+     * @return HTTP response
+     */
+    public static Response execUpsertWithFutures(final int ack,
+                                                 final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+        final AtomicInteger quant = new AtomicInteger(0);
+        boolean res = countSuccesses(ack, quant, 201, futures);
+        if (res) {
+            return new Response(Response.CREATED, Response.EMPTY);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
     }
 
     /**
-     * async handler to respond PUT request.
-     *
-     * @param count - cluster-wide success quorum to send response
-     * @param futures - collection of future responses
-     * @return HTTP response
-     */
-    public static Response execUpsertWithFutures(final int count,
-                                                 final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
-        final AtomicInteger quant = new AtomicInteger(0);
-        incrementFutureCount(quant, 201, futures);
-        if (quant.get() == futures.size() || quant.get() == count) {
-            return new Response(Response.CREATED, Response.EMPTY);
-        } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-    }
-
-    /**
      * async handler to respond DELETE request.
      *
-     * @param count - cluster-wide success quorum to send response
+     * @param ack - success quorum to send response
      * @param futures - collection of future responses
      * @return HTTP response
      */
-    public static Response execDeleteWithFutures(final int count,
+    public static Response execDeleteWithFutures(final int ack,
                                                  final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         final AtomicInteger quant = new AtomicInteger(0);
-        incrementFutureCount(quant, 202, futures);
-        if (quant.get() == futures.size() || quant.get() == count) {
+        boolean res = countSuccesses(ack, quant, 202, futures);
+        if (res) {
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } else {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
@@ -124,23 +127,29 @@ public final class FutureUtils {
     /**
      * increments number of futures for response.
      *
+     * @param ack - success quorum to send response
      * @param quant - quantity of success responses
-     * @param returnCode - HTTP return code
+     * @param returnCode - HTTP return code suggested as completion success
      * @param futures - collection of future responses
      */
-    private static void incrementFutureCount(final AtomicInteger quant,
-                                             final int returnCode,
-                                             final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
+    private static boolean countSuccesses(final int ack,
+                                          final AtomicInteger quant,
+                                          final int returnCode,
+                                          final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         for (final var future : futures) {
             try {
                 if (future.get().statusCode() == returnCode) {
                     quant.incrementAndGet();
+                    if (quant.get() == futures.size() || quant.get() == ack) {
+                        return true;
+                    }
                 }
             } catch (ExecutionException | InterruptedException exc) {
-                LOGGER.error(DELETE_COMPLETION_ERROR_LOG);
+                LOGGER.error(GET_FUTURE_ERROR_LOG);
             }
         }
-        quant.get();
+
+        return false;
     }
 
     /**
