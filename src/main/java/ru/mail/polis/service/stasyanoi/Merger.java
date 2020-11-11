@@ -46,15 +46,21 @@ public class Merger {
                     validResponses.add(response);
                 }
             }
-            if (hasGoodResponses) {
-                validResponses.sort(comparingLong(response -> parseLong(response.getHeader("Time: "))));
-                responseHttp = validResponses.get(validResponses.size() - 1);
+            responseHttp = mergeGetInternal(ack, hasGoodResponses, notFoundResponses, validResponses);
+        }
+        return responseHttp;
+    }
+
+    private Response mergeGetInternal(Integer ack, boolean hasGoodResponses, int notFoundResponses, List<Response> validResponses) {
+        final Response responseHttp;
+        if (hasGoodResponses) {
+            validResponses.sort(comparingLong(response -> parseLong(response.getHeader("Time: "))));
+            responseHttp = validResponses.get(validResponses.size() - 1);
+        } else {
+            if (notFoundResponses >= ack) {
+                responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
             } else {
-                if (notFoundResponses >= ack) {
-                    responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
-                } else {
-                    responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
-                }
+                responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;
