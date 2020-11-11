@@ -1,6 +1,5 @@
 package ru.mail.polis.service.stasyanoi.server;
 
-import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;

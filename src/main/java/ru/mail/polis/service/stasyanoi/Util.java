@@ -201,8 +201,13 @@ public class Util {
      */
     public Response sendRequestToReplicas(final HttpClient httpClient, final Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
-        final Response response;
         final String newPath = request.getPath() + "/rep?" + request.getQueryString();
+        return sendRequestInternal(httpClient, request, newPath);
+    }
+
+    private Response sendRequestInternal(final HttpClient httpClient, final Request request, final String newPath)
+            throws InterruptedException, PoolException, IOException, HttpException {
+        final Response response;
         if (request.getMethodName().equals("GET")) {
             response = httpClient.get(newPath);
         } else if (request.getMethodName().equals("PUT")) {
@@ -233,15 +238,7 @@ public class Util {
         } else {
             newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
         }
-        final Response response;
-        if (request.getMethodName().equals("GET")) {
-            response = httpClient.get(newPath);
-        } else if (request.getMethodName().equals("PUT")) {
-            response = httpClient.put(newPath, request.getBody());
-        } else {
-            response = httpClient.delete(newPath);
-        }
-        return response;
+        return sendRequestInternal(httpClient, request, newPath);
     }
 }
 
