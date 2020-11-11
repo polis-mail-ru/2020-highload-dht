@@ -181,21 +181,6 @@ public class CustomServer extends BaseFunctionalityServer {
         }
     }
 
-    private void internalRun(final String idParam, final HttpSession session,
-                             final Supplier<Response> responseSupplier) {
-        Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
-        } else {
-            responseHttp = responseSupplier.get();
-        }
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
     private Response deleteResponseFromLocalAndReplicas(final String idParam, final Request request) {
         Response responseHttp;
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
@@ -225,6 +210,21 @@ public class CustomServer extends BaseFunctionalityServer {
             responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
         return responseHttp;
+    }
+
+    private void internalRun(final String idParam, final HttpSession session,
+                             final Supplier<Response> responseSupplier) {
+        Response responseHttp;
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            responseHttp = responseSupplier.get();
+        }
+        try {
+            session.sendResponse(responseHttp);
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+        }
     }
 
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,

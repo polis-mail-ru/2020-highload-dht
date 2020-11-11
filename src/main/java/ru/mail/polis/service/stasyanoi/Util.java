@@ -188,19 +188,6 @@ public class Util {
         return sendRequestInternal(httpClient, request, newPath);
     }
 
-    private Response sendRequestInternal(final HttpClient httpClient, final Request request, final String newPath)
-            throws InterruptedException, PoolException, IOException, HttpException {
-        final Response response;
-        if (request.getMethodName().equals("GET")) {
-            response = httpClient.get(newPath);
-        } else if (request.getMethodName().equals("PUT")) {
-            response = httpClient.put(newPath, request.getBody());
-        } else {
-            response = httpClient.delete(newPath);
-        }
-        return response;
-    }
-
     /**
      * Send request for sharding.
      *
@@ -221,6 +208,19 @@ public class Util {
             newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
         }
         return sendRequestInternal(httpClient, request, newPath);
+    }
+
+    private Response sendRequestInternal(final HttpClient httpClient, final Request request, final String newPath)
+            throws InterruptedException, PoolException, IOException, HttpException {
+        final Response response;
+        if (request.getMethodName().equals("GET")) {
+            response = httpClient.get(newPath);
+        } else if (request.getMethodName().equals("PUT")) {
+            response = httpClient.put(newPath, request.getBody());
+        } else {
+            response = httpClient.delete(newPath);
+        }
+        return response;
     }
 }
 
