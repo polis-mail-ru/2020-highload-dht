@@ -146,8 +146,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final List<Response> responses = new ArrayList<>();
-
         final Set<String> replNodes = topology.primaryFor(key, replicasFactor.getFrom());
 
         if (replNodes.isEmpty()) {
@@ -155,6 +153,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
+        final List<Response> responses = new ArrayList<>();
         for (final String node : replNodes) {
             responses.add(proxy(node, request));
         }
