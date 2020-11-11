@@ -3,10 +3,8 @@ package ru.mail.polis.service.stasyanoi;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
-import com.google.common.primitives.Bytes;
-import one.nio.http.HttpSession;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
+import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +16,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Objects;
 
 public class Util {
 
@@ -135,47 +132,6 @@ public class Util {
     }
 
     /**
-     * Get request with no replication header.
-     *
-     * @param request - the request to which to add the header.
-     * @param port - port of the current server.
-     * @return - new no replication request
-     */
-    public Request getNoRepRequest(final Request request,
-                                    final int port) {
-        final String path = request.getPath();
-        final String queryString = request.getQueryString();
-        final String newPath;
-        if (request.getQueryString().contains("&reps=false")) {
-            newPath = path + "?" + queryString;
-        } else {
-            newPath = path + "?" + queryString + "&reps=false";
-        }
-        final Request noRepRequest = getCloneRequest(request, newPath, port);
-        noRepRequest.setBody(request.getBody());
-        return noRepRequest;
-    }
-
-    /**
-     * Get clone of input request.
-     *
-     * @param request - input request.
-     * @param newPath - new path to which to send.
-     * @param destinationServerPort - the port of the receiver server.
-     * @return - cloned request.
-     */
-    public Request getCloneRequest(final Request request, final String newPath, final int destinationServerPort) {
-        final Request noRepRequest = new Request(request.getMethod(), newPath, true);
-        for (String header : request.getHeaders()) {
-            if (Objects.nonNull(header) && !header.contains("Host: ")) {
-                noRepRequest.addHeader(header);
-            }
-        }
-        noRepRequest.addHeader("Host: localhost:" + destinationServerPort);
-        return noRepRequest;
-    }
-
-    /**
      * Get replication factor object.
      *
      * @param replicas - replicas header.
@@ -227,4 +183,59 @@ public class Util {
         addTimestampHeader(time, okResponse);
         return okResponse;
     }
+
+    /**
+     * @param httpClient
+     * @param request
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws HttpException
+     * @throws PoolException
+     */
+    public Response sendRequestToReplicas(HttpClient httpClient, Request request)
+            throws InterruptedException, IOException, HttpException, PoolException {
+        final Response response;
+        String newPath = request.getPath() + "/rep?" + request.getQueryString();
+        if (request.getMethodName().equals("GET")) {
+            response = httpClient.get(newPath);
+        } else if (request.getMethodName().equals("PUT")) {
+            response = httpClient.put(newPath, request.getBody());
+        } else {
+            response = httpClient.delete(newPath);
+        }
+        return response;
+    }
+
+    /**
+     * @param httpClient
+     * @param request
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws HttpException
+     * @throws PoolException
+     */
+    public Response sendRequestToRemote(HttpClient httpClient, Request request)
+            throws InterruptedException, IOException, HttpException, PoolException {
+
+        String path = request.getPath();
+        String queryString = request.getQueryString();
+        String newPath;
+        if (request.getQueryString().contains("&reps=false")) {
+            newPath = path + "?" + queryString;
+        } else {
+            newPath = path + "?" + queryString + "&reps=false";
+        }
+        final Response response;
+        if (request.getMethodName().equals("GET")) {
+            response = httpClient.get(newPath);
+        } else if (request.getMethodName().equals("PUT")) {
+            response = httpClient.put(newPath, request.getBody());
+        } else {
+            response = httpClient.delete(newPath);
+        }
+        return response;
+    }
 }
+

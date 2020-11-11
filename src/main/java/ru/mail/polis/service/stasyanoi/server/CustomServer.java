@@ -33,8 +33,8 @@ public class CustomServer extends BaseFunctionalityServer {
     /**
      * Custom server.
      *
-     * @param dao - DAO to use.
-     * @param config - config for server.
+     * @param dao      - DAO to use.
+     * @param config   - config for server.
      * @param topology - topology of services.
      * @throws IOException - if an IO exception occurs.
      */
@@ -235,7 +235,7 @@ public class CustomServer extends BaseFunctionalityServer {
         try {
             session.sendResponse(responseHttp);
         } catch (IOException e) {
-            logger.error(e.getMessage(),e);
+            logger.error(e.getMessage(), e);
         }
     }
 
@@ -270,14 +270,14 @@ public class CustomServer extends BaseFunctionalityServer {
     }
 
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
-                                                   final Request request) {
+                                                    final Request request) {
         List<String> urls = new ArrayList<>(tempNodeMapping.values());
         urls = urls.subList(0, from);
         List<Response> responses = new ArrayList<>();
         for (String url : urls) {
             try {
                 HttpClient httpClient = httpClientMap.get(url);
-                responses.add(sendRequestToReplicas(httpClient, request));
+                responses.add(util.sendRequestToReplicas(httpClient, request));
             } catch (InterruptedException | PoolException | IOException | HttpException e) {
                 logger.error(e.getMessage(), e);
                 responses.add(util.responseWithNoBody(Response.INTERNAL_ERROR));
@@ -286,48 +286,13 @@ public class CustomServer extends BaseFunctionalityServer {
         return responses;
     }
 
-    private Response sendRequestToReplicas(HttpClient httpClient, Request request)
-            throws InterruptedException, IOException, HttpException, PoolException {
-        final Response response;
-        if (request.getMethodName().equals("GET")) {
-            response = httpClient.get(request.getPath() + "/rep?" + request.getQueryString());
-        } else if (request.getMethodName().equals("PUT")) {
-            response = httpClient.put(request.getPath() + "/rep?" + request.getQueryString(), request.getBody());
-        } else {
-            response = httpClient.delete(request.getPath() + "/rep?" + request.getQueryString());
-        }
-        return response;
-    }
-
     private Response routeRequestToRemoteNode(final Request request, final int node,
                                               final Map<Integer, String> nodeMapping) {
         try {
-            return sendRequestToRemote(httpClientMap.get(nodeMapping.get(node)), request);
+            return util.sendRequestToRemote(httpClientMap.get(nodeMapping.get(node)), request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
             logger.error(e.getMessage(), e);
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
-    }
-
-    private Response sendRequestToRemote(HttpClient httpClient, Request request)
-            throws InterruptedException, IOException, HttpException, PoolException {
-
-        String path = request.getPath();
-        String queryString = request.getQueryString();
-        String newPath;
-        if (request.getQueryString().contains("&reps=false")) {
-            newPath = path + "?" + queryString;
-        } else {
-            newPath = path + "?" + queryString + "&reps=false";
-        }
-        final Response response;
-        if (request.getMethodName().equals("GET")) {
-            response = httpClient.get(newPath);
-        } else if (request.getMethodName().equals("PUT")) {
-            response = httpClient.put(newPath, request.getBody());
-        } else {
-            response = httpClient.delete(newPath);
-        }
-        return response;
     }
 }
