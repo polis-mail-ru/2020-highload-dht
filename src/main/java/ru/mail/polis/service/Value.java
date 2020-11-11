@@ -4,7 +4,6 @@ import one.nio.http.Response;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 public final class Value {
     private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
