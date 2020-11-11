@@ -40,7 +40,7 @@ public class ConsistentHashing implements Hashing<String> {
             add(node);
         }
 
-        this.uniqueValues = new TreeSet<>(circle.values());
+        this.uniqueValues = new TreeSet<>(nodes);
     }
 
     @Override
