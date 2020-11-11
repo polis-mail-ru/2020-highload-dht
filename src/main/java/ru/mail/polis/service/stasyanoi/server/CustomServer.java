@@ -233,7 +233,7 @@ public class CustomServer extends BaseFunctionalityServer {
         final List<Response> responses = new ArrayList<>();
         for (final String url : urls) {
             try {
-                responses.add(util.sendRequestToReplicas(httpClientMap.get(url), request));
+                responses.add(util.sendRequestInternal(httpClientMap.get(url), request));
             } catch (InterruptedException | PoolException | IOException | HttpException e) {
                 responses.add(util.responseWithNoBody(Response.INTERNAL_ERROR));
             }
@@ -244,7 +244,7 @@ public class CustomServer extends BaseFunctionalityServer {
     private Response routeRequestToRemoteNode(final Request request, final int node,
                                               final Map<Integer, String> nodeMapping) {
         try {
-            return util.sendRequestToRemote(httpClientMap.get(nodeMapping.get(node)), request);
+            return util.sendRequestInternal(httpClientMap.get(nodeMapping.get(node)), request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }

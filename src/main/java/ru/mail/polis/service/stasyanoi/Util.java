@@ -167,7 +167,7 @@ public class Util {
     }
 
     /**
-     * Send request for replication.
+     * Send request for sharding or replication.
      *
      * @param httpClient - client to use.
      * @param request - request to send.
@@ -177,42 +177,15 @@ public class Util {
      * @throws HttpException - thrown if http protocol exception encountered.
      * @throws PoolException - thrown if problems with pooling occurs.
      */
-    public Response sendRequestToReplicas(final HttpClient httpClient, final Request request)
-            throws InterruptedException, IOException, HttpException, PoolException {
-        final String newPath;
-        if (request.getQueryString().contains("&reps=false")) {
-            newPath = request.getPath() + "?" + request.getQueryString();
-        } else {
-            newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
-        }
-        return sendRequestInternal(httpClient, request, newPath);
-    }
-
-    /**
-     * Send request for sharding.
-     *
-     * @param httpClient - client to use.
-     * @param request - request to send.
-     * @return received response.
-     * @throws InterruptedException - thrown if interrupted.
-     * @throws IOException - thrown if network io exception occurs in the client.
-     * @throws HttpException - thrown if http protocol exception encountered.
-     * @throws PoolException - thrown if problems with pooling occurs.
-     */
-    public Response sendRequestToRemote(final HttpClient httpClient, final Request request)
-            throws InterruptedException, IOException, HttpException, PoolException {
-        final String newPath;
-        if (request.getQueryString().contains("&reps=false")) {
-            newPath = request.getPath() + "?" + request.getQueryString();
-        } else {
-            newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
-        }
-        return sendRequestInternal(httpClient, request, newPath);
-    }
-
-    private Response sendRequestInternal(final HttpClient httpClient, final Request request, final String newPath)
+    public Response sendRequestInternal(final HttpClient httpClient, final Request request)
             throws InterruptedException, PoolException, IOException, HttpException {
         final Response response;
+        String newPath;
+        if (request.getQueryString().contains("&reps=false")) {
+            newPath = request.getPath() + "?" + request.getQueryString();
+        } else {
+            newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
+        }
         if (request.getMethodName().equals("GET")) {
             response = httpClient.get(newPath);
         } else if (request.getMethodName().equals("PUT")) {
