@@ -179,7 +179,12 @@ public class Util {
      */
     public Response sendRequestToReplicas(final HttpClient httpClient, final Request request)
             throws InterruptedException, IOException, HttpException, PoolException {
-        final String newPath = request.getPath() + "/rep?" + request.getQueryString();
+        final String newPath;
+        if (request.getQueryString().contains("&reps=false")) {
+            newPath = request.getPath() + "?" + request.getQueryString();
+        } else {
+            newPath = request.getPath() + "?" + request.getQueryString() + "&reps=false";
+        }
         return sendRequestInternal(httpClient, request, newPath);
     }
 

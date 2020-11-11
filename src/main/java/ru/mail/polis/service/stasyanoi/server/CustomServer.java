@@ -77,17 +77,17 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private Response getResponseFromLocalAndReplicas(final String idParam, final Request request) {
         final Response responseHttp;
-        final int node = util.getNode(idParam, nodeAmount);
-        final Response responseHttpTemp;
-        if (node == thisNodeIndex) {
-            responseHttpTemp = getResponseFromLocalNode(idParam);
-        } else {
-            responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
-        }
-        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+        if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)){
+            final int node = util.getNode(idParam, nodeAmount);
+            final Response responseHttpTemp;
+            if (node == thisNodeIndex) {
+                responseHttpTemp = getResponseFromLocalNode(idParam);
+            } else {
+                responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
+            }
             responseHttp = replicateGet(request, node, responseHttpTemp);
         } else {
-            responseHttp = responseHttpTemp;
+            responseHttp = getResponseFromLocalNode(idParam);
         }
         return responseHttp;
     }
@@ -152,17 +152,17 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private Response putResponseFromLocalAndReplicas(final String idParam, final Request request) {
         Response responseHttp;
-        final int node = util.getNode(idParam, nodeAmount);
-        Response responseHttpTemp;
-        if (node == thisNodeIndex) {
-            responseHttpTemp = putIntoLocalNode(request, idParam);
-        } else {
-            responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
-        }
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            final int node = util.getNode(idParam, nodeAmount);
+            Response responseHttpTemp;
+            if (node == thisNodeIndex) {
+                responseHttpTemp = putIntoLocalNode(request, idParam);
+            } else {
+                responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
+            }
             responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 201);
         } else {
-            responseHttp = responseHttpTemp;
+            responseHttp = putIntoLocalNode(request, idParam);
         }
         return responseHttp;
     }
@@ -246,18 +246,18 @@ public class CustomServer extends BaseFunctionalityServer {
     }
 
     private Response deleteResponseFromLocalAndReplicas(final String idParam, final Request request) {
-        final int node = util.getNode(idParam, nodeAmount);
-        Response responseHttpTemp;
-        if (node == thisNodeIndex) {
-            responseHttpTemp = deleteInLocalNode(idParam);
-        } else {
-            responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
-        }
         Response responseHttp;
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
+            Response responseHttpTemp;
+            final int node = util.getNode(idParam, nodeAmount);
+            if (node == thisNodeIndex) {
+                responseHttpTemp = deleteInLocalNode(idParam);
+            } else {
+                responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
+            }
             responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 202);
         } else {
-            responseHttp = responseHttpTemp;
+            responseHttp = deleteInLocalNode(idParam);
         }
         return responseHttp;
     }
