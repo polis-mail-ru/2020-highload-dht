@@ -69,7 +69,7 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     @Override
     public Set<String> primaryFor(@NotNull final ByteBuffer key, final int count) {
-        if (count < uniqueValues.size()) {
+        if (count > uniqueValues.size()) {
             return new HashSet<>();
         }
 
