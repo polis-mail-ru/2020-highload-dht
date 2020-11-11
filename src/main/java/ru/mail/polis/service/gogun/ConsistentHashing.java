@@ -49,8 +49,7 @@ public class ConsistentHashing implements Hashing<String> {
     }
 
     @NotNull
-    @Override
-    public String get(@NotNull final ByteBuffer key) {
+    private String get(@NotNull final ByteBuffer key) {
         int hash = key.hashCode();
 
         if (!circle.containsKey(hash)) {
@@ -69,7 +68,12 @@ public class ConsistentHashing implements Hashing<String> {
 
     @NotNull
     @Override
-    public Set<String> getReplNodes(@NotNull final String startNode, final int count) {
+    public Set<String> primaryFor(@NotNull final ByteBuffer key, final int count) {
+        if (count < uniqueValues.size()) {
+            return new HashSet<>();
+        }
+
+        final String startNode = get(key);
         final Set<String> nodes = new HashSet<>();
         int counter = count;
         Iterator<String> iterator = uniqueValues.iterator();

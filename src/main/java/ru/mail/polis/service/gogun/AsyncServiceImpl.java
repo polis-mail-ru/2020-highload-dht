@@ -147,9 +147,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final List<Response> responses = new ArrayList<>();
-        final String nodeForRequest = topology.get(key);
 
-        final Set<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
+        final Set<String> replNodes = topology.primaryFor(key, replicasFactor.getFrom());
+
+        if (replNodes.isEmpty()) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return;
+        }
+
         for (final String node : replNodes) {
             responses.add(proxy(node, request));
         }

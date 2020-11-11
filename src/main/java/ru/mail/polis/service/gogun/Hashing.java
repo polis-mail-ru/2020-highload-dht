@@ -10,14 +10,11 @@ public interface Hashing<T> {
 
     boolean isMe(@NotNull T node);
 
-    @NotNull
-    T get(@NotNull ByteBuffer key);
-
     int size();
 
     @NotNull
     List<T> all();
 
     @NotNull
-    Set<T> getReplNodes(@NotNull T node, int count);
+    Set<T> primaryFor(@NotNull ByteBuffer key, int count);
 }
