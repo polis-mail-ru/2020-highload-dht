@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -18,10 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
@@ -47,8 +44,6 @@ class ReplicationHandler {
     );
 
     @NotNull
-    private final DAO dao;
-    @NotNull
     private final Topology topology;
     @NotNull
     private final Map<String, HttpClient> nodesToClients;
@@ -60,20 +55,9 @@ class ReplicationHandler {
             @NotNull final Topology topology,
             @NotNull final Map<String, HttpClient> nodesToClients
     ) {
-        this.dao = dao;
         this.topology = topology;
         this.nodesToClients = nodesToClients;
         this.futuresHandler = new FuturesHandler(false, dao);
-    }
-
-    Response singleGet(@NotNull final ByteBuffer key) {
-        try {
-            return new Response(Response.ok(Util.toByteArray(dao.get(key))));
-        } catch (NoSuchElementException exc) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException exc) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
     }
 
     private void multipleGet(
@@ -121,18 +105,6 @@ class ReplicationHandler {
         });
     }
 
-    Response singleUpsert(
-            @NotNull final ByteBuffer key, final byte[] byteVal
-    ) {
-        final ByteBuffer val = ByteBuffer.wrap(byteVal);
-        try {
-            dao.upsert(key, val);
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (IOException exc) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
     private void multipleUpsert(
             final Set<String> nodes, @NotNull final Request req,
             final int count, @NotNull final HttpSession session
@@ -166,17 +138,6 @@ class ReplicationHandler {
             }
             return null;
         });
-    }
-
-    Response singleDelete(@NotNull final ByteBuffer key) {
-        try {
-            dao.remove(key);
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (RejectedExecutionException exc) {
-            return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
-        } catch (IOException exc) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
     }
 
     private void multipleDelete(

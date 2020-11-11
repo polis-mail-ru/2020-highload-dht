@@ -14,14 +14,11 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -48,10 +45,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     );
 
     @NotNull
-    private final ExecutorService exec;
-    @NotNull
-    private final Topology topology;
-    @NotNull
     private final ReplicationHandler handler;
 
     ReplicationServiceImpl(
@@ -63,7 +56,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) throws IOException {
 
         super(getConfig(port));
-        this.exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
+        ExecutorService exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
@@ -72,7 +65,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-        this.topology = topology;
         final Map<String, HttpClient> nodesToClients = new HashMap<>();
         this.handler = new ReplicationHandler(dao, topology, nodesToClients);
 
@@ -125,38 +117,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
 
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
-        if (isForwardedRequest || topology.getNodes().size() > 1) {
-            handler.handle(isForwardedRequest, req, session, id, replicas);
-        } else {
-            final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-            executeAsync(req, key, session);
-        }
-    }
-
-    private void executeAsync(
-            @NotNull final Request req,
-            @NotNull final ByteBuffer key,
-            @NotNull final HttpSession session
-    ) throws IOException {
-        try {
-            switch (req.getMethod()) {
-                case Request.METHOD_GET:
-                    runAsyncHandler(session, () -> handler.singleGet(key));
-                    break;
-                case Request.METHOD_PUT:
-                    runAsyncHandler(session, () -> handler.singleUpsert(key, req.getBody()));
-                    break;
-                case Request.METHOD_DELETE:
-                    runAsyncHandler(session, () -> handler.singleDelete(key));
-                    break;
-                default:
-                    session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.METHOD_NOT_ALLOWED));
-                    break;
-            }
-        } catch (RejectedExecutionException ex) {
-            log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-            session.sendError(Response.INTERNAL_ERROR, MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
-        }
+        handler.handle(isForwardedRequest, req, session, id, replicas);
     }
 
     /**
@@ -170,20 +131,4 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    private void runAsyncHandler(
-            @NotNull final HttpSession session, final Runner async
-    ) throws RejectedExecutionException {
-        exec.execute(() -> {
-            try {
-                session.sendResponse(async.execute());
-            } catch (IOException exc) {
-
-                try {
-                    session.sendError(Response.INTERNAL_ERROR, MESSAGE_MAP.get(ErrorNames.IO_ERROR));
-                } catch (IOException e) {
-                    log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
-                }
-            }
-        });
-    }
 }
