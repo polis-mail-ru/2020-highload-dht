@@ -2,7 +2,6 @@ package ru.mail.polis.service.gogun;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -10,7 +9,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,11 +18,13 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -35,6 +35,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    public static final String PROXY_HEADER = "X-Proxy-For: ";
+    public static final String TIMESTAMP_HEADER = "timestamp: ";
+    public static final String TOMBSTONE_HEADER = "tombstone: ";
 
     @NotNull
     private final DAO dao;
@@ -120,7 +123,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
-        if (request.getHeader("X-Proxy-For: ") != null) {
+        if (request.getHeader(PROXY_HEADER) != null) {
             ServiceUtils.selector(() -> handlePut(key, request),
                     () -> handleGet(key),
                     () -> handleGet(key),
@@ -130,13 +133,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ReplicasFactor replicasFactor;
-        if (request.getParameter("replicas") == null) {
-            replicasFactor = new ReplicasFactor(topology.all().length);
-        } else {
-            replicasFactor = new ReplicasFactor(request.getParameter("replicas"));
-        }
-
-        if (replicasFactor.isBad()) {
+        try {
+            if (request.getParameter("replicas") == null) {
+                replicasFactor = ReplicasFactor.quorum(topology.all().size());
+            } else {
+                replicasFactor = ReplicasFactor.quorum(request.getParameter("replicas").substring(1));
+            }
+        } catch (InvalidParameterException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
@@ -144,17 +147,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final List<Response> responses = new ArrayList<>();
         final String nodeForRequest = topology.get(key);
 
-        final List<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
+        final Set<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
         for (final String node : replNodes) {
             responses.add(proxy(node, request));
         }
 
-        final MergeResponses mergeResponses = new MergeResponses(responses, replicasFactor.getAck());
+        final ResponseMerger responseMerger = new ResponseMerger(responses, replicasFactor.getAck());
 
-        responses.removeIf((e) -> e.getStatus() == 500);
-        ServiceUtils.selector(mergeResponses::mergePutResponses,
-                mergeResponses::mergeGetResponses,
-                mergeResponses::mergeDeleteResponses,
+        ServiceUtils.selector(responseMerger::mergePutResponses,
+                responseMerger::mergeGetResponses,
+                responseMerger::mergeDeleteResponses,
                 request.getMethod(),
                 session);
 
@@ -187,13 +189,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         Response response;
         if (value.isTombstone()) {
             response = Response.ok(Response.EMPTY);
-            response.addHeader("tombstone: " + true);
+            response.addHeader(TOMBSTONE_HEADER + true);
         } else {
             response = Response.ok(ServiceUtils.getArray(value.getData()));
-            response.addHeader("tombstone: " + false);
+            response.addHeader(TOMBSTONE_HEADER + false);
         }
 
-        response.addHeader("timestamp: " + value.getTimestamp());
+        response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
         return response;
     }
 
@@ -225,12 +227,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     case Request.METHOD_DELETE:
                         return handleDel(key);
                     default:
-                        break;
+                        log.error("Wrong request method");
+                        throw new IllegalStateException("Wrong request method");
                 }
             }
-            request.addHeader("X-Proxy-For: " + node);
+            request.addHeader(PROXY_HEADER + node);
             return nodeClients.get(node).invoke(request);
-        } catch (IOException | InterruptedException | PoolException | HttpException e) {
+        } catch (Exception e) {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }

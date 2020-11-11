@@ -82,6 +82,7 @@ final class ServiceUtils {
                 session.sendResponse(deleteRequest.get());
                 break;
             default:
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 break;
         }
     }

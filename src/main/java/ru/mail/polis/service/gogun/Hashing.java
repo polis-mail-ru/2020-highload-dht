@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Set;
 
 public interface Hashing<T> {
 
@@ -15,8 +16,8 @@ public interface Hashing<T> {
     int size();
 
     @NotNull
-    T[] all();
+    List<T> all();
 
     @NotNull
-    List<T> getReplNodes(@NotNull T node, int count);
+    Set<T> getReplNodes(@NotNull T node, int count);
 }

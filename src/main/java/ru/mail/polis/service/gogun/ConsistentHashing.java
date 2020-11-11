@@ -3,12 +3,13 @@ package ru.mail.polis.service.gogun;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
@@ -62,18 +63,28 @@ public class ConsistentHashing implements Hashing<String> {
         }
     }
 
+    @NotNull
     @Override
-    public ArrayList<String> getReplNodes(@NotNull final String node, final int count) {
-        final ArrayList<String> nodes = new ArrayList<>();
-        final List<String> list = Arrays.asList(all());
-        for (int i = list.indexOf(node); i < count; i++) {
-            nodes.add(list.get(i));
-        }
-        for (final String tmp : list) {
-            if (nodes.size() == count) {
+    public Set<String> getReplNodes(@NotNull final String startNode, final int count) {
+        final Set<String> nodes = new HashSet<>();
+        final Set<String> set = new TreeSet<>(circle.values());
+        int counter = count;
+        for (final String node : set) {
+            if (node.equals(startNode) || !nodes.isEmpty()) {
+                nodes.add(node);
+                counter--;
+            }
+            if (counter == 0) {
                 break;
             }
-            nodes.add(tmp);
+        }
+        if (counter != 0) {
+            for (final String tmp : set) {
+                if (nodes.size() == count) {
+                    break;
+                }
+                nodes.add(tmp);
+            }
         }
 
         return nodes;
@@ -86,7 +97,7 @@ public class ConsistentHashing implements Hashing<String> {
 
     @NotNull
     @Override
-    public String[] all() {
-        return new TreeSet<>(circle.values()).toArray(new String[0]);
+    public List<String> all() {
+        return Arrays.asList(new TreeSet<>(circle.values()).toArray(new String[0]));
     }
 }

@@ -3,10 +3,11 @@ package ru.mail.polis.service.gogun;
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
+import java.security.InvalidParameterException;
 import java.util.List;
 
-public class ReplicasFactor {
-
+public final class ReplicasFactor {
+    private static final String EXCEPTION_TEXT = "Wrong ack and from";
     private final int ack;
     private final int from;
 
@@ -15,19 +16,35 @@ public class ReplicasFactor {
      *
      * @param replicas - replication factor
      */
-    public ReplicasFactor(@NotNull final String replicas) {
+    private ReplicasFactor(@NotNull final String replicas) {
         final List<String> askFrom = Splitter.on('/').splitToList(replicas);
-        this.ack = Integer.parseInt(askFrom.get(0).substring(1));
-        this.from = Integer.parseInt(askFrom.get(1));
+        try {
+            this.ack = Integer.parseInt(askFrom.get(0));
+            this.from = Integer.parseInt(askFrom.get(1));
+        } catch (IndexOutOfBoundsException e) {
+            throw new InvalidParameterException(EXCEPTION_TEXT);
+        }
+
+        if (this.ack == 0 || this.ack > this.from) {
+            throw new InvalidParameterException(EXCEPTION_TEXT);
+        }
     }
 
-    public ReplicasFactor(final int size) {
+    private ReplicasFactor(final int size) {
         this.from = size;
         this.ack = this.from / 2 + 1;
+
+        if (this.ack == 0 || this.ack > this.from) {
+            throw new InvalidParameterException(EXCEPTION_TEXT);
+        }
     }
 
-    public boolean isBad() {
-        return this.ack == 0 || this.ack > this.from;
+    public static ReplicasFactor quorum(@NotNull final String replicas) {
+        return new ReplicasFactor(replicas);
+    }
+
+    public static ReplicasFactor quorum(final int size) {
+        return new ReplicasFactor(size);
     }
 
     public int getAck() {

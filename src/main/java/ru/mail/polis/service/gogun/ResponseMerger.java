@@ -5,18 +5,23 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public class MergeResponses {
+public class ResponseMerger {
 
     private final int ack;
     @NotNull
-    final List<Response> responses;
+    private final List<Response> responses;
 
-    public MergeResponses(@NotNull final List<Response> responses, final int ack) {
+    public ResponseMerger(@NotNull final List<Response> responses, final int ack) {
         this.responses = responses;
         this.ack = ack;
+        this.responses.removeIf((e) -> e.getStatus() == 500);
     }
 
     Response mergeGetResponses() {
+        if (responses.size() < ack) {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        }
+
         int notFoundResponsesCount = 0;
         long latestTimestamp = Long.MIN_VALUE;
         Response latestResponse = new Response("");
@@ -26,7 +31,7 @@ public class MergeResponses {
                     notFoundResponsesCount++;
                     break;
                 case 200:
-                    final long timestamp = Long.parseLong(response.getHeader("timestamp: "));
+                    final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
                     if (timestamp > latestTimestamp) {
                         latestTimestamp = timestamp;
                         latestResponse = response;
@@ -36,11 +41,8 @@ public class MergeResponses {
                     break;
             }
         }
-        if (responses.size() < ack) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
 
-        if (responses.size() == notFoundResponsesCount || latestResponse.getHeader("tombstone: ").equals("true")) {
+        if (responses.size() == notFoundResponsesCount || latestResponse.getHeader(AsyncServiceImpl.TOMBSTONE_HEADER).equals("true")) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
