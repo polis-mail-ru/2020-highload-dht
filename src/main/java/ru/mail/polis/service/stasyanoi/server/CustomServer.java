@@ -1,5 +1,6 @@
 package ru.mail.polis.service.stasyanoi.server;
 
+import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -80,8 +81,7 @@ public class CustomServer extends BaseFunctionalityServer {
         if (node == thisNodeIndex) {
             responseHttpTemp = getResponseFromLocalNode(idParam);
         } else {
-            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
-                    nodeIndexToUrlMapping);
+            responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
         }
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
             responseHttp = replicateGet(request, node, responseHttpTemp);
@@ -152,8 +152,7 @@ public class CustomServer extends BaseFunctionalityServer {
         if (node == thisNodeIndex) {
             responseHttpTemp = putIntoLocalNode(request, idParam);
         } else {
-            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
-                    nodeIndexToUrlMapping);
+            responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
         }
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
             responseHttp = replicatePutOrDelete(request, node, responseHttpTemp, 201);
@@ -177,7 +176,7 @@ public class CustomServer extends BaseFunctionalityServer {
     private List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
         final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
         tempNodeMapping.remove(node);
-        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request, port);
+        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request);
     }
 
     @NotNull
@@ -187,6 +186,7 @@ public class CustomServer extends BaseFunctionalityServer {
             dao.upsert(util.getKey(keyString), util.getByteBufferValue(request));
             responseHttp = util.responseWithNoBody(Response.CREATED);
         } catch (IOException e) {
+            logger.error(e.getMessage(), e);
             responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
         return responseHttp;
@@ -245,8 +245,7 @@ public class CustomServer extends BaseFunctionalityServer {
         if (node == thisNodeIndex) {
             responseHttpTemp = deleteInLocalNode(idParam);
         } else {
-            responseHttpTemp = routeRequestToRemoteNode(util.getNoRepRequest(request, super.port), node,
-                    nodeIndexToUrlMapping);
+            responseHttpTemp = routeRequestToRemoteNode(request, node, nodeIndexToUrlMapping);
         }
         Response responseHttp;
         if (request.getParameter(SHOULD_REPLICATE, TRUE).equals(TRUE)) {
@@ -271,28 +270,64 @@ public class CustomServer extends BaseFunctionalityServer {
     }
 
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
-                                                   final Request request,
-                                                   final int port) {
+                                                   final Request request) {
         List<String> urls = new ArrayList<>(tempNodeMapping.values());
         urls = urls.subList(0, from);
         List<Response> responses = new ArrayList<>();
         for (String url : urls) {
             try {
-                responses.add(httpClientMap.get(url).invoke(util.getNewReplicationRequest(request,
-                        port)));
+                HttpClient httpClient = httpClientMap.get(url);
+                responses.add(sendRequestToReplicas(httpClient, request));
             } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                logger.error(e.getMessage(), e);
                 responses.add(util.responseWithNoBody(Response.INTERNAL_ERROR));
             }
         }
         return responses;
     }
 
+    private Response sendRequestToReplicas(HttpClient httpClient, Request request)
+            throws InterruptedException, IOException, HttpException, PoolException {
+        final Response response;
+        if (request.getMethodName().equals("GET")) {
+            response = httpClient.get(request.getPath() + "/rep?" + request.getQueryString());
+        } else if (request.getMethodName().equals("PUT")) {
+            response = httpClient.put(request.getPath() + "/rep?" + request.getQueryString(), request.getBody());
+        } else {
+            response = httpClient.delete(request.getPath() + "/rep?" + request.getQueryString());
+        }
+        return response;
+    }
+
     private Response routeRequestToRemoteNode(final Request request, final int node,
                                               final Map<Integer, String> nodeMapping) {
         try {
-            return httpClientMap.get(nodeMapping.get(node)).invoke(request);
+            return sendRequestToRemote(httpClientMap.get(nodeMapping.get(node)), request);
         } catch (InterruptedException | PoolException | HttpException | IOException e) {
+            logger.error(e.getMessage(), e);
             return util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
+    }
+
+    private Response sendRequestToRemote(HttpClient httpClient, Request request)
+            throws InterruptedException, IOException, HttpException, PoolException {
+
+        String path = request.getPath();
+        String queryString = request.getQueryString();
+        String newPath;
+        if (request.getQueryString().contains("&reps=false")) {
+            newPath = path + "?" + queryString;
+        } else {
+            newPath = path + "?" + queryString + "&reps=false";
+        }
+        final Response response;
+        if (request.getMethodName().equals("GET")) {
+            response = httpClient.get(newPath);
+        } else if (request.getMethodName().equals("PUT")) {
+            response = httpClient.put(newPath, request.getBody());
+        } else {
+            response = httpClient.delete(newPath);
+        }
+        return response;
     }
 }

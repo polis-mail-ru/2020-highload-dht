@@ -135,22 +135,6 @@ public class Util {
     }
 
     /**
-     * Get request with replication path.
-     *
-     * @param request - input request.
-     * @param port - post for the current server.
-     * @return new request with replication path.
-     */
-    public Request getNewReplicationRequest(final Request request, final int port) {
-        final String path = request.getPath();
-        final String queryString = request.getQueryString();
-        final String newPath = path + "/rep?" + queryString;
-        final Request requestNew = getCloneRequest(request, newPath, port);
-        requestNew.setBody(request.getBody());
-        return requestNew;
-    }
-
-    /**
      * Get request with no replication header.
      *
      * @param request - the request to which to add the header.
@@ -177,17 +161,17 @@ public class Util {
      *
      * @param request - input request.
      * @param newPath - new path to which to send.
-     * @param thisServerPort - the port of the sender server.
+     * @param destinationServerPort - the port of the receiver server.
      * @return - cloned request.
      */
-    public Request getCloneRequest(final Request request, final String newPath, final int thisServerPort) {
+    public Request getCloneRequest(final Request request, final String newPath, final int destinationServerPort) {
         final Request noRepRequest = new Request(request.getMethod(), newPath, true);
         for (String header : request.getHeaders()) {
             if (Objects.nonNull(header) && !header.contains("Host: ")) {
                 noRepRequest.addHeader(header);
             }
         }
-        noRepRequest.addHeader("Host: localhost:" + thisServerPort);
+        noRepRequest.addHeader("Host: localhost:" + destinationServerPort);
         return noRepRequest;
     }
 
