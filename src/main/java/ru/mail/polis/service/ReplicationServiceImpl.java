@@ -56,7 +56,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) throws IOException {
 
         super(getConfig(port));
-        ExecutorService exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
+        final ExecutorService exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
