@@ -95,7 +95,7 @@ public class CustomServer extends BaseFunctionalityServer {
         final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
         final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
         responses.add(responseHttpTemp);
-        responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), nodeIndexToUrlMapping);
+        responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), ackFrom.getFrom());
         return responseHttp;
     }
 
@@ -162,12 +162,12 @@ public class CustomServer extends BaseFunctionalityServer {
     }
 
     private Response replicatePutOrDelete(final Request request, final int node, final Response responseHttpTemp,
-                                          final int i) {
+                                          final int goodStatus) {
         Response responseHttp;
         final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
         final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
         responses.add(responseHttpTemp);
-        responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), i, nodeIndexToUrlMapping);
+        responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
         return responseHttp;
     }
 

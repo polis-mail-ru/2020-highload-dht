@@ -22,14 +22,14 @@ public class ResponseMerger {
      *
      * @param responses - responses to merge.
      * @param ack - ack.
-     * @param nodeMapping - nodes.
+     * @param from - from.
      * @return - merged response.
      */
     public Response mergeGetResponses(final List<Response> responses,
                                              final int ack,
-                                             final Map<Integer, String> nodeMapping) {
+                                             final int from) {
         final Response responseHttp;
-        if (nodeMapping.size() < ack || ack == 0) {
+        if (from < ack || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             boolean hasGoodResponses = false;
@@ -41,8 +41,8 @@ public class ResponseMerger {
                 } else if (response.getStatus() == 404) {
                     notFoundResponses++;
                 }
-                if ((response.getStatus() == 200 || response.getStatus() == 404) && (response.getHeader("Time: ")
-                        != null)) {
+                if ((response.getStatus() == 200 || response.getStatus() == 404) &&
+                        (response.getHeader(Constants.timestampHeaderName) != null)) {
                     validResponses.add(response);
                 }
             }
@@ -55,7 +55,8 @@ public class ResponseMerger {
                                       final int notFoundResponses, final List<Response> validResponses) {
         final Response responseHttp;
         if (hasGoodResponses) {
-            validResponses.sort(comparingLong(response -> parseLong(response.getHeader("Time: "))));
+            validResponses.sort(comparingLong(response ->
+                    parseLong(response.getHeader(Constants.timestampHeaderName))));
             responseHttp = validResponses.get(validResponses.size() - 1);
         } else {
             if (notFoundResponses >= ack) {
@@ -72,26 +73,26 @@ public class ResponseMerger {
      *
      * @param responses - responses to merge.
      * @param ack = ack.
-     * @param status - good status.
-     * @param nodeMapping - nodes.
+     * @param goodStatus - good status.
+     * @param from = from.
      * @return - merged response.
      */
     public Response mergePutDeleteResponses(final List<Response> responses,
                                                    final int ack,
-                                                   final int status,
-                                                   final Map<Integer, String> nodeMapping) {
+                                                   final int goodStatus,
+                                                   final int from) {
         final Response responseHttp;
-        if (ack > nodeMapping.size() || ack == 0) {
+        if (ack > from || ack == 0) {
             responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = new ArrayList<>();
             for (final Response response : responses) {
-                if (response.getStatus() == status) {
+                if (response.getStatus() == goodStatus) {
                     goodResponses.add(response);
                 }
             }
             if (goodResponses.size() >= ack) {
-                if (status == 202) {
+                if (goodStatus == 202) {
                     responseHttp = util.responseWithNoBody(Response.ACCEPTED);
                 } else {
                     responseHttp = util.responseWithNoBody(Response.CREATED);

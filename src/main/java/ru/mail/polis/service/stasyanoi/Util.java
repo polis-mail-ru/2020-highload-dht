@@ -24,6 +24,7 @@ import java.util.Arrays;
 public class Util {
 
     private final Logger logger = LoggerFactory.getLogger(Util.class);
+    private String timestampHeaderName;
 
     /**
      * Get response with no Body.
@@ -89,12 +90,11 @@ public class Util {
      * @return - the modified response.
      */
     public Response addTimestampHeaderToResponse(final byte[] timestamp, final Response response) {
-        final String timestampHeader = "Time: ";
         final StringBuilder nanoTime = new StringBuilder();
         for (final byte b : timestamp) {
             nanoTime.append((char) b);
         }
-        response.addHeader(timestampHeader + nanoTime);
+        response.addHeader(Constants.timestampHeaderName + nanoTime);
         return response;
     }
 
