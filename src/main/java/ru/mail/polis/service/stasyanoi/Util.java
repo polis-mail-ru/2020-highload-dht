@@ -24,7 +24,6 @@ import java.util.Arrays;
 public class Util {
 
     private final Logger logger = LoggerFactory.getLogger(Util.class);
-    private String timestampHeaderName;
 
     /**
      * Get response with no Body.
@@ -73,13 +72,9 @@ public class Util {
      */
     @NotNull
     public byte[] getTimestampInternal() {
-        final String nanos = String.valueOf(System.nanoTime());
-        final int[] ints = nanos.chars().toArray();
-        final byte[] timestamp = new byte[ints.length];
-        for (int i = 0; i < ints.length; i++) {
-            timestamp[i] = (byte) ints[i];
-        }
-        return timestamp;
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(System.nanoTime());
+        return buffer.array();
     }
 
     /**
@@ -94,7 +89,7 @@ public class Util {
         for (final byte b : timestamp) {
             nanoTime.append((char) b);
         }
-        response.addHeader(Constants.timestampHeaderName + nanoTime);
+        response.addHeader(Constants.TIMESTAMP_HEADER_NAME + nanoTime);
         return response;
     }
 

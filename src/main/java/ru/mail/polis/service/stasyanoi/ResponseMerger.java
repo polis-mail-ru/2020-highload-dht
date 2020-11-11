@@ -4,7 +4,6 @@ import one.nio.http.Response;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
@@ -41,8 +40,8 @@ public class ResponseMerger {
                 } else if (response.getStatus() == 404) {
                     notFoundResponses++;
                 }
-                if ((response.getStatus() == 200 || response.getStatus() == 404) &&
-                        (response.getHeader(Constants.timestampHeaderName) != null)) {
+                if ((response.getStatus() == 200 || response.getStatus() == 404)
+                        && (response.getHeader(Constants.TIMESTAMP_HEADER_NAME) != null)) {
                     validResponses.add(response);
                 }
             }
@@ -56,7 +55,7 @@ public class ResponseMerger {
         final Response responseHttp;
         if (hasGoodResponses) {
             validResponses.sort(comparingLong(response ->
-                    parseLong(response.getHeader(Constants.timestampHeaderName))));
+                    parseLong(response.getHeader(Constants.TIMESTAMP_HEADER_NAME))));
             responseHttp = validResponses.get(validResponses.size() - 1);
         } else {
             if (notFoundResponses >= ack) {
