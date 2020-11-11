@@ -71,7 +71,7 @@ public final class FutureUtils {
         final AtomicInteger quant = new AtomicInteger(0);
         for (final var future : futures) {
             try {
-                var result = future.get();
+                final var result = future.get();
                 if (result.body().length == 0) {
                     values.add(Value.resolveMissingValue());
                 } else if (result.statusCode() != 500) {
@@ -130,7 +130,7 @@ public final class FutureUtils {
                                           final List<CompletableFuture<HttpResponse<byte[]>>> futures) {
         for (final var future : futures) {
             try {
-                var result = future.get();
+                final var result = future.get();
                 if (result.statusCode() == returnCode) {
                     quant.incrementAndGet();
                     if (quant.get() == futures.size() || quant.get() == ack) {
