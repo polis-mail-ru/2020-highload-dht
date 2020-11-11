@@ -9,11 +9,11 @@ import java.util.Map;
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
 
-public class Merger {
+public class ResponseMerger {
 
     private final Util util;
 
-    public Merger(final Util util) {
+    public ResponseMerger(final Util util) {
         this.util = util;
     }
 

@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.stasyanoi.DAOImpl;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
-import ru.mail.polis.service.stasyanoi.Merger;
+import ru.mail.polis.service.stasyanoi.ResponseMerger;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
@@ -28,7 +28,7 @@ public class ConstantsServer extends HttpServer {
     protected int nodeAmount;
     protected int thisNodeIndex;
     protected DAO dao;
-    protected Merger merger;
+    protected ResponseMerger merger;
     protected Util util;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
     protected Map<String, HttpClient> httpClientMap = new HashMap<>();
@@ -64,6 +64,6 @@ public class ConstantsServer extends HttpServer {
             throw new RuntimeException("Not the proper DAOimpl");
         }
         this.dao = dao;
-        this.merger = new Merger(this.util);
+        this.merger = new ResponseMerger(this.util);
     }
 }
