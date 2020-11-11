@@ -117,10 +117,10 @@ final class FuturesHandler {
                         return builder.setCode(responses.getStatus())
                                 .setBody(responses.getBody());
                     case Request.METHOD_PUT:
-                        upsertValue(getKeyFromRequest(request), request);
+                        dao.upsertValue(getKeyFromRequest(request), ByteBuffer.wrap(request.getBody()));
                         return builder.setCode(201);
                     case Request.METHOD_DELETE:
-                        deleteValue(getKeyFromRequest(request));
+                        dao.removeValue(getKeyFromRequest(request));
                         return builder.setCode(202);
                     default:
                         return builder.setCode(405);
@@ -134,34 +134,15 @@ final class FuturesHandler {
     @NotNull
     private Response getValue(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final byte[] value = composeFromBytes(key);
-            return new Response(Response.OK, value);
+            final Value value = dao.getValue(key);
+            return new Response(Response.OK, value.getValueBytes());
         } catch (NoSuchElementException exc) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
     }
 
-    private void upsertValue(
-            @NotNull final ByteBuffer key,
-            @NotNull final Request request
-    ) throws IOException {
-        dao.upsertValue(key, ByteBuffer.wrap(request.getBody()));
-    }
-
-    private void deleteValue(@NotNull final ByteBuffer key) throws IOException {
-        dao.removeValue(key);
-    }
-
     private static ByteBuffer getKeyFromRequest(@NotNull final Request req) {
         final String strKey = req.getParameter("id");
         return ByteBuffer.wrap(strKey.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private byte[] composeFromBytes(@NotNull final ByteBuffer key) throws IOException {
-        final Value value = dao.getValue(key);
-        if (value.isValueMissing()) {
-            throw new NoSuchElementException("Value not found");
-        }
-        return value.getValueBytes();
     }
 }
