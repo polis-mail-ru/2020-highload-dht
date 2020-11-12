@@ -206,7 +206,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession(Socket socket) throws RejectedSessionException {
+    public HttpSession createSession(final Socket socket) throws RejectedSessionException {
         return new StreamSession(socket, this);
     }
 

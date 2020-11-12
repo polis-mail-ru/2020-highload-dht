@@ -69,7 +69,8 @@ public class StreamSession extends HttpSession {
                     ? !"close".equalsIgnoreCase(connection)
                     : "Keep-Alive".equalsIgnoreCase(connection);
             if (!keepAlive) scheduleClose();
-            if ((this.handling = handling = pipeline.pollFirst()) != null) {
+            this.handling = handling = pipeline.pollFirst();
+            if (handling != null) {
                 if (handling == FIN) {
                     scheduleClose();
                 } else {
@@ -98,7 +99,7 @@ public class StreamSession extends HttpSession {
         final byte[] crlf = "\r\n".getBytes(StandardCharsets.UTF_8);
         final byte[] hexLength = Integer.toHexString(data.length)
                 .getBytes(StandardCharsets.US_ASCII);
-        final int chunkLength = data.length + 2*crlf.length + hexLength.length;
+        final int chunkLength = data.length + 2 * crlf.length + hexLength.length;
         final ByteBuffer chunk = ByteBuffer.allocate(chunkLength);
         chunk.put(hexLength);
         chunk.put(crlf);
