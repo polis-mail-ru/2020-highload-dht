@@ -13,6 +13,7 @@ public final class ResponseMerger {
     private ResponseMerger() {
 
     }
+
     /**
      * Merge get responses.
      *
