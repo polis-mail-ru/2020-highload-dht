@@ -201,5 +201,28 @@ public class Util {
         }
         return response;
     }
+
+    /**
+     * Checks if the replication factor is valid. (number/number)
+     *
+     * @param replicationParam - replication parameter
+     * @return true if valid else false
+     */
+    public boolean validRF(final String replicationParam) {
+        if (replicationParam == null) {
+            return true;
+        } else {
+            final String pureRF = replicationParam.substring(1);
+            try {
+                final Iterable<String> splitParam = Splitter.on('/').split(pureRF);
+                Integer.parseInt(Iterables.get(splitParam, 0));
+                Integer.parseInt(Iterables.get(splitParam, 1));
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+    }
 }
+
 

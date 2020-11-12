@@ -81,10 +81,15 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private Response replicateGet(final Request request, final int node, final Response responseHttpTemp) {
         final Response responseHttp;
-        final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-        final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
-        responses.add(responseHttpTemp);
-        responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), ackFrom.getFrom());
+        final String replicationParam = request.getParameter(REPLICAS);
+        if (util.validRF(replicationParam)) {
+            final AckFrom ackFrom = util.getRF(replicationParam, nodeIndexToUrlMapping.size());
+            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+            responses.add(responseHttpTemp);
+            responseHttp = merger.mergeGetResponses(responses, ackFrom.getAck(), ackFrom.getFrom());
+        } else {
+            responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
         return responseHttp;
     }
 
@@ -138,11 +143,16 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private Response replicatePutOrDelete(final Request request, final int node, final Response responseHttpTemp,
                                           final int goodStatus) {
-        Response responseHttp;
-        final AckFrom ackFrom = util.getRF(request.getParameter(REPLICAS), nodeIndexToUrlMapping.size());
-        final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
-        responses.add(responseHttpTemp);
-        responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
+        final Response responseHttp;
+        final String replicationParam = request.getParameter(REPLICAS);
+        if (util.validRF(replicationParam)) {
+            final AckFrom ackFrom = util.getRF(replicationParam, nodeIndexToUrlMapping.size());
+            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+            responses.add(responseHttpTemp);
+            responseHttp = merger.mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
+        } else {
+            responseHttp = util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
         return responseHttp;
     }
 
