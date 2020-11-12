@@ -64,8 +64,8 @@ public final class ResponseMerger {
         return responseHttp;
     }
 
-    private static long getLongTimestamp(Response response) {
-        String headerTimestamp = response.getHeader(Constants.TIMESTAMP_HEADER_NAME);
+    private static long getLongTimestamp(final Response response) {
+        final String headerTimestamp = response.getHeader(Constants.TIMESTAMP_HEADER_NAME);
         return parseLong(headerTimestamp);
     }
 
