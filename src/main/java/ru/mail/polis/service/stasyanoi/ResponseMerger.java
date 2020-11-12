@@ -8,12 +8,10 @@ import java.util.List;
 import static java.lang.Long.parseLong;
 import static java.util.Comparator.comparingLong;
 
-public class ResponseMerger {
+public final class ResponseMerger {
 
-    private final Util util;
+    private ResponseMerger() {
 
-    public ResponseMerger(final Util util) {
-        this.util = util;
     }
 
     /**
@@ -24,12 +22,12 @@ public class ResponseMerger {
      * @param from - from.
      * @return - merged response.
      */
-    public Response mergeGetResponses(final List<Response> responses,
+    public static Response mergeGetResponses(final List<Response> responses,
                                              final int ack,
                                              final int from) {
         final Response responseHttp;
         if (from < ack || ack == 0) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             boolean hasGoodResponses = false;
             int notFoundResponses = 0;
@@ -50,21 +48,25 @@ public class ResponseMerger {
         return responseHttp;
     }
 
-    private Response mergeGetInternal(final int ack, final boolean hasGoodResponses,
+    private static Response mergeGetInternal(final int ack, final boolean hasGoodResponses,
                                       final int notFoundResponses, final List<Response> validResponses) {
         final Response responseHttp;
         if (hasGoodResponses) {
-            validResponses.sort(comparingLong(response ->
-                    parseLong(response.getHeader(Constants.TIMESTAMP_HEADER_NAME))));
+            validResponses.sort(comparingLong(ResponseMerger::getLongTimestamp));
             responseHttp = validResponses.get(validResponses.size() - 1);
         } else {
             if (notFoundResponses >= ack) {
-                responseHttp = util.responseWithNoBody(Response.NOT_FOUND);
+                responseHttp = Util.responseWithNoBody(Response.NOT_FOUND);
             } else {
-                responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = Util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;
+    }
+
+    private static long getLongTimestamp(final Response response) {
+        final String headerTimestamp = response.getHeader(Constants.TIMESTAMP_HEADER_NAME);
+        return parseLong(headerTimestamp);
     }
 
     /**
@@ -76,13 +78,13 @@ public class ResponseMerger {
      * @param from = from.
      * @return - merged response.
      */
-    public Response mergePutDeleteResponses(final List<Response> responses,
+    public static Response mergePutDeleteResponses(final List<Response> responses,
                                                    final int ack,
                                                    final int goodStatus,
                                                    final int from) {
         final Response responseHttp;
         if (ack > from || ack == 0) {
-            responseHttp = util.responseWithNoBody(Response.BAD_REQUEST);
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
         } else {
             final List<Response> goodResponses = new ArrayList<>();
             for (final Response response : responses) {
@@ -92,12 +94,12 @@ public class ResponseMerger {
             }
             if (goodResponses.size() >= ack) {
                 if (goodStatus == 202) {
-                    responseHttp = util.responseWithNoBody(Response.ACCEPTED);
+                    responseHttp = Util.responseWithNoBody(Response.ACCEPTED);
                 } else {
-                    responseHttp = util.responseWithNoBody(Response.CREATED);
+                    responseHttp = Util.responseWithNoBody(Response.CREATED);
                 }
             } else {
-                responseHttp = util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
+                responseHttp = Util.responseWithNoBody(Response.GATEWAY_TIMEOUT);
             }
         }
         return responseHttp;

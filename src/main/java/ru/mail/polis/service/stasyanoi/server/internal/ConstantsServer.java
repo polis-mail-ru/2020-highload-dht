@@ -7,10 +7,7 @@ import one.nio.net.ConnectionString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.stasyanoi.DAOImpl;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
-import ru.mail.polis.service.stasyanoi.ResponseMerger;
-import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,8 +22,6 @@ public class ConstantsServer extends HttpServer {
     protected final int nodeAmount;
     protected int thisNodeIndex;
     protected final DAO dao;
-    protected final ResponseMerger merger;
-    protected final Util util;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
     protected final Map<String, HttpClient> httpClientMap = new HashMap<>();
     protected final Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
@@ -51,16 +46,10 @@ public class ConstantsServer extends HttpServer {
         for (int i = 0; i < urls.size(); i++) {
             nodeIndexToUrlMapping.put(i, urls.get(i));
             httpClientMap.put(urls.get(i), new HttpClient(new ConnectionString(urls.get(i))));
-            if (urls.get(i).contains(String.valueOf(super.port))) {
+            if (urls.get(i).endsWith(String.valueOf(super.port))) {
                 thisNodeIndex = i;
             }
         }
-        if (dao instanceof DAOImpl) {
-            this.util = ((DAOImpl) dao).getUtil();
-        } else {
-            throw new RuntimeException("Not the proper DAOimpl");
-        }
         this.dao = dao;
-        this.merger = new ResponseMerger(this.util);
     }
 }

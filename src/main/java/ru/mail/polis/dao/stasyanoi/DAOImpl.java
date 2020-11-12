@@ -9,7 +9,6 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
-import ru.mail.polis.service.stasyanoi.Util;
 import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
 
 import java.io.File;
@@ -26,7 +25,6 @@ public class DAOImpl implements DAO {
     private RocksDB storageInstance;
     private IteratorImpl recordIterator;
     private final String path;
-    private final Util util;
 
     /**
      * Creates a dao implementation based on the given dir.
@@ -37,17 +35,12 @@ public class DAOImpl implements DAO {
         Options options = new Options().setCreateIfMissing(true);
         final ComparatorOptions comparatorOptions = new ComparatorOptions();
         options = options.setComparator(new ComparatorImpl(comparatorOptions));
-        this.util = new Util();
         try {
             path = data.getAbsolutePath();
             storageInstance = RocksDB.open(options, path);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public Util getUtil() {
-        return util;
     }
 
     @NotNull

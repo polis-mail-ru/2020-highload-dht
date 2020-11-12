@@ -8,6 +8,7 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
+import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.util.Set;
@@ -58,7 +59,7 @@ public class BaseFunctionalityServer extends ConstantsServer {
      */
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        final Response response = util.responseWithNoBody(Response.BAD_REQUEST);
+        final Response response = Util.responseWithNoBody(Response.BAD_REQUEST);
         session.sendResponse(response);
     }
 
@@ -70,6 +71,6 @@ public class BaseFunctionalityServer extends ConstantsServer {
     @Path("/v0/status")
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
-        return util.responseWithNoBody(Response.OK);
+        return Util.responseWithNoBody(Response.OK);
     }
 }

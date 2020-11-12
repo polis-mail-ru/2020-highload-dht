@@ -2,6 +2,7 @@ package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Longs;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
@@ -20,9 +21,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-public class Util {
+public final class Util {
 
-    private final Logger logger = LoggerFactory.getLogger(Util.class);
+    private static final Logger logger = LoggerFactory.getLogger(Util.class);
+
+    private Util() {
+
+    }
 
     /**
      * Get response with no Body.
@@ -31,8 +36,20 @@ public class Util {
      * @return - the built request.
      */
     @NotNull
-    public Response responseWithNoBody(final String requestType) {
+    public static Response responseWithNoBody(final String requestType) {
         return new Response(requestType, Response.EMPTY);
+    }
+
+    /**
+     * Get response with Body.
+     *
+     * @param requestType - type
+     * @param body - body of the response
+     * @return - the built request.
+     */
+    @NotNull
+    public static Response responseWithBody(final String requestType, final byte[] body) {
+        return new Response(requestType, body);
     }
 
     /**
@@ -41,13 +58,13 @@ public class Util {
      * @param nodeCount - amount of nodes.
      * @return - the node number.
      */
-    public int getNode(final String idParam, final int nodeCount) {
+    public static int getNode(final String idParam, final int nodeCount) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         final int absoluteHash = getAbsoluteHash(idArray);
         return absoluteHash % nodeCount;
     }
 
-    private int getAbsoluteHash(final byte[] idArray) {
+    private static int getAbsoluteHash(final byte[] idArray) {
         final int hash = Arrays.hashCode(idArray) % Constants.HASH_THRESHOLD;
         return hash < 0 ? -hash : hash;
     }
@@ -58,7 +75,7 @@ public class Util {
      * @param bodyTemp - body value.
      * @return - body with timestamp.
      */
-    public byte[] addTimestampToBodyAndModifyEmptyBody(final byte[] bodyTemp) {
+    public static byte[] addTimestampToBodyAndModifyEmptyBody(final byte[] bodyTemp) {
         final byte[] body = addByteIfEmpty(bodyTemp);
         final byte[] timestamp = getTimestampInternal();
         final byte[] newBody = new byte[body.length + timestamp.length];
@@ -68,7 +85,7 @@ public class Util {
     }
 
     @NotNull
-    private byte[] addByteIfEmpty(final byte[] body) {
+    private static byte[] addByteIfEmpty(final byte[] body) {
         if (body.length == 0) {
             return new byte[1];
         }
@@ -81,14 +98,8 @@ public class Util {
      * @return - the timestamp.
      */
     @NotNull
-    public byte[] getTimestampInternal() {
-        final String nanos = String.valueOf(System.currentTimeMillis());
-        final int[] ints = nanos.chars().toArray();
-        final byte[] timestamp = new byte[ints.length];
-        for (int i = 0; i < ints.length; i++) {
-            timestamp[i] = (byte) ints[i];
-        }
-        return timestamp;
+    public static byte[] getTimestampInternal() {
+        return Longs.toByteArray(System.currentTimeMillis());
     }
 
     /**
@@ -98,12 +109,8 @@ public class Util {
      * @param response  - the response to which to add the timestamp.
      * @return - the modified response.
      */
-    public Response addTimestampHeaderToResponse(final byte[] timestamp, final Response response) {
-        final StringBuilder nanoTime = new StringBuilder();
-        for (final byte b : timestamp) {
-            nanoTime.append((char) b);
-        }
-        response.addHeader(Constants.TIMESTAMP_HEADER_NAME + nanoTime);
+    public static Response addTimestampHeaderToResponse(final byte[] timestamp, final Response response) {
+        response.addHeader(Constants.TIMESTAMP_HEADER_NAME + Longs.fromByteArray(timestamp));
         return response;
     }
 
@@ -114,7 +121,7 @@ public class Util {
      * @return - key byte buffer.
      */
     @NotNull
-    public ByteBuffer getKey(final String idParam) {
+    public static ByteBuffer getKey(final String idParam) {
         final byte[] idArray = idParam.getBytes(StandardCharsets.UTF_8);
         return Mapper.fromBytes(idArray);
     }
@@ -124,7 +131,7 @@ public class Util {
      *
      * @param errorSession - session to which to send the error.
      */
-    public void send503Error(final HttpSession errorSession) {
+    public static void send503Error(final HttpSession errorSession) {
         try {
             errorSession.sendResponse(responseWithNoBody(Response.SERVICE_UNAVAILABLE));
         } catch (IOException e) {
@@ -139,7 +146,7 @@ public class Util {
      * @param size - size of cluster.
      * @return AckFrom object.
      */
-    public AckFrom getRF(final String replicas, final int size) {
+    public static AckFrom getRF(final String replicas, final int size) {
         final int ack;
         final int from;
         if (replicas == null) {
@@ -159,17 +166,22 @@ public class Util {
      * @param body - body with timestamp.
      * @return - the response with timestamp
      */
-    public Response getResponseWithTimestamp(final ByteBuffer body) {
+    public static Response getResponseWithTimestamp(final ByteBuffer body) {
         final byte[] bytes = Mapper.toBytes(body);
         final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
         final byte[] newBody;
+        Response responseInit;
         if (bytes.length == Constants.EMPTY_BODY_SIZE) {
             newBody = new byte[0];
+            responseInit = Response.ok(newBody);
+        } else if (bytes.length == Constants.TIMESTAMP_LENGTH) {
+            responseInit = responseWithBody(Response.NOT_FOUND, bytes);
         } else {
             newBody = bodyTimestamp.getPureBody();
+            responseInit = Response.ok(newBody);
         }
         final byte[] time = bodyTimestamp.getTimestamp();
-        return addTimestampHeaderToResponse(time, Response.ok(newBody));
+        return addTimestampHeaderToResponse(time, responseInit);
     }
 
     /**
@@ -183,7 +195,7 @@ public class Util {
      * @throws HttpException - thrown if http protocol exception encountered.
      * @throws PoolException - thrown if problems with pooling occurs.
      */
-    public Response sendRequestInternal(final HttpClient httpClient, final Request request)
+    public static Response sendRequestInternal(final HttpClient httpClient, final Request request)
             throws InterruptedException, PoolException, IOException, HttpException {
         final Response response;
         String newPath;
@@ -208,7 +220,7 @@ public class Util {
      * @param replicationParam - replication parameter
      * @return true if valid else false
      */
-    public boolean validRF(final String replicationParam) {
+    public static boolean validRF(final String replicationParam) {
         if (replicationParam == null) {
             return true;
         } else {
