@@ -20,11 +20,7 @@ import java.io.IOException;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
@@ -243,16 +239,17 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
                                                     final Request request) {
+        final List<String> urls = new ArrayList<>(tempNodeMapping.values()).subList(0, from);
         final List<Response> responses = new CopyOnWriteArrayList<>();
-        final var completableFutures = tempNodeMapping.entrySet()
-                .stream()
-                .limit(from)
-                .map(nodeHost -> asyncHttpClient.sendAsync(
-                        Util.getJavaRequest(request, nodeHost.getValue()),
-                        HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(Util::getOneNioResponse)
-                        .handleAsync(Util::filterResponse).thenAcceptAsync(responses::add))
-                .toArray(CompletableFuture[]::new);
-        CompletableFuture.allOf(completableFutures).join();
+        final List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
+        for (String url : urls) {
+            CompletableFuture<Void> completableFuture = asyncHttpClient.sendAsync(
+                    Util.getJavaRequest(request, url),
+                    HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(Util::getOneNioResponse)
+                    .handleAsync(Util::filterResponse).thenAcceptAsync(responses::add);
+            completableFutures.add(completableFuture);
+        }
+        CompletableFuture.allOf(completableFutures.toArray(CompletableFuture[]::new)).join();
         return responses;
     }
 
