@@ -145,8 +145,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-
-        final Set<String> replNodes = topology.primaryFor(key, replicasFactor.getFrom());
+        final Set<String> replNodes;
+        try {
+            replNodes = topology.primaryFor(key, replicasFactor.getFrom());
+        } catch (InvalidParameterException e) {
+            log.error("Wrong replica factor", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return;
+        }
 
         if (replNodes.isEmpty()) {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));

@@ -3,12 +3,11 @@ package ru.mail.polis.service.gogun;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
@@ -48,18 +47,6 @@ public class ConsistentHashing implements Hashing<String> {
         return node.equals(me);
     }
 
-    @NotNull
-    private String get(@NotNull final ByteBuffer key) {
-        int hash = key.hashCode();
-
-        if (!circle.containsKey(hash)) {
-            final Map.Entry<Integer, String> ceilingEntry = circle.ceilingEntry(hash);
-            hash = ceilingEntry == null ? circle.firstKey() : ceilingEntry.getKey();
-        }
-
-        return circle.get(hash);
-    }
-
     private void add(final String node) {
         for (int i = 0; i < vnodes; i++) {
             circle.put((node + i).hashCode(), node);
@@ -70,20 +57,20 @@ public class ConsistentHashing implements Hashing<String> {
     @Override
     public Set<String> primaryFor(@NotNull final ByteBuffer key, final int count) {
         if (count > uniqueValues.size()) {
-            return new HashSet<>();
+            throw new InvalidParameterException("Wrong count number");
         }
-
-        final String startNode = get(key);
+        int hash = key.hashCode();
         final Set<String> nodes = new HashSet<>();
         int counter = count;
-        Iterator<String> iterator = uniqueValues.iterator();
-
+        var values = circle.tailMap(hash).values();
+        if (values.isEmpty()) {
+            uniqueValues.stream().limit(count).forEach(nodes::add);
+        }
+        var iterator = new TreeSet<>(values).iterator();
         while (iterator.hasNext()) {
             final String node = iterator.next();
-            if (node.equals(startNode) || !nodes.isEmpty()) {
-                nodes.add(node);
-                counter--;
-            }
+            nodes.add(node);
+            counter--;
 
             if (counter == 0) {
                 break;

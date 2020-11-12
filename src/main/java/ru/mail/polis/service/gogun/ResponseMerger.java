@@ -23,33 +23,36 @@ public class ResponseMerger {
         this.responses.removeIf((e) -> e.getStatus() == 500);
     }
 
-    Response mergeGetResponses() {
+    @NotNull
+    private Response getLatest(final Response response, Response latestResponse) {
+        final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
+        final long latestTimestamp = Long.parseLong(latestResponse.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
+        if (timestamp > latestTimestamp) {
+            latestResponse = response;
+        }
+
+        return latestResponse;
+    }
+
+    public Response mergeGetResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
 
         int notFoundResponsesCount = 0;
-        long latestTimestamp = Long.MIN_VALUE;
         Response latestResponse = new Response("");
+        latestResponse.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + Long.MIN_VALUE);
         for (final Response response : responses) {
             switch (response.getStatus()) {
                 case 404:
                     if (response.getHeader(AsyncServiceImpl.TOMBSTONE_HEADER).equals("true")) {
-                        final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
-                        if (timestamp > latestTimestamp) {
-                            latestTimestamp = timestamp;
-                            latestResponse = response;
-                        }
+                        latestResponse = getLatest(response, latestResponse);
                     } else {
                         notFoundResponsesCount++;
                     }
                     break;
                 case 200:
-                    final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
-                    if (timestamp > latestTimestamp) {
-                        latestTimestamp = timestamp;
-                        latestResponse = response;
-                    }
+                    latestResponse = getLatest(response, latestResponse);
                     break;
                 default:
                     break;
@@ -64,7 +67,7 @@ public class ResponseMerger {
         return Response.ok(latestResponse.getBody());
     }
 
-    Response mergePutResponses() {
+    public Response mergePutResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
@@ -72,7 +75,7 @@ public class ResponseMerger {
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
-    Response mergeDeleteResponses() {
+    public Response mergeDeleteResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
