@@ -161,13 +161,6 @@ public class CustomServer extends BaseFunctionalityServer {
     }
 
     @NotNull
-    private List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
-        tempNodeMapping.remove(node);
-        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request);
-    }
-
-    @NotNull
     private Response putIntoLocalNode(final Request request, final String keyString) {
         Response responseHttp;
         try {
@@ -240,6 +233,13 @@ public class CustomServer extends BaseFunctionalityServer {
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
         }
+    }
+
+    @NotNull
+    private List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
+        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
+        tempNodeMapping.remove(node);
+        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request);
     }
 
     private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,

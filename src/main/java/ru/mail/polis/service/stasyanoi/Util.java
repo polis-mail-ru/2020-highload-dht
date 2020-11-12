@@ -2,6 +2,7 @@ package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Longs;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -38,6 +39,18 @@ public final class Util {
     @NotNull
     public static Response responseWithNoBody(final String requestType) {
         return new Response(requestType, Response.EMPTY);
+    }
+
+    /**
+     * Get response with Body.
+     *
+     * @param requestType - type
+     * @param body - body of the response
+     * @return - the built request.
+     */
+    @NotNull
+    public static Response responseWithBody(final String requestType, final byte[] body) {
+        return new Response(requestType, body);
     }
 
     /**
@@ -87,13 +100,7 @@ public final class Util {
      */
     @NotNull
     public static byte[] getTimestampInternal() {
-        final String nanos = String.valueOf(System.currentTimeMillis());
-        final int[] ints = nanos.chars().toArray();
-        final byte[] timestamp = new byte[ints.length];
-        for (int i = 0; i < ints.length; i++) {
-            timestamp[i] = (byte) ints[i];
-        }
-        return timestamp;
+        return Longs.toByteArray(System.currentTimeMillis());
     }
 
     /**
@@ -104,11 +111,7 @@ public final class Util {
      * @return - the modified response.
      */
     public static Response addTimestampHeaderToResponse(final byte[] timestamp, final Response response) {
-        final StringBuilder nanoTime = new StringBuilder();
-        for (final byte b : timestamp) {
-            nanoTime.append((char) b);
-        }
-        response.addHeader(Constants.TIMESTAMP_HEADER_NAME + nanoTime);
+        response.addHeader(Constants.TIMESTAMP_HEADER_NAME + Longs.fromByteArray(timestamp));
         return response;
     }
 
@@ -168,13 +171,18 @@ public final class Util {
         final byte[] bytes = Mapper.toBytes(body);
         final BodyWithTimestamp bodyTimestamp = new BodyWithTimestamp(bytes);
         final byte[] newBody;
+        Response responseInit;
         if (bytes.length == Constants.EMPTY_BODY_SIZE) {
             newBody = new byte[0];
+            responseInit = Response.ok(newBody);
+        } else if (bytes.length == Constants.TIMESTAMP_LENGTH) {
+            responseInit = responseWithBody(Response.NOT_FOUND, bytes);
         } else {
             newBody = bodyTimestamp.getPureBody();
+            responseInit = Response.ok(newBody);
         }
         final byte[] time = bodyTimestamp.getTimestamp();
-        return addTimestampHeaderToResponse(time, Response.ok(newBody));
+        return addTimestampHeaderToResponse(time, responseInit);
     }
 
     /**

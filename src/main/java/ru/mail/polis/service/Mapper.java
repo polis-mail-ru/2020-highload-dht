@@ -6,8 +6,33 @@ import java.nio.ByteBuffer;
 
 public final class Mapper {
 
+    private static final ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+
     private Mapper() {
 
+    }
+
+    /**
+     * Convert long to byte array.
+     *
+     * @param number - long to convert.
+     * @return - byte array.
+     */
+    public static byte[] longToBytes(final long number) {
+        buffer.putLong(0, number);
+        return buffer.array();
+    }
+
+    /**
+     * Convert byte array to long.
+     *
+     * @param bytes - bytes to convert.
+     * @return - parsed long.
+     */
+    public static long bytesToLong(final byte[] bytes) {
+        buffer.put(bytes, 0, bytes.length);
+        buffer.flip();
+        return buffer.getLong();
     }
 
     /**

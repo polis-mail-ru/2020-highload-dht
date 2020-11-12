@@ -52,8 +52,7 @@ public final class ResponseMerger {
                                       final int notFoundResponses, final List<Response> validResponses) {
         final Response responseHttp;
         if (hasGoodResponses) {
-            validResponses.sort(comparingLong(response ->
-                    parseLong(response.getHeader(Constants.TIMESTAMP_HEADER_NAME))));
+            validResponses.sort(comparingLong(ResponseMerger::getLongTimestamp));
             responseHttp = validResponses.get(validResponses.size() - 1);
         } else {
             if (notFoundResponses >= ack) {
@@ -63,6 +62,11 @@ public final class ResponseMerger {
             }
         }
         return responseHttp;
+    }
+
+    private static long getLongTimestamp(Response response) {
+        String headerTimestamp = response.getHeader(Constants.TIMESTAMP_HEADER_NAME);
+        return parseLong(headerTimestamp);
     }
 
     /**
