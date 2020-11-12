@@ -2,14 +2,10 @@ package ru.mail.polis.service.stasyanoi.server.internal;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
-import one.nio.net.ConnectionString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.stasyanoi.DAOImpl;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
-import ru.mail.polis.service.stasyanoi.ResponseMerger;
-import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -25,8 +21,8 @@ public class ConstantsServer extends HttpServer {
     protected int thisNodeIndex;
     protected final DAO dao;
     protected CustomExecutor executorService = CustomExecutor.getExecutor();
-    protected HttpClient asyncHttpClient;
-    protected Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
+    protected final HttpClient asyncHttpClient;
+    protected static final Logger logger = LoggerFactory.getLogger(ConstantsServer.class);
 
     /**
      * Fields server.
