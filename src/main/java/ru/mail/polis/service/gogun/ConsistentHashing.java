@@ -59,10 +59,10 @@ public class ConsistentHashing implements Hashing<String> {
         if (count > uniqueValues.size()) {
             throw new InvalidParameterException("Wrong count number");
         }
-        int hash = key.hashCode();
+        final int hash = key.hashCode();
         final Set<String> nodes = new HashSet<>();
         int counter = count;
-        var values = circle.tailMap(hash).values();
+        final Collection<String> values = circle.tailMap(hash).values();
         if (values.isEmpty()) {
             uniqueValues.stream().limit(count).forEach(nodes::add);
         }

@@ -24,17 +24,18 @@ public class ResponseMerger {
     }
 
     @NotNull
-    private Response getLatest(final Response response, Response latestResponse) {
+    private Response getLatest(final Response response, final Response latestResponse) {
         final long timestamp = Long.parseLong(response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
         final long latestTimestamp = Long.parseLong(latestResponse.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
+        Response latestCopy = latestResponse;
         if (timestamp > latestTimestamp) {
-            latestResponse = response;
+            latestCopy = response;
         }
 
-        return latestResponse;
+        return latestCopy;
     }
 
-    public Response mergeGetResponses() {
+    Response mergeGetResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
@@ -67,7 +68,7 @@ public class ResponseMerger {
         return Response.ok(latestResponse.getBody());
     }
 
-    public Response mergePutResponses() {
+    Response mergePutResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
@@ -75,7 +76,7 @@ public class ResponseMerger {
         return new Response(Response.CREATED, Response.EMPTY);
     }
 
-    public Response mergeDeleteResponses() {
+    Response mergeDeleteResponses() {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
