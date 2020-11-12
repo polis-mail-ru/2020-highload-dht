@@ -8,20 +8,24 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.RocksDBImpl;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -79,6 +83,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return conf;
     }
 
+    @Override
+    public HttpSession createSession (final Socket socket) throws RejectedExecutionException{
+        return new ServiceSession(socket, this);
+    }
+
     /**
      * Check status.
      *
@@ -118,6 +127,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             response = processRequest(request, id);
         }
         basicFuctions.trySendResponse(session, response);
+    }
+
+    @Path("/v0/entities")
+    public void entities(@Param(value = "start", required = true) final String start,
+                       @Param(value = "end") final String end,
+                       final HttpSession session) throws IOException {
+        final long count;
+        if (start.isEmpty()) {
+            basicFuctions.trySendResponse(session, CompletableFuture.supplyAsync(() ->
+                    new Response(Response.BAD_REQUEST, Response.EMPTY)));
+            return;
+        }
+        if (end == null)
+            count = 1;
+        else
+            count = 3;
+        final var iterator = RocksDBImpl.db.newIterator();
+        iterator.seek(Util.toArrayShifted(ByteBuffer.wrap(start.getBytes(UTF_8))));
+        final ChunkedIterator iter = new ChunkedIterator(iterator, count);
+        ((ServiceSession) session).setIterator(iter);
     }
 
     private CompletableFuture<Response> sendToReplicas(final @Param(value = "id", required = true) String key,

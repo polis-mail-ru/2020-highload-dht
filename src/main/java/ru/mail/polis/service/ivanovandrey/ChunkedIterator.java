@@ -1,25 +1,27 @@
-package ru.mail.polis.dao;
+package ru.mail.polis.service.ivanovandrey;
 
 import org.jetbrains.annotations.NotNull;
 import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
-import ru.mail.polis.service.ivanovandrey.Util;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class RecordIterator implements Iterator<Record>, AutoCloseable {
+public class ChunkedIterator implements Iterator<Record>, AutoCloseable {
 
     private final RocksIterator iterator;
+    private int i = 0;
+    private final long count;
 
-    public RecordIterator(@NotNull final RocksIterator iterator) {
+    public ChunkedIterator(@NotNull final RocksIterator iterator, long count) {
         this.iterator = iterator;
+        this.count = count;
     }
 
     @Override
     public boolean hasNext() {
-        return iterator.isValid();
+        return (iterator.isValid() && i < count);
     }
 
     @Override
@@ -31,6 +33,7 @@ public class RecordIterator implements Iterator<Record>, AutoCloseable {
         final var key = iterator.key();
         final var value = iterator.value();
         iterator.next();
+        this.i++;
         return Record.of(Util.fromArrayShifted(key), ByteBuffer.wrap(value));
     }
 
