@@ -8,17 +8,22 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
+import one.nio.server.RejectedSessionException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.util.Replicas;
 import ru.mail.polis.util.Util;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -39,6 +44,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ClusterServiceImpl.class);
     private final String thisNode;
     private final Replicas defaultReplicas;
+    private final DAO dao;
 
     private static final String PROXY_HEADER = "X-OK-Proxy";
 
@@ -72,6 +78,7 @@ public class ClusterServiceImpl extends HttpServer implements Service {
         this.topology = topology;
         this.thisNode = "http://localhost:" + this.port;
         this.defaultReplicas = new Replicas(topology.size());
+        this.dao = dao;
     }
 
     private Boolean isCurrentNode(final String node) {
@@ -94,6 +101,31 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     @Path("/v0/status")
     public void status(final HttpSession session) {
         Util.sendResponse(session, Response.ok("OK"));
+    }
+
+    /**
+     * Get range of data between {@code start} (inclusive) and optional {@code end}.
+     */
+    @Path("/v0/entities")
+    public void entities(@Param(value = "start", required = true) final String idStart,
+                       @Param(value = "end") final String idEnd,
+                       final HttpSession session) {
+        try {
+            if (idStart.isEmpty() || ((idEnd != null) && idEnd.isEmpty())) {
+                throw new IllegalArgumentException();
+            }
+
+            final ByteBuffer start = ByteBuffer.wrap(idStart.getBytes(UTF_8));
+            final ByteBuffer end = (idEnd == null) ? null
+                    : ByteBuffer.wrap(idEnd.getBytes(UTF_8));
+            final Iterator<Record> iterator = dao.range(start,end);
+            ((StreamSession) session).setIterator(iterator);
+        } catch (IOException ex) {
+            log.error("Can not send entities", ex);
+        } catch (IllegalArgumentException ex) {
+            Util.sendResponse(session,
+                    new Response(Response.BAD_REQUEST, Response.EMPTY));
+        }
     }
 
     /**
@@ -171,6 +203,11 @@ public class ClusterServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(final Request request, final HttpSession session) {
         Util.sendResponse(session,new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    @Override
+    public HttpSession createSession(Socket socket) throws RejectedSessionException {
+        return new StreamSession(socket, this);
     }
 
     @Override
