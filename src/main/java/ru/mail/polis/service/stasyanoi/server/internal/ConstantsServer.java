@@ -43,7 +43,7 @@ public class ConstantsServer extends HttpServer {
         this.asyncHttpClient = HttpClient.newHttpClient();
         for (int i = 0; i < urls.size(); i++) {
             nodeIndexToUrlMapping.put(i, urls.get(i));
-            if (urls.get(i).contains(String.valueOf(super.port))) {
+            if (urls.get(i).endsWith(String.valueOf(super.port))) {
                 thisNodeIndex = i;
             }
         }

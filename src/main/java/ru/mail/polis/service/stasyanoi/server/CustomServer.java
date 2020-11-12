@@ -1,6 +1,5 @@
 package ru.mail.polis.service.stasyanoi.server;
 
-import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
 import one.nio.http.Param;
@@ -8,7 +7,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
@@ -153,7 +151,8 @@ public class CustomServer extends BaseFunctionalityServer {
             final AckFrom ackFrom = Util.getRF(replicationParam, nodeIndexToUrlMapping.size());
             final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
             responses.add(responseHttpTemp);
-            responseHttp = ResponseMerger.mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
+            responseHttp = ResponseMerger
+                    .mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
         } else {
             responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }

@@ -10,6 +10,9 @@ import static java.util.Comparator.comparingLong;
 
 public final class ResponseMerger {
 
+    private ResponseMerger() {
+
+    }
     /**
      * Merge get responses.
      *

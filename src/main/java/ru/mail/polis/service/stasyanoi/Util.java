@@ -2,11 +2,9 @@ package ru.mail.polis.service.stasyanoi;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
-import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +14,6 @@ import ru.mail.polis.service.stasyanoi.server.helpers.BodyWithTimestamp;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
@@ -27,6 +24,10 @@ import java.util.Arrays;
 public final class Util {
 
     private static final Logger logger = LoggerFactory.getLogger(Util.class);
+
+    private Util() {
+
+    }
 
     /**
      * Get response with no Body.
