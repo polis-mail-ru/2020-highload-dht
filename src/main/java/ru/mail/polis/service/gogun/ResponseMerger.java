@@ -4,7 +4,6 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
-import java.util.List;
 
 public class ResponseMerger {
 

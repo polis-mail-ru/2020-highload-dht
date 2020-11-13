@@ -18,9 +18,12 @@ import java.io.IOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.security.InvalidParameterException;
-import java.util.*;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -115,14 +118,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         });
     }
 
-    private void sendServiceUnavailable(final HttpSession session) {
-        try {
-            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-        } catch (IOException e) {
-            log.error("Error sending response in method get", e);
-        }
-    }
-
     private void handleRequest(final String id, final Request request,
                                final HttpSession session) throws IOException {
         log.debug("{} request with id: {}", request.getMethodName(), id);
@@ -134,8 +129,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader(PROXY_HEADER) != null) {
-            ServiceUtils.selector(
-                    () -> handlePut(key, request),
+            ServiceUtils.selector(() -> handlePut(key, request),
                     () -> handleGet(key),
                     () -> handleDel(key),
                     request.getMethod(),
@@ -224,11 +218,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         if (value.isTombstone()) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
         } else {
             response = Response.ok(ServiceUtils.getArray(value.getData()));
-            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
         }
+        response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
 
         return response;
     }
@@ -267,14 +260,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             case Request.METHOD_GET:
-                requestForReplica = requestForRepl(node, id)
-                        .GET()
+                requestForReplica = requestForRepl(node, id).GET()
                         .build();
                 return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             case Request.METHOD_DELETE:
-                requestForReplica = requestForRepl(node, id)
-                        .DELETE()
+                requestForReplica = requestForRepl(node, id).DELETE()
                         .build();
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
@@ -298,7 +289,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             execute(id, session, request);
         } catch (RejectedExecutionException e) {
-            sendServiceUnavailable(session);
+            ServiceUtils.sendServiceUnavailable(session, log);
         }
     }
 

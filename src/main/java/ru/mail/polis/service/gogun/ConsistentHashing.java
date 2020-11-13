@@ -20,14 +20,14 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     private final NavigableMap<Integer, String> circle = new TreeMap<>();
     private final int vnodes;
+
     /**
      * Class provides sharding via consistent hashing.
      *
      * @param nodes - set of nodes
      * @param me    - current node
      */
-    public ConsistentHashing(
-            @NotNull final Collection<String> nodes,
+    public ConsistentHashing(@NotNull final Collection<String> nodes,
             @NotNull final String me,
             final int vnodes) {
         this.vnodes = vnodes;

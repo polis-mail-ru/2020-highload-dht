@@ -6,6 +6,7 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.net.URI;
@@ -123,8 +124,12 @@ final class ServiceUtils {
         }
     }
 
-//    @NotNull
-//    static Response transformToTombstone(final Response response) {
-//        Response tombstone = new Response();
-//    }
+    static void sendServiceUnavailable(final HttpSession session, final Logger log) {
+        try {
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+        } catch (IOException e) {
+            log.error("Error sending response in method get", e);
+        }
+    }
+
 }
