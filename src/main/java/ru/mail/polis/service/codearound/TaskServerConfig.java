@@ -9,7 +9,7 @@ import one.nio.server.AcceptorConfig;
 public final class TaskServerConfig {
 
     private TaskServerConfig() {
-
+        // Not supposed to be instantiated
     }
 
     /**

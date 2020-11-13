@@ -20,6 +20,7 @@ public final class RepliServiceUtils {
      * class instance const.
      */
     private RepliServiceUtils() {
+        // Not supposed to be instantiated
     }
 
     /**

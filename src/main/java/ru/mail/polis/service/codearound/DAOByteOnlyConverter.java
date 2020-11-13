@@ -7,7 +7,7 @@ import static java.lang.Byte.MIN_VALUE;
 public final class DAOByteOnlyConverter {
 
     private DAOByteOnlyConverter() {
-
+        // Not supposed to be instantiated
     }
 
     /**
