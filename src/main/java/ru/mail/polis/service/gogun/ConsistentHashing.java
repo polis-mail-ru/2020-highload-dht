@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-public class ConsistentHashing implements Hashing<String> {
+public final class ConsistentHashing implements Hashing<String> {
 
     @NotNull
     private final String me;

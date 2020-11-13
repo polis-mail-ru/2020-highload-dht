@@ -22,7 +22,7 @@ public final class ReplicasFactor {
             this.ack = Integer.parseInt(askFrom.get(0));
             this.from = Integer.parseInt(askFrom.get(1));
         } catch (IndexOutOfBoundsException e) {
-            throw new InvalidParameterException(EXCEPTION_TEXT);
+            throw new InvalidParameterException(e.getMessage());
         }
 
         if (this.ack == 0 || this.ack > this.from) {
