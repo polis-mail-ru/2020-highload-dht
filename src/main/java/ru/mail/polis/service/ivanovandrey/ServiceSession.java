@@ -65,16 +65,20 @@ public class ServiceSession extends HttpSession {
         return chunk;
     }
 
-    private void next() throws IOException {
+    private void nextWrite() throws IOException {
         while (iterator.hasNext() && queueHead == null) {
             final var elem = iterator.next();
             final var chunk = toChunk(elem);
             write(chunk, 0, chunk.length);
         }
+    }
+    
+    private void next() throws IOException {
+        nextWrite();
 
         if (!iterator.hasNext()) {
             write(END, 0, END.length);
-            
+
             Request handling = this.handling;
             if (handling == null) {
                 throw new IOException("Out of order response");
