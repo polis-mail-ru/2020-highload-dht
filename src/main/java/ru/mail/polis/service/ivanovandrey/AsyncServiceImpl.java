@@ -13,6 +13,7 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.RocksDBImpl;
 import ru.mail.polis.service.Service;
@@ -20,6 +21,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -43,6 +45,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private static final String PROXY_HEADER = "X-OK-Proxy";
     private final SimpleTopology simpleTopology;
+    private final DAO db;
 
     /**
      * Constructor.
@@ -73,6 +76,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         this.simpleTopology = new SimpleTopology(executors,execPool, port);
         this.topology = topology;
         this.defaultReplicas = new Replica(topology.size());
+        this.db = dao;
     }
 
     private static HttpServerConfig newConfig(final int port) {
@@ -129,23 +133,27 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         basicFuctions.trySendResponse(session, response);
     }
 
+    /**
+     * Get chunks betweeen start and end position.
+     * @param start - start position.
+     * @param end - stop position.
+     * @param session - session.
+     */
     @Path("/v0/entities")
     public void entities(@Param(value = "start", required = true) final String start,
                        @Param(value = "end") final String end,
                        final HttpSession session) throws IOException {
-        final long count;
+        final ByteBuffer count;
         if (start.isEmpty()) {
             basicFuctions.trySendResponse(session, CompletableFuture.supplyAsync(() ->
                     new Response(Response.BAD_REQUEST, Response.EMPTY)));
             return;
         }
         if (end == null)
-            count = 1;
+            count = null;
         else
-            count = 3;
-        final var iterator = RocksDBImpl.db.newIterator();
-        iterator.seek(Util.toArrayShifted(ByteBuffer.wrap(start.getBytes(UTF_8))));
-        final ChunkedIterator iter = new ChunkedIterator(iterator, count);
+            count = ByteBuffer.wrap(end.getBytes(UTF_8));
+        final Iterator<Record> iter = db.range(ByteBuffer.wrap(start.getBytes(UTF_8)), count);
         ((ServiceSession) session).setIterator(iter);
     }
 
