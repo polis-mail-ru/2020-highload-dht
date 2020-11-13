@@ -87,7 +87,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession (final Socket socket) throws RejectedExecutionException {
+    public HttpSession createSession(final Socket socket) throws RejectedExecutionException {
         return new ServiceSession(socket, this);
     }
 

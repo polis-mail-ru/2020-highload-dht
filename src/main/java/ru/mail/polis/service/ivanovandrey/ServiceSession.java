@@ -23,7 +23,7 @@ public class ServiceSession extends HttpSession {
     /**
      * Constructor.
      */
-    public ServiceSession(final Socket socket, HttpServer server) {
+    public ServiceSession(final Socket socket, final HttpServer server) {
         super(socket, server);
     }
 
@@ -47,7 +47,7 @@ public class ServiceSession extends HttpSession {
         }
     }
 
-    private byte[] toChunk (final Record elem) throws IOException {
+    private byte[] toChunk(final Record elem) throws IOException {
         final byte[] dataKey = Util.fromByteBufferToByteArray(elem.getKey());
         final byte[] dataValue = Timestamp.getTimestampByData(elem.getValue()).getData();
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -74,13 +74,14 @@ public class ServiceSession extends HttpSession {
 
         if (!iterator.hasNext()) {
             write(END, 0, END.length);
+            
             Request handling = this.handling;
             if (handling == null) {
                 throw new IOException("Out of order response");
             }
             server.incRequestsProcessed();
             final String connection = handling.getHeader("Connection: ");
-            boolean keepAlive = handling.isHttp11()
+            final boolean keepAlive = handling.isHttp11()
                     ? !"close".equalsIgnoreCase(connection)
                     : "Keep-Alive".equalsIgnoreCase(connection);
             if (!keepAlive) scheduleClose();
