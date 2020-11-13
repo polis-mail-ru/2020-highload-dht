@@ -11,10 +11,12 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.mrsandman5.clustering.Topology;
+import ru.mail.polis.service.mrsandman5.range.ServiceSession;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 import ru.mail.polis.service.mrsandman5.replication.SimpleRequests;
@@ -29,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -38,6 +41,8 @@ import java.util.concurrent.TimeUnit;
 public final class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
+    @NotNull
+    private final DAOImpl dao;
     @NotNull
     private final Topology<String> topology;
     @NotNull
@@ -80,10 +85,10 @@ public final class ServiceImpl extends HttpServer implements Service {
                         @NotNull final ExecutorService executor) throws IOException {
         super(config);
         this.topology = topology;
-        final DAOImpl daoImpl = (DAOImpl) dao;
+        this.dao = (DAOImpl) dao;
         this.executor = executor;
-        this.simpleRequests = new SimpleRequests(daoImpl, executor);
-        this.quorum = ReplicasFactor.quorum(topology.all().size());
+        this.simpleRequests = new SimpleRequests(this.dao, executor);
+        this.quorum = ReplicasFactor.quorum(this.topology.all().size());
         final Map<String, HttpClient> temp = new HashMap<>();
         for (final String node : topology.others()) {
             temp.put(node, HttpClient.newBuilder().executor(executor).version(HttpClient.Version.HTTP_1_1).build());
@@ -91,19 +96,24 @@ public final class ServiceImpl extends HttpServer implements Service {
         this.httpClients = temp;
     }
 
-    /** Interact with service.
+    /** Process request to get value.
      * {@code 200, value} (value is found).
      * {@code 404} (value is not found).
      * {@code 201} (new value created).
      * {@code 202} (value deleted).
      * {@code 400} (invalid request).
      * {@code 405} (unexpected method).
+     *
+     * @param id       value id
+     * @param replicas         replica to whom value belongs
+     * @param request     HTTP request
+     * @param session HTTP session
      */
     @Path("/v0/entity")
-    public void response(@Param(value = "id", required = true) final String id,
-                         @Param(value = "replicas") final String replicas,
-                         @NotNull final Request request,
-                         @NotNull final HttpSession session) {
+    public void entity(@Param(value = "id", required = true) final String id,
+                       @Param(value = "replicas") final String replicas,
+                       @NotNull final Request request,
+                       @NotNull final HttpSession session) {
         log.debug("Request handling : {}", id);
         if (id.isEmpty()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
@@ -140,6 +150,40 @@ public final class ServiceImpl extends HttpServer implements Service {
                 log.error("Non-supported request : {}", id);
                 ResponseUtils.sendEmptyResponse(session, Response.METHOD_NOT_ALLOWED);
                 break;
+        }
+    }
+
+    /**
+     * Process request to get range of values.
+     *
+     * @param start       Start key
+     * @param end         End key
+     * @param request     HTTP request
+     * @param session HTTP session
+     */
+    @Path("/v0/entities")
+    public void entities(
+            @Param("start") final String start,
+            @Param("end") final String end,
+            @NotNull final Request request,
+            @NotNull final HttpSession session) {
+        final ServiceSession serviceSession = (ServiceSession) session;
+        if (start == null || start.isEmpty()) {
+            ResponseUtils.sendEmptyResponse(serviceSession, Response.BAD_REQUEST);
+            return;
+        }
+        if (request.getMethod() != Request.METHOD_GET) {
+            ResponseUtils.sendEmptyResponse(serviceSession, Response.METHOD_NOT_ALLOWED);
+            return;
+        }
+        final ByteBuffer startBuffer = ByteUtils.getWrap(start);
+        final ByteBuffer endBuffer = (end == null || end.isEmpty()) ? null : ByteUtils.getWrap(end);
+        try {
+            final Iterator<Record> range = dao.range(startBuffer, endBuffer);
+            serviceSession.stream(range);
+        } catch (IOException e) {
+            log.error("Unable to stream range of values", e);
+            ResponseUtils.sendEmptyResponse(serviceSession, Response.INTERNAL_ERROR);
         }
     }
 
