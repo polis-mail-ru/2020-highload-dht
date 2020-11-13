@@ -20,8 +20,8 @@ import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.stasyanoi.CustomServer;
 import ru.mail.polis.service.stasyanoi.ServiceImpl;
+import ru.mail.polis.service.stasyanoi.server.CustomServer;
 
 import java.io.IOException;
 import java.util.Set;

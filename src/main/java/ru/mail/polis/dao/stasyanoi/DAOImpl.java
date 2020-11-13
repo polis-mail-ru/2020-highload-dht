@@ -9,13 +9,12 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.IteratorImpl;
-import ru.mail.polis.service.stasyanoi.Util;
+import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
 
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class DAOImpl implements DAO {
 
@@ -26,8 +25,6 @@ public class DAOImpl implements DAO {
     private RocksDB storageInstance;
     private IteratorImpl recordIterator;
     private final String path;
-
-    private final ConcurrentHashMap<ByteBuffer, byte[]> deleteLog = new ConcurrentHashMap<>();
 
     /**
      * Creates a dao implementation based on the given dir.
@@ -81,6 +78,14 @@ public class DAOImpl implements DAO {
         if (body == null) {
             throw new NoSuchElementException("No such key " + key.toString());
         }
+        if (body.length == String.valueOf(System.currentTimeMillis()).length()) {
+            try {
+                storageInstance.delete(Mapper.toBytes(key));
+            } catch (RocksDBException e) {
+                throw new RuntimeException(e);
+            }
+            throw new DeletedElementException("Key deleted " + key.toString(), body);
+        }
         return Mapper.fromBytes(body);
     }
 
@@ -88,7 +93,6 @@ public class DAOImpl implements DAO {
     public void remove(final @NotNull ByteBuffer key) {
         try {
             final byte[] keyDelete = Mapper.toBytes(key);
-            deleteLog.put(key, Util.getTimestampInternal());
             storageInstance.delete(keyDelete);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
@@ -120,17 +124,6 @@ public class DAOImpl implements DAO {
             } catch (RocksDBException e) {
                 throw new RuntimeException(e);
             }
-        }
-    }
-
-    @Override
-    public byte[] getDeleteTime(final ByteBuffer id) {
-        final byte[] timeForIdDeletion = deleteLog.get(id);
-        if (timeForIdDeletion == null) {
-            return new byte[0];
-        } else {
-            deleteLog.remove(id);
-            return timeForIdDeletion;
         }
     }
 }
