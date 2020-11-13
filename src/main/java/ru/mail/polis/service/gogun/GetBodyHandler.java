@@ -31,10 +31,10 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Response> {
                 );
             case 404:
                 final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + timestamp.get());
+                timestamp.ifPresent(time -> response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + time));
                 return HttpResponse.BodySubscribers.replacing(response);
             default:
-                throw new RejectedExecutionException("cant handle");
+                throw new RejectedExecutionException("Incorrect status code");
         }
     }
 }

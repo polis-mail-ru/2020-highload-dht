@@ -138,7 +138,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ReplicasFactor replicasFactor;
-
         final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
         try {
             if (replicaFactor == null) {
@@ -165,11 +164,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final List<CompletableFuture<Response>> responsesFuture = new ArrayList<>(replicasFactor.getFrom());
-
         for (final String node : replNodes) {
             responsesFuture.add(proxy(node, request));
         }
-
         Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
             try {
                 if (v == null) {
