@@ -20,8 +20,6 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     private final NavigableMap<Integer, String> circle = new TreeMap<>();
     private final int vnodes;
-    private final Set<String> uniqueValues;
-
     /**
      * Class provides sharding via consistent hashing.
      *
@@ -34,8 +32,6 @@ public class ConsistentHashing implements Hashing<String> {
             final int vnodes) {
         this.vnodes = vnodes;
         this.me = me;
-
-        this.uniqueValues = new TreeSet<>();
 
         for (final String node : nodes) {
             add(node);
@@ -52,23 +48,22 @@ public class ConsistentHashing implements Hashing<String> {
         for (int i = 0; i < vnodes; i++) {
             circle.put((node + i).hashCode(), node);
         }
-
-        uniqueValues.add(node);
     }
 
     @NotNull
     @Override
     public Set<String> primaryFor(@NotNull final ByteBuffer key, final int count) {
-        if (count > uniqueValues.size()) {
+
+        if (count > new TreeSet<>(circle.values()).size()) {
             throw new InvalidParameterException("Wrong count number");
         }
         final int hash = key.hashCode();
         final Set<String> result = new HashSet<>();
         final Collection<String> values = circle.tailMap(hash).values();
-        var iterator = new TreeSet<>(values).iterator();
+        var iterator = values.iterator();
         while (result.size() < count) {
             if (!iterator.hasNext()) {
-                iterator = uniqueValues.iterator();
+                iterator = circle.values().iterator();
             }
 
             result.add(iterator.next());
@@ -85,6 +80,6 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     @Override
     public List<String> all() {
-        return Arrays.asList(uniqueValues.toArray(new String[0]));
+        return Arrays.asList(new TreeSet<>(circle.values()).toArray(new String[0]));
     }
 }
