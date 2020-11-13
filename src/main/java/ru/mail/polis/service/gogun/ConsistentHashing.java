@@ -60,28 +60,18 @@ public class ConsistentHashing implements Hashing<String> {
             throw new InvalidParameterException("Wrong count number");
         }
         final int hash = key.hashCode();
-        final Set<String> nodes = new HashSet<>();
-        int counter = count;
+        final Set<String> result = new HashSet<>();
         final Collection<String> values = circle.tailMap(hash).values();
-        if (values.isEmpty()) {
-            uniqueValues.stream().limit(count).forEach(nodes::add);
-        }
         var iterator = new TreeSet<>(values).iterator();
-        while (iterator.hasNext()) {
-            final String node = iterator.next();
-            nodes.add(node);
-            counter--;
-
-            if (counter == 0) {
-                break;
-            }
-
+        while (result.size() < count) {
             if (!iterator.hasNext()) {
                 iterator = uniqueValues.iterator();
             }
+
+            result.add(iterator.next());
         }
 
-        return nodes;
+        return result;
     }
 
     @Override
