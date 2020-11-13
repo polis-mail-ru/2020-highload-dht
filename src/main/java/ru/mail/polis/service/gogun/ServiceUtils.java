@@ -87,6 +87,7 @@ final class ServiceUtils {
                 session.sendResponse(deleteRequest.get());
                 break;
             default:
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 break;
         }
     }
@@ -121,4 +122,9 @@ final class ServiceUtils {
             throw new IllegalStateException("uri error", e);
         }
     }
+
+//    @NotNull
+//    static Response transformToTombstone(final Response response) {
+//        Response tombstone = new Response();
+//    }
 }

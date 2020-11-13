@@ -3,12 +3,13 @@ package ru.mail.polis.service.gogun;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
@@ -19,7 +20,6 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     private final NavigableMap<Integer, String> circle = new TreeMap<>();
     private final int vnodes;
-
     /**
      * Class provides sharding via consistent hashing.
      *
@@ -36,24 +36,12 @@ public class ConsistentHashing implements Hashing<String> {
         for (final String node : nodes) {
             add(node);
         }
+
     }
 
     @Override
     public boolean isMe(@NotNull final String node) {
         return node.equals(me);
-    }
-
-    @NotNull
-    @Override
-    public String get(@NotNull final ByteBuffer key) {
-        int hash = key.hashCode();
-
-        if (!circle.containsKey(hash)) {
-            final Map.Entry<Integer, String> ceilingEntry = circle.ceilingEntry(hash);
-            hash = ceilingEntry == null ? circle.firstKey() : ceilingEntry.getKey();
-        }
-
-        return circle.get(hash);
     }
 
     private void add(final String node) {
@@ -62,21 +50,26 @@ public class ConsistentHashing implements Hashing<String> {
         }
     }
 
+    @NotNull
     @Override
-    public ArrayList<String> getReplNodes(@NotNull final String node, final int count) {
-        final ArrayList<String> nodes = new ArrayList<>();
-        final List<String> list = Arrays.asList(all());
-        for (int i = list.indexOf(node); i < count; i++) {
-            nodes.add(list.get(i));
+    public Set<String> primaryFor(@NotNull final ByteBuffer key, final int count) {
+
+        if (count > new TreeSet<>(circle.values()).size()) {
+            throw new InvalidParameterException("Wrong count number");
         }
-        for (final String tmp : list) {
-            if (nodes.size() == count) {
-                break;
+        final int hash = key.hashCode();
+        final Set<String> result = new HashSet<>();
+        final Collection<String> values = circle.tailMap(hash).values();
+        var iterator = values.iterator();
+        while (result.size() < count) {
+            if (!iterator.hasNext()) {
+                iterator = circle.values().iterator();
             }
-            nodes.add(tmp);
+
+            result.add(iterator.next());
         }
 
-        return nodes;
+        return result;
     }
 
     @Override
@@ -86,7 +79,7 @@ public class ConsistentHashing implements Hashing<String> {
 
     @NotNull
     @Override
-    public String[] all() {
-        return new TreeSet<>(circle.values()).toArray(new String[0]);
+    public List<String> all() {
+        return Arrays.asList(new TreeSet<>(circle.values()).toArray(new String[0]));
     }
 }

@@ -16,31 +16,22 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Response> {
     @Override
     public HttpResponse.BodySubscriber<Response> apply(final HttpResponse.ResponseInfo responseInfo) {
         final Optional<String> timestamp = responseInfo.headers().firstValue("timestamp");
-        final Optional<String> isTombstone = responseInfo.headers().firstValue("tombstone");
+        if (timestamp.isEmpty()) {
+            throw new IllegalStateException("No timestamp");
+        }
         switch (responseInfo.statusCode()) {
             case 200:
-                if (timestamp.isEmpty()) {
-                    throw new IllegalStateException("No timestamp");
-                }
-
-                if (isTombstone.isEmpty()) {
-                    throw new IllegalStateException("No tombstone");
-                }
-
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
                         bytes -> {
                             final Response response = Response.ok(bytes);
-                            response.addHeader("timestamp: " + timestamp.get());
-                            response.addHeader("tombstone: " + isTombstone.get());
+                            response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + timestamp.get());
                             return response;
                         }
                 );
             case 404:
                 final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                if (timestamp.isPresent()) {
-                    response.addHeader("tombstone: " + true);
-                }
+                response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + timestamp.get());
                 return HttpResponse.BodySubscribers.replacing(response);
             default:
                 throw new RejectedExecutionException("cant handle");

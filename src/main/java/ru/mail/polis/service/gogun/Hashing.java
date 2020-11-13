@@ -4,19 +4,17 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Set;
 
 public interface Hashing<T> {
 
     boolean isMe(@NotNull T node);
 
-    @NotNull
-    T get(@NotNull ByteBuffer key);
-
     int size();
 
     @NotNull
-    T[] all();
+    List<T> all();
 
     @NotNull
-    List<T> getReplNodes(@NotNull T node, int count);
+    Set<T> primaryFor(@NotNull ByteBuffer key, int count);
 }

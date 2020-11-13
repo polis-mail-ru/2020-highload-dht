@@ -19,9 +19,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.security.InvalidParameterException;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -37,6 +36,11 @@ import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final Duration TIMEOUT = Duration.ofSeconds(1);
+    public static final String PROXY_HEADER = "X-Proxy-For: ";
+    public static final String TIMESTAMP_HEADER = "timestamp: ";
+    public static final String ABSENT = "-1";
+    public static final String REPLICA_FACTOR_PARAM = "replicas=";
+
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
@@ -129,7 +133,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
-        if (request.getHeader("X-Proxy-For") != null) {
+        if (request.getHeader(PROXY_HEADER) != null) {
             ServiceUtils.selector(
                     () -> handlePut(key, request),
                     () -> handleGet(key),
@@ -140,20 +144,34 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ReplicasFactor replicasFactor;
-        if (request.getParameter("replicas") == null) {
-            replicasFactor = new ReplicasFactor(topology.all().length);
-        } else {
-            replicasFactor = new ReplicasFactor(request.getParameter("replicas"));
+
+        final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
+        try {
+            if (replicaFactor == null) {
+                replicasFactor = ReplicasFactor.quorum(topology.all().size());
+            } else {
+                replicasFactor = ReplicasFactor.quorum(replicaFactor);
+            }
+        } catch (IllegalArgumentException e) {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        final Set<String> replNodes;
+        try {
+            replNodes = topology.primaryFor(key, replicasFactor.getFrom());
+        } catch (InvalidParameterException e) {
+            log.error("Wrong replica factor", e);
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return;
         }
 
-        if (replicasFactor.isBad()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        if (replNodes.isEmpty()) {
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             return;
         }
 
         final List<CompletableFuture<Response>> responsesFuture = new ArrayList<>(replicasFactor.getFrom());
-        final String nodeForRequest = topology.get(key);
-        final List<String> replNodes = topology.getReplNodes(nodeForRequest, replicasFactor.getFrom());
+
         for (final String node : replNodes) {
             responsesFuture.add(proxy(node, request));
         }
@@ -165,12 +183,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     return;
                 }
 
-                final MergeResponses mergeResponses = new MergeResponses(v, replicasFactor.getAck());
-                v.removeIf((e) -> e.getStatus() == 500);
+                final ResponseMerger responseMerger = new ResponseMerger(v, replicasFactor.getAck());
 
-                ServiceUtils.selector(mergeResponses::mergePutResponses,
-                        mergeResponses::mergeGetResponses,
-                        mergeResponses::mergeDeleteResponses,
+                ServiceUtils.selector(responseMerger::mergePutResponses,
+                        responseMerger::mergeGetResponses,
+                        responseMerger::mergeDeleteResponses,
                         request.getMethod(),
                         session);
             } catch (IOException e) {
@@ -193,24 +210,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     private Response handleGet(@NotNull final ByteBuffer key) {
         final Value value;
+        Response response;
         try {
             value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        }
-        Response response;
-        if (value.isTombstone()) {
-            response = Response.ok(Response.EMPTY);
-            response.addHeader("tombstone: " + true);
-        } else {
-            response = Response.ok(ServiceUtils.getArray(value.getData()));
-            response.addHeader("tombstone: " + false);
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            response.addHeader(TIMESTAMP_HEADER + ABSENT);
+            return response;
         }
 
-        response.addHeader("timestamp: " + value.getTimestamp());
+        if (value.isTombstone()) {
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
+        } else {
+            response = Response.ok(ServiceUtils.getArray(value.getData()));
+            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
+        }
+
         return response;
     }
 
@@ -260,7 +279,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, executorService);
             default:
-                return null;
+                log.error("Wrong request method");
+                throw new IllegalStateException("Wrong request method");
+
         }
     }
 
