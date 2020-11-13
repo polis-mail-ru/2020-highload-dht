@@ -164,9 +164,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final List<CompletableFuture<Response>> responsesFuture = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : replNodes) {
-            responsesFuture.add(proxy(node, request));
-        }
+        replNodes.forEach((node) -> responsesFuture.add(proxy(node, request)));
         Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
             try {
                 if (v == null) {
@@ -179,8 +177,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 ServiceUtils.selector(responseMerger::mergePutResponses,
                         responseMerger::mergeGetResponses,
                         responseMerger::mergeDeleteResponses,
-                        request.getMethod(),
-                        session);
+                        request.getMethod(), session);
             } catch (IOException e) {
                 log.error("error sending response", e);
             }
@@ -269,7 +266,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             default:
                 log.error("Wrong request method");
                 throw new IllegalStateException("Wrong request method");
-
         }
     }
 

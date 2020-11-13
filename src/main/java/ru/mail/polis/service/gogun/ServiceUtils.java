@@ -131,5 +131,4 @@ final class ServiceUtils {
             log.error("Error sending response in method get", e);
         }
     }
-
 }
