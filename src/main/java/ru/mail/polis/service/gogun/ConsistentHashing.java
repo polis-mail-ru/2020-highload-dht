@@ -35,11 +35,12 @@ public class ConsistentHashing implements Hashing<String> {
         this.vnodes = vnodes;
         this.me = me;
 
+        this.uniqueValues = new TreeSet<>();
+
         for (final String node : nodes) {
             add(node);
         }
 
-        this.uniqueValues = new TreeSet<>(nodes);
     }
 
     @Override
@@ -47,10 +48,11 @@ public class ConsistentHashing implements Hashing<String> {
         return node.equals(me);
     }
 
-    private void add(final String node) {
+    public void add(final String node) {
         for (int i = 0; i < vnodes; i++) {
             circle.put((node + i).hashCode(), node);
         }
+
         uniqueValues.add(node);
     }
 

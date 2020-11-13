@@ -39,7 +39,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final String PROXY_HEADER = "X-Proxy-For: ";
     public static final String TIMESTAMP_HEADER = "timestamp: ";
-    public static final String TOMBSTONE = "-1";
+    public static final String ABSENT = "-1";
     public static final String REPLICA_FACTOR_PARAM = "replicas=";
 
     @NotNull
@@ -201,7 +201,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TIMESTAMP_HEADER + -1);
+            response.addHeader(TIMESTAMP_HEADER + ABSENT);
             return response;
         }
 

@@ -47,10 +47,10 @@ public class ResponseMerger {
             final String timestamp = response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER);
             switch (response.getStatus()) {
                 case 404:
-                    if (!timestamp.equals(AsyncServiceImpl.TOMBSTONE)) {
-                        latestResponse = getLatest(response, latestResponse, timestamp);
-                    } else {
+                    if (timestamp.equals(AsyncServiceImpl.ABSENT)) {
                         notFoundResponsesCount++;
+                    } else {
+                        latestResponse = getLatest(response, latestResponse, timestamp);
                     }
                     break;
                 case 200:
