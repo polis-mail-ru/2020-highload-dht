@@ -39,7 +39,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final String PROXY_HEADER = "X-Proxy-For: ";
     public static final String TIMESTAMP_HEADER = "timestamp: ";
-    public static final String TOMBSTONE_HEADER = "tombstone: ";
+    public static final String TOMBSTONE = "-1";
+    public static final String REPLICA_FACTOR_PARAM = "replicas=";
 
     @NotNull
     private final DAO dao;
@@ -135,11 +136,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final ReplicasFactor replicasFactor;
+
+        final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
         try {
-            if (request.getParameter("replicas") == null) {
+            if (replicaFactor == null) {
                 replicasFactor = ReplicasFactor.quorum(topology.all().size());
             } else {
-                replicasFactor = ReplicasFactor.quorum(request.getParameter("replicas").substring(1));
+                replicasFactor = ReplicasFactor.quorum(replicaFactor);
             }
         } catch (InvalidParameterException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -198,19 +201,18 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         } catch (NoSuchElementException e) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TOMBSTONE_HEADER + false);
+            response.addHeader(TIMESTAMP_HEADER + -1);
             return response;
         }
 
         if (value.isTombstone()) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TOMBSTONE_HEADER + true);
+            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
         } else {
             response = Response.ok(ServiceUtils.getArray(value.getData()));
-            response.addHeader(TOMBSTONE_HEADER + false);
+            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
         }
 
-        response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
         return response;
     }
 
@@ -249,6 +251,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             request.addHeader(PROXY_HEADER + node);
             return nodeClients.get(node).invoke(request);
         } catch (IOException | InterruptedException | PoolException | HttpException e) {
+            log.error("Error on proxy", e);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }

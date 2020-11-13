@@ -51,6 +51,7 @@ public class ConsistentHashing implements Hashing<String> {
         for (int i = 0; i < vnodes; i++) {
             circle.put((node + i).hashCode(), node);
         }
+        uniqueValues.add(node);
     }
 
     @NotNull
