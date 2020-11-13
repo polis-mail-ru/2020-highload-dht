@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.RocksDBImpl;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -88,7 +87,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession (final Socket socket) throws RejectedExecutionException{
+    public HttpSession createSession (final Socket socket) throws RejectedExecutionException {
         return new ServiceSession(socket, this);
     }
 
@@ -143,16 +142,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void entities(@Param(value = "start", required = true) final String start,
                        @Param(value = "end") final String end,
                        final HttpSession session) throws IOException {
-        final ByteBuffer count;
         if (start.isEmpty()) {
             basicFuctions.trySendResponse(session, CompletableFuture.supplyAsync(() ->
                     new Response(Response.BAD_REQUEST, Response.EMPTY)));
             return;
         }
-        if (end == null)
+        final ByteBuffer count;
+        if (end == null) {
             count = null;
-        else
+        } else {
             count = ByteBuffer.wrap(end.getBytes(UTF_8));
+        }
         final Iterator<Record> iter = db.range(ByteBuffer.wrap(start.getBytes(UTF_8)), count);
         ((ServiceSession) session).setIterator(iter);
     }

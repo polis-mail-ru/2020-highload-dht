@@ -5,9 +5,7 @@ import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.Socket;
-import org.rocksdb.RocksIterator;
 import ru.mail.polis.Record;
-import ru.mail.polis.dao.RecordIterator;
 import ru.mail.polis.dao.Timestamp;
 
 import java.io.ByteArrayOutputStream;
@@ -25,7 +23,7 @@ public class ServiceSession extends HttpSession {
     /**
      * Constructor.
      */
-    public ServiceSession(Socket socket, HttpServer server) {
+    public ServiceSession(final Socket socket, HttpServer server) {
         super(socket, server);
     }
 
@@ -42,29 +40,35 @@ public class ServiceSession extends HttpSession {
     }
 
     @Override
-    protected void processWrite() throws Exception{
+    protected void processWrite() throws Exception {
         super.processWrite();
-        if (iterator != null)
-        next();
+        if (iterator != null) {
+            next();
+        }
+    }
+
+    private byte[] toChunk (final Record elem) throws IOException {
+        final byte[] dataKey = Util.fromByteBufferToByteArray(elem.getKey());
+        final byte[] dataValue = Timestamp.getTimestampByData(elem.getValue()).getData();
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        outputStream.write(dataKey);
+        outputStream.write('\n');
+        outputStream.write(dataValue);
+        final byte[] data = outputStream.toByteArray();
+        final byte[] length = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
+        final byte[] chunk = new byte[length.length + CRLR.length + data.length + CRLR.length];
+        final ByteBuffer buffer = ByteBuffer.wrap(chunk);
+        buffer.put(length);
+        buffer.put(CRLR);
+        buffer.put(data);
+        buffer.put(CRLR);
+        return chunk;
     }
 
     private void next() throws IOException {
         while (iterator.hasNext() && queueHead == null) {
             final var elem = iterator.next();
-            final byte[] dataKey = Util.fromByteBufferToByteArray(elem.getKey());
-            final byte[] dataValue = Timestamp.getTimestampByData(elem.getValue()).getData();
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            outputStream.write(dataKey);
-            outputStream.write('\n');
-            outputStream.write(dataValue);
-            final byte[] data = outputStream.toByteArray();
-            final byte[] length = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-            final byte[] chunk = new byte[length.length + CRLR.length + data.length + CRLR.length];
-            final ByteBuffer buffer = ByteBuffer.wrap(chunk);
-            buffer.put(length);
-            buffer.put(CRLR);
-            buffer.put(data);
-            buffer.put(CRLR);
+            final var chunk = toChunk(elem);
             write(chunk, 0, chunk.length);
         }
 
@@ -75,12 +79,13 @@ public class ServiceSession extends HttpSession {
                 throw new IOException("Out of order response");
             }
             server.incRequestsProcessed();
-            String connection = handling.getHeader("Connection: ");
+            final String connection = handling.getHeader("Connection: ");
             boolean keepAlive = handling.isHttp11()
                     ? !"close".equalsIgnoreCase(connection)
                     : "Keep-Alive".equalsIgnoreCase(connection);
             if (!keepAlive) scheduleClose();
-            if ((this.handling = handling = pipeline.pollFirst()) != null) {
+            this.handling = handling = pipeline.pollFirst();
+            if (handling != null) {
                 if (handling == FIN) {
                     scheduleClose();
                 } else {

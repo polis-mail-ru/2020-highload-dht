@@ -20,7 +20,8 @@ public final class RocksDBImpl implements DAO {
         RocksDB.loadLibrary();
     }
 
-    public static RocksDB db;
+    public final RocksDB db;
+
     /**
      * Implement DAO based on the given dir.
      *
