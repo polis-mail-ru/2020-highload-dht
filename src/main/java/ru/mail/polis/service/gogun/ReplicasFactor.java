@@ -3,7 +3,6 @@ package ru.mail.polis.service.gogun;
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
-import java.security.InvalidParameterException;
 import java.util.List;
 
 public final class ReplicasFactor {
@@ -22,11 +21,11 @@ public final class ReplicasFactor {
             this.ack = Integer.parseInt(askFrom.get(0));
             this.from = Integer.parseInt(askFrom.get(1));
         } catch (IndexOutOfBoundsException e) {
-            throw new InvalidParameterException(e.getMessage());
+            throw new IllegalArgumentException(e);
         }
 
         if (this.ack == 0 || this.ack > this.from) {
-            throw new InvalidParameterException(EXCEPTION_TEXT);
+            throw new IllegalArgumentException(EXCEPTION_TEXT);
         }
     }
 
@@ -35,7 +34,7 @@ public final class ReplicasFactor {
         this.ack = this.from / 2 + 1;
 
         if (this.ack == 0 || this.ack > this.from) {
-            throw new InvalidParameterException(EXCEPTION_TEXT);
+            throw new IllegalArgumentException(EXCEPTION_TEXT);
         }
     }
 

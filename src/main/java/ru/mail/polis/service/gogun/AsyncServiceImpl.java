@@ -144,7 +144,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             } else {
                 replicasFactor = ReplicasFactor.quorum(replicaFactor);
             }
-        } catch (InvalidParameterException e) {
+        } catch (IllegalArgumentException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }

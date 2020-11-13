@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-public final class ConsistentHashing implements Hashing<String> {
+public class ConsistentHashing implements Hashing<String> {
 
     @NotNull
     private final String me;
@@ -48,7 +48,7 @@ public final class ConsistentHashing implements Hashing<String> {
         return node.equals(me);
     }
 
-    public void add(final String node) {
+    private void add(final String node) {
         for (int i = 0; i < vnodes; i++) {
             circle.put((node + i).hashCode(), node);
         }
