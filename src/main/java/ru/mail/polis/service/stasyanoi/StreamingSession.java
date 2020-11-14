@@ -12,7 +12,12 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
-import static ru.mail.polis.service.stasyanoi.Constants.*;
+import static ru.mail.polis.service.stasyanoi.Constants.CONNECTION_HEADER_NAME;
+import static ru.mail.polis.service.stasyanoi.Constants.CRLF;
+import static ru.mail.polis.service.stasyanoi.Constants.EOF;
+import static ru.mail.polis.service.stasyanoi.Constants.EOL;
+import static ru.mail.polis.service.stasyanoi.Constants.TIMESTAMP_LENGTH;
+import static ru.mail.polis.service.stasyanoi.Constants.TRANSFER_ENCODING_HEADER_NAME;
 
 public class StreamingSession extends HttpSession {
 
