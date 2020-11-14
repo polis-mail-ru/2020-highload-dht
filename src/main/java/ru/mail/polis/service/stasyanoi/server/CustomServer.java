@@ -230,11 +230,7 @@ public class CustomServer extends BaseFunctionalityServer {
 
     private void streamResponse(final String startKey, final String endKey, final HttpSession session) {
         if (startKey == null || startKey.isEmpty()) {
-            try {
-                session.sendResponse(Util.responseWithNoBody(Response.BAD_REQUEST));
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
+            sendBadRequestResponse(session);
         } else {
             if (session instanceof StreamingSession) {
                 Iterator<Record> iterator = null;
@@ -253,6 +249,14 @@ public class CustomServer extends BaseFunctionalityServer {
                     logger.error(e.getMessage(), e);
                 }
             }
+        }
+    }
+
+    private void sendBadRequestResponse(HttpSession session) {
+        try {
+            session.sendResponse(Util.responseWithNoBody(Response.BAD_REQUEST));
+        } catch (IOException e) {
+            logger.error(e.getMessage());
         }
     }
 }

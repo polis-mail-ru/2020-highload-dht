@@ -37,20 +37,21 @@ public class StreamingSession extends HttpSession {
 
     private synchronized void sendStream() throws IOException {
         while (rocksIterator.hasNext() && queueHead == null) {
-            Record record = rocksIterator.next();
-            byte[] data = getRecordData(record);
+            final Record record = rocksIterator.next();
+            final byte[] data = getRecordData(record);
             write(data, 0, data.length);
         }
     }
 
     private void closeStream() throws IOException {
         write(EOF,0 , EOF.length);
-        String connection = handling.getHeader(CONNECTION_HEADER_NAME);
-        boolean keepAlive = handling.isHttp11() ? !"close".equalsIgnoreCase(connection)
+        final String connection = handling.getHeader(CONNECTION_HEADER_NAME);
+        final boolean keepAlive = handling.isHttp11() ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
         server.incRequestsProcessed();
         if (!keepAlive) scheduleClose();
-        if ((this.handling = handling = pipeline.pollFirst()) != null) {
+        this.handling = pipeline.pollFirst();
+        if (this.handling != null) {
             if (handling == FIN) {
                 scheduleClose();
             } else {

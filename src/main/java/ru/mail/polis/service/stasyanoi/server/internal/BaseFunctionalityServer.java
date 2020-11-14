@@ -7,8 +7,6 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.Socket;
-import one.nio.server.RejectedSessionException;
-import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.StreamingSession;
@@ -16,7 +14,11 @@ import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
 import java.net.http.HttpResponse;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -82,8 +84,14 @@ public class BaseFunctionalityServer extends ConstantsServer {
         return Util.responseWithNoBody(Response.OK);
     }
 
+    /**
+     * Creates a Streaming session for this server.
+     *
+     * @param socket - socket with which to interact.
+     * @return - the created session.
+     */
     @Override
-    public HttpSession createSession(Socket socket) {
+    public HttpSession createSession(final Socket socket) {
         return new StreamingSession(socket, this);
     }
 
