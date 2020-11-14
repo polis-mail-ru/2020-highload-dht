@@ -215,18 +215,22 @@ public class ServiceImpl extends HttpServer implements Service {
                         return;
                     }
                     switch (request.getMethod()) {
-                        case Request.METHOD_GET:
+                        case Request.METHOD_GET: {
                             respond(httpSession, responseManager.get(validParams, request));
                             break;
-                        case Request.METHOD_PUT:
+                        }
+                        case Request.METHOD_PUT: {
                             final ByteBuffer value = ByteBuffer.wrap(request.getBody());
                             respond(httpSession, responseManager.put(validParams, value, request.getBody(), request));
                             break;
-                        case Request.METHOD_DELETE:
+                        }
+                        case Request.METHOD_DELETE: {
                             respond(httpSession, responseManager.delete(validParams, request));
                             break;
-                        default:
+                        }
+                        default: {
                             trySendAnswer(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                        }
                     }
                 }
         );
