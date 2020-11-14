@@ -22,6 +22,12 @@ public class StreamingSession extends HttpSession {
         super(socket, server);
     }
 
+    /**
+     * Send a stream back to client from the given iterator.
+     *
+     * @param rocksIterator - iterator.
+     * @throws IOException - if an io exception occurs whilst sending the response.
+     */
     public void sendStreamResponse(Iterator<Record> rocksIterator) throws IOException {
         this.rocksIterator = rocksIterator;
         openStream();
@@ -44,7 +50,7 @@ public class StreamingSession extends HttpSession {
     }
 
     private void closeStream() throws IOException {
-        write(EOF,0 , EOF.length);
+        write(EOF,0, EOF.length);
         final String connection = handling.getHeader(CONNECTION_HEADER_NAME);
         final boolean keepAlive = handling.isHttp11() ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
