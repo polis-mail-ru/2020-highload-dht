@@ -8,6 +8,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
@@ -19,14 +20,13 @@ import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
 import ru.mail.polis.service.stasyanoi.server.internal.BaseFunctionalityServer;
 
 import java.io.IOException;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.function.Supplier;
 
 import static ru.mail.polis.service.stasyanoi.Constants.REPLICAS;
 import static ru.mail.polis.service.stasyanoi.Constants.SHOULD_REPLICATE;
@@ -217,6 +217,13 @@ public class CustomServer extends BaseFunctionalityServer {
         return responseHttp;
     }
 
+    /**
+     * Streams the selected range of values.
+     *
+     * @param startKey - start of the range.
+     * @param endKey - end of the range.
+     * @param session - reuqest session.
+     */
     @Path("/v0/entities")
     @RequestMethod(Request.METHOD_GET)
     public void streamValues(final @Param("start") String startKey, final @Param("end") String endKey,
@@ -233,16 +240,7 @@ public class CustomServer extends BaseFunctionalityServer {
             sendBadRequestResponse(session);
         } else {
             if (session instanceof StreamingSession) {
-                Iterator<Record> iterator = null;
-                try {
-                    iterator = dao.range(Util.getKey(startKey), endKey == null ? null : Util.getKey(endKey));
-                } catch (IOException e) {
-                    try {
-                        session.sendResponse(Util.responseWithNoBody(Response.INTERNAL_ERROR));
-                    } catch (IOException ioException) {
-                        logger.error(ioException.getMessage(), ioException);
-                    }
-                }
+                Iterator<Record> iterator = getRecordIterator(startKey, endKey, session);
                 try {
                     ((StreamingSession) session).sendStreamResponse(iterator);
                 } catch (IOException e) {
@@ -252,7 +250,22 @@ public class CustomServer extends BaseFunctionalityServer {
         }
     }
 
-    private void sendBadRequestResponse(HttpSession session) {
+    @Nullable
+    private Iterator<Record> getRecordIterator(final String startKey, final String endKey, final HttpSession session) {
+        Iterator<Record> iterator = null;
+        try {
+            iterator = dao.range(Util.getKey(startKey), endKey == null ? null : Util.getKey(endKey));
+        } catch (IOException e) {
+            try {
+                session.sendResponse(Util.responseWithNoBody(Response.INTERNAL_ERROR));
+            } catch (IOException ioException) {
+                logger.error(ioException.getMessage(), ioException);
+            }
+        }
+        return iterator;
+    }
+
+    private void sendBadRequestResponse(final HttpSession session) {
         try {
             session.sendResponse(Util.responseWithNoBody(Response.BAD_REQUEST));
         } catch (IOException e) {
