@@ -267,4 +267,33 @@ public class CustomServer extends BaseFunctionalityServer {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
+
+    /**
+     * Get a record by key.
+     *
+     * @param idParam - key.
+     */
+    @Path("/v0/entities")
+    @RequestMethod(Request.METHOD_GET)
+    public void streamValues(final @Param("start") String startKey, final @Param("end") String endKey,
+                             final HttpSession session, final Request request) {
+        if (startKey == null) {
+            try {
+                session.sendResponse(Util.responseWithNoBody(Response.BAD_REQUEST));
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+        }
+
+        try {
+            executorService.execute(() -> streamResponse(startKey, endKey, session, request));
+        } catch (RejectedExecutionException e) {
+            Util.send503Error(session);
+        }
+    }
+
+    private void streamResponse(final String startKey, final String endKey, final HttpSession session,
+                                final Request request) {
+
+    }
 }
