@@ -25,8 +25,13 @@ public class Value {
         return new Value(null, version);
     }
 
+    /**
+     * Get data from this value.
+     *
+     * @return data from this value
+     */
     public ByteBuffer getData() {
-        if (data == null){
+        if (data == null) {
             return null;
         }
         return data.duplicate();
