@@ -31,7 +31,7 @@ public class DaoManager {
      *
      * @param key   - ByteBuffer that contains the key data.
      * @param value - ByteBuffer that contains the value data.
-     * @return response to send.
+     * @return future to response to send.
      */
     public CompletableFuture<Response> put(final ByteBuffer key, final ByteBuffer value) {
         return CompletableFuture.supplyAsync(
@@ -50,7 +50,7 @@ public class DaoManager {
      * Method that deletes entity from the DAO and returns response with operation results.
      *
      * @param key - ByteBuffer that contains the key data.
-     * @return response to send.
+     * @return future to response to send.
      */
     public CompletableFuture<Response> delete(final ByteBuffer key) {
         return CompletableFuture.supplyAsync(
@@ -69,7 +69,7 @@ public class DaoManager {
      * Method that gets entity from the DAO and returns response with operation results.
      *
      * @param key - ByteBuffer that contains key data.
-     * @return response to send.
+     * @return future to response to send.
      */
     public CompletableFuture<Value> rowGet(final ByteBuffer key) {
         return CompletableFuture.supplyAsync(
@@ -99,11 +99,18 @@ public class DaoManager {
         }
     }
 
-    public CompletableFuture<Iterator<Record>> iterator(final ByteBuffer keyFrom, final ByteBuffer keyTo) {
+    /**
+     * Get records iterator from dao in range from keyStart to keyEnd.
+     *
+     * @param keyStart - beginning of the range.
+     * @param keyEnd - ending of the range.
+     * @return future to iterator of records.
+     */
+    public CompletableFuture<Iterator<Record>> iterator(final ByteBuffer keyStart, final ByteBuffer keyEnd) {
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        return dao.range(keyFrom, keyTo);
+                        return dao.range(keyStart, keyEnd);
                     } catch (final IOException e) {
                         log.error("Error getting the range", e);
                         throw new RuntimeException(e);

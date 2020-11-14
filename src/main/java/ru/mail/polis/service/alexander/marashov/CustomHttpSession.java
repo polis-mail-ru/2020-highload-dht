@@ -32,6 +32,12 @@ public class CustomHttpSession extends HttpSession {
         }
     }
 
+    /**
+     * Send records to user using Transfer-Encoding protocol.
+     *
+     * @param iterator - records iterator to send.
+     * @throws IOException if send response error.
+     */
     public void sendRecords(final Iterator<Record> iterator) throws IOException {
         this.recordIterator = iterator;
         final Response response = new Response(Response.OK);

@@ -191,6 +191,12 @@ public class ServiceImpl extends HttpServer implements Service {
         return new Response(Response.OK, Response.EMPTY);
     }
 
+    /**
+     * Http method handler for managing the dao.
+     *
+     * @param id - dao record key.
+     * @param replicas - replicas parameter, has ack/from format.
+     */
     @Path("/v0/entity")
     public void handleEntity(
             final HttpSession httpSession,
@@ -210,79 +216,20 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
                     switch (request.getMethod()) {
                         case Request.METHOD_GET:
-                            handleEntityGet(httpSession, request, validParams);
+                            respond(httpSession, responseManager.get(validParams, request));
                             break;
                         case Request.METHOD_PUT:
-                            handleEntityPut(httpSession, request, validParams);
+                            final ByteBuffer value = ByteBuffer.wrap(request.getBody());
+                            respond(httpSession, responseManager.put(validParams, value, request.getBody(), request));
                             break;
                         case Request.METHOD_DELETE:
-                            handleEntityDelete(httpSession, request, validParams);
+                            respond(httpSession, responseManager.delete(validParams, request));
                             break;
                         default:
                             trySendAnswer(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
                     }
                 }
         );
-    }
-
-    /**
-     * Http method handler for getting a value in the DAO by the key.
-     *
-     * @param validParams is the object with valid key and replicas parameters.
-     *           Sends {@link Response} instance with value as body, if the key exists. Response status is
-     *           {@code 200} if data is found
-     *           {@code 400} if id is empty
-     *           {@code 404} if not found,
-     *           {@code 500} if an internal server error occurred.
-     *           {@code 504} if not enough responses from replicas to analyze.
-     */
-    public void handleEntityGet(
-            final HttpSession httpSession,
-            final Request request,
-            final ValidatedParameters validParams
-    ) {
-        final CompletableFuture<Response> future = responseManager.get(validParams, request);
-        respond(httpSession, future);
-    }
-
-    /**
-     * HTTP method handler for placing a value by the key in the DAO storage.
-     *
-     * @param validParams is the object with valid key and replicas parameters.
-     *           Sends {@link Response} instance with
-     *           {@code 201} if data saved
-     *           {@code 400} if id is empty,
-     *           {@code 500} if an internal server error occurred.
-     *           {@code 504} if not enough responses from replicas to analyze.
-     */
-    public void handleEntityPut(
-            final HttpSession httpSession,
-            final Request request,
-            final ValidatedParameters validParams
-    ) {
-        final byte[] body = request.getBody();
-        final ByteBuffer value = ByteBuffer.wrap(body);
-        final CompletableFuture<Response> future = responseManager.put(validParams, value, body, request);
-        respond(httpSession, future);
-    }
-
-    /**
-     * HTTP method handler for removing a value by the key from the DAO storage.
-     *
-     * @param validParams is the object with valid key and replicas parameters.
-     *           Sends {@link Response} instance with
-     *           {@code 202} if the key deleted,
-     *           {@code 400} if id is empty,
-     *           {@code 500} if an internal server error occurred.
-     *           {@code 504} if not enough responses from replicas to analyze.
-     */
-    public void handleEntityDelete(
-            final HttpSession httpSession,
-            final Request request,
-            final ValidatedParameters validParams
-    ) {
-        final CompletableFuture<Response> future = responseManager.delete(validParams, request);
-        respond(httpSession, future);
     }
 
     /**
