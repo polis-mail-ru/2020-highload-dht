@@ -22,38 +22,31 @@ public class StreamingSession extends HttpSession {
         super(socket, server);
     }
 
-    public void setRocksIterator(Iterator<Record> rocksIterator) throws IOException {
+    public void sendStreamResponse(Iterator<Record> rocksIterator) throws IOException {
         this.rocksIterator = rocksIterator;
+        openStream();
+        sendStream();
+        closeStream();
+    }
+
+    private void openStream() throws IOException {
         final Response response = Util.responseWithNoBody(Response.OK);
-        response.addHeader("Transfer-Encoding: chunked");
+        response.addHeader(TRANSFER_ENCODING_HEADER_NAME + "chunked");
         writeResponse(response,false);
-        next();
     }
 
-    @Override
-    protected void processWrite() throws Exception {
-        super.processWrite();
-
-        if (rocksIterator != null) {
-            next();
-        }
-    }
-
-    private synchronized void next() throws IOException {
+    private synchronized void sendStream() throws IOException {
         while (rocksIterator.hasNext() && queueHead == null) {
             Record record = rocksIterator.next();
             byte[] data = getRecordData(record);
             write(data, 0, data.length);
         }
+    }
 
-        if (rocksIterator.hasNext()) {
-            return;
-        }
+    private void closeStream() throws IOException {
         write(EOF,0 , EOF.length);
-
-        String connection = handling.getHeader("Connection: ");
-        boolean keepAlive = handling.isHttp11()
-                ? !"close".equalsIgnoreCase(connection)
+        String connection = handling.getHeader(CONNECTION_HEADER_NAME);
+        boolean keepAlive = handling.isHttp11() ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
         server.incRequestsProcessed();
         if (!keepAlive) scheduleClose();

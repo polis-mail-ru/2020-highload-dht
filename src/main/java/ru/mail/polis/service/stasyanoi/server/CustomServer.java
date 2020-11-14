@@ -275,16 +275,20 @@ public class CustomServer extends BaseFunctionalityServer {
             }
         } else {
             if (session instanceof StreamingSession) {
+                Iterator<Record> iterator = null;
                 try {
-                    Iterator<Record> iterator = dao.range(Util.getKey(startKey),
-                            endKey == null ? null : Util.getKey(endKey));
-                    ((StreamingSession) session).setRocksIterator(iterator);
+                    iterator = dao.range(Util.getKey(startKey), endKey == null ? null : Util.getKey(endKey));
                 } catch (IOException e) {
                     try {
-                        session.sendError("500", e.getMessage());
+                        session.sendResponse(Util.responseWithNoBody(Response.INTERNAL_ERROR));
                     } catch (IOException ioException) {
                         logger.error(ioException.getMessage(), ioException);
                     }
+                }
+                try {
+                    ((StreamingSession) session).sendStreamResponse(iterator);
+                } catch (IOException e) {
+                    logger.error(e.getMessage(), e);
                 }
             }
         }
