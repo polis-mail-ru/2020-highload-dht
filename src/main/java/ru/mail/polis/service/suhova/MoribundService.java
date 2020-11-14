@@ -287,9 +287,6 @@ public class MoribundService extends HttpServer implements Service {
             logger.error("Can't shutdown execution");
             Thread.currentThread().interrupt();
         }
-//        for (final HttpClient client : clients.values()) {
-//            client.close();
-//        }
     }
 
     @NotNull
