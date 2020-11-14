@@ -3,25 +3,28 @@ package ru.mail.polis.service.mrsandman5.range;
 import com.google.common.base.Charsets;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
+import ru.mail.polis.utils.ByteUtils;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class ChunksProvider {
 
-    private static final byte NEW_LINE = '\n';
-    private static final byte[] SEPARATOR = "\r\n".getBytes(Charsets.UTF_8);
-    private static final byte[] EMPTY_CHUNK = "0\r\n\r\n".getBytes(Charsets.UTF_8);
+    public final byte[] EOL = "\n".getBytes(StandardCharsets.US_ASCII);
+    private final byte[] CRLF = "\r\n".getBytes(Charsets.US_ASCII);
+    private final byte[] EOF = "0\r\n\r\n".getBytes(Charsets.US_ASCII);
 
-    private final Iterator<Record> records;
+    final Iterator<Record> records;
 
     /**
      * Wrapper over iterator to get chunks.
      *
      * @param records Record iterator.
      */
-    public ChunksProvider(@NotNull final Iterator<Record> records) {
+    ChunksProvider(@NotNull final Iterator<Record> records) {
         this.records = records;
     }
 
@@ -30,28 +33,29 @@ public class ChunksProvider {
      *
      * @return byte array of chunk.
      */
-    public byte[] next() {
-        assert hasNext();
+    byte[] next() throws IOException {
         final Record record = records.next();
-        final ByteBuffer key = record.getKey();
-        final ByteBuffer value = record.getValue();
+        final byte[] key = ByteUtils.toByteArray(record.getKey());
+        final byte[] value = ByteUtils.toByteArray(record.getValue());
+        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        final int payloadLength = key.remaining() + 1 + value.remaining();
-        final String chunkHexSize = Integer.toHexString(payloadLength);
-        final int chunkLength = chunkHexSize.length() + 2 + payloadLength + 2;
+        outputStream.write(key);
+        outputStream.write(EOL);
+        outputStream.write(value);
+        final byte[] data = outputStream.toByteArray();
 
-        final byte[] chunk = new byte[chunkLength];
+        final byte[] chunkHexSize = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
+        final byte[] chunk = new byte[chunkHexSize.length + 2 * CRLF.length + data.length];
+
         ByteBuffer.wrap(chunk)
-                .put(chunkHexSize.getBytes(Charsets.UTF_8))
-                .put(SEPARATOR)
-                .put(key)
-                .put(NEW_LINE)
-                .put(value)
-                .put(SEPARATOR);
+                .put(chunkHexSize)
+                .put(CRLF)
+                .put(data)
+                .put(CRLF);
         return chunk;
     }
 
-    public boolean hasNext() {
+    boolean hasNext() {
         return records.hasNext();
     }
 
@@ -60,7 +64,7 @@ public class ChunksProvider {
      *
      * @return byte array last chunk.
      */
-    public byte[] end() {
-        return Arrays.copyOf(EMPTY_CHUNK, EMPTY_CHUNK.length);
+    byte[] end() {
+        return EOF;
     }
 }

@@ -7,6 +7,7 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -114,7 +115,6 @@ public final class ServiceImpl extends HttpServer implements Service {
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
-        log.debug("Request handling : {}", id);
         if (id.isEmpty()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
@@ -156,34 +156,26 @@ public final class ServiceImpl extends HttpServer implements Service {
     /**
      * Process request to get range of values.
      *
-     * @param start       Start key
-     * @param end         End key
-     * @param request     HTTP request
+     * @param request Range request
      * @param session HTTP session
      */
     @Path("/v0/entities")
-    public void entities(
-            @Param("start") final String start,
-            @Param("end") final String end,
-            @NotNull final Request request,
-            @NotNull final HttpSession session) {
-        final ServiceSession serviceSession = (ServiceSession) session;
+    public void entities(@NotNull final Request request,
+                         @NotNull final HttpSession session) {
+        final String start = request.getParameter("start=");
         if (start == null || start.isEmpty()) {
-            ResponseUtils.sendEmptyResponse(serviceSession, Response.BAD_REQUEST);
+            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
-        if (request.getMethod() != Request.METHOD_GET) {
-            ResponseUtils.sendEmptyResponse(serviceSession, Response.METHOD_NOT_ALLOWED);
-            return;
-        }
+        final String end = request.getParameter("end=");
         final ByteBuffer startBuffer = ByteUtils.getWrap(start);
-        final ByteBuffer endBuffer = (end == null || end.isEmpty()) ? null : ByteUtils.getWrap(end);
+        final ByteBuffer endBuffer = end == null ? null : ByteUtils.getWrap(end);
         try {
             final Iterator<Record> range = dao.range(startBuffer, endBuffer);
-            serviceSession.stream(range);
+            ((ServiceSession) session).stream(range);
         } catch (IOException e) {
             log.error("Unable to stream range of values", e);
-            ResponseUtils.sendEmptyResponse(serviceSession, Response.INTERNAL_ERROR);
+            ResponseUtils.sendEmptyResponse(session, Response.INTERNAL_ERROR);
         }
     }
 
@@ -261,6 +253,11 @@ public final class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/status")
     public Response status(@NotNull final HttpSession session) {
         return ResponseUtils.emptyResponse(Response.OK);
+    }
+
+    @Override
+    public HttpSession createSession(@NotNull final Socket socket) {
+        return new ServiceSession(socket, this);
     }
 
     @Override

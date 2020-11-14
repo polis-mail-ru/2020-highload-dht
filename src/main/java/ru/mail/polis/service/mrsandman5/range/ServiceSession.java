@@ -2,10 +2,12 @@ package ru.mail.polis.service.mrsandman5.range;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
+import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.Socket;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
+import ru.mail.polis.utils.ResponseUtils;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
@@ -22,13 +24,13 @@ public class ServiceSession extends HttpSession {
 
     public void stream(@NotNull final Iterator<Record> iterator) throws IOException {
         this.chunks = new ChunksProvider(iterator);
-        final Response response = new Response(Response.OK);
+        final Response response = ResponseUtils.emptyResponse(Response.OK);
         response.addHeader("Transfer-Encoding: chunked");
         writeResponse(response, false);
         next();
     }
 
-    private void next() throws IOException {
+    private synchronized void next() throws IOException {
         while (chunks.hasNext() && queueHead == null) {
             final byte[] data = chunks.next();
             write(data, 0, data.length);
@@ -37,7 +39,12 @@ public class ServiceSession extends HttpSession {
             final byte[] end = chunks.end();
             write(end, 0, end.length);
             server.incRequestsProcessed();
-            if ((handling = pipeline.pollFirst()) != null) {
+            final String connection = handling.getHeader("Connection: ");
+            final boolean keepAlive = handling.isHttp11()
+                    ? !"close".equalsIgnoreCase(connection)
+                    : "Keep-Alive".equalsIgnoreCase(connection);
+            if (!keepAlive) scheduleClose();
+            if ((this.handling = pipeline.pollFirst()) != null) {
                 if (handling == FIN) {
                     scheduleClose();
                 } else {
