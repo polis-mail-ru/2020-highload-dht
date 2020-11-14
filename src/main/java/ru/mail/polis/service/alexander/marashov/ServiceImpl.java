@@ -9,16 +9,21 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
+import one.nio.server.RejectedSessionException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -34,6 +39,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     public static final String PROXY_HEADER = "Proxy_Header";
     public static final String TIMESTAMP_HEADER_NAME = "Timestamp_Header";
+    public static final String FUTURE_CANCELED_ERROR = "Who canceled my future?!";
 
     private final ExecutorService executorService;
     private final ResponseManager responseManager;
@@ -141,7 +147,7 @@ public class ServiceImpl extends HttpServer implements Service {
             }
         }).isCancelled();
         if (canceled) {
-            throw new RuntimeException("Who canceled my future?!");
+            throw new RuntimeException(FUTURE_CANCELED_ERROR);
         }
     }
 
@@ -149,6 +155,11 @@ public class ServiceImpl extends HttpServer implements Service {
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         session.sendResponse(response);
+    }
+
+    @Override
+    public HttpSession createSession(Socket socket) throws RejectedSessionException {
+        return new CustomHttpSession(socket, this);
     }
 
     /**
@@ -264,6 +275,59 @@ public class ServiceImpl extends HttpServer implements Service {
                     }
                     final CompletableFuture<Response> future = responseManager.delete(validParams, request);
                     respond(httpSession, future);
+                }
+        );
+    }
+
+    /**
+     * HTTP method handler for getting key-values pairs from the DAO storage.
+     *
+     * @param start - key to start the search.
+     * @param end - key where the search will stop.
+     */
+    @Path("/v0/entities")
+    @RequestMethod(Request.METHOD_GET)
+    public void handleEntitiesGet(
+            final HttpSession httpSession,
+            @Param(value = "start", required = true) final String start,
+            @Param(value = "end") final String end
+    ) {
+        executeOrSendError(
+                httpSession,
+                () -> {
+                    if (start.isEmpty() || (end != null && end.isEmpty())) {
+                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        return;
+                    }
+
+                    final byte[] bytesFrom = start.getBytes(StandardCharsets.UTF_8);
+                    final ByteBuffer keyFrom = ByteBuffer.wrap(bytesFrom);
+
+                    final ByteBuffer keyTo;
+                    if (end == null) {
+                        keyTo = null;
+                    } else {
+                        final byte[] bytesTo = end.getBytes(StandardCharsets.UTF_8);
+                        keyTo = ByteBuffer.wrap(bytesTo);
+                    }
+
+                    final CompletableFuture<Iterator<Record>> future = responseManager.iterator(keyFrom, keyTo);
+                    final boolean canceled = future.whenComplete((recordIterator, error) -> {
+                        if (error == null) {
+                            try {
+                                ((CustomHttpSession) httpSession).sendRecords(recordIterator);
+                            } catch (final IOException ioException) {
+                                log.error("Error sending response", ioException);
+                                trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                            }
+                        } else {
+                            log.error("Future returned error", error);
+                            trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                        }
+                    }).isCancelled();
+                    if (canceled) {
+                        throw new RuntimeException(FUTURE_CANCELED_ERROR);
+                    }
                 }
         );
     }

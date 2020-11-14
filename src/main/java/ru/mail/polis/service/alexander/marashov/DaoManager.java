@@ -3,11 +3,13 @@ package ru.mail.polis.service.alexander.marashov;
 import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.alexander.marashov.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -95,5 +97,19 @@ public class DaoManager {
         } catch (final IOException e) {
             throw new RuntimeException("Error closing dao", e);
         }
+    }
+
+    public CompletableFuture<Iterator<Record>> iterator(final ByteBuffer keyFrom, final ByteBuffer keyTo) {
+        return CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return dao.range(keyFrom, keyTo);
+                    } catch (final IOException e) {
+                        log.error("Error getting the range", e);
+                        throw new RuntimeException(e);
+                    }
+                },
+                daoExecutor
+        );
     }
 }

@@ -2,6 +2,7 @@ package ru.mail.polis.service.alexander.marashov;
 
 import one.nio.http.Request;
 import one.nio.http.Response;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.alexander.marashov.Value;
 import ru.mail.polis.service.alexander.marashov.analyzers.FutureAnalyzer;
@@ -16,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -209,5 +211,9 @@ public class ResponseManager {
      */
     public void clear() {
         daoManager.close();
+    }
+
+    public CompletableFuture<Iterator<Record>> iterator(final ByteBuffer keyFrom, final ByteBuffer keyTo) {
+        return daoManager.iterator(keyFrom, keyTo);
     }
 }
