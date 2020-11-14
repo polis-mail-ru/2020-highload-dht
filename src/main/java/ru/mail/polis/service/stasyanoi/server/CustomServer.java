@@ -141,22 +141,6 @@ public class CustomServer extends BaseFunctionalityServer {
         return responseHttp;
     }
 
-    private Response replicatePutOrDelete(final Request request, final int node, final Response responseHttpTemp,
-                                          final int goodStatus) {
-        final Response responseHttp;
-        final String replicationParam = request.getParameter(REPLICAS);
-        if (Util.validRF(replicationParam)) {
-            final AckFrom ackFrom = Util.getRF(replicationParam, nodeIndexToUrlMapping.size());
-            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
-            responses.add(responseHttpTemp);
-            responseHttp = ResponseMerger
-                    .mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
-        } else {
-            responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
-        }
-        return responseHttp;
-    }
-
     @NotNull
     private Response putIntoLocalNode(final Request request, final String keyString) {
         Response responseHttp;
@@ -217,42 +201,20 @@ public class CustomServer extends BaseFunctionalityServer {
         return responseHttp;
     }
 
-    private void internalRun(final String idParam, final HttpSession session,
-                             final Supplier<Response> responseSupplier) {
-        Response responseHttp;
-        if (idParam == null || idParam.isEmpty()) {
-            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+    private Response replicatePutOrDelete(final Request request, final int node, final Response responseHttpTemp,
+                                          final int goodStatus) {
+        final Response responseHttp;
+        final String replicationParam = request.getParameter(REPLICAS);
+        if (Util.validRF(replicationParam)) {
+            final AckFrom ackFrom = Util.getRF(replicationParam, nodeIndexToUrlMapping.size());
+            final List<Response> responses = getReplicaResponses(request, node, ackFrom.getFrom() - 1);
+            responses.add(responseHttpTemp);
+            responseHttp = ResponseMerger
+                    .mergePutDeleteResponses(responses, ackFrom.getAck(), goodStatus, ackFrom.getFrom());
         } else {
-            responseHttp = responseSupplier.get();
+            responseHttp = Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
-        try {
-            session.sendResponse(responseHttp);
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        }
-    }
-
-    @NotNull
-    private List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
-        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
-        tempNodeMapping.remove(node);
-        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request);
-    }
-
-    private List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
-                                                    final Request request) {
-        final List<String> urls = new ArrayList<>(tempNodeMapping.values()).subList(0, from);
-        final List<Response> responses = new CopyOnWriteArrayList<>();
-        final List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
-        for (final String url : urls) {
-            final CompletableFuture<Void> completableFuture = asyncHttpClient.sendAsync(
-                    Util.getJavaRequest(request, url),
-                    HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(Util::getOneNioResponse)
-                    .handleAsync(Util::filterResponse).thenAcceptAsync(responses::add);
-            completableFutures.add(completableFuture);
-        }
-        CompletableFuture.allOf(completableFutures.toArray(CompletableFuture[]::new)).join();
-        return responses;
+        return responseHttp;
     }
 
     @Path("/v0/entities")
@@ -291,17 +253,6 @@ public class CustomServer extends BaseFunctionalityServer {
                     logger.error(e.getMessage(), e);
                 }
             }
-        }
-
-    }
-
-    private Response routeRequestToRemoteNode(final Request request, final int node,
-                                              final Map<Integer, String> nodeMapping) {
-        try {
-            return Util.getOneNioResponse(asyncHttpClient.send(Util.getJavaRequest(request,nodeMapping.get(node)),
-                    HttpResponse.BodyHandlers.ofByteArray()));
-        } catch (InterruptedException | IOException e) {
-            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
     }
 }

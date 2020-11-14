@@ -8,14 +8,19 @@ import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.Socket;
 import one.nio.server.RejectedSessionException;
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
 import ru.mail.polis.service.stasyanoi.StreamingSession;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
-import java.util.Set;
+import java.net.http.HttpResponse;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 public class BaseFunctionalityServer extends ConstantsServer {
 
@@ -80,5 +85,52 @@ public class BaseFunctionalityServer extends ConstantsServer {
     @Override
     public HttpSession createSession(Socket socket) {
         return new StreamingSession(socket, this);
+    }
+
+    protected void internalRun(final String idParam, final HttpSession session,
+                             final Supplier<Response> responseSupplier) {
+        Response responseHttp;
+        if (idParam == null || idParam.isEmpty()) {
+            responseHttp = Util.responseWithNoBody(Response.BAD_REQUEST);
+        } else {
+            responseHttp = responseSupplier.get();
+        }
+        try {
+            session.sendResponse(responseHttp);
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+        }
+    }
+
+    protected List<Response> getReplicaResponses(final Request request, final int node, final int fromOtherReplicas) {
+        final Map<Integer, String> tempNodeMapping = new TreeMap<>(nodeIndexToUrlMapping);
+        tempNodeMapping.remove(node);
+        return getResponsesFromReplicas(tempNodeMapping, fromOtherReplicas, request);
+    }
+
+    protected List<Response> getResponsesFromReplicas(final Map<Integer, String> tempNodeMapping, final int from,
+                                                    final Request request) {
+        final List<String> urls = new ArrayList<>(tempNodeMapping.values()).subList(0, from);
+        final List<Response> responses = new CopyOnWriteArrayList<>();
+        final List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
+        for (final String url : urls) {
+            final CompletableFuture<Void> completableFuture = asyncHttpClient.sendAsync(
+                    Util.getJavaRequest(request, url),
+                    HttpResponse.BodyHandlers.ofByteArray()).thenApplyAsync(Util::getOneNioResponse)
+                    .handleAsync(Util::filterResponse).thenAcceptAsync(responses::add);
+            completableFutures.add(completableFuture);
+        }
+        CompletableFuture.allOf(completableFutures.toArray(CompletableFuture[]::new)).join();
+        return responses;
+    }
+
+    protected Response routeRequestToRemoteNode(final Request request, final int node,
+                                              final Map<Integer, String> nodeMapping) {
+        try {
+            return Util.getOneNioResponse(asyncHttpClient.send(Util.getJavaRequest(request,nodeMapping.get(node)),
+                    HttpResponse.BodyHandlers.ofByteArray()));
+        } catch (InterruptedException | IOException e) {
+            return Util.responseWithNoBody(Response.INTERNAL_ERROR);
+        }
     }
 }

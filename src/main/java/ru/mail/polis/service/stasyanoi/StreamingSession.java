@@ -59,24 +59,24 @@ public class StreamingSession extends HttpSession {
         }
     }
 
-    private byte[] getRecordData(Record record) {
-        byte[] key = Mapper.toBytes(record.getKey());
-        byte[] value = Mapper.toBytes(record.getValue());
+    private byte[] getRecordData(final Record record) {
+        final byte[] key = Mapper.toBytes(record.getKey());
+        final byte[] value = Mapper.toBytes(record.getValue());
         byte[] valueWithoutTimestamp = new byte[value.length - TIMESTAMP_LENGTH];
-        byte[] emptyBody = new byte[0];
+        final byte[] emptyBody = new byte[0];
         if (valueWithoutTimestamp.length == 1) {
           valueWithoutTimestamp = emptyBody;
         } else {
             System.arraycopy(value, 0, valueWithoutTimestamp, 0, value.length - TIMESTAMP_LENGTH);
         }
-        byte[] data = new byte[key.length + EOL.length + valueWithoutTimestamp.length];
-        ByteBuffer byteBufferData = ByteBuffer.wrap(data);
+        final byte[] data = new byte[key.length + EOL.length + valueWithoutTimestamp.length];
+        final ByteBuffer byteBufferData = ByteBuffer.wrap(data);
         byteBufferData.put(key);
         byteBufferData.put(EOL);
         byteBufferData.put(valueWithoutTimestamp);
-        byte[] dataLength = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-        byte[] chunk = new byte[dataLength.length + CRLF.length + data.length + CRLF.length];
-        ByteBuffer byteBuffer = ByteBuffer.wrap(chunk);
+        final byte[] dataLength = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
+        final byte[] chunk = new byte[dataLength.length + CRLF.length + data.length + CRLF.length];
+        final ByteBuffer byteBuffer = ByteBuffer.wrap(chunk);
         byteBuffer.put(dataLength);
         byteBuffer.put(CRLF);
         byteBuffer.put(data);
