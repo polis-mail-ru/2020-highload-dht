@@ -14,9 +14,9 @@ import java.util.Iterator;
 
 public class ChunksProvider {
 
-    private final byte[] NEW_LINE = "\n".getBytes(StandardCharsets.US_ASCII);
-    private final byte[] SEPARATOR = "\r\n".getBytes(Charsets.US_ASCII);
-    private final byte[] EMPTY_CHUNK = "0\r\n\r\n".getBytes(Charsets.US_ASCII);
+    private final byte[] eol = "\n".getBytes(StandardCharsets.US_ASCII);
+    private final byte[] crlf = "\r\n".getBytes(Charsets.US_ASCII);
+    private final byte[] eof = "0\r\n\r\n".getBytes(Charsets.US_ASCII);
 
     final Iterator<Record> records;
 
@@ -41,18 +41,18 @@ public class ChunksProvider {
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
         outputStream.write(key);
-        outputStream.write(NEW_LINE);
+        outputStream.write(eol);
         outputStream.write(value);
         final byte[] data = outputStream.toByteArray();
 
         final byte[] chunkHexSize = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-        final byte[] chunk = new byte[chunkHexSize.length + 2 * SEPARATOR.length + data.length];
+        final byte[] chunk = new byte[chunkHexSize.length + 2 * crlf.length + data.length];
 
         ByteBuffer.wrap(chunk)
                 .put(chunkHexSize)
-                .put(SEPARATOR)
+                .put(crlf)
                 .put(data)
-                .put(SEPARATOR);
+                .put(crlf);
         return chunk;
     }
 
@@ -66,6 +66,6 @@ public class ChunksProvider {
      * @return byte array last chunk.
      */
     byte[] end() {
-        return Arrays.copyOf(EMPTY_CHUNK, EMPTY_CHUNK.length);
+        return Arrays.copyOf(eof, eof.length);
     }
 }
