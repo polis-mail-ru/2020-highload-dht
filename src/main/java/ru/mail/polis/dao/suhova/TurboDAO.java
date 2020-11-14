@@ -111,7 +111,7 @@ public class TurboDAO implements DAO {
         try {
             needsFlush = tables.memTable.sizeInBytes() >= flushThreshold;
             tables.memTable.upsert(key, value);
-        } catch (NullPointerException e) {
+        } catch (RuntimeException e) {
             logger.error(e.getMessage());
         } finally {
             lock.readLock().unlock();
