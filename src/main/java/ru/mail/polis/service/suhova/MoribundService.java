@@ -1,16 +1,9 @@
 package ru.mail.polis.service.suhova;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.net.ConnectionString;
+import one.nio.net.Socket;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -21,14 +14,8 @@ import ru.mail.polis.dao.suhova.Topology;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class MoribundService extends HttpServer implements Service {
     private static final String PROXY_HEADER = "PROXY";
@@ -87,6 +74,46 @@ public class MoribundService extends HttpServer implements Service {
         );
     }
 
+    private boolean idIsEmpty(final String start, final String end, final HttpSession session) {
+        if (start.isEmpty() || ((end != null) && end.isEmpty())) {
+            logger.warn("Id is empty!");
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException ioException) {
+                logger.error("Can't send response!");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Range get from DAO.
+     * Path /v0/entities
+     *
+     * @param start   - start id
+     * @param end     - end id
+     * @param session - session
+     */
+    @Path("/v0/entities")
+    public void sendRangeResponse(@Param(value = "start", required = true) final String start,
+                                  @Param(value = "end") final String end,
+                                  final HttpSession session) {
+        if (idIsEmpty(start, end, session)) {
+            return;
+        }
+        try {
+            ((StreamSession) session).setIterator(daoServiceMethods.range(start, end));
+        } catch (IOException ioException) {
+            try {
+                logger.warn("IOException", ioException);
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                logger.error("Can't send response", e);
+            }
+        }
+    }
+
     /**
      * Request to delete/put/get in DAO.
      * Path /v0/entity
@@ -101,13 +128,7 @@ public class MoribundService extends HttpServer implements Service {
                              final HttpSession session,
                              final Request request) {
         executor.execute(() -> {
-            if (id.isEmpty()) {
-                logger.warn("Id is empty!");
-                try {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-                } catch (IOException ioException) {
-                    logger.error("Can't send response!");
-                }
+            if (idIsEmpty(id, null, session)) {
                 return;
             }
             if (request.getHeader(PROXY_HEADER) == null) {
@@ -273,4 +294,10 @@ public class MoribundService extends HttpServer implements Service {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
+
+    @Override
+    public HttpSession createSession(final Socket socket) {
+        return new StreamSession(socket, this);
+    }
+
 }
