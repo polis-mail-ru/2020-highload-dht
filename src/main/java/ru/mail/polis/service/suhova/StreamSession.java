@@ -56,7 +56,7 @@ public class StreamSession extends HttpSession {
         next();
     }
 
-    private void next() throws IOException {
+    private synchronized void next() throws IOException {
         byte[] data;
         while (iterator.hasNext() && queueHead == null) {
             data = toChunk(iterator.next());

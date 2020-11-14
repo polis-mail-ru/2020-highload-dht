@@ -85,10 +85,10 @@ public final class DAOServiceMethods {
      * Get range of values.
      *
      * @param start - start id
-     * @param end - end id
+     * @param end   - end id
      * @return - range iterator
      */
-    public Iterator<Record> range(@NotNull final String start, @NotNull final String end) {
+    public Iterator<Record> range(@NotNull final String start, final String end) {
         try {
             return dao.range(toByteBuffer(start), toByteBuffer(end));
         } catch (IOException e) {
@@ -103,7 +103,10 @@ public final class DAOServiceMethods {
      * @param id - string
      * @return new ByteBuffer from string
      */
-    public static ByteBuffer toByteBuffer(@NotNull final String id) {
+    public static ByteBuffer toByteBuffer(final String id) {
+        if (id == null) {
+            return null;
+        }
         return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
     }
 
