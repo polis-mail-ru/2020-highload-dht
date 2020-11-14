@@ -26,6 +26,9 @@ public class Value {
     }
 
     public ByteBuffer getData() {
+        if (data == null){
+            return null;
+        }
         return data.duplicate();
     }
 
