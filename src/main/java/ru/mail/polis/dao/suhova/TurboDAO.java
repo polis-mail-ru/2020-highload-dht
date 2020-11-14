@@ -2,6 +2,8 @@ package ru.mail.polis.dao.suhova;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
@@ -31,6 +33,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static java.util.Objects.requireNonNull;
 
 public class TurboDAO implements DAO {
+    private static final Logger logger = LoggerFactory.getLogger(TurboDAO.class);
     private static final String SUFFIX = "sst.dat";
     private static final String TEMP = "sst.tmp";
     private final long flushThreshold;
@@ -103,11 +106,13 @@ public class TurboDAO implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        final boolean needsFlush;
+        boolean needsFlush = false;
         lock.readLock().lock();
         try {
             needsFlush = tables.memTable.sizeInBytes() >= flushThreshold;
             tables.memTable.upsert(key, value);
+        } catch (Exception e) {
+            logger.error(e.getMessage());
         } finally {
             lock.readLock().unlock();
         }

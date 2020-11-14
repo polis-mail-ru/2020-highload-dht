@@ -68,17 +68,16 @@ public class MoribundService extends HttpServer implements Service {
         this.ackDefault = topology.quorumSize();
         this.clients = new HashMap<>();
         for (final String node : topology.allNodes()) {
-            if (topology.isMe(node)) {
-                continue;
-            }
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
-            if (clients.put(node, client) != null) {
-                throw new IllegalArgumentException("Duplicate node: " + node);
+            if (!topology.isMe(node)) {
+                final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout));
+                if (clients.put(node, client) != null) {
+                    throw new IllegalArgumentException("Duplicate node: " + node);
+                }
             }
         }
         executor = new ThreadPoolExecutor(
             workersCount, queueSize,
-            0L, TimeUnit.MILLISECONDS,
+            3L, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(queueSize),
             new ThreadFactoryBuilder()
                 .setUncaughtExceptionHandler((t, e) -> logger.error("Exception {} in thread {}", e, t))
@@ -90,7 +89,6 @@ public class MoribundService extends HttpServer implements Service {
 
     private boolean idIsEmpty(final String start, final String end, final HttpSession session) {
         if (start.isEmpty() || ((end != null) && end.isEmpty())) {
-            logger.warn("Id is empty!");
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             } catch (IOException ioException) {
@@ -113,17 +111,15 @@ public class MoribundService extends HttpServer implements Service {
     public void sendRangeResponse(@Param(value = "start", required = true) final String start,
                                   @Param(value = "end") final String end,
                                   final HttpSession session) {
-        if (idIsEmpty(start, end, session)) {
-            return;
-        }
-        try {
-            ((StreamSession) session).setIterator(daoServiceMethods.range(start, end));
-        } catch (IOException ioException) {
+        if (!idIsEmpty(start, end, session)) {
             try {
-                logger.warn("IOException", ioException);
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                logger.error("Can't send response", e);
+                ((StreamSession) session).setIterator(daoServiceMethods.range(start, end));
+            } catch (IOException ioException) {
+                try {
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                } catch (IOException e) {
+                    logger.error("Can't send response", e);
+                }
             }
         }
     }
@@ -142,13 +138,12 @@ public class MoribundService extends HttpServer implements Service {
                              final HttpSession session,
                              final Request request) {
         executor.execute(() -> {
-            if (idIsEmpty(id, null, session)) {
-                return;
-            }
-            if (request.getHeader(PROXY_HEADER) == null) {
-                sendReplicationResponse(id, replicas, session, request);
-            } else {
-                localResponse(id, session, request);
+            if (!idIsEmpty(id, null, session)) {
+                if (request.getHeader(PROXY_HEADER) == null) {
+                    sendReplicationResponse(id, replicas, session, request);
+                } else {
+                    localResponse(id, session, request);
+                }
             }
         });
     }
@@ -244,8 +239,7 @@ public class MoribundService extends HttpServer implements Service {
                 default:
                     break;
             }
-        } catch (
-            IOException ioException) {
+        } catch (IOException ioException) {
             logger.error("Can't send resulting response.", ioException);
         }
     }
@@ -293,9 +287,9 @@ public class MoribundService extends HttpServer implements Service {
             logger.error("Can't shutdown execution");
             Thread.currentThread().interrupt();
         }
-        for (final HttpClient client : clients.values()) {
-            client.close();
-        }
+//        for (final HttpClient client : clients.values()) {
+//            client.close();
+//        }
     }
 
     @NotNull
@@ -313,5 +307,4 @@ public class MoribundService extends HttpServer implements Service {
     public HttpSession createSession(final Socket socket) {
         return new StreamSession(socket, this);
     }
-
 }
