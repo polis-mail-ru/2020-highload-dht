@@ -240,7 +240,7 @@ public class CustomServer extends BaseFunctionalityServer {
             sendBadRequestResponse(session);
         } else {
             if (session instanceof StreamingSession) {
-                Iterator<Record> iterator = getRecordIterator(startKey, endKey, session);
+                final Iterator<Record> iterator = getRecordIterator(startKey, endKey, session);
                 try {
                     ((StreamingSession) session).sendStreamResponse(iterator);
                 } catch (IOException e) {
