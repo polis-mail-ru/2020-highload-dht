@@ -156,18 +156,18 @@ public final class ServiceImpl extends HttpServer implements Service {
     /**
      * Process request to get range of values.
      *
-     * @param request Range request
+     * @param start Start value
+     * @param end End value
      * @param session HTTP session
      */
     @Path("/v0/entities")
-    public void entities(@NotNull final Request request,
+    public void entities(@Param(value = "start", required = true) final String start,
+                         @Param(value = "end") final String end,
                          @NotNull final HttpSession session) {
-        final String start = request.getParameter("start=");
-        if (start == null || start.isEmpty()) {
+        if (start.isEmpty()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return;
         }
-        final String end = request.getParameter("end=");
         final ByteBuffer startBuffer = ByteUtils.getWrap(start);
         final ByteBuffer endBuffer = end == null ? null : ByteUtils.getWrap(end);
         try {

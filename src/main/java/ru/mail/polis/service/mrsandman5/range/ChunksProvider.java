@@ -13,7 +13,7 @@ import java.util.Iterator;
 
 public class ChunksProvider {
 
-    public final byte[] EOL = "\n".getBytes(StandardCharsets.US_ASCII);
+    private final byte[] EOL = "\n".getBytes(StandardCharsets.US_ASCII);
     private final byte[] CRLF = "\r\n".getBytes(Charsets.US_ASCII);
     private final byte[] EOF = "0\r\n\r\n".getBytes(Charsets.US_ASCII);
 

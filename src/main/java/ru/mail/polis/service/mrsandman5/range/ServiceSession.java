@@ -2,7 +2,6 @@ package ru.mail.polis.service.mrsandman5.range;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
-import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.Socket;
 import org.jetbrains.annotations.NotNull;
