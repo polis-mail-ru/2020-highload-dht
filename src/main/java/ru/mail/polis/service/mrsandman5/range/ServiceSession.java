@@ -21,6 +21,11 @@ public class ServiceSession extends HttpSession {
         super(socket, server);
     }
 
+    /**
+     * Stream data via chunks.
+     *
+     * @param iterator Record iterator.
+     */
     public void stream(@NotNull final Iterator<Record> iterator) throws IOException {
         this.chunks = new ChunksProvider(iterator);
         final Response response = ResponseUtils.emptyResponse(Response.OK);
