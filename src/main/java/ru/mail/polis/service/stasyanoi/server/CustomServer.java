@@ -8,9 +8,11 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Mapper;
 import ru.mail.polis.service.stasyanoi.ResponseMerger;
+import ru.mail.polis.service.stasyanoi.StreamingSession;
 import ru.mail.polis.service.stasyanoi.Util;
 import ru.mail.polis.service.stasyanoi.server.helpers.AckFrom;
 import ru.mail.polis.service.stasyanoi.server.helpers.DeletedElementException;
@@ -20,12 +22,7 @@ import java.io.IOException;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RejectedExecutionException;
@@ -258,6 +255,42 @@ public class CustomServer extends BaseFunctionalityServer {
         return responses;
     }
 
+    @Path("/v0/entities")
+    @RequestMethod(Request.METHOD_GET)
+    public void streamValues(final @Param("start") String startKey, final @Param("end") String endKey,
+                             final HttpSession session) {
+        try {
+            executorService.execute(() -> streamResponse(startKey, endKey, session));
+        } catch (RejectedExecutionException e) {
+            Util.send503Error(session);
+        }
+    }
+
+    private void streamResponse(final String startKey, final String endKey, final HttpSession session) {
+        if (startKey == null || startKey.isEmpty()) {
+            try {
+                session.sendResponse(Util.responseWithNoBody(Response.BAD_REQUEST));
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+        } else {
+            if (session instanceof StreamingSession) {
+                try {
+                    Iterator<Record> iterator = dao.range(Util.getKey(startKey),
+                            endKey == null ? null : Util.getKey(endKey));
+                    ((StreamingSession) session).setRocksIterator(iterator);
+                } catch (IOException e) {
+                    try {
+                        session.sendError("500", e.getMessage());
+                    } catch (IOException ioException) {
+                        logger.error(ioException.getMessage(), ioException);
+                    }
+                }
+            }
+        }
+
+    }
+
     private Response routeRequestToRemoteNode(final Request request, final int node,
                                               final Map<Integer, String> nodeMapping) {
         try {
@@ -266,34 +299,5 @@ public class CustomServer extends BaseFunctionalityServer {
         } catch (InterruptedException | IOException e) {
             return Util.responseWithNoBody(Response.INTERNAL_ERROR);
         }
-    }
-
-    /**
-     * Get a record by key.
-     *
-     * @param idParam - key.
-     */
-    @Path("/v0/entities")
-    @RequestMethod(Request.METHOD_GET)
-    public void streamValues(final @Param("start") String startKey, final @Param("end") String endKey,
-                             final HttpSession session, final Request request) {
-        if (startKey == null) {
-            try {
-                session.sendResponse(Util.responseWithNoBody(Response.BAD_REQUEST));
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
-        }
-
-        try {
-            executorService.execute(() -> streamResponse(startKey, endKey, session, request));
-        } catch (RejectedExecutionException e) {
-            Util.send503Error(session);
-        }
-    }
-
-    private void streamResponse(final String startKey, final String endKey, final HttpSession session,
-                                final Request request) {
-
     }
 }

@@ -6,8 +6,11 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.Socket;
+import one.nio.server.RejectedSessionException;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.stasyanoi.CustomExecutor;
+import ru.mail.polis.service.stasyanoi.StreamingSession;
 import ru.mail.polis.service.stasyanoi.Util;
 
 import java.io.IOException;
@@ -72,5 +75,10 @@ public class BaseFunctionalityServer extends ConstantsServer {
     @RequestMethod(Request.METHOD_GET)
     public Response status() {
         return Util.responseWithNoBody(Response.OK);
+    }
+
+    @Override
+    public HttpSession createSession(Socket socket) {
+        return new StreamingSession(socket, this);
     }
 }
