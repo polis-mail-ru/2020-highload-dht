@@ -5,6 +5,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+/**
+ *  class to enable set of methods for advanced control of record status and bound
+ *  values, particularly by computational processing of timestamp as a featured extension of record attributes.
+ */
 public final class Value {
 
     private static final Value SINGLE_VALUE = new Value(false, -1, ByteBuffer.allocate(0));
@@ -60,7 +64,7 @@ public final class Value {
     }
 
     /**
-     * evaluates target record status (whether deleted or not).
+     * retrieves target record status (whether deleted or not) in boolean terms.
      *
      * @return true if actual status is the same as 'deleted' (based on isValueDeleted = true)
      */
@@ -69,12 +73,21 @@ public final class Value {
     }
 
     /**
-     * evaluates target record status (whether missing or not).
+     * retrieves target record status (whether missing or not) in boolean terms.
      *
      * @return true if actual status is the same as 'missing' (based on value = null)
      */
     boolean isValueMissing() {
         return buffer == null;
+    }
+
+    /**
+     * retrieves target record status (whether existing or not) in boolean terms.
+     *
+     * @return true if actual status is the same as 'existing' (based on value not equal null)
+     */
+    boolean isValueExisting() {
+        return !isValueDeleted && buffer != null;
     }
 
     /**

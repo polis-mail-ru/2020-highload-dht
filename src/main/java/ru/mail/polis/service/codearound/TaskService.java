@@ -17,6 +17,9 @@ import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ *  primary HTTP server design to resolve method-specific handler running.
+ */
 public class TaskService extends HttpServer implements Service {
 
     private final DAO dao;

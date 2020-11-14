@@ -5,6 +5,9 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Set;
 
+/**
+ *  class to resolve total implementation of Topology abstract methods.
+ */
 public class ModularTopology implements Topology<String> {
 
     @NotNull

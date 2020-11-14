@@ -29,6 +29,9 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Set;
 
+/**
+ *  basis of extended functionality necessary in sharded design of cluster.
+ */
 @ThreadSafe
 public interface Topology<T> {
 

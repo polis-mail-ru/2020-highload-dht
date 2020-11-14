@@ -12,6 +12,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+/**
+ *  class to enable set of methods used to manage server responses (issued either in local or
+ *  in external request handler context) in multi-node topology.
+ */
 public final class RepliServiceUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);

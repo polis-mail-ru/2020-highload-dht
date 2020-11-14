@@ -9,39 +9,49 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.net.Socket;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- *  class to determine request handler to run, DAO exchange method consistently with topology given.
- */
 public class RepliServiceImpl extends HttpServer implements Service {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
     private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
-            + "Failed determining response";
+                 + "Failed determining response";
     public static final String IO_ERROR_LOG = "IO exception raised";
     public static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     public static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
             + "Request failed as gateway closed past timeout";
+    @NotNull
     private final ExecutorService exec;
+    @NotNull
     private final Topology<String> topology;
+    @NotNull
     private final Map<String, HttpClient> nodesToClients;
+    @NotNull
     private final ReplicationFactor repliFactor;
+    @NotNull
     private final ReplicationLsm lsm;
+    @NotNull
+    private final DAO dao;
 
     /**
      * class const.
@@ -72,6 +82,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy()
         );
         this.topology = topology;
+        this.dao = dao;
         this.nodesToClients = new HashMap<>();
         this.repliFactor = new ReplicationFactor(topology.getClusterSize() / 2 + 1, topology.getClusterSize());
         this.lsm = new ReplicationLsm(dao, topology, nodesToClients, repliFactor);
@@ -86,6 +97,11 @@ public class RepliServiceImpl extends HttpServer implements Service {
         }
     }
 
+    @Override
+    public HttpSession createSession(@NotNull final Socket socket) {
+        return new ChunkStreamingSession(socket, this);
+    }
+
     /**
      * handles formation request to inform client the server is alive and ready to exchange.
      *
@@ -97,7 +113,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * resolves request handling by HTTP REST methods, provides any client with response (incl. server outcome code).
+     * resolves request handling by HTTP REST methods, provides any client with response (incl. server return code).
      *
      * @param id - String object to be processed as a key in terms of data storage design
      * @param req - HTTP request
@@ -118,9 +134,9 @@ public class RepliServiceImpl extends HttpServer implements Service {
         }
 
         final boolean forwardedStatus = isForwardedRequest;
-        final ReplicationFactor repliFactorObj = ReplicationFactor
-                .getRepliFactor(req.getParameter("replicas"), repliFactor, session);
-        final ByteBuffer bufKey = DAOByteOnlyConverter.tuneArrayToBuf(id.getBytes(StandardCharsets.UTF_8));
+        final ReplicationFactor repliFactorObj =
+                ReplicationFactor.defaultRepliFactor(req.getParameter("replicas"), repliFactor, session);
+        final ByteBuffer bufKey = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         if (topology.getClusterSize() > 1) {
             try {
                 switch (req.getMethod()) {
@@ -169,13 +185,48 @@ public class RepliServiceImpl extends HttpServer implements Service {
     }
 
     /**
+     * handler executable for range requests only.
+     *
+     * @param req - client host request
+     * @param session - ongoing session instance
+     */
+    @Path("/v0/entities")
+    public void handleRangeRequest(@NotNull final Request req,
+                                   @NotNull final HttpSession session) throws IOException {
+
+        final String start = req.getParameter("start=");
+
+        if (start == null || start.isEmpty()) {
+            session.sendError(Response.BAD_REQUEST, "'start' parameter is missing or present without any data");
+            return;
+        }
+
+        if (req.getMethod() != Request.METHOD_GET) {
+            session.sendError(
+                    Response.METHOD_NOT_ALLOWED,
+                    "Inconsistent method selection for sending range request (GET is only supported)");
+            return;
+        }
+
+        final String end = req.getParameter("end=");
+        final ByteBuffer endBuf = end == null ? null : ByteBuffer.wrap(end.getBytes(Charset.defaultCharset()));
+
+        final ByteBuffer startBuf = ByteBuffer.wrap(start.getBytes(Charset.defaultCharset()));
+        final Iterator<Record> records = dao.range(
+                startBuf,
+                endBuf);
+        ((ChunkStreamingSession) session).initStreaming(records);
+    }
+
+    /**
      * handler determined to run by default.
      *
      * @param req - client host request
      * @param session - ongoing session instance
      */
     @Override
-    public void handleDefault(@NotNull final Request req, @NotNull final HttpSession session) throws IOException {
+    public void handleDefault(@NotNull final Request req,
+                              @NotNull final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 

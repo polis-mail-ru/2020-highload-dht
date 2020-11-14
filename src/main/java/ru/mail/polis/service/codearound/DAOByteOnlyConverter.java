@@ -4,6 +4,9 @@ import java.nio.ByteBuffer;
 
 import static java.lang.Byte.MIN_VALUE;
 
+/**
+ *  class to enable set of methods applicable for conversion from plain bytes to ByteBuffer objects and vice versa.
+ */
 public final class DAOByteOnlyConverter {
 
     private DAOByteOnlyConverter() {

@@ -18,6 +18,9 @@ import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ *  custom DAO implementations based on DAO abstract stuff.
+ */
 public class TaskDAO implements DAO {
 
     static {

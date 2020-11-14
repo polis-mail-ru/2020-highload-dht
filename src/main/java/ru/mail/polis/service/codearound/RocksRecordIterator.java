@@ -7,6 +7,9 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ *  class to enable set of methods for operating an iterator across records in DB.
+ */
 public class RocksRecordIterator implements Iterator<Record> {
 
     final RocksIterator rocksIt;
@@ -38,7 +41,8 @@ public class RocksRecordIterator implements Iterator<Record> {
             rocksIt.next();
             return rec;
         } else {
-            throw new NoSuchElementException("Further record isn't found. Iterator stopped\n");
+            //throw new NoSuchElementException("Further record isn't found. Iterator stopped\n");
+            throw new IllegalStateException("Further record isn't found. Iterator stopped\n");
         }
     }
 

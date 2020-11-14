@@ -29,10 +29,13 @@ public class ReplicationLsm {
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
+    @NotNull
     private final DAO dao;
+    @NotNull
     private final Topology<String> topology;
-    private final Map<String, HttpClient> nodesToClients;
+    @NotNull
     private final ReplicationFactor repliFactor;
+    private final Map<String, HttpClient> nodesToClients;
 
     /**
      * class const.
@@ -40,7 +43,7 @@ public class ReplicationLsm {
      * @param dao - DAO instance
      * @param topology - topology implementation instance
      * @param nodesToClients - HashMap-implemented mapping available nodes over HTTP clients
-     * @param repliFactor - replication factor
+     * @param repliFactor - replication setup factor
      */
     ReplicationLsm(@NotNull final DAO dao,
                    @NotNull final Topology<String> topology,
@@ -61,11 +64,11 @@ public class ReplicationLsm {
      */
     Response getWithOnlyNode(@NotNull final ByteBuffer key, @NotNull final Request req) {
         final String owner = topology.primaryFor(key);
-        ByteBuffer buf;
         if (topology.isThisNode(owner)) {
             try {
-                buf = dao.get(key);
-                return new Response(Response.ok(DAOByteOnlyConverter.readByteArray(buf)));
+                final ByteBuffer value = dao.get(key);
+                final byte[] bytes = DAOByteOnlyConverter.readByteArray(value);
+                return new Response(Response.OK, bytes);
             } catch (NoSuchElementException exc) {
                 LOGGER.info(NOT_FOUND_ERROR_LOG);
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -82,10 +85,10 @@ public class ReplicationLsm {
     }
 
     /**
-     * GET handler applicable for multi-node topology.
+     * GET handler applicable to work on requests if multi-node topology is present.
      *
      * @param id - key searched
-     * @param repliFactor - replication factor
+     * @param repliFactor - replication setup factor
      * @param isForwardedRequest - true if incoming request header indicates
      *                           invocation of proxy-providing method on a previous node
      * @return HTTP response
@@ -134,7 +137,7 @@ public class ReplicationLsm {
     }
 
     /**
-     * PUT handler impl for single node topology.
+     * PUT handler implementation for single node topology only.
      *
      * @param key - target key
      * @param byteVal - byte array processed as a key-bound value
@@ -164,7 +167,7 @@ public class ReplicationLsm {
     }
 
     /**
-     * PUT handler applicable for multi-node topology.
+     * PUT handler applicable to work on requests if multi-node topology is present.
      *
      * @param id - key searched
      * @param value - byte array processed as a key-bound value
@@ -177,7 +180,7 @@ public class ReplicationLsm {
             final String id,
             final byte[] value,
             final int ackValue,
-            final boolean isForwardedRequest) throws IOException {
+            final boolean isForwardedRequest) {
         if (isForwardedRequest) {
             try {
                 dao.upsertValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
@@ -186,7 +189,8 @@ public class ReplicationLsm {
                 return new Response(Response.INTERNAL_ERROR, exc.toString().getBytes(Charset.defaultCharset()));
             }
         }
-        final String[] nodes = topology.replicasFor(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+        final String[] nodes = topology.replicasFor(
+                ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 repliFactor.getFromValue());
         int ack = 0;
         for (final String node : nodes) {
@@ -214,15 +218,13 @@ public class ReplicationLsm {
     }
 
     /**
-     * DELETE handler impl for single node topology.
+     * DELETE handler impl for single node topology only.
      *
      * @param key - target key
      * @param req - HTTP request
      * @return HTTP response
      */
-    Response deleteWithOnlyNode(
-            @NotNull final ByteBuffer key,
-            @NotNull final Request req) {
+    Response deleteWithOnlyNode(@NotNull final ByteBuffer key, @NotNull final Request req) {
         final String owner = topology.primaryFor(key);
         if (topology.isThisNode(owner)) {
             try {
@@ -241,7 +243,7 @@ public class ReplicationLsm {
     }
 
     /**
-     * DELETE handler applicable for multi-node topology.
+     * DELETE handler applicable to work on requests if multi-node topology is present.
      *
      * @param id - key searched
      * @param ackValue - replication quorum factor ('ack' parameter)
@@ -252,7 +254,7 @@ public class ReplicationLsm {
     Response deleteWithMultipleNodes(
             final String id,
             final int ackValue,
-            final boolean isForwardedRequest) throws IOException {
+            final boolean isForwardedRequest) {
         if (isForwardedRequest) {
             try {
                 dao.removeValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
@@ -290,7 +292,7 @@ public class ReplicationLsm {
     }
 
     /**
-     * implements request proxying in case of mismatching current receiver ID (self ID) and target one.
+     * implements request proxying in case of mismatching current receiver ID (node own ID) and target one.
      *
      * @param nodeId - request forwarding node ID
      * @param req HTTP request
