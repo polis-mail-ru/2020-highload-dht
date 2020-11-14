@@ -230,6 +230,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         }
                         default: {
                             trySendAnswer(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                            break;
                         }
                     }
                 }
