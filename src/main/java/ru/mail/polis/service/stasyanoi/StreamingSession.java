@@ -12,18 +12,15 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
-import static ru.mail.polis.service.stasyanoi.Constants.CONNECTION_HEADER_NAME;
 import static ru.mail.polis.service.stasyanoi.Constants.CRLF;
 import static ru.mail.polis.service.stasyanoi.Constants.EOF;
 import static ru.mail.polis.service.stasyanoi.Constants.EOL;
-import static ru.mail.polis.service.stasyanoi.Constants.TIMESTAMP_LENGTH;
-import static ru.mail.polis.service.stasyanoi.Constants.TRANSFER_ENCODING_HEADER_NAME;
 
 public class StreamingSession extends HttpSession {
 
     private Iterator<Record> rocksIterator;
 
-    public StreamingSession(Socket socket, HttpServer server) {
+    public StreamingSession(final Socket socket, final HttpServer server) {
         super(socket, server);
     }
 
@@ -33,7 +30,7 @@ public class StreamingSession extends HttpSession {
      * @param rocksIterator - iterator.
      * @throws IOException - if an io exception occurs whilst sending the response.
      */
-    public void sendStreamResponse(Iterator<Record> rocksIterator) throws IOException {
+    public void sendStreamResponse(final Iterator<Record> rocksIterator) throws IOException {
         this.rocksIterator = rocksIterator;
         openStream();
         sendStream();
@@ -42,7 +39,7 @@ public class StreamingSession extends HttpSession {
 
     private void openStream() throws IOException {
         final Response response = Util.responseWithNoBody(Response.OK);
-        response.addHeader(TRANSFER_ENCODING_HEADER_NAME + "chunked");
+        response.addHeader(Constants.TRANSFER_ENCODING_HEADER_NAME + "chunked");
         writeResponse(response,false);
     }
 
@@ -56,7 +53,7 @@ public class StreamingSession extends HttpSession {
 
     private void closeStream() throws IOException {
         write(EOF,0, EOF.length);
-        final String connection = handling.getHeader(CONNECTION_HEADER_NAME);
+        final String connection = handling.getHeader(Constants.CONNECTION_HEADER_NAME);
         final boolean keepAlive = handling.isHttp11() ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
         server.incRequestsProcessed();
@@ -74,12 +71,12 @@ public class StreamingSession extends HttpSession {
     private byte[] getRecordData(final Record record) {
         final byte[] key = Mapper.toBytes(record.getKey());
         final byte[] value = Mapper.toBytes(record.getValue());
-        byte[] valueWithoutTimestamp = new byte[value.length - TIMESTAMP_LENGTH];
+        byte[] valueWithoutTimestamp = new byte[value.length - Constants.TIMESTAMP_LENGTH];
         final byte[] emptyBody = new byte[0];
         if (valueWithoutTimestamp.length == 1) {
           valueWithoutTimestamp = emptyBody;
         } else {
-            System.arraycopy(value, 0, valueWithoutTimestamp, 0, value.length - TIMESTAMP_LENGTH);
+            System.arraycopy(value, 0, valueWithoutTimestamp, 0, value.length - Constants.TIMESTAMP_LENGTH);
         }
         final byte[] data = new byte[key.length + EOL.length + valueWithoutTimestamp.length];
         final ByteBuffer byteBufferData = ByteBuffer.wrap(data);
