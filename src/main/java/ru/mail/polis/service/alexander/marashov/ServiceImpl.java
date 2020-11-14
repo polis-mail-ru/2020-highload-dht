@@ -151,6 +151,25 @@ public class ServiceImpl extends HttpServer implements Service {
         }
     }
 
+    private void respondMultiple(final HttpSession httpSession, final CompletableFuture<Iterator<Record>> future) {
+        final boolean canceled = future.whenComplete((recordIterator, error) -> {
+            if (error == null) {
+                try {
+                    ((CustomHttpSession) httpSession).sendRecords(recordIterator);
+                } catch (final IOException ioException) {
+                    log.error("Error sending response", ioException);
+                    trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                }
+            } else {
+                log.error("Future returned error", error);
+                trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }).isCancelled();
+        if (canceled) {
+            throw new RuntimeException(FUTURE_CANCELED_ERROR);
+        }
+    }
+
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         final Response response = new Response(Response.BAD_REQUEST, Response.EMPTY);
@@ -158,7 +177,7 @@ public class ServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession(Socket socket) throws RejectedSessionException {
+    public HttpSession createSession(final Socket socket) throws RejectedSessionException {
         return new CustomHttpSession(socket, this);
     }
 
@@ -172,11 +191,44 @@ public class ServiceImpl extends HttpServer implements Service {
         return new Response(Response.OK, Response.EMPTY);
     }
 
+    @Path("/v0/entity")
+    public void handleEntity(
+            final HttpSession httpSession,
+            final Request request,
+            @Param(value = "id", required = true) final String id,
+            @Param(value = "replicas") final String replicas
+    ) {
+        executeOrSendError(
+                httpSession,
+                () -> {
+                    final ValidatedParameters validParams;
+                    try {
+                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
+                    } catch (final IllegalArgumentException e) {
+                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                        return;
+                    }
+                    switch (request.getMethod()) {
+                        case Request.METHOD_GET:
+                            handleEntityGet(httpSession, request, validParams);
+                            break;
+                        case Request.METHOD_PUT:
+                            handleEntityPut(httpSession, request, validParams);
+                            break;
+                        case Request.METHOD_DELETE:
+                            handleEntityDelete(httpSession, request, validParams);
+                            break;
+                        default:
+                            trySendAnswer(httpSession, new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    }
+                }
+        );
+    }
+
     /**
      * Http method handler for getting a value in the DAO by the key.
      *
-     * @param id is the key for searching for a value in the DAO.
-     * @param replicas - replicas parameter, has ack/from format.
+     * @param validParams is the object with valid key and replicas parameters.
      *           Sends {@link Response} instance with value as body, if the key exists. Response status is
      *           {@code 200} if data is found
      *           {@code 400} if id is empty
@@ -184,99 +236,53 @@ public class ServiceImpl extends HttpServer implements Service {
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough responses from replicas to analyze.
      */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
     public void handleEntityGet(
             final HttpSession httpSession,
             final Request request,
-            @Param(value = "id", required = true) final String id,
-            @Param(value = "replicas") final String replicas
+            final ValidatedParameters validParams
     ) {
-        executeOrSendError(
-                httpSession,
-                () -> {
-                    try {
-                        final ValidatedParameters validParams =
-                                validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
-                        final CompletableFuture<Response> future = responseManager.get(validParams, request);
-                        respond(httpSession, future);
-                    } catch (final IllegalArgumentException e) {
-                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                    }
-                }
-        );
+        final CompletableFuture<Response> future = responseManager.get(validParams, request);
+        respond(httpSession, future);
     }
 
     /**
      * HTTP method handler for placing a value by the key in the DAO storage.
      *
-     * @param id is the key that the data will be associated with.
-     * @param replicas - replicas parameter, has ack/from format.
+     * @param validParams is the object with valid key and replicas parameters.
      *           Sends {@link Response} instance with
      *           {@code 201} if data saved
      *           {@code 400} if id is empty,
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough responses from replicas to analyze.
      */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
     public void handleEntityPut(
             final HttpSession httpSession,
             final Request request,
-            @Param(value = "id", required = true) final String id,
-            @Param(value = "replicas") final String replicas
+            final ValidatedParameters validParams
     ) {
-        executeOrSendError(
-                httpSession,
-                () -> {
-                    final ValidatedParameters validParams;
-                    try {
-                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
-                    } catch (final IllegalArgumentException e) {
-                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        return;
-                    }
-                    final byte[] body = request.getBody();
-                    final ByteBuffer value = ByteBuffer.wrap(body);
-                    final CompletableFuture<Response> future = responseManager.put(validParams, value, body, request);
-                    respond(httpSession, future);
-                }
-        );
+        final byte[] body = request.getBody();
+        final ByteBuffer value = ByteBuffer.wrap(body);
+        final CompletableFuture<Response> future = responseManager.put(validParams, value, body, request);
+        respond(httpSession, future);
     }
 
     /**
      * HTTP method handler for removing a value by the key from the DAO storage.
      *
-     * @param id is the key that the data associated with.
-     * @param replicas - replicas parameter, has ack/from format.
+     * @param validParams is the object with valid key and replicas parameters.
      *           Sends {@link Response} instance with
      *           {@code 202} if the key deleted,
      *           {@code 400} if id is empty,
      *           {@code 500} if an internal server error occurred.
      *           {@code 504} if not enough responses from replicas to analyze.
      */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
     public void handleEntityDelete(
             final HttpSession httpSession,
             final Request request,
-            @Param(value = "id", required = true) final String id,
-            @Param(value = "replicas") final String replicas
+            final ValidatedParameters validParams
     ) {
-        executeOrSendError(
-                httpSession,
-                () -> {
-                    final ValidatedParameters validParams;
-                    try {
-                        validParams = validateParameters(id, replicas, defaultAck, defaultFrom, nodesCount);
-                    } catch (final IllegalArgumentException e) {
-                        trySendAnswer(httpSession, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                        return;
-                    }
-                    final CompletableFuture<Response> future = responseManager.delete(validParams, request);
-                    respond(httpSession, future);
-                }
-        );
+        final CompletableFuture<Response> future = responseManager.delete(validParams, request);
+        respond(httpSession, future);
     }
 
     /**
@@ -311,23 +317,8 @@ public class ServiceImpl extends HttpServer implements Service {
                         keyTo = ByteBuffer.wrap(bytesTo);
                     }
 
-                    final CompletableFuture<Iterator<Record>> future = responseManager.iterator(keyFrom, keyTo);
-                    final boolean canceled = future.whenComplete((recordIterator, error) -> {
-                        if (error == null) {
-                            try {
-                                ((CustomHttpSession) httpSession).sendRecords(recordIterator);
-                            } catch (final IOException ioException) {
-                                log.error("Error sending response", ioException);
-                                trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                            }
-                        } else {
-                            log.error("Future returned error", error);
-                            trySendAnswer(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                        }
-                    }).isCancelled();
-                    if (canceled) {
-                        throw new RuntimeException(FUTURE_CANCELED_ERROR);
-                    }
+                    final CompletableFuture<Iterator<Record>> iteratorFuture = responseManager.iterator(keyFrom, keyTo);
+                    respondMultiple(httpSession, iteratorFuture);
                 }
         );
     }

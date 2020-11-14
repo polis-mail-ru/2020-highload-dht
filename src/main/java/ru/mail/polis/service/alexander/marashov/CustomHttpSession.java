@@ -14,12 +14,12 @@ import java.util.Iterator;
 
 public class CustomHttpSession extends HttpSession {
 
-    private final static byte[] EOC = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
-    private final static byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private final static byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] EOC = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
     private Iterator<Record> recordIterator;
 
-    public CustomHttpSession(Socket socket, HttpServer server) {
+    public CustomHttpSession(final Socket socket, final HttpServer server) {
         super(socket, server);
     }
 
@@ -60,12 +60,13 @@ public class CustomHttpSession extends HttpSession {
         }
 
         server.incRequestsProcessed();
-        String connection = handling.getHeader("Connection: ");
-        boolean keepAlive = handling.isHttp11()
+        final String connection = handling.getHeader("Connection: ");
+        final boolean keepAlive = handling.isHttp11()
                 ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
         if (!keepAlive) scheduleClose();
-        if ((this.handling = handling = pipeline.pollFirst()) != null) {
+        this.handling = handling = pipeline.pollFirst();
+        if (this.handling != null) {
             if (handling == FIN) {
                 scheduleClose();
             } else {
