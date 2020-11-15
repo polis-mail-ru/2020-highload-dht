@@ -22,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -210,7 +209,6 @@ public class RepliServiceImpl extends HttpServer implements Service {
 
         final String end = req.getParameter("end=");
         final ByteBuffer endBuf = end == null ? null : ByteBuffer.wrap(end.getBytes(Charset.defaultCharset()));
-
         final ByteBuffer startBuf = ByteBuffer.wrap(start.getBytes(Charset.defaultCharset()));
         final Iterator<Record> records = dao.range(
                 startBuf,

@@ -67,7 +67,7 @@ public class ChunkStreamingSession extends HttpSession {
             final byte[] value = DAOByteOnlyConverter.readByteArray(rawRecord.getValue());
             final int recordString = id.length + LF.length() + value.length;
             final String base16RecordString = Integer.toHexString(recordString);
-            final int chunkSize = base16RecordString.length() + CRLF.length() + recordString + CRLF.length();
+            final int chunkSize = base16RecordString.length() + recordString + 2 * CRLF.length();
             execChunkWrite(id, value, chunkSize, base16RecordString);
         }
         if (!it.hasNext()) {
@@ -78,10 +78,10 @@ public class ChunkStreamingSession extends HttpSession {
     /**
      * executes immediate writing chunks from buffer in successive way.
      *
-     * @param id - record match ID to search throughout the storage
+     * @param id - record ID specified to fetch data from storage as enforcing stream of chunks to deliver to client
      * @param value - record-wrapped value
      * @param recordString - String-formatted combination of record ID and value content
-     * @param base16RecordString - record ID and value content joined to hexadecimal numeric presentation
+     * @param base16RecordString - record ID and value content joined to enable processing hexadecimal inputs
      */
     private void execChunkWrite(final byte[] id,
                                 final byte[] value,
