@@ -181,7 +181,7 @@ public class MyRequestHelper {
 
     /**
      * Creates http request for replica.
-     * */
+     */
     public HttpRequest requestForReplica(final Request request, final URI uri) {
         final HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .timeout(this.timeout)
@@ -231,10 +231,10 @@ public class MyRequestHelper {
 
     /**
      * Takes values in the requested range and sends it.
-     * */
+     */
     public void workRangeRequest(final HttpSession session, final ByteBuffer start,
                                  final ByteBuffer end, final Executor executor) {
-        CompletableFuture.supplyAsync(() -> {
+        boolean futuresWereCanceled = CompletableFuture.supplyAsync(() -> {
             try {
                 return dao.range(start, end);
             } catch (IOException e) {
@@ -251,10 +251,11 @@ public class MyRequestHelper {
                 log.error("Error while working range request ", e);
                 sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             }
-        }).exceptionally(e -> {
-            log.error("Error while collecting futures ", e);
+        }).isCancelled();
+        if (futuresWereCanceled) {
+            log.error("Error while collecting futures. Futures were canceled ");
             sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            return null;
-        });
+        }
     }
 }
+
