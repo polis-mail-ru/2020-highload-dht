@@ -1,11 +1,13 @@
 package ru.mail.polis.service.zvladn7;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.zvladn7.Value;
 import ru.mail.polis.dao.zvladn7.exceptions.DeletedValueException;
@@ -20,6 +22,7 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -28,9 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
-import static ru.mail.polis.service.zvladn7.util.Bytes.toBytes;
-import static ru.mail.polis.service.zvladn7.util.Bytes.wrapArray;
-import static ru.mail.polis.service.zvladn7.util.Bytes.wrapString;
+import static ru.mail.polis.service.zvladn7.util.Bytes.*;
 import static ru.mail.polis.service.zvladn7.util.Nets.requestBuilderFor;
 
 class ServiceHelper {
@@ -202,6 +203,19 @@ class ServiceHelper {
                 .thenApplyAsync(v -> new Response(v.iterator().next(), Response.EMPTY), es);
     }
 
+    public void processRange(@NotNull final String start,
+                             final String end,
+                             @NotNull final HttpSession session) {
+        final ByteBuffer fromKey = wrapString(start);
+        final ByteBuffer endKey = end == null ? null : wrapString(end);
+        try {
+            final Iterator<Record> iterator = dao.range(fromKey, endKey);
+            ((RecordsStreamingSession) session).setIterator(iterator);
+        } catch (IOException e) {
+            log.error("Cannot create iterator for range request with start={}, end={}", start, end, e);
+        }
+    }
+
     private CompletableFuture<Response> handleChangeOrProxy(final ByteBuffer key,
                                                             final Request request,
                                                             final ReplicasHolder replicasHolder,
@@ -240,5 +254,4 @@ class ServiceHelper {
             return ResponseValue.deleted(value.getTimestamp());
         }
     }
-
 }

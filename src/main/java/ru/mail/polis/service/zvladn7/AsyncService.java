@@ -9,6 +9,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -78,6 +79,22 @@ public class AsyncService extends HttpServer implements Service {
     @Path("/v0/status")
     public Response status() {
         return Response.ok("Status: OK");
+    }
+
+    @Path("/v0/entities")
+    @RequestMethod(Request.METHOD_GET)
+    public void range(@Param(value = "start", required = true) final String start,
+                          @Param(value = "end") final String end,
+                          @NotNull final HttpSession session) {
+        if (isInvalidRangeParameters(start, end)) {
+            try {
+                sendEmptyIdResponse(session, "RANGE-GET");
+            } catch (IOException e) {
+                log.error("Invalid parameters in RANGE-GET request, start={}, end={}", start, end, e);
+            }
+            return;
+        }
+        helper.processRange(start, end, session);
     }
 
     /**
@@ -167,6 +184,11 @@ public class AsyncService extends HttpServer implements Service {
             log.error("Error when trying to stop executor service");
             Thread.currentThread().interrupt();
         }
+    }
+
+    @Override
+    public HttpSession createSession(Socket socket) {
+        return new RecordsStreamingSession(socket, this);
     }
 
     private static HttpServerConfig provideConfig(final int port) {
@@ -260,4 +282,7 @@ public class AsyncService extends HttpServer implements Service {
         }
     }
 
+    private static boolean isInvalidRangeParameters(@NotNull final String start, final String end) {
+        return start.isEmpty() || end != null && end.isEmpty();
+    }
 }
