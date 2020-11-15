@@ -40,7 +40,7 @@ public class RocksRecordIterator implements Iterator<Record> {
             rocksIt.next();
             return rec;
         } else {
-            throw new IllegalStateException("Further record isn't found. Iterator stopped\n");
+            throw new IllegalStateException("No available record found for next move. Iterator stopped\n");
         }
     }
 
