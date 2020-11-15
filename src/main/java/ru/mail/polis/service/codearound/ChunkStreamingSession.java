@@ -88,16 +88,16 @@ public class ChunkStreamingSession extends HttpSession {
                                 final int recordString,
                                 final String base16RecordString) throws IOException {
         final byte[] recordBytes = base16RecordString.getBytes(Charset.defaultCharset());
-        final byte[] CRLFBytes = CRLF.getBytes(Charset.defaultCharset());
-        final byte[] LFBytes = LF.getBytes(Charset.defaultCharset());
+        final byte[] bytesOfCRLF = CRLF.getBytes(Charset.defaultCharset());
+        final byte[] bytesOfLF = LF.getBytes(Charset.defaultCharset());
         final byte[] chunkArray = new byte[recordString];
         final ByteBuffer chunkBuf = ByteBuffer.wrap(chunkArray);
         chunkBuf.put(recordBytes);
-        chunkBuf.put(CRLFBytes);
+        chunkBuf.put(bytesOfCRLF);
         chunkBuf.put(id);
-        chunkBuf.put(LFBytes);
+        chunkBuf.put(bytesOfLF);
         chunkBuf.put(value);
-        chunkBuf.put(CRLFBytes);
+        chunkBuf.put(bytesOfCRLF);
         write(chunkArray, 0, chunkArray.length);
     }
 
@@ -106,7 +106,6 @@ public class ChunkStreamingSession extends HttpSession {
      */
     private void commitTailHandling() throws IOException {
         final byte[] noContentBytes = NO_CONTENT.getBytes(Charset.defaultCharset());
-        ;
         write(noContentBytes, 0, NO_CONTENT.length());
         server.incRequestsProcessed();
 
