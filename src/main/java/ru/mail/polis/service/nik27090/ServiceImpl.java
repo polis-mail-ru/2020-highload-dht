@@ -11,6 +11,7 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -136,39 +137,58 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_DELETE, METHOD_PUT})
     @SuppressWarnings("FutureReturnValueIgnored")
-    public void requestHandler(
+    public void entityHandler(
             @NotNull final @Param(value = "id", required = true) String id,
-            final @Param(value = "replicas") String af,
-            final HttpSession session,
-            final Request request) {
+            @NotNull final @Param(value = "replicas") String af,
+            @NotNull final HttpSession session,
+            @NotNull final Request request) {
         CompletableFuture.runAsync(() -> {
-        final AckFrom ackFrom = topology.parseAckFrom(af);
-        if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
+            final AckFrom ackFrom = topology.parseAckFrom(af);
+            if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
+                httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+
+            if (id.isEmpty()) {
+                httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+            switch (request.getMethod()) {
+                case METHOD_GET:
+                    log.debug("GET request: id = {}", id);
+                    getEntityExecutor(id, session, request, ackFrom);
+                    break;
+                case METHOD_PUT:
+                    log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
+                    putEntityExecutor(id, session, request, ackFrom);
+                    break;
+                case METHOD_DELETE:
+                    log.debug("DELETE request: id = {}", id);
+                    deleteEntityExecutor(id, session, request, ackFrom);
+                    break;
+                default:
+                    break;
+            }
+        }, executorService);
+    }
+
+    @Path("/v0/entities")
+    public void entitiesHandler(
+            @NotNull final HttpSession session,
+            @NotNull final @Param(value = "start", required = true) String start,
+            @NotNull final @Param(value = "end") String end) {
+        if (start.isEmpty()) {
             httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
 
-        if (id.isEmpty()) {
-            httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return;
+
+        try {
+            ((RecordStreamingSession) session).setIterator(new ChunkedIterator(daoHelper.getRange(start, end)));
+        } catch (IOException e) {
+            log.error("Socket internal error", e);
+            httpHelper.sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
-        switch (request.getMethod()) {
-            case METHOD_GET:
-                log.debug("GET request: id = {}", id);
-                getEntityExecutor(id, session, request, ackFrom);
-                break;
-            case METHOD_PUT:
-                log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-                putEntityExecutor(id, session, request, ackFrom);
-                break;
-            case METHOD_DELETE:
-                log.debug("DELETE request: id = {}", id);
-                deleteEntityExecutor(id, session, request, ackFrom);
-                break;
-            default:
-                break;
-        }
-        }, executorService);
     }
 
     private void getEntityExecutor(final String id,
@@ -259,6 +279,11 @@ public class ServiceImpl extends HttpServer implements Service {
         log.debug("Can't understand request: {}", request);
 
         httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    @Override
+    public HttpSession createSession(@NotNull final Socket socket) {
+        return new RecordStreamingSession(socket, this);
     }
 
     @Override

@@ -1,15 +1,19 @@
 package ru.mail.polis.service.nik27090;
 
+import com.sun.jdi.InternalException;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.nik27090.Cell;
 import ru.mail.polis.dao.nik27090.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -115,5 +119,19 @@ public class DaoHelper {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         });
+    }
+
+    public Iterator<Record> getRange(final String start, final String end) {
+        final ByteBuffer startBB = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
+        ByteBuffer endBB = null;
+        if (end != null) {
+            endBB = ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8));
+        }
+        try {
+            return dao.range(startBB, endBB);
+        } catch (IOException e) {
+            log.error("Cannot get range.", e);
+            throw new InternalException("Cannot get range.");
+        }
     }
 }
