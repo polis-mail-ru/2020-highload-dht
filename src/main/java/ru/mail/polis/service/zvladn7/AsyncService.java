@@ -81,11 +81,17 @@ public class AsyncService extends HttpServer implements Service {
         return Response.ok("Status: OK");
     }
 
+    /**
+     * Return a range of pair key - value from start to end (if it exist).
+     *
+     * @param start   - from key
+     * @param end     - to key
+     */
     @Path("/v0/entities")
     @RequestMethod(Request.METHOD_GET)
     public void range(@Param(value = "start", required = true) final String start,
-                          @Param(value = "end") final String end,
-                          @NotNull final HttpSession session) {
+                      @Param(value = "end") final String end,
+                      @NotNull final HttpSession session) {
         if (isInvalidRangeParameters(start, end)) {
             try {
                 sendEmptyIdResponse(session, "RANGE-GET");
@@ -187,7 +193,7 @@ public class AsyncService extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession(Socket socket) {
+    public HttpSession createSession(final Socket socket) {
         return new RecordsStreamingSession(socket, this);
     }
 

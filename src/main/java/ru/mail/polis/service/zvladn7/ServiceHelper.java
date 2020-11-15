@@ -31,7 +31,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
-import static ru.mail.polis.service.zvladn7.util.Bytes.*;
+import static ru.mail.polis.service.zvladn7.util.Bytes.toBytes;
+import static ru.mail.polis.service.zvladn7.util.Bytes.wrapArray;
+import static ru.mail.polis.service.zvladn7.util.Bytes.wrapString;
 import static ru.mail.polis.service.zvladn7.util.Nets.requestBuilderFor;
 
 class ServiceHelper {

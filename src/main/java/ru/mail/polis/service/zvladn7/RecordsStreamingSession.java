@@ -28,6 +28,10 @@ public class RecordsStreamingSession extends HttpSession {
         super(socket, server);
     }
 
+    /**
+     * Set iterator for extraction the range of record.
+     * @param iterator - record iterator(key-value)
+     */
     public void setIterator(@NotNull final Iterator<Record> iterator) throws IOException {
         this.recordIterator = iterator;
 
@@ -61,13 +65,13 @@ public class RecordsStreamingSession extends HttpSession {
             throw new IOException("Out of order response");
         }
         server.incRequestsProcessed();
-        String connection = handling.getHeader("Connection: ");
-        boolean keepAlive = handling.isHttp11()
+        final String connection = handling.getHeader("Connection: ");
+        final boolean keepAlive = handling.isHttp11()
                 ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
         if (!keepAlive) scheduleClose();
-
-        if ((this.handling = handling = pipeline.pollFirst()) != null) {
+        this.handling = handling = pipeline.pollFirst();
+        if (handling != null) {
             if (handling == FIN) {
                 scheduleClose();
             } else {
