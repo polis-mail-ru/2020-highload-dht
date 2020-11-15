@@ -163,7 +163,7 @@ public class ReplicationController {
                     return new Response(Response.ACCEPTED, Response.EMPTY);
                 }
             } catch (InterruptedException | PoolException | HttpException | IOException e) {
-                log.error("Cant proxying response to other node in replDelete", e);
+                log.error("Cant proxying  to other node in replDelete", e);
             }
         }
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
