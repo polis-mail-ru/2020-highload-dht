@@ -9,7 +9,9 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
@@ -43,9 +45,7 @@ import java.util.concurrent.TimeUnit;
 
 public class MySimpleHttpServer extends HttpServer implements Service {
     private static final String TIMESTAMP = "Timestamp";
-    static final String PROXY_HEADER_KEY = "X-Proxy";
     private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
-    private final Duration timeout = Duration.ofSeconds(1);
     private final ExecutorService executorService;
     private final Executor clientExecutor;
     private final Topology<String> topology;
@@ -82,7 +82,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 new ThreadFactoryBuilder().setNameFormat("client-%d").build());
         this.client = HttpClient.newBuilder()
                 .executor(clientExecutor)
-                .connectTimeout(timeout)
+                .connectTimeout(Duration.ofSeconds(1))
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
                 .build();
     }
@@ -134,6 +134,20 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         } catch (RejectedExecutionException e) {
             requestHelper.sendLoggedResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
+    }
+
+    @Path("/v0/entities")
+    public void entities(@NotNull final HttpSession session,
+                         @Param("start") final String start,
+                         @Param("end") final String end) {
+        if (start == null || start.isEmpty() || (end != null && end.isEmpty())) {
+            log.error("Request with incorrect parameters on /v0/entities");
+            requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        final ByteBuffer startR = ByteBuffer.wrap(start.getBytes(Charsets.UTF_8));
+        final ByteBuffer endR = end == null ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8));
+        requestHelper.workRangeRequest(session, startR, endR, clientExecutor);
     }
 
     private void parseRequest(final String id, final Request request,
@@ -213,7 +227,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 results.add(getLocalResults(action));
             } else {
-                final HttpRequest request = requestForReplica(context.getRequest(), key, node);
+                final URI uri = URI.create(node + "/v0/entity?id="
+                        + StandardCharsets.UTF_8.decode(key.duplicate()).toString());
+                final HttpRequest request = requestHelper.requestForReplica(context.getRequest(), uri);
                 final CompletableFuture<ResponseValue> result = this.client
                         .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                         .thenApply(r -> new ResponseValue(requestHelper.parseStatusCode(r.statusCode()), r.body(),
@@ -232,25 +248,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }, clientExecutor);
     }
 
-    private HttpRequest requestForReplica(final Request request, final ByteBuffer key, final String node) {
-        final URI uri = URI.create(node + "/v0/entity?id="
-                + StandardCharsets.UTF_8.decode(key.duplicate()).toString());
-        final HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .timeout(this.timeout)
-                .uri(uri)
-                .headers(PROXY_HEADER_KEY, "true");
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                return builder.GET().build();
-            case Request.METHOD_PUT:
-                return builder.PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())).build();
-            case Request.METHOD_DELETE:
-                return builder.DELETE().build();
-            default:
-                throw new UnsupportedOperationException(request.getMethod() + Response.SERVICE_UNAVAILABLE);
-        }
-    }
-
     @Override
     public synchronized void stop() {
         super.stop();
@@ -261,6 +258,11 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             log.error("Error can't shutdown execution service");
             Thread.currentThread().interrupt();
         }
+    }
+
+    @Override
+    public HttpSession createSession(final Socket socket) {
+        return new StreamingSession(socket, this);
     }
 
     public interface Action {

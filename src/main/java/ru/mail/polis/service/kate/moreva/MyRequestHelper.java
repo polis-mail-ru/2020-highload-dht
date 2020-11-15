@@ -9,7 +9,10 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kate.moreva.Value;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -23,7 +26,9 @@ public class MyRequestHelper {
     private static final String SERVER_ERROR = "Server error can't send response";
     private static final String TIMESTAMP = "Timestamp:";
     static final String PROXY_HEADER = "X-Proxy:";
+    static final String PROXY_HEADER_KEY = "X-Proxy";
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+    private final Duration timeout = Duration.ofSeconds(1);
     private static final Logger log = LoggerFactory.getLogger(MyRequestHelper.class);
 
     private final DAO dao;
@@ -174,6 +179,23 @@ public class MyRequestHelper {
         }
     }
 
+    public HttpRequest requestForReplica(final Request request, final URI uri) {
+        final HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .timeout(this.timeout)
+                .uri(uri)
+                .headers(PROXY_HEADER_KEY, "true");
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                return builder.GET().build();
+            case Request.METHOD_PUT:
+                return builder.PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody())).build();
+            case Request.METHOD_DELETE:
+                return builder.DELETE().build();
+            default:
+                throw new UnsupportedOperationException(request.getMethod() + Response.SERVICE_UNAVAILABLE);
+        }
+    }
+
     /**
      * Checks whether the request is proxied.
      */
@@ -202,5 +224,31 @@ public class MyRequestHelper {
         } catch (IOException e) {
             log.error(SERVER_ERROR, e);
         }
+    }
+
+    public void workRangeRequest(final HttpSession session, final ByteBuffer start,
+                                 final ByteBuffer end, final Executor executor) {
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return dao.range(start, end);
+            } catch (IOException e) {
+                throw new RuntimeException("Error while getting range data");
+            }
+        }, executor).whenComplete((rI, t) -> {
+            if (t != null) {
+                log.error("Error while completing future for range request ");
+                sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+            try {
+                ((StreamingSession) session).setRecordIterator(rI);
+            } catch (IOException e) {
+                log.error("Error while working range request ", e);
+                sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            }
+        }).exceptionally(e -> {
+            log.error("Error while collecting futures ", e);
+            sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            return null;
+        });
     }
 }
