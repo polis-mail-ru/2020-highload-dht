@@ -283,6 +283,6 @@ public class AsyncService extends HttpServer implements Service {
     }
 
     private static boolean isInvalidRangeParameters(@NotNull final String start, final String end) {
-        return start.isEmpty() || end != null && end.isEmpty();
+        return start.isEmpty() || (end != null && end.isEmpty());
     }
 }
