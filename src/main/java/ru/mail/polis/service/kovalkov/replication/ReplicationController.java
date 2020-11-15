@@ -23,7 +23,7 @@ import java.util.NoSuchElementException;
 public class ReplicationController {
     private static final Logger log = LoggerFactory.getLogger(ReplicationController.class);
     private static final String HEADER = "/v0/entity?id=";
-    private static final String PROXY_HEADER = "X-OK-Proxy: True";
+    public static final String PROXY_HEADER = "X-OK-Proxy: True";
     private final DAO dao;
     private final Topology<String> topology;
     private final Map<String, HttpClient> nodesClient;

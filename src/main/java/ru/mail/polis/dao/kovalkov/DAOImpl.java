@@ -141,14 +141,6 @@ public final class DAOImpl implements DAO {
                     .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
                     .setAllowConcurrentMemtableWrite(true);
             options.enableWriteThreadAdaptiveYield();
-//            opts.setCreateIfMissing(true); // create db instance if one does not exist
-//            opts.setParanoidChecks(false); // drops strict data quality control while searching for corrupt items
-//            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
-//            opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
-//            opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
-//            opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
-//            opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
-//                    .setCompressionType(CompressionType.LZ4_COMPRESSION); // replaces compression algorithm by default
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {

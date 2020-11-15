@@ -64,15 +64,21 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         this.dao = dao;
         this.topology = topology;
         final int countOfWorkers = Runtime.getRuntime().availableProcessors();
-        service = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L, TimeUnit.SECONDS,
+        assert countOfWorkers > 0;
+        service = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(1024),
                 new ThreadFactoryBuilder()
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error in async_worker-{} : ", t, e))
                         .setNameFormat("async_worker-%d")
-                        .build());
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy());
         for (final String n: topology.allNodes()) {
-            if (!topology.isMe(n) && !this.nodesClient.containsKey(n)) {
-                this.nodesClient.put(n, new HttpClient(new ConnectionString(n + TIMEOUT)));
+            if (topology.isMe(n)) {
+                continue;
+            }
+            final HttpClient client = new HttpClient(new ConnectionString(n + TIMEOUT));
+            if (this.nodesClient.put(n, client) != null){
+                throw new IllegalStateException("Same ID in the several nodes");
             }
         }
         this.replFactor = new ReplicationFactor(topology.nodeCount() / 2 + 1, topology.nodeCount());
@@ -89,7 +95,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         acceptorConfig.port = port;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
-        final HttpServerConfig httpServerConfig = new HttpServerConfig();;
+        final HttpServerConfig httpServerConfig = new HttpServerConfig();
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
@@ -150,21 +156,18 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id",required = true) @NotNull final String id, @NotNull final Request request,
-                       @NotNull final HttpSession session, @Param("replicas") final String replicas)  {
-        try {
-            if (id.isEmpty()) {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            }
-            final boolean isForwarded = request.getHeader("X-OK-Proxy: True") != null;
-            final ReplicationFactor replicationFactor = ReplicationFactor
-                    .getReplicationFactor(replicas, replFactor, session);
-            if (topology.nodeCount() == 1) {
-                singleNodeExec(request, session, id);
-            } else {
-                noSingleNodeExec(request, session, id, isForwarded, replicationFactor);
-            }
-        } catch (IOException e) {
-            exceptionIOHandler(session, "IO in entity has been occurred", e);
+                       @NotNull final HttpSession session) throws IOException {
+        if (id.isEmpty()) {
+            session.sendError(Response.BAD_REQUEST, "Id is empty. Error handling request");
+            return;
+        }
+        final boolean isForwarded = request.getHeader(ReplicationController.PROXY_HEADER) != null;
+        final ReplicationFactor replicationFactor = ReplicationFactor
+                .getReplicationFactor(request.getParameter("replicas"), replFactor, session);
+        if (topology.nodeCount() > 1) {
+            noSingleNodeExec(request, session, id, isForwarded, replicationFactor);
+        } else {
+            singleNodeExec(request, session, id);
         }
     }
 
@@ -196,10 +199,8 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     private void noSingleNodeExec(@NotNull final Request request, @NotNull final HttpSession session,
-                                  @NotNull String id, final boolean isForwarded,
+                                  @NotNull final String id, final boolean isForwarded,
                                   @NotNull final ReplicationFactor replicationFactor) throws IOException {
-        final String ownerNode = topology.identifyByKey(id.getBytes(UTF_8));
-        if (topology.isMe(ownerNode)) {
             try {
                 switch (request.getMethod()) {
                     case METHOD_GET:
@@ -238,9 +239,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             } catch (final RejectedExecutionException e) {
                 log.error("rejected in multiple", e);
             }
-        } else {
-            proxyForwarding(request, session, ownerNode);
-        }
     }
 
     private void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
@@ -331,7 +329,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         super.stop();
         service.shutdown();
         try {
-            this.service.awaitTermination(10, TimeUnit.SECONDS);
+            service.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             log.error("AwaitTerminations has been interrupted : ", e);
             Thread.currentThread().interrupt();
