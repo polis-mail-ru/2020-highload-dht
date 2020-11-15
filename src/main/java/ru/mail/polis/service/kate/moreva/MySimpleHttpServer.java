@@ -136,6 +136,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Method for returning set of values in the requested range.
+     */
     @Path("/v0/entities")
     public void entities(@NotNull final HttpSession session,
                          @Param("start") final String start,
@@ -145,9 +148,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-        final ByteBuffer startR = ByteBuffer.wrap(start.getBytes(Charsets.UTF_8));
-        final ByteBuffer endR = end == null ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8));
-        requestHelper.workRangeRequest(session, startR, endR, clientExecutor);
+        final ByteBuffer startRange = ByteBuffer.wrap(start.getBytes(Charsets.UTF_8));
+        final ByteBuffer endRange = end == null ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8));
+        requestHelper.workRangeRequest(session, startRange, endRange, clientExecutor);
     }
 
     private void parseRequest(final String id, final Request request,

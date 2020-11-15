@@ -37,6 +37,9 @@ public class StreamingSession extends HttpSession {
         }
     }
 
+    /**
+     * Sends records thru Transfer-Encoding protocol.
+     * */
     public void setRecordIterator(final Iterator<Record> recordIterator) throws IOException {
         if (recordIterator == null) {
             throw new IOException("Iterator is null");
@@ -50,7 +53,7 @@ public class StreamingSession extends HttpSession {
 
     private synchronized void pushNext() throws IOException {
         while (recordIterator.hasNext() && queueHead == null) {
-            byte[] data = makeChunk(recordIterator.next());
+            final byte[] data = makeChunk(recordIterator.next());
             write(data, 0, data.length);
         }
         if (recordIterator.hasNext()) {
@@ -87,7 +90,7 @@ public class StreamingSession extends HttpSession {
                 .put(length).put(CRLF).put(records).put(CRLF).position(0));
     }
 
-    public static byte[] toByteArray(final ByteBuffer byteBuffer) {
+    private byte[] toByteArray(final ByteBuffer byteBuffer) {
         if (!byteBuffer.hasRemaining()) {
             return Response.EMPTY;
         }

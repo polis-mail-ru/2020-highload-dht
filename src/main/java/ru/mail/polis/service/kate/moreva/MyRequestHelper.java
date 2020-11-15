@@ -179,6 +179,9 @@ public class MyRequestHelper {
         }
     }
 
+    /**
+     * Creates http request for replica.
+     * */
     public HttpRequest requestForReplica(final Request request, final URI uri) {
         final HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .timeout(this.timeout)
@@ -226,21 +229,24 @@ public class MyRequestHelper {
         }
     }
 
+    /**
+     * Takes values in the requested range and sends it.
+     * */
     public void workRangeRequest(final HttpSession session, final ByteBuffer start,
                                  final ByteBuffer end, final Executor executor) {
         CompletableFuture.supplyAsync(() -> {
             try {
                 return dao.range(start, end);
             } catch (IOException e) {
-                throw new RuntimeException("Error while getting range data");
+                throw new RuntimeException("Error while getting range data", e);
             }
-        }, executor).whenComplete((rI, t) -> {
+        }, executor).whenComplete((ri, t) -> {
             if (t != null) {
                 log.error("Error while completing future for range request ");
                 sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
             try {
-                ((StreamingSession) session).setRecordIterator(rI);
+                ((StreamingSession) session).setRecordIterator(ri);
             } catch (IOException e) {
                 log.error("Error while working range request ", e);
                 sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
