@@ -234,7 +234,7 @@ public class MyRequestHelper {
      */
     public void workRangeRequest(final HttpSession session, final ByteBuffer start,
                                  final ByteBuffer end, final Executor executor) {
-        boolean futuresWereCanceled = CompletableFuture.supplyAsync(() -> {
+        final boolean futuresWereCanceled = CompletableFuture.supplyAsync(() -> {
             try {
                 return dao.range(start, end);
             } catch (IOException e) {
