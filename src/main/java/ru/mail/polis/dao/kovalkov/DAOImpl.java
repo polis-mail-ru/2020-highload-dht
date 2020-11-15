@@ -86,6 +86,7 @@ public final class DAOImpl implements DAO {
     }
 
     @NotNull
+    @Override
     public TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key)
             throws IOException, NoSuchElementException {
         try {
@@ -96,31 +97,31 @@ public final class DAOImpl implements DAO {
                 throw new NoSuchElementException("Can't find this key");
             }
             return TimestampDataWrapper.wrapFromBytesAndGetOne(bytesValue);
-        } catch (RocksDBException e) {
+        } catch (final RocksDBException e) {
             log.error("Getting error: ",e);
             throw new IOException(e);
         }
     }
 
+    @Override
     public void removeWithTimestamp(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final var v = TimestampDataWrapper.getDeletedOne(System.currentTimeMillis());
             final byte[] byteKey = BufferConverter.convertBytes(key);
-            final byte[] bytesValue = v.toBytes();
+            final byte[] bytesValue = TimestampDataWrapper.getDeletedOne(System.currentTimeMillis()).toBytesFromValue();
             db.put(byteKey, bytesValue);
-        } catch (RocksDBException e) {
+        } catch (final RocksDBException e) {
             log.error("Remove error: ", e);
             throw new IOException("Remove error: ", e);
         }
     }
 
+    @Override
     public void upsertWithTime(@NotNull final ByteBuffer key, @NotNull final ByteBuffer values) throws IOException {
         try {
-            final var v = TimestampDataWrapper.getOne(values, System.currentTimeMillis());
             final byte[] byteKey = BufferConverter.convertBytes(key);
-            final byte[] bytesValue = v.toBytes();
+            final byte[] bytesValue = TimestampDataWrapper.getOne(values, System.currentTimeMillis()).toBytesFromValue();
             db.put(byteKey, bytesValue);
-        } catch (RocksDBException e) {
+        } catch (final RocksDBException e) {
             log.error("Rocks upsert error: ", e);
             throw new IOException("Rocks upsert error: ", e);
         }
@@ -137,7 +138,17 @@ public final class DAOImpl implements DAO {
         try {
             final var options = new Options()
                     .setCreateIfMissing(true)
-                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR);
+                    .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
+                    .setAllowConcurrentMemtableWrite(true);
+            options.enableWriteThreadAdaptiveYield();
+//            opts.setCreateIfMissing(true); // create db instance if one does not exist
+//            opts.setParanoidChecks(false); // drops strict data quality control while searching for corrupt items
+//            opts.setSkipStatsUpdateOnDbOpen(true); // abandons statistics updates every time db is opening to run
+//            opts.setAllowConcurrentMemtableWrite(true); // permits multithread memtable writes
+//            opts.enableWriteThreadAdaptiveYield(); // forces write batch to execute till mutex holding timeout
+//            opts.disableAutoCompactions(); // prevents from auto compactions as these are enabled by default
+//            opts.setCompactionStyle(CompactionStyle.UNIVERSAL) // applies universal (tiered) compaction algorithm
+//                    .setCompressionType(CompressionType.LZ4_COMPRESSION); // replaces compression algorithm by default
             final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
         } catch (RocksDBException e) {

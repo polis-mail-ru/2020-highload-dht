@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.kovalkov.TimestampDataWrapper;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -96,6 +97,12 @@ public interface DAO extends Closeable {
      * Removes value by given key.
      */
     void remove(@NotNull ByteBuffer key) throws IOException;
+
+    void removeWithTimestamp(@NotNull final ByteBuffer key) throws IOException;
+
+    void upsertWithTime(@NotNull final ByteBuffer key, @NotNull final ByteBuffer values) throws IOException;
+
+    TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException;
 
     /**
      * Perform compaction

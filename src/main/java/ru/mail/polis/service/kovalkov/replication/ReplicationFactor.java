@@ -29,16 +29,17 @@ public class ReplicationFactor {
                                                          @NotNull final HttpSession session) throws IOException {
         if(!Objects.nonNull(val)){
             return replicationFactor;
+        } else {
+            final List<String> ackFromList = Arrays.asList(val.replace("=", "").split("/"));
+            final int ack = Integer.parseInt(ackFromList.get(0));
+            final int from = Integer.parseInt(ackFromList.get(1));
+            if (ackFromList.size() != 2 || ack < 1 || from < 1 || ack > from) {
+                final String msg = "Invalid ack/from factor";
+                log.error(msg);
+                session.sendError(Response.BAD_REQUEST, msg);
+            }
+            return new ReplicationFactor(ack,from);
         }
-        final List<String> ackFromList = Arrays.asList(val.replace("=", "").split("/"));
-        final int ack = Integer.parseInt(ackFromList.get(0));
-        final int from = Integer.parseInt(ackFromList.get(1));
-        if (ackFromList.size() != 2 || (ack < 1 || from < 1) || ack > from) {
-            final String msg = "Invalid ack/from factor";
-            log.info(msg);
-            session.sendError(Response.BAD_REQUEST, msg);
-        }
-        return new ReplicationFactor(ack,from);
     }
 
     public int getAck() {

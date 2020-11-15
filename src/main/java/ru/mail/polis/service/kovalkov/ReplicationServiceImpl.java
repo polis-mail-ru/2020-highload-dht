@@ -89,8 +89,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         acceptorConfig.port = port;
         acceptorConfig.deferAccept = true;
         acceptorConfig.reusePort = true;
-        final HttpServerConfig httpServerConfig = new HttpServerConfig();
-        httpServerConfig.queueTime = 10;
+        final HttpServerConfig httpServerConfig = new HttpServerConfig();;
         httpServerConfig.acceptors = new AcceptorConfig[]{acceptorConfig};
         return httpServerConfig;
     }
