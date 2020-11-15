@@ -1,12 +1,8 @@
 package ru.mail.polis.service.boriskin;
 
 import com.google.common.base.Charsets;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
-import one.nio.http.Request;
+import one.nio.http.HttpSession;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
-import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,261 +10,241 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.boriskin.NewDAO;
 
 import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
+
+import static ru.mail.polis.service.boriskin.FuturesWorker.getResponses;
+import static ru.mail.polis.service.boriskin.NewService.resp;
 
 final class ReplicaWorker {
     private static final Logger logger = LoggerFactory.getLogger(ReplicaWorker.class);
 
     static final String PROXY_HEADER = "X-OK-Proxy: true";
+    static final String PROXY_HEADER_NAME = "X-OK-Proxy";
+    static final String PROXY_HEADER_VALUE = "true";
 
-    @NotNull
-    private final CompletionService<Response> proxyService;
     @NotNull
     private final NewDAO dao;
     @NotNull
     private final Topology<String> topology;
     @NotNull
-    private final Map<String, HttpClient> nodeToClientMap;
+    private final HttpClient javaNetHttpClient;
 
     ReplicaWorker(
             @NotNull final ExecutorService proxyWorkers,
             @NotNull final DAO dao,
             @NotNull final Topology<String> topology) {
-        this.proxyService = new ExecutorCompletionService<>(proxyWorkers);
         this.dao = (NewDAO) dao;
         this.topology = topology;
-        this.nodeToClientMap = new HashMap<>();
-        for (final String node : topology.all()) {
-            if (topology.isMyNode(node)) {
-                continue;
-            }
-            nodeToClientMap.put(
-                    node,
-                    new HttpClient(new ConnectionString(node + "?timeout=100")));
-        }
+        this.javaNetHttpClient =
+                HttpClient.newBuilder()
+                        .executor(proxyWorkers)
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .build();
     }
 
-    @NotNull
-    Response getting(
+    void getting(
+            @NotNull final HttpSession httpSession,
             @NotNull final MetaInfoRequest mir) {
         if (mir.isAlreadyProxied()) {
-            return doGet(mir);
+            doGet(httpSession, mir);
+            return;
         }
-
         final List<String> replicas =
                 topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
-
-        int acks = 0;
+                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)),
+                        mir.getReplicaFactor().getFrom());
         final ArrayList<Value> values = new ArrayList<>();
-        if (replicas.contains(topology.recogniseMyself())) {
+        runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 values.add(
-                        Value.from(
-                                dao.getTableCell(
-                                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))));
-                acks++;
+                        Value.from(dao, ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8))));
             } catch (IOException ioException) {
                 logger.error("Нода: {}. Ошибка в GET {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }
-
-        for (final Response response : getResponses(replicas, mir)) {
-            try {
-                if (response.getStatus() == 404) {
-                    acks++;
-                    return isUnreachable(acks, mir)
-                            ? new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY) : response;
-                } else {
-                    values.add(Value.from(response));
-                    acks++;
-                }
-            } catch (IllegalArgumentException illegalArgumentException) {
-                logger.error("Нода: {}. Непонятный запрос ",
-                        topology.recogniseMyself(), illegalArgumentException);
-                new Response(Response.BAD_REQUEST, Response.EMPTY);
-            }
-        }
-
-        if (isUnreachable(acks, mir)) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        } else {
-            return Value.transform(Value.merge(values), false);
-        }
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        ).whenCompleteAsync((responses, error) -> {
+            final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
+            final int acks = getNumberOfSuccessfulResponses(
+                    getStartAcks(replicas), responses, success);
+            final Response response = Value.transform(Value.merge(values), false);
+            sendResponseIfExpectedAcksReached(
+                    acks, mir.getReplicaFactor().getAck(), response, httpSession);
+        }).exceptionally(exception -> {
+            logger.error("Ошибка при использовании Future в GET: ", exception);
+            return null;
+        });
     }
 
-    @NotNull
-    private Response doGet(
+    private int getStartAcks(
+            final List<String> replicas) {
+        return replicas.contains(topology.recogniseMyself()) ? 1 : 0;
+    }
+
+    private void doGet(
+            @NotNull final HttpSession httpSession,
             @NotNull final MetaInfoRequest mir) {
-        try {
-            return Value.transform(
-                    Value.from(
-                            dao.getTableCell(
-                                    ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)))),
-                    true);
-        } catch (IOException ioException) {
-            logger.error("Ошибка: ", ioException);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                final Response response = Value.transform(
+                        Value.from(dao, ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8))),
+                        true);
+                resp(httpSession, response);
+            } catch (IOException ioException) {
+                resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }).exceptionally(exception -> {
+            logger.error("Ошибка при выполнении операции GET (DAO): ", exception);
+            return null;
+        });
     }
 
-    @NotNull
-    Response upserting(
+    void upserting(
+            @NotNull final HttpSession httpSession,
             @NotNull final MetaInfoRequest mir) {
         if (mir.isAlreadyProxied()) {
-            return doUpsert(mir);
+            doUpsert(httpSession, mir);
+            return;
         }
-
         final List<String> replicas =
                 topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
-
-        int acks = 0;
-        if (replicas.contains(topology.recogniseMyself())) {
+                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)),
+                        mir.getReplicaFactor().getFrom());
+        runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
-                acks++;
-            } catch (IOException e) {
+            } catch (IOException ioException) {
                 logger.error("Нода: {}. Ошибка в PUT {}, {} ",
-                        topology.recogniseMyself(), mir.getId(), mir.getValue(), e);
+                        topology.recogniseMyself(), mir.getId(), mir.getValue(), ioException);
             }
-        }
-
-        for (final Response response : getResponses(replicas, mir)) {
-            if (response.getStatus() == 201) {
-                acks++;
-            }
-        }
-
-        if (isUnreachable(acks, mir)) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        } else {
-            return new Response(Response.CREATED, Response.EMPTY);
-        }
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
+                httpSession, mir, replicas, responses, 201)
+        ).exceptionally(exception -> {
+            logger.error("Ошибка при использовании Future в UPSERT: ", exception);
+            return null;
+        });
     }
 
-    @NotNull
-    private Response doUpsert(
+    private void doUpsert(
+            @NotNull final HttpSession httpSession,
             @NotNull final MetaInfoRequest mir) {
-        try {
-            dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
-            return new Response(Response.CREATED, Response.EMPTY);
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                dao.upsert(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)), mir.getValue());
+                resp(httpSession, new Response(Response.CREATED, Response.EMPTY));
+            } catch (NoSuchElementException noSuchElementException) {
+                resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ioException) {
+                resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }).exceptionally(exception -> {
+            logger.error("Ошибка при выполнении операции UPSERT (DAO): ", exception);
+            return null;
+        });
     }
 
-    @NotNull
-    Response removing(
+    void removing(
+            @NotNull final HttpSession httpSession,
             @NotNull final MetaInfoRequest mir) {
         if (mir.isAlreadyProxied()) {
-            return doRemove(mir);
+            doRemove(httpSession, mir);
+            return;
         }
-
         final List<String> replicas =
                 topology.replicas(
-                        ByteBuffer.wrap(
-                                mir.getId().getBytes(Charsets.UTF_8)),
-                        mir.getReplicaFactor().getFrom()
-                );
-
-        int acks = 0;
-        if (replicas.contains(topology.recogniseMyself())) {
+                        ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)),
+                        mir.getReplicaFactor().getFrom());
+        runAsyncIfReplicasContainNode(replicas, () -> {
             try {
                 dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
-                acks++;
-            } catch (IOException e) {
+            } catch (IOException ioException) {
                 logger.error("Нода: {}. Ошибка в DELETE {}, {} ",
-                        topology.recogniseMyself(), mir.getId(), mir.getValue(), e);
+                        topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }
+        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
+                httpSession, mir, replicas, responses, 202)
+        ).exceptionally(exception -> {
+            logger.error("Ошибка при использовании Future в DELETE: ", exception);
+            return null;
+        });
+    }
 
-        for (final Response response : getResponses(replicas, mir)) {
-            if (response.getStatus() == 202) {
+    private void doRemove(
+            @NotNull final HttpSession httpSession,
+            @NotNull final MetaInfoRequest mir) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
+                resp(httpSession, new Response(Response.ACCEPTED, Response.EMPTY));
+            } catch (NoSuchElementException noSuchElementException) {
+                resp(httpSession, new Response(Response.NOT_FOUND, Response.EMPTY));
+            } catch (IOException ioException) {
+                resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            }
+        }).exceptionally(exception -> {
+            logger.error("Ошибка при выполнении операции DELETE (DAO): ", exception);
+            return null;
+        });
+    }
+
+    private CompletableFuture<Boolean> runAsyncIfReplicasContainNode(
+            @NotNull final List<String> replicas,
+            @NotNull final Runnable runnable) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (replicas.contains(topology.recogniseMyself())) {
+                runnable.run();
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private void getSuccessAndSendIfReachedExpected(
+            @NotNull final HttpSession httpSession,
+            @NotNull final MetaInfoRequest mir,
+            @NotNull final List<String> replicas,
+            @NotNull final List<HttpResponse<byte[]>> responses,
+            final int statusCode) {
+        final Predicate<HttpResponse<byte[]>> successPut = r -> r.statusCode() == statusCode;
+        final int acks = getNumberOfSuccessfulResponses(getStartAcks(replicas), responses, successPut);
+        final String response = statusCode == 201
+                ? Response.CREATED : Response.ACCEPTED;
+        sendResponseIfExpectedAcksReached(
+                acks, mir.getReplicaFactor().getAck(), new Response(response, Response.EMPTY), httpSession);
+    }
+
+    private int getNumberOfSuccessfulResponses(
+            final int startAcks,
+            @NotNull final List<HttpResponse<byte[]>> responses,
+            @NotNull final Predicate<HttpResponse<byte[]>> ok) {
+        int acks = startAcks;
+        for (final HttpResponse<byte[]> response : responses) {
+            if (ok.test(response)) {
                 acks++;
             }
         }
+        return acks;
+    }
 
-        if (isUnreachable(acks, mir)) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    private void sendResponseIfExpectedAcksReached(
+            final int myAcks,
+            final int acksThreshold,
+            @NotNull final Response response,
+            @NotNull final HttpSession httpSession) {
+        if (myAcks >= acksThreshold) {
+            resp(httpSession, response);
         } else {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        }
-    }
-
-    @NotNull
-    private Response doRemove(
-            @NotNull final MetaInfoRequest mir) {
-        try {
-            dao.remove(ByteBuffer.wrap(mir.getId().getBytes(Charsets.UTF_8)));
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } catch (NoSuchElementException e) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } catch (IOException e) {
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-    }
-
-    private boolean isUnreachable(
-            final int acks,
-            @NotNull final MetaInfoRequest meta) {
-        return acks < meta.getReplicaFactor().getAck();
-    }
-
-    @NotNull
-    private List<Response> getResponses(
-            @NotNull final List<String> replicas,
-            @NotNull final MetaInfoRequest mir) {
-        for (final String node: replicas) {
-            if (!topology.isMyNode(node)) {
-                proxyService.submit(() -> proxy(node, mir.getRequest()));
-            }
-        }
-
-        final int responsesSize =
-                replicas.contains(topology.recogniseMyself())
-                ? replicas.size() - 1 : replicas.size();
-
-        final ArrayList<Response> responses = new ArrayList<>();
-        for (int i = 0; i < responsesSize; i++) {
-            try {
-                responses.add(proxyService.take().get());
-            } catch (ExecutionException | InterruptedException exception) {
-                logger.error("Нода: {}. Ошибка при проксировании ",
-                        topology.recogniseMyself(), exception);
-            }
-        }
-
-        return responses;
-    }
-
-    @NotNull
-    private Response proxy(
-            @NotNull final String node,
-            @NotNull final Request request) throws IOException {
-        try {
-            request.addHeader(PROXY_HEADER);
-            return nodeToClientMap.get(node).invoke(request);
-        } catch (IOException | InterruptedException | HttpException | PoolException exception) {
-            throw new IOException("Не получилось проксировать запрос ", exception);
+            resp(httpSession, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         }
     }
 }

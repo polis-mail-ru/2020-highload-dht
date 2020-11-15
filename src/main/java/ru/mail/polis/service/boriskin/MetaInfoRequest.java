@@ -5,6 +5,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 
+import static one.nio.http.Request.METHOD_DELETE;
+import static one.nio.http.Request.METHOD_GET;
+import static one.nio.http.Request.METHOD_PUT;
+
 public final class MetaInfoRequest {
 
     private static final String PARAM_ID = "id";
@@ -17,8 +21,19 @@ public final class MetaInfoRequest {
     private final String id;
     @NotNull
     private final ByteBuffer value;
+    @NotNull
+    private final RequestMethod method;
 
     private final boolean alreadyProxied;
+
+    public enum RequestMethod {
+        GET, PUT, DELETE
+    }
+
+    @NotNull
+    public RequestMethod getMethod() {
+        return method;
+    }
 
     /**
      * Конструктор {@link MetaInfoRequest}.
@@ -38,6 +53,20 @@ public final class MetaInfoRequest {
                 request.getBody() == null
                         ? ByteBuffer.allocate(0) : ByteBuffer.wrap(request.getBody());
         this.alreadyProxied = alreadyProxied;
+
+        switch (request.getMethod()) {
+            case METHOD_GET:
+                method = RequestMethod.GET;
+                break;
+            case METHOD_PUT:
+                method = RequestMethod.PUT;
+                break;
+            case METHOD_DELETE:
+                method = RequestMethod.DELETE;
+                break;
+            default:
+                throw new IllegalArgumentException("Неверный метод");
+        }
     }
 
     @NotNull
