@@ -10,7 +10,6 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.handlers.DeleteBodyHandler;
 import ru.mail.polis.service.handlers.GetBodyHandler;
 import ru.mail.polis.service.handlers.PutBodyHandler;
-import ru.mail.polis.util.FuturesUtil;
 import ru.mail.polis.util.Util;
 
 import java.io.IOException;
@@ -23,9 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
+import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
 
 class ReplicationHandler {
 
@@ -84,7 +86,7 @@ class ReplicationHandler {
                             }
                         }, exec));
             } else {
-                final HttpRequest request = FuturesUtil.setProxyHeader(node, req).GET().build();
+                final HttpRequest request = Util.setProxyHeader(node, req).GET().build();
                 final CompletableFuture<Value> responses = nodesToClients.get(node)
                         .sendAsync(request, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, exec);
@@ -92,7 +94,7 @@ class ReplicationHandler {
             }
         }
         try {
-            session.sendResponse(FuturesUtil.futureGet(values, futures, ack));
+            session.sendResponse(futureGet(values, futures, ack));
         } catch (IOException exc) {
             log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
         }
@@ -117,7 +119,7 @@ class ReplicationHandler {
                         }, exec)
                 );
             } else {
-                final HttpRequest request = FuturesUtil.setProxyHeader(node, req)
+                final HttpRequest request = Util.setProxyHeader(node, req)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
                         .build();
                 final CompletableFuture<Response> responses = nodesToClients.get(node)
@@ -127,7 +129,7 @@ class ReplicationHandler {
             }
         }
         try {
-            session.sendResponse(FuturesUtil.futureUpsert(count, futures));
+            session.sendResponse(futureHelper(count, futures, Response.CREATED, 201));
         } catch (IOException exc) {
             log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
         }
@@ -152,7 +154,7 @@ class ReplicationHandler {
                         }, exec)
                 );
             } else {
-                final HttpRequest request = FuturesUtil.setProxyHeader(node, req).DELETE().build();
+                final HttpRequest request = Util.setProxyHeader(node, req).DELETE().build();
                 final CompletableFuture<Response> responses = nodesToClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> new Response(Response.ACCEPTED, Response.EMPTY), exec);
@@ -160,7 +162,7 @@ class ReplicationHandler {
             }
         }
         try {
-            session.sendResponse(FuturesUtil.futureDelete(count, futures));
+            session.sendResponse(futureHelper(count, futures, Response.ACCEPTED, 202));
         } catch (IOException exc) {
             log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
         }
@@ -207,5 +209,71 @@ class ReplicationHandler {
         } catch (IOException e) {
             session.sendError(Response.GATEWAY_TIMEOUT, MESSAGE_MAP.get(ErrorNames.TIMEOUT_ERROR));
         }
+    }
+
+    /**
+     * @param ack          - ack target value
+     * @param futures      - futures list
+     * @param responseCode - target response code
+     * @return - one-nio Response
+     */
+    private static Response futureHelper(
+            final int ack,
+            final List<CompletableFuture<Response>> futures,
+            final String responseCode,
+            final int code
+    ) {
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        final boolean res = count(ack, atomicInteger, code, futures);
+
+        if (res) {
+            return new Response(responseCode, Response.EMPTY);
+        }
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    }
+
+    private static boolean count(
+            final int ack,
+            final AtomicInteger atomicInteger,
+            final int returnCode,
+            final List<CompletableFuture<Response>> futures
+    ) {
+        for (final CompletableFuture<Response> future : futures) {
+            try {
+                final Response result = future.get();
+                if (result.getStatus() == returnCode) {
+                    atomicInteger.incrementAndGet();
+                    if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
+                        return true;
+                    }
+                }
+            } catch (ExecutionException | InterruptedException ignore) {
+
+            }
+        }
+        return false;
+    }
+
+
+    private static Response futureGet(
+            final List<Value> values,
+            final List<CompletableFuture<Value>> futures,
+            final int ack
+    ) {
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        for (final CompletableFuture<Value> future : futures) {
+            try {
+                if (future.isCompletedExceptionally()) continue;
+                values.add(future.get());
+                atomicInteger.incrementAndGet();
+                if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
+                    return Value.toResponse(syncValues(values));
+                }
+            } catch (ExecutionException | InterruptedException ex) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), ex);
+            }
+        }
+
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 }

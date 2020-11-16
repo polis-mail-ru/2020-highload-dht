@@ -9,7 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-public final class ReplicationServiceUtils {
+final class ReplicationServiceUtils {
     private static final String TIMESTAMP = "Timestamp: ";
 
     private ReplicationServiceUtils() {
@@ -21,7 +21,7 @@ public final class ReplicationServiceUtils {
      * @param values - values list
      * @return - synchronized value
      */
-    public static Value syncValues(final List<Value> values) {
+    static Value syncValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))

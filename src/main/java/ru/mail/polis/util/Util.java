@@ -1,12 +1,18 @@
 package ru.mail.polis.util;
 
+import one.nio.http.Request;
 import org.jetbrains.annotations.NotNull;
 
+import java.net.URI;
+import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 
 public final class Util {
+    private static final String PROXY_HEADER = "X-OK-Proxy: True";
+
     private Util() {
         /* Add private constructor to prevent instantiation */
     }
@@ -69,5 +75,19 @@ public final class Util {
      */
     public static ByteBuffer toByteBuffer(final String id) {
         return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Redirects request to target node.
+     *
+     * @param node - target node id
+     * @param req  - one-nio request
+     * @return HttpRequest.Builder
+     */
+    public static HttpRequest.Builder setProxyHeader(final String node, @NotNull final Request req) {
+        return HttpRequest.newBuilder()
+                .uri(URI.create(node + req.getURI()))
+                .timeout(Duration.ofSeconds(1))
+                .setHeader("PROXY_HEADER", PROXY_HEADER);
     }
 }
