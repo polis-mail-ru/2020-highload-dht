@@ -29,11 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.util.Map.entry;
 import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
 
-/**
- * Class handling replicated requests processing.
- */
 class ReplicationHandler {
-
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
     private final ExecutorService exec;
     private final DAO dao;
@@ -60,8 +56,7 @@ class ReplicationHandler {
     private final Map<String, HttpClient> nodesToClients;
 
     ReplicationHandler(
-            @NotNull final DAO dao,
-            @NotNull final Topology topology,
+            @NotNull final DAO dao, @NotNull final Topology topology,
             @NotNull final Map<String, HttpClient> nodesToClients,
             @NotNull final ExecutorService exec
     ) {
@@ -275,7 +270,6 @@ class ReplicationHandler {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), ex);
             }
         }
-
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 }
