@@ -5,7 +5,6 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.service.Value;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.time.Duration;
@@ -23,10 +22,99 @@ public final class FuturesUtil {
         /* Add private constructor to prevent instantiation */
     }
 
+    public static Response futureGet(final List<Value> values,
+                                     final List<CompletableFuture<Value>> futures,
+                                     final int ack) {
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        for (final CompletableFuture<Value> future : futures) {
+            try {
+                if (future.isCompletedExceptionally()) continue;
+                values.add(future.get());
+                atomicInteger.incrementAndGet();
+                if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
+                    return Value.toResponse(syncValues(values));
+                }
+            } catch (ExecutionException | InterruptedException ignore) {
+
+            }
+        }
+
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    }
+
+    /**
+     * Processes futures of DELETE request.
+     *
+     * @param ack     - ack target value
+     * @param futures - futures list
+     * @return - one-nio Response
+     */
+    public static Response futureDelete(
+            final int ack,
+            final List<CompletableFuture<Response>> futures
+    ) {
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        final boolean res = count(ack, atomicInteger, 202, futures);
+        if (res) {
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        }
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    }
+
+    /**
+     * Processes futures of PUT request.
+     *
+     * @param ack     - ack target value
+     * @param futures - futures list
+     * @return - one-nio Response
+     */
+    public static Response futureUpsert(
+            final int ack,
+            final List<CompletableFuture<Response>> futures
+    ) {
+        final AtomicInteger atomicInteger = new AtomicInteger(0);
+        final boolean res = count(ack, atomicInteger, 201, futures);
+
+        if (res) {
+            return new Response(Response.CREATED, Response.EMPTY);
+        }
+        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+    }
+
+    /**
+     * @param ack           - ack target value
+     * @param atomicInteger - atomic counter
+     * @param returnCode    - response's target return code
+     * @param futures       - futures list
+     * @return - resulting counter value
+     */
+    private static boolean count(
+            final int ack,
+            final AtomicInteger atomicInteger,
+            final int returnCode,
+            final List<CompletableFuture<Response>> futures
+    ) {
+        for (final CompletableFuture<Response> future : futures) {
+            try {
+                final Response result = future.get();
+                if (result.getStatus() == returnCode) {
+                    atomicInteger.incrementAndGet();
+                    if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
+                        return true;
+                    }
+                }
+            } catch (ExecutionException | InterruptedException ignore) {
+
+            }
+        }
+        return false;
+    }
+
     /**
      * Redirects request to target node.
+     *
      * @param node - target node id
-     * @param req - one-nio request
+     * @param req  - one-nio request
      * @return HttpRequest.Builder
      */
     public static HttpRequest.Builder setProxyHeader(final String node, @NotNull final Request req) {
@@ -35,102 +123,4 @@ public final class FuturesUtil {
                 .timeout(Duration.ofSeconds(1))
                 .setHeader("PROXY_HEADER", PROXY_HEADER);
     }
-
-    /**
-     * Processes futures of GET request.
-     * @param values - future values that will be completed
-     * @param atomicInteger - atomic counter to count successes
-     * @param futures - futures list
-     * @param count - ack target value
-     * @return - one-nio Response
-     * @throws IOException - something went wrong
-     */
-    public static Response futureGet(
-            final List<Value> values,
-            final AtomicInteger atomicInteger,
-            final List<CompletableFuture<Value>> futures,
-            final int count
-    ) throws IOException {
-        for (final CompletableFuture<Value> future : futures) {
-            try {
-                if (future.isCompletedExceptionally()) continue;
-                values.add(future.get());
-                atomicInteger.incrementAndGet();
-            } catch (ExecutionException | InterruptedException exc) {
-                throw new IOException("Error handling futures", exc);
-            }
-        }
-        if (atomicInteger.get() == futures.size() || atomicInteger.get() >= count) {
-            return Value.toResponse(syncValues(values));
-        } else {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
-    }
-
-    /**
-     * Processes futures of PUT request.
-     * @param atomicInteger - atomic counter to count successes
-     * @param count - ack target value
-     * @param futures - futures list
-     * @return - one-nio Response
-     * @throws IOException - something went wrong
-     */
-    public static Response futureUpsert(final AtomicInteger atomicInteger,
-                                        final int count,
-                                        final List<CompletableFuture<Response>> futures) throws IOException {
-        atomicInteger.set(incrementAtomic(atomicInteger, 201, futures));
-        if (atomicInteger.get() == futures.size() || atomicInteger.get() >= count) {
-            return new Response(Response.CREATED, Response.EMPTY);
-        } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-    }
-
-    /**
-     * Processes futures of DELETE request.
-     * @param atomicInteger - atomic counter to count successes
-     * @param count - ack target value
-     * @param futures - futures list
-     * @return - one-nio Response
-     * @throws IOException - something went wrong
-     */
-    public static Response futureDelete(
-            final AtomicInteger atomicInteger,
-            final int count,
-            final List<CompletableFuture<Response>> futures
-    ) throws IOException {
-        atomicInteger.set(incrementAtomic(atomicInteger, 202, futures));
-        if (atomicInteger.get() == futures.size() || atomicInteger.get() >= count) {
-            return new Response(Response.ACCEPTED, Response.EMPTY);
-        } else {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
-        }
-    }
-
-    /**
-     * This does atomic computation.
-     * @param atomicInteger - atomic counter to count successes
-     * @param returnCode - target response code
-     * @param futures - futures list
-     * @return - resulting counter value
-     * @throws IOException - something went wrong
-     */
-    private static int incrementAtomic(
-            final AtomicInteger atomicInteger,
-            final int returnCode,
-            final List<CompletableFuture<Response>> futures
-    ) throws IOException {
-        for (final var future : futures) {
-            try {
-                if (future.isCompletedExceptionally()) {
-                    continue;
-                }
-                if (future.get().getStatus() == returnCode) {
-                    atomicInteger.incrementAndGet();
-                }
-            } catch (ExecutionException | InterruptedException exc) {
-                throw new IOException("Error incrementing futures count", exc);
-            }
-        }
-        return atomicInteger.get();
-    }
-
 }

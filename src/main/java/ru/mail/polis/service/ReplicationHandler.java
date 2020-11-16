@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
 
@@ -71,7 +70,7 @@ class ReplicationHandler {
             final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session
     ) {
         final List<CompletableFuture<Value>> futures = new ArrayList<>(nodes.size());
-        final List<Value> values = new ArrayList<>();
+        final List<Value> values = new ArrayList<>(nodes.size());
         final String id = req.getParameter("id");
         final ByteBuffer key = Util.toByteBuffer(id);
         for (final String node : nodes) {
@@ -92,30 +91,11 @@ class ReplicationHandler {
                 futures.add(responses);
             }
         }
-        multipleFutureGet(session, futures, values, ack);
-    }
-
-    private void multipleFutureGet(
-            @NotNull final HttpSession session, @NotNull final List<CompletableFuture<Value>> futures,
-            @NotNull final List<Value> values, final int ack
-    ) {
-        final AtomicInteger atomicInteger = new AtomicInteger(0);
-        CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
-        allOf = allOf.thenAccept((response) -> {
-            try {
-                session.sendResponse(FuturesUtil.futureGet(values, atomicInteger, futures, ack));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
-            }
-        });
-        allOf.exceptionally(response -> {
-            try {
-                session.sendResponse(FuturesUtil.futureGet(values, atomicInteger, futures, ack));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
-            }
-            return null;
-        });
+        try {
+            session.sendResponse(FuturesUtil.futureGet(values, futures, ack));
+        } catch (IOException exc) {
+            log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+        }
     }
 
     private void multipleUpsert(
@@ -146,23 +126,11 @@ class ReplicationHandler {
                 futures.add(responses);
             }
         }
-        final AtomicInteger atomicInteger = new AtomicInteger(0);
-        CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
-        all = all.thenAccept((response) -> {
-            try {
-                session.sendResponse(FuturesUtil.futureUpsert(atomicInteger, count, futures));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
-            }
-        });
-        all.exceptionally(response -> {
-            try {
-                session.sendResponse(FuturesUtil.futureUpsert(atomicInteger, count, futures));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
-            }
-            return null;
-        });
+        try {
+            session.sendResponse(FuturesUtil.futureUpsert(count, futures));
+        } catch (IOException exc) {
+            log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+        }
     }
 
     private void multipleDelete(
@@ -191,23 +159,11 @@ class ReplicationHandler {
                 futures.add(responses);
             }
         }
-        final AtomicInteger atomicInteger = new AtomicInteger(0);
-        CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
-        all = all.thenAccept((response) -> {
-            try {
-                session.sendResponse(FuturesUtil.futureDelete(atomicInteger, count, futures));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
-            }
-        });
-        all.exceptionally(response -> {
-            try {
-                session.sendResponse(FuturesUtil.futureDelete(atomicInteger, count, futures));
-            } catch (IOException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
-            }
-            return null;
-        });
+        try {
+            session.sendResponse(FuturesUtil.futureDelete(count, futures));
+        } catch (IOException exc) {
+            log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
+        }
     }
 
     void handle(
