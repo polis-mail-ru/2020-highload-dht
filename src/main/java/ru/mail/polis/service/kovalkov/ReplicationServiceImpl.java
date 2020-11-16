@@ -12,15 +12,18 @@ import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.net.Socket;
 import one.nio.pool.Pool;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.kovalkov.ranges.StreamingSession;
 import ru.mail.polis.service.kovalkov.replication.ReplicationController;
 import ru.mail.polis.service.kovalkov.replication.ReplicationFactor;
 import ru.mail.polis.service.kovalkov.sharding.Topology;
@@ -28,6 +31,7 @@ import ru.mail.polis.service.kovalkov.sharding.Topology;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -37,6 +41,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.*;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
@@ -169,6 +174,25 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         } else {
             singleNodeExec(request, session, id);
         }
+    }
+
+    @Path("/v0/entities")
+    @RequestMethod(METHOD_GET)
+    public void entities(@NotNull final  Request request, @NotNull final HttpSession session) throws IOException {
+        final var start = request.getParameter("start=");
+        if (isNull(start) || start.isEmpty()) {
+            session.sendError(Response.BAD_REQUEST, "Start is empty");
+        } else {
+            final var end = request.getParameter("end=");
+            final Iterator<Record> recordIterator = dao.range(ReplicationController.wrapWithCharset(start),
+                    isNull(end) ? null :ReplicationController.wrapWithCharset(end));
+            ((StreamingSession) session).setDataIterator(recordIterator);
+        }
+    }
+
+    @Override
+    public HttpSession createSession(@NotNull final Socket socket) {
+        return new StreamingSession(socket, this);
     }
 
     private void singleNodeExec(@NotNull final Request request,

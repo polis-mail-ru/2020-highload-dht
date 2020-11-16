@@ -41,7 +41,7 @@ public class ReplicationController {
                             final boolean isForwarded) throws IOException {
         int replicas = 0;
         final String[] nodes = isForwarded ? new String[]{topology.getCurrentNode()}
-                : topology.replicasFor(wrapId(id), replFactor.getFrom());
+                : topology.replicasFor(wrapWithCharset(id), replFactor.getFrom());
         final List<TimestampDataWrapper> values = new ArrayList<>();
         for (final String node : nodes) {
             try {
@@ -100,7 +100,7 @@ public class ReplicationController {
     }
 
     @NotNull
-    private ByteBuffer wrapId(@NotNull final String id) {
+    public static ByteBuffer wrapWithCharset(@NotNull final String id) {
         return ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
     }
 
@@ -108,19 +108,19 @@ public class ReplicationController {
                             final boolean isForwarded, @NotNull final byte[] value, final int a) {
         if (isForwarded) {
             try {
-                dao.upsertWithTime(wrapId(id), ByteBuffer.wrap(value));
+                dao.upsertWithTime(wrapWithCharset(id), ByteBuffer.wrap(value));
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException e) {
                 log.error("IO in is forward replPut");
                 return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(Charset.defaultCharset()));
             }
         }
-        final String[] nodes = topology.replicasFor(wrapId(id), replicationFactor.getFrom());
+        final String[] nodes = topology.replicasFor(wrapWithCharset(id), replicationFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
             try {
                 if (topology.isMe(node)) {
-                    dao.upsertWithTime(wrapId(id), ByteBuffer.wrap(value));
+                    dao.upsertWithTime(wrapWithCharset(id), ByteBuffer.wrap(value));
                     ack++;
                 } else {
                     final Response response = nodesClient.get(node).put(HEADER + id, value, PROXY_HEADER);
@@ -139,19 +139,19 @@ public class ReplicationController {
     public Response replDelete(@NotNull final String id, final boolean isForwarded, final int a) {
         if (isForwarded) {
             try {
-                dao.removeWithTimestamp(wrapId(id));
+                dao.removeWithTimestamp(wrapWithCharset(id));
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             } catch (final IOException e) {
                 log.error("IO in is forward replDelete");
                 return new Response(Response.INTERNAL_ERROR, e.toString().getBytes(Charset.defaultCharset()));
             }
         }
-        final String[] nodes = topology.replicasFor(wrapId(id), replicationFactor.getFrom());
+        final String[] nodes = topology.replicasFor(wrapWithCharset(id), replicationFactor.getFrom());
         int ack = 0;
         for (final String node : nodes) {
             try {
                 if (topology.isMe(node)) {
-                    dao.removeWithTimestamp(wrapId(id));
+                    dao.removeWithTimestamp(wrapWithCharset(id));
                     ack++;
                 } else {
                     final Response response = nodesClient.get(node).delete(HEADER + id, PROXY_HEADER);
