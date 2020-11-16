@@ -210,6 +210,8 @@ class ReplicationHandler {
     }
 
     /**
+     * PUT/DELETE future helper
+     *
      * @param ack          - ack target value
      * @param futures      - futures list
      * @param responseCode - target response code
