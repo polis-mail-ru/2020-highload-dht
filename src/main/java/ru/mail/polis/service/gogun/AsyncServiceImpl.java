@@ -34,7 +34,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.gogun.ServiceUtils.*;
+import static ru.mail.polis.service.gogun.ServiceUtils.handleDel;
+import static ru.mail.polis.service.gogun.ServiceUtils.handleGet;
+import static ru.mail.polis.service.gogun.ServiceUtils.handlePut;
+import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
