@@ -14,13 +14,17 @@ import java.util.concurrent.ThreadLocalRandom;
 
     public class AmmoGenerator {
         private static final int VALUE_LENGTH = 256;
-        private static final String ERRMSG = "Usage:\n\tjava -cp build/classes/java/main" +
-                " ru.mail.polis.service.<login>." +
-                "AmmoGenerator <put|get> <requests>";
+        private static final String ERRMSG = "Usage:\n\tjava -cp build/classes/java/main"
+                + " ru.mail.polis.service.<login>."
+                + "AmmoGenerator <put|get> <requests>";
         private static final String RN = "\r\n";
         private static Random random = new Random();
 
-        public AmmoGenerator(){
+        /**
+         * Empty constructor.
+         * For the honor of the Codeclimate.
+         */
+        private AmmoGenerator(){
         }
 
         @NotNull
@@ -30,6 +34,12 @@ import java.util.concurrent.ThreadLocalRandom;
             return result;
         }
 
+        /**
+         * Create put request.
+         * @param out - file.
+         * @param key - key.
+         * @param value - value.
+         */
         private static void put(@NotNull final OutputStream out,
                                 @NotNull final String key,
                                 @NotNull final byte[] value) throws IOException {
@@ -46,6 +56,11 @@ import java.util.concurrent.ThreadLocalRandom;
             out.write("\r\n".getBytes(StandardCharsets.US_ASCII));
         }
 
+        /**
+         * Create get request.
+         * @param out - file.
+         * @param key - key.
+         */
         public static void get(@NotNull final OutputStream out,
                                @NotNull final String key) throws IOException {
             final ByteArrayOutputStream request = new ByteArrayOutputStream();
@@ -59,13 +74,15 @@ import java.util.concurrent.ThreadLocalRandom;
             out.write("\r\n".getBytes(StandardCharsets.US_ASCII));
         }
 
-        private static void one(int requests, FileOutputStream file) throws IOException {
+        private static void one(final int requests,
+                                @NotNull final FileOutputStream file) throws IOException {
             for (int i = 0; i < requests; i++) {
                 put(file,String.valueOf(i), randomValue());
             }
         }
 
-        private static void two(int requests, FileOutputStream file) throws IOException {
+        private static void two(final int requests,
+                                @NotNull final FileOutputStream file) throws IOException {
             for (int i = 0; i < requests; i++) {
                 if (i % 10 == 0 && i != 0) {
                     final long owerwrite = random.nextInt(i);
@@ -76,14 +93,16 @@ import java.util.concurrent.ThreadLocalRandom;
             }
         }
 
-        private static void three(int requests, FileOutputStream file) throws IOException {
+        private static void three(final int requests,
+                                  @NotNull final FileOutputStream file) throws IOException {
             for (int i = 0; i < requests; i++) {
                 final int key = random.nextInt(requests);
                 get(file, String.valueOf(key));
             }
         }
 
-        private static void four(int requests, FileOutputStream file) throws IOException {
+        private static void four(final int requests,
+                                 @NotNull final FileOutputStream file) throws IOException {
             for (int i = 0; i < requests; i++) {
                 if (i % 10 == 0) {
                     final int key = random.nextInt(requests - requests / 10);
@@ -95,7 +114,8 @@ import java.util.concurrent.ThreadLocalRandom;
             }
         }
 
-        private static void five(int requests, FileOutputStream file) throws IOException {
+        private static void five(final int requests,
+                                 @NotNull final FileOutputStream file) throws IOException {
             int existingKey = 0;
             put(file, String.valueOf(existingKey), randomValue());
             existingKey++;
@@ -111,7 +131,7 @@ import java.util.concurrent.ThreadLocalRandom;
             }
         }
 
-        public static void main(final String[]  args) throws IOException {
+        public static void main(final String[] args) throws IOException {
             if (args.length != 3) {
                 System.err.println(ERRMSG);
                 System.exit(-1);
@@ -119,26 +139,26 @@ import java.util.concurrent.ThreadLocalRandom;
 
             final String mode = args[0];
             final int requests = Integer.parseInt(args[1]);
-            final FileOutputStream file = new FileOutputStream(args[2]);
-
-            switch (mode) {
-                case "one":
-                    one(requests, file);
-                    break;
-                case "two":
-                    two(requests, file);
-                    break;
-                case "three":
-                    three(requests, file);
-                    break;
-                case "four":
-                    four(requests, file);
-                    break;
-                case "five":
-                    five(requests, file);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported mode: " + mode);
+            try (FileOutputStream file = new FileOutputStream(args[2])) {
+                switch (mode) {
+                    case "one":
+                        one(requests, file);
+                        break;
+                    case "two":
+                        two(requests, file);
+                        break;
+                    case "three":
+                        three(requests, file);
+                        break;
+                    case "four":
+                        four(requests, file);
+                        break;
+                    case "five":
+                        five(requests, file);
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unsupported mode: " + mode);
+                }
             }
         }
     }
