@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class StreamSession extends HttpSession {
-    private final String CRLF = "\r\n";
     private Iterator<Record> iterator;
 
     StreamSession(final Socket socket, final HttpServer server) {
@@ -89,7 +88,7 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formChunk(final byte[] data) {
-        final byte[] crlfBytes = CRLF.getBytes(StandardCharsets.UTF_8);
+        final byte[] crlfBytes = "\r\n".getBytes(StandardCharsets.UTF_8);
         final byte[] hexLength = Integer.toHexString(data.length)
                 .getBytes(StandardCharsets.US_ASCII);
         final int chunkLength = data.length + 2 * crlfBytes.length + hexLength.length;

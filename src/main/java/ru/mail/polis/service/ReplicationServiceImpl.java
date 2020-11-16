@@ -121,15 +121,23 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             final ByteBuffer start = ByteBuffer.wrap(idStart.getBytes(UTF_8));
             final ByteBuffer end = (idEnd == null) ? null
                     : ByteBuffer.wrap(idEnd.getBytes(UTF_8));
-            final Iterator<Record> iterator = dao.range(start,end);
+            final Iterator<Record> iterator = dao.range(start, end);
             ((StreamSession) session).setIterator(iterator);
         } catch (IOException ex) {
-            // log.error("Can not send entities", ex);
+            try {
+                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            } catch (IOException e) {
+                // e.printStackTrace();
+            }
         } catch (IllegalArgumentException ex) {
-            // Util.sendResponse(session,
-                    // new Response(Response.BAD_REQUEST, Response.EMPTY));
+            try {
+                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            } catch (IOException e) {
+                // e.printStackTrace();
+            }
         }
     }
+
 
     /**
      * resolves request handling by HTTP REST methods, provides any client with response (incl. server outcome code).
