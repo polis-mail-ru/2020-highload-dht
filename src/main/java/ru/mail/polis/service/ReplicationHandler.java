@@ -10,6 +10,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.handlers.DeleteBodyHandler;
 import ru.mail.polis.service.handlers.GetBodyHandler;
 import ru.mail.polis.service.handlers.PutBodyHandler;
+import ru.mail.polis.util.FuturesHandler;
 import ru.mail.polis.util.Util;
 
 import java.io.IOException;

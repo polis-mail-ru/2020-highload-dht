@@ -1,8 +1,9 @@
-package ru.mail.polis.service;
+package ru.mail.polis.util;
 
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.Value;
 
 import java.io.IOException;
 import java.net.URI;
@@ -15,17 +16,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
 
-final class FuturesHandler {
+public final class FuturesHandler {
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
 
-    static HttpRequest.Builder setProxyHeader(final String node, @NotNull final Request req) {
+    private FuturesHandler() {
+        /* Add private constructor to prevent instantiation */
+    }
+
+    public static HttpRequest.Builder setProxyHeader(final String node, @NotNull final Request req) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(node + req.getURI()))
                 .timeout(Duration.ofSeconds(1))
                 .setHeader("PROXY_HEADER", PROXY_HEADER);
     }
 
-    static Response futureGet(
+    public static Response futureGet(
             final List<Value> values,
             final AtomicInteger atomicInteger,
             final List<CompletableFuture<Value>> futures,
@@ -33,9 +38,7 @@ final class FuturesHandler {
     ) throws IOException {
         for (final CompletableFuture<Value> future : futures) {
             try {
-                if (future.isCompletedExceptionally()) {
-                    continue;
-                };
+                if (future.isCompletedExceptionally()) continue;
                 values.add(future.get());
                 atomicInteger.incrementAndGet();
             } catch (ExecutionException | InterruptedException exc) {
@@ -49,16 +52,16 @@ final class FuturesHandler {
         }
     }
 
-    static Response futureUpsert(final AtomicInteger atomicInteger,
-                          final int count,
-                          final List<CompletableFuture<Response>> futures) throws IOException {
+    public static Response futureUpsert(final AtomicInteger atomicInteger,
+                                        final int count,
+                                        final List<CompletableFuture<Response>> futures) throws IOException {
         atomicInteger.set(incrementAtomic(atomicInteger, 201, futures));
         if (atomicInteger.get() == futures.size() || atomicInteger.get() >= count) {
             return new Response(Response.CREATED, Response.EMPTY);
         } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    static Response futureDelete(
+    public static Response futureDelete(
             final AtomicInteger atomicInteger,
             final int count,
             final List<CompletableFuture<Response>> futures

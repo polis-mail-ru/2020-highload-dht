@@ -9,14 +9,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-final class ReplicationServiceUtils {
+public final class ReplicationServiceUtils {
     private static final String TIMESTAMP = "Timestamp: ";
 
     private ReplicationServiceUtils() {
 
     }
 
-    static Value syncValues(final List<Value> values) {
+    public static Value syncValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))

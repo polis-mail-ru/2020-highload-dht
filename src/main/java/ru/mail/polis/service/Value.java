@@ -89,7 +89,7 @@ public final class Value {
                 .put(buffer.duplicate()).array();
     }
 
-    static Response toResponse(
+    public static Response toResponse(
             final Value value
     ) {
         // Value is present
