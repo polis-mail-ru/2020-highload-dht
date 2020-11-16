@@ -16,13 +16,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
 
-public final class FuturesHandler {
+public final class FuturesUtil {
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
 
-    private FuturesHandler() {
+    private FuturesUtil() {
         /* Add private constructor to prevent instantiation */
     }
 
+    /**
+     * Redirects request to target node.
+     * @param node - target node id
+     * @param req - one-nio request
+     * @return HttpRequest.Builder
+     */
     public static HttpRequest.Builder setProxyHeader(final String node, @NotNull final Request req) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(node + req.getURI()))
@@ -30,6 +36,15 @@ public final class FuturesHandler {
                 .setHeader("PROXY_HEADER", PROXY_HEADER);
     }
 
+    /**
+     * Processes futures of GET request.
+     * @param values - future values that will be completed
+     * @param atomicInteger - atomic counter to count successes
+     * @param futures - futures list
+     * @param count - ack target value
+     * @return - one-nio Response
+     * @throws IOException - something went wrong
+     */
     public static Response futureGet(
             final List<Value> values,
             final AtomicInteger atomicInteger,
@@ -52,6 +67,14 @@ public final class FuturesHandler {
         }
     }
 
+    /**
+     * Processes futures of PUT request.
+     * @param atomicInteger - atomic counter to count successes
+     * @param count - ack target value
+     * @param futures - futures list
+     * @return - one-nio Response
+     * @throws IOException - something went wrong
+     */
     public static Response futureUpsert(final AtomicInteger atomicInteger,
                                         final int count,
                                         final List<CompletableFuture<Response>> futures) throws IOException {
@@ -61,6 +84,14 @@ public final class FuturesHandler {
         } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
+    /**
+     * Processes futures of DELETE request.
+     * @param atomicInteger - atomic counter to count successes
+     * @param count - ack target value
+     * @param futures - futures list
+     * @return - one-nio Response
+     * @throws IOException - something went wrong
+     */
     public static Response futureDelete(
             final AtomicInteger atomicInteger,
             final int count,
@@ -74,6 +105,14 @@ public final class FuturesHandler {
         }
     }
 
+    /**
+     * This does atomic computation
+     * @param atomicInteger - atomic counter to count successes
+     * @param returnCode - target response code
+     * @param futures - futures list
+     * @return - resulting counter value
+     * @throws IOException - something went wrong
+     */
     private static int incrementAtomic(
             final AtomicInteger atomicInteger,
             final int returnCode,

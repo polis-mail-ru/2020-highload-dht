@@ -10,7 +10,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.handlers.DeleteBodyHandler;
 import ru.mail.polis.service.handlers.GetBodyHandler;
 import ru.mail.polis.service.handlers.PutBodyHandler;
-import ru.mail.polis.util.FuturesHandler;
+import ru.mail.polis.util.FuturesUtil;
 import ru.mail.polis.util.Util;
 
 import java.io.IOException;
@@ -85,7 +85,7 @@ class ReplicationHandler {
                             }
                         }, exec));
             } else {
-                final HttpRequest request = FuturesHandler.setProxyHeader(node, req).GET().build();
+                final HttpRequest request = FuturesUtil.setProxyHeader(node, req).GET().build();
                 final CompletableFuture<Value> responses = nodesToClients.get(node)
                         .sendAsync(request, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, exec);
@@ -103,14 +103,14 @@ class ReplicationHandler {
         CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         allOf = allOf.thenAccept((response) -> {
             try {
-                session.sendResponse(FuturesHandler.futureGet(values, atomicInteger, futures, ack));
+                session.sendResponse(FuturesUtil.futureGet(values, atomicInteger, futures, ack));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         allOf.exceptionally(response -> {
             try {
-                session.sendResponse(FuturesHandler.futureGet(values, atomicInteger, futures, ack));
+                session.sendResponse(FuturesUtil.futureGet(values, atomicInteger, futures, ack));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -137,7 +137,7 @@ class ReplicationHandler {
                         }, exec)
                 );
             } else {
-                final HttpRequest request = FuturesHandler.setProxyHeader(node, req)
+                final HttpRequest request = FuturesUtil.setProxyHeader(node, req)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
                         .build();
                 final CompletableFuture<Response> responses = nodesToClients.get(node)
@@ -150,14 +150,14 @@ class ReplicationHandler {
         CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         all = all.thenAccept((response) -> {
             try {
-                session.sendResponse(FuturesHandler.futureUpsert(atomicInteger, count, futures));
+                session.sendResponse(FuturesUtil.futureUpsert(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
-                session.sendResponse(FuturesHandler.futureUpsert(atomicInteger, count, futures));
+                session.sendResponse(FuturesUtil.futureUpsert(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -184,7 +184,7 @@ class ReplicationHandler {
                         }, exec)
                 );
             } else {
-                final HttpRequest request = FuturesHandler.setProxyHeader(node, req).DELETE().build();
+                final HttpRequest request = FuturesUtil.setProxyHeader(node, req).DELETE().build();
                 final CompletableFuture<Response> responses = nodesToClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> new Response(Response.ACCEPTED, Response.EMPTY), exec);
@@ -195,14 +195,14 @@ class ReplicationHandler {
         CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         all = all.thenAccept((response) -> {
             try {
-                session.sendResponse(FuturesHandler.futureDelete(atomicInteger, count, futures));
+                session.sendResponse(FuturesUtil.futureDelete(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
-                session.sendResponse(FuturesHandler.futureDelete(atomicInteger, count, futures));
+                session.sendResponse(FuturesUtil.futureDelete(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
