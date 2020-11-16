@@ -7,28 +7,29 @@
 Параметры запуска wrk
 - 4 потока (worker'ы) отправляющие запросы
 - 64 открытых соединения
-- 10 000 запросов в секунду
+- 3 000 запросов в секунду
 - длительность 30 секунд
 
 ```text
+Polinas-MacBook-Pro:wrk2 polina$ ./wrk -t4 -c64 -d30s -R3000 --latency -s ./scripts/put.lua http://127.0.0.1:8080/
 Running 30s test @ http://127.0.0.1:8080/
   4 threads and 64 connections
-  Thread calibration: mean lat.: 3.969ms, rate sampling interval: 12ms
-  Thread calibration: mean lat.: 4.498ms, rate sampling interval: 12ms
-  Thread calibration: mean lat.: 3.882ms, rate sampling interval: 12ms
-  Thread calibration: mean lat.: 3.837ms, rate sampling interval: 12ms
+  Thread calibration: mean lat.: 1.571ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.518ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.530ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 4.064ms, rate sampling interval: 11ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    46.85ms   92.54ms 678.91ms   87.28%
-    Req/Sec     2.55k   437.59     4.55k    69.78%
+    Latency     1.81ms    1.04ms  19.41ms   80.08%
+    Req/Sec   792.54    328.43     1.90k    79.42%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    5.09ms
- 75.000%   25.97ms
- 90.000%  159.62ms
- 99.000%  431.87ms
- 99.900%  551.93ms
- 99.990%  646.66ms
- 99.999%  672.26ms
-100.000%  679.42ms 
+ 50.000%    1.60ms
+ 75.000%    2.19ms
+ 90.000%    3.01ms
+ 99.000%    5.25ms
+ 99.900%    9.94ms
+ 99.990%   16.93ms
+ 99.999%   19.30ms
+100.000%   19.42ms
 ```
 
 ### Результаты с async profiler-а (CPU)
@@ -52,28 +53,28 @@ Running 30s test @ http://127.0.0.1:8080/
 Параметры запуска wrk
 - 4 потока (worker'ы) отправляющие запросы
 - 64 открытых соединений
-- 10 000 запросов в секунду
+- 3 000 запросов в секунду
 - длительность 30 секунд
 
 ```text
 Running 30s test @ http://127.0.0.1:8080/
   4 threads and 64 connections
-  Thread calibration: mean lat.: 2.375ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 2.343ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 2.391ms, rate sampling interval: 10ms
-  Thread calibration: mean lat.: 3.001ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.477ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.502ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.463ms, rate sampling interval: 10ms
+  Thread calibration: mean lat.: 1.506ms, rate sampling interval: 10ms
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    70.43ms  138.98ms 733.70ms   85.80%
-    Req/Sec     2.57k   569.48     5.22k    71.02%
+    Latency     1.43ms  773.13us  17.15ms   83.53%
+    Req/Sec   789.88    111.24     1.78k    80.89%
   Latency Distribution (HdrHistogram - Recorded Latency)
- 50.000%    4.39ms
- 75.000%   41.57ms
- 90.000%  296.45ms
- 99.000%  577.02ms
- 99.900%  665.09ms
- 99.990%  717.31ms
- 99.999%  732.16ms
-100.000%  734.21ms
+ 50.000%    1.35ms
+ 75.000%    1.73ms
+ 90.000%    2.13ms
+ 99.000%    3.55ms
+ 99.900%   11.04ms
+ 99.990%   14.84ms
+ 99.999%   16.50ms
+100.000%   17.17ms
 ```
 
 ### Результаты с async profiler-а (CPU)
@@ -94,4 +95,6 @@ Running 30s test @ http://127.0.0.1:8080/
 
 ## Вывод
 
-По результатам достаточно большого количества запусков очевидно, что время ответа и для GET, и для PUT увеличилось в 5-7 раз. Несмотря на то, что у нас теперь асинхронный клиент, и запросы долго не стоят в очереди, тратится довольно много ресурсов на вычисление значений CompletableFuture и, судя по графам, появилось много блокировок.
+На данном этапе обстрел GET-ами и PUT-ами проводился меньшим количеством запросов в секунду (3 000 вместо 10 000). При обстреле запросами той же интенсивности наблюдалась сильная деградация быстродействия (в среднем в 5-7 раз по результатам 10 запусков). С меньшей нагрузкой асинхронный клиент справляется довольно бодро. 
+
+Несмотря на то, что у нас теперь асинхронный клиент, и запросы долго не стоят в очереди, тратится довольно много ресурсов на вычисление значений CompletableFuture и, судя по графам, появилось много блокировок.
