@@ -3,7 +3,6 @@ package ru.mail.polis.service;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,11 +17,6 @@ import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
 
 final class FuturesHandler {
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
-    boolean isProxied;
-
-    FuturesHandler(final boolean isForwardedRequest, @NotNull final DAO dao) {
-        this.isProxied = isForwardedRequest;
-    }
 
     static HttpRequest.Builder setProxyHeader(final String node, @NotNull final Request req) {
         return HttpRequest.newBuilder()
@@ -31,7 +25,7 @@ final class FuturesHandler {
                 .setHeader("PROXY_HEADER", PROXY_HEADER);
     }
 
-    Response futureGet(
+    static Response futureGet(
             final List<Value> values,
             final AtomicInteger atomicInteger,
             final List<CompletableFuture<Value>> futures,
@@ -55,7 +49,7 @@ final class FuturesHandler {
         }
     }
 
-    Response futureUpsert(final AtomicInteger atomicInteger,
+    static Response futureUpsert(final AtomicInteger atomicInteger,
                           final int count,
                           final List<CompletableFuture<Response>> futures) throws IOException {
         atomicInteger.set(incrementAtomic(atomicInteger, 201, futures));
@@ -64,7 +58,7 @@ final class FuturesHandler {
         } else return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    Response futureDelete(
+    static Response futureDelete(
             final AtomicInteger atomicInteger,
             final int count,
             final List<CompletableFuture<Response>> futures
@@ -77,7 +71,7 @@ final class FuturesHandler {
         }
     }
 
-    private int incrementAtomic(
+    private static int incrementAtomic(
             final AtomicInteger atomicInteger,
             final int returnCode,
             final List<CompletableFuture<Response>> futures

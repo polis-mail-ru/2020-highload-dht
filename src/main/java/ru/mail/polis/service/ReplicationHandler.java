@@ -53,19 +53,17 @@ class ReplicationHandler {
     private final Topology topology;
     @NotNull
     private final Map<String, HttpClient> nodesToClients;
-    @NotNull
-    private final FuturesHandler futuresHandler;
 
     ReplicationHandler(
             @NotNull final DAO dao,
             @NotNull final Topology topology,
             @NotNull final Map<String, HttpClient> nodesToClients,
-            ExecutorService exec) {
+            @NotNull final ExecutorService exec
+    ) {
         this.topology = topology;
         this.nodesToClients = nodesToClients;
         this.exec = exec;
         this.dao = dao;
-        this.futuresHandler = new FuturesHandler(false, dao);
     }
 
     private void multipleGet(
@@ -104,14 +102,14 @@ class ReplicationHandler {
         CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         allOf = allOf.thenAccept((response) -> {
             try {
-                session.sendResponse(futuresHandler.futureGet(values, atomicInteger, futures, ack));
+                session.sendResponse(FuturesHandler.futureGet(values, atomicInteger, futures, ack));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         allOf.exceptionally(response -> {
             try {
-                session.sendResponse(futuresHandler.futureGet(values, atomicInteger, futures, ack));
+                session.sendResponse(FuturesHandler.futureGet(values, atomicInteger, futures, ack));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -126,16 +124,18 @@ class ReplicationHandler {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         final String id = req.getParameter("id");
         for (final String node : nodes) {
-            if (topology.isSelfId(node)) futures.add(CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            dao.upsertValue(Util.toByteBuffer(id), ByteBuffer.wrap(req.getBody()));
-                            return new Response(Response.CREATED, Response.EMPTY);
-                        } catch (IOException e) {
-                            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                        }
-                    }, exec));
-            else {
+            if (topology.isSelfId(node)) {
+                futures.add(CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                dao.upsertValue(Util.toByteBuffer(id), ByteBuffer.wrap(req.getBody()));
+                                return new Response(Response.CREATED, Response.EMPTY);
+                            } catch (IOException e) {
+                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                            }
+                        }, exec)
+                );
+            } else {
                 final HttpRequest request = FuturesHandler.setProxyHeader(node, req)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
                         .build();
@@ -149,14 +149,14 @@ class ReplicationHandler {
         CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         all = all.thenAccept((response) -> {
             try {
-                session.sendResponse(futuresHandler.futureUpsert(atomicInteger, count, futures));
+                session.sendResponse(FuturesHandler.futureUpsert(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
-                session.sendResponse(futuresHandler.futureUpsert(atomicInteger, count, futures));
+                session.sendResponse(FuturesHandler.futureUpsert(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -171,16 +171,18 @@ class ReplicationHandler {
         final String id = req.getParameter("id");
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
-            if (topology.isSelfId(node)) futures.add(CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            dao.removeValue(Util.toByteBuffer(id));
-                            return new Response(Response.ACCEPTED, Response.EMPTY);
-                        } catch (IOException e) {
-                            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                        }
-                    }, exec));
-            else {
+            if (topology.isSelfId(node)) {
+                futures.add(CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                dao.removeValue(Util.toByteBuffer(id));
+                                return new Response(Response.ACCEPTED, Response.EMPTY);
+                            } catch (IOException e) {
+                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                            }
+                        }, exec)
+                );
+            } else {
                 final HttpRequest request = FuturesHandler.setProxyHeader(node, req).DELETE().build();
                 final CompletableFuture<Response> responses = nodesToClients.get(node)
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
@@ -192,14 +194,14 @@ class ReplicationHandler {
         CompletableFuture<Void> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
         all = all.thenAccept((response) -> {
             try {
-                session.sendResponse(futuresHandler.futureDelete(atomicInteger, count, futures));
+                session.sendResponse(FuturesHandler.futureDelete(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         });
         all.exceptionally(response -> {
             try {
-                session.sendResponse(futuresHandler.futureDelete(atomicInteger, count, futures));
+                session.sendResponse(FuturesHandler.futureDelete(atomicInteger, count, futures));
             } catch (IOException exc) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
@@ -229,7 +231,6 @@ class ReplicationHandler {
             log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
             return;
         }
-        futuresHandler.isProxied = isForwardedRequest;
 
         try {
             switch (req.getMethod()) {
