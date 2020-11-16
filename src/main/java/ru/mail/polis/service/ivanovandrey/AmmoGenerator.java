@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-    public class AmmoGenerator {
+    public final class AmmoGenerator {
         private static final int VALUE_LENGTH = 256;
         private static final String ERRMSG = "Usage:\n\tjava -cp build/classes/java/main"
                 + " ru.mail.polis.service.<login>."
@@ -131,9 +131,14 @@ import java.util.concurrent.ThreadLocalRandom;
             }
         }
 
+
+        /**
+         * Main function.
+         * @param args - name of method to use, number of requests and output file.
+         */
         public static void main(final String[] args) throws IOException {
             if (args.length != 3) {
-                System.err.println(ERRMSG);
+                System.out.println(ERRMSG);
                 System.exit(-1);
             }
 
