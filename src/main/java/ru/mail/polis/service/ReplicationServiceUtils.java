@@ -16,6 +16,11 @@ public final class ReplicationServiceUtils {
 
     }
 
+    /**
+     * This synchronizes received values.
+     * @param values - values list
+     * @return - synchronized value
+     */
     public static Value syncValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())

@@ -89,6 +89,11 @@ public final class Value {
                 .put(buffer.duplicate()).array();
     }
 
+    /**
+     * This converts value to one-nio response.
+     * @param value - value to convert
+     * @return - one-nio response
+     */
     public static Response toResponse(
             final Value value
     ) {

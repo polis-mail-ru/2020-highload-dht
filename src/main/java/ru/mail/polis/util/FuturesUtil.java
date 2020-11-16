@@ -106,7 +106,7 @@ public final class FuturesUtil {
     }
 
     /**
-     * This does atomic computation
+     * This does atomic computation.
      * @param atomicInteger - atomic counter to count successes
      * @param returnCode - target response code
      * @param futures - futures list
