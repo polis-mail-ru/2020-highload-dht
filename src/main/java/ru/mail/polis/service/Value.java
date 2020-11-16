@@ -4,8 +4,6 @@ import one.nio.http.Response;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Set;
 
 public final class Value {
     private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
@@ -33,11 +31,11 @@ public final class Value {
         return new Value(true, timestamp, EMPTY_BUFFER);
     }
 
-    static Value resolveMissingValue() {
+    public static Value resolveMissingValue() {
         return new Value(false, -1, null);
     }
 
-    boolean isValueDeleted() {
+    private boolean isValueDeleted() {
         return isValueDeleted;
     }
 
@@ -57,7 +55,7 @@ public final class Value {
         }
     }
 
-    byte[] getBytes() throws IOException {
+    private byte[] getBytes() throws IOException {
         final ByteBuffer buf = getValue().duplicate();
         final byte[] bytes = new byte[buf.remaining()];
         buf.get(bytes);
@@ -91,42 +89,26 @@ public final class Value {
                 .put(buffer.duplicate()).array();
     }
 
-    static Value fromResponse(final Response response) {
-        final long timestamp = ReplicationServiceUtils.getTimestamp(response);
-
-        if (response.getStatus() == 200) {
-            return Value.resolveExistingValue(ByteBuffer.wrap(response.getBody()), timestamp);
-        }
-
-        if (response.getStatus() == 404 && timestamp > 0) {
-            return Value.resolveDeletedValue(timestamp);
-        }
-
-        return Value.resolveMissingValue();
-    }
-
     static Response toResponse(
-            final Set<String> nodes,
-            final List<Value> responses,
-            final boolean isForwardedRequest
-    ) throws IOException {
-        final Value value = ReplicationServiceUtils.syncValues(responses);
-        // Value is deleted
-        if (value.isValueDeleted()) {
-            final Response response = new Response(Response.NOT_FOUND, value.getValueBytes());
-            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
-        }
+            final Value value
+    ) {
         // Value is present
         Response response;
-        if (!value.isValueMissing()) {
-            if (isForwardedRequest && nodes.size() == 1) {
-                response = new Response(Response.OK, value.getValueBytes());
-                return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        if (!value.isValueMissing() && !value.isValueDeleted()) {
+            try {
+                response = new Response(Response.OK, value.getBytes());
+            } catch (IOException e) {
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-
-            response = new Response(Response.OK, value.getBytes());
             return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
         }
+
+        // Value is deleted
+        if (value.isValueDeleted()) {
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        }
+
         // Value is missing
         return new Response(Response.NOT_FOUND, Response.EMPTY);
     }

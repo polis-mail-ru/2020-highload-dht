@@ -66,7 +66,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy()
         );
         final Map<String, HttpClient> nodesToClients = new HashMap<>();
-        this.handler = new ReplicationHandler(dao, topology, nodesToClients);
+        this.handler = new ReplicationHandler(dao, topology, nodesToClients, exec);
 
         for (final String node : topology.getNodes()) {
 

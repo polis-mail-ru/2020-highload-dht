@@ -103,12 +103,14 @@ public class DaoEngine implements DAO {
     }
 
     @Override
-    public Value getValue(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
+    public Value getValue(@NotNull final ByteBuffer key) throws IOException {
         try {
             final byte[] value = getValueFromBytes(key);
             return Value.composeFromBytes(value);
         } catch (RocksDBException e) {
             throw new IOException(e);
+        } catch (NoSuchElementException e) {
+            return Value.resolveMissingValue();
         }
     }
 
@@ -134,7 +136,7 @@ public class DaoEngine implements DAO {
         }
     }
 
-    private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException {
+    private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException, NoSuchElementException {
         final byte[] array = Util.toShiftedArray(key);
         final byte[] value = db.get(array);
         if (value == null) {
