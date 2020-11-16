@@ -3,6 +3,8 @@ package ru.mail.polis.service.mariarheon;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
@@ -16,10 +18,12 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class RendezvousSharding {
+    private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
+
     private final List<String> nodes;
     private final String currentNode;
     private final Map<String, HttpClient> clients;
-    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration HTTP_CLIENT_TIMEOUT = Duration.ofSeconds(40);
 
     /**
      * Constructor for RendezvousSharding.
@@ -88,6 +92,10 @@ public class RendezvousSharding {
         return node.equals(currentNode);
     }
 
+    public String getMe() {
+        return currentNode;
+    }
+
     /**
      * Pass request to another node.
      * @param to node where request should be sent.
@@ -100,7 +108,10 @@ public class RendezvousSharding {
         final var bodyHandler = HttpResponse.BodyHandlers.ofByteArray();
         return httpClient.sendAsync(javaHttpRequest, bodyHandler)
                 .thenApply(ResponseConverter::convert)
-                .exceptionally(ex -> new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                .exceptionally(ex -> {
+                    logger.error("Exception occured when passing on", ex);
+                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                });
     }
 
     /**

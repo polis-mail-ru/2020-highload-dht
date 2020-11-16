@@ -22,4 +22,22 @@ public final class Util {
         java.util.Collections.sort(list);
         return list;
     }
+
+    /**
+     * Compare two arrays of bytes as unsigned bytes lexicographically.
+     *
+     * @param left - first byte array
+     * @param right - second byte array
+     * @return 0 if equal, 1 if left more than right, -1 otherwise.
+     */
+    public static int compare(final byte[] left, final byte[] right) {
+        for (int i = 0, j = 0; i < left.length && j < right.length; i++, j++) {
+            final int a = (left[i] & 0xff);
+            final int b = (right[j] & 0xff);
+            if (a != b) {
+                return a - b;
+            }
+        }
+        return left.length - right.length;
+    }
 }

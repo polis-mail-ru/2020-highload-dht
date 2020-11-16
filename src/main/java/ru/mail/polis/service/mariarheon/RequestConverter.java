@@ -7,7 +7,7 @@ import java.net.http.HttpRequest;
 import java.time.Duration;
 
 public final class RequestConverter {
-    private static final Duration REQUEST_TIMEOUT = Duration.ofMillis(500);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     private RequestConverter() {
         /* nothing */
