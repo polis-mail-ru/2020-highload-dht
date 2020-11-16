@@ -72,7 +72,7 @@ public class ServiceSession extends HttpSession {
             write(chunk, 0, chunk.length);
         }
     }
-    
+
     private void next() throws IOException {
         nextWrite();
 
