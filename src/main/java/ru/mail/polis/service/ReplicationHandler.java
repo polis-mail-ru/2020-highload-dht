@@ -29,6 +29,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.util.Map.entry;
 import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
 
+/**
+ * Class handling replicated requests processing.
+ */
 class ReplicationHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
@@ -247,13 +250,12 @@ class ReplicationHandler {
                         return true;
                     }
                 }
-            } catch (ExecutionException | InterruptedException ignore) {
-
+            } catch (ExecutionException | InterruptedException exc) {
+                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
             }
         }
         return false;
     }
-
 
     private static Response futureGet(
             final List<Value> values,

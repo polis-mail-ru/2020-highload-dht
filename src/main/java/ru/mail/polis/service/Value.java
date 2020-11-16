@@ -89,26 +89,12 @@ public final class Value {
                 .put(buffer.duplicate()).array();
     }
 
-    public static Value fromResponse(final Response response) {
-        final long timestamp = ReplicationServiceUtils.getTimestamp(response);
-
-        if (response.getStatus() == 200) {
-            return Value.resolveExistingValue(ByteBuffer.wrap(response.getBody()), timestamp);
-        }
-
-        if (response.getStatus() == 404 && timestamp > 0) {
-            return Value.resolveDeletedValue(timestamp);
-        }
-
-        return Value.resolveMissingValue();
-    }
-
     /**
      * This converts value to one-nio response.
      * @param value - value to convert
      * @return - one-nio response
      */
-    public static Response toResponse(
+    static Response toResponse(
             final Value value
     ) {
         // Value is present
