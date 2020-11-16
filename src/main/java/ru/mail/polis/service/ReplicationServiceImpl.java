@@ -10,22 +10,28 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
+import one.nio.server.RejectedSessionException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
@@ -34,6 +40,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     static final String GATEWAY_TIMEOUT_ERROR_LOG = "Your request failed due to timeout";
     private static final int CONNECTION_TIMEOUT = 1000;
+    private final DAO dao;
 
     private enum ErrorNames {
         IO_ERROR, NOT_ALLOWED_METHOD_ERROR
@@ -70,6 +77,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         );
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
+        this.dao = dao;
         this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
         this.handler = new ReplicationHandler(dao, topology, nodesToClients, rf);
 
@@ -94,6 +102,33 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) throws IOException {
         session.sendResponse(Response.ok("Server is running..."));
+    }
+
+    @Override
+    public HttpSession createSession(final Socket socket) throws RejectedSessionException {
+        return new StreamSession(socket, this);
+    }
+
+    @Path("/v0/entities")
+    public void entities(@Param(value = "start", required = true) final String idStart,
+                         @Param(value = "end") final String idEnd,
+                         final HttpSession session) {
+        try {
+            if (idStart.isEmpty() || ((idEnd != null) && idEnd.isEmpty())) {
+                throw new IllegalArgumentException();
+            }
+
+            final ByteBuffer start = ByteBuffer.wrap(idStart.getBytes(UTF_8));
+            final ByteBuffer end = (idEnd == null) ? null
+                    : ByteBuffer.wrap(idEnd.getBytes(UTF_8));
+            final Iterator<Record> iterator = dao.range(start,end);
+            ((StreamSession) session).setIterator(iterator);
+        } catch (IOException ex) {
+            // log.error("Can not send entities", ex);
+        } catch (IllegalArgumentException ex) {
+            // Util.sendResponse(session,
+                    // new Response(Response.BAD_REQUEST, Response.EMPTY));
+        }
     }
 
     /**
