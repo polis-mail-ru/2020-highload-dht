@@ -6,12 +6,13 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
+import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.gogun.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -22,7 +23,6 @@ import java.security.InvalidParameterException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +34,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static ru.mail.polis.service.gogun.ServiceUtils.handleDel;
+import static ru.mail.polis.service.gogun.ServiceUtils.handleGet;
+import static ru.mail.polis.service.gogun.ServiceUtils.handlePut;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
@@ -129,9 +132,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader(PROXY_HEADER) != null) {
-            ServiceUtils.selector(() -> handlePut(key, request),
-                    () -> handleGet(key),
-                    () -> handleDel(key),
+            ServiceUtils.selector(() -> handlePut(key, request, dao, log),
+                    () -> handleGet(key, dao, log),
+                    () -> handleDel(key, dao, log),
                     request.getMethod(),
                     session);
             return;
@@ -184,53 +187,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }, executorService).isCancelled();
     }
 
-    private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
-        try {
-            dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
-        } catch (IOException e) {
-            log.error("Internal server error put", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-
-        }
-
-        return new Response(Response.CREATED, Response.EMPTY);
-    }
-
-    private Response handleGet(@NotNull final ByteBuffer key) {
-        final Value value;
-        Response response;
-        try {
-            value = dao.getValue(key);
-        } catch (IOException e) {
-            log.error("Internal server error get", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        } catch (NoSuchElementException e) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TIMESTAMP_HEADER + ABSENT);
-            return response;
-        }
-
-        if (value.isTombstone()) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-        } else {
-            response = Response.ok(ServiceUtils.getArray(value.getData()));
-        }
-        response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
-
-        return response;
-    }
-
-    private Response handleDel(@NotNull final ByteBuffer key) {
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            log.error("Internal server error del", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-
-        }
-
-        return new Response(Response.ACCEPTED, Response.EMPTY);
-    }
 
     private CompletableFuture<Response> proxy(final String node, final Request request) {
         final String id = request.getParameter("id=");
@@ -238,9 +194,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         if (topology.isMe(node)) {
             return ServiceUtils.selector(
-                    () -> handlePut(key, request),
-                    () -> handleGet(key),
-                    () -> handleDel(key),
+                    () -> handlePut(key, request, dao, log),
+                    () -> handleGet(key, dao, log),
+                    () -> handleDel(key, dao, log),
                     request.getMethod(),
                     executorService);
         }
@@ -284,6 +240,32 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         } catch (RejectedExecutionException e) {
             ServiceUtils.sendServiceUnavailable(session, log);
         }
+    }
+
+    @Path("/v0/entities")
+    @RequestMethod(Request.METHOD_GET)
+    public void handleRangeRequest(@Param(value = "start", required = true) @NotNull final String start,
+                                   @Param(value = "end") @NotNull final String end,
+                                   final HttpSession session) throws IOException {
+        if (start.isEmpty()) {
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        executorService.execute(() -> {
+            try {
+                final ByteBuffer startBytes = ServiceUtils.getBuffer(start.getBytes(UTF_8));
+                final ByteBuffer endBytes = ServiceUtils.checkEndParam(end) ? null : ServiceUtils.getBuffer(end.getBytes(UTF_8));
+
+                ((StreamingSession) session).setIterator(dao.range(startBytes, endBytes));
+            } catch (IOException e) {
+                log.error("Error sending response", e);
+            }
+        });
+    }
+
+    @Override
+    public HttpSession createSession(Socket socket) {
+        return new StreamingSession(socket, this);
     }
 
     @Override

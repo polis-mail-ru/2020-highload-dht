@@ -7,12 +7,15 @@ import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.gogun.Value;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -130,5 +133,62 @@ final class ServiceUtils {
         } catch (IOException e) {
             log.error("Error sending response in method get", e);
         }
+    }
+
+    static boolean checkEndParam(final String end) {
+        return end == null || end.isEmpty();
+    }
+
+    static Response handlePut(@NotNull final ByteBuffer key,
+                              @NotNull final Request request,
+                              @NotNull final DAO dao,
+                              @NotNull final Logger log) {
+        try {
+            dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
+        } catch (IOException e) {
+            log.error("Internal server error put", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+
+        return new Response(Response.CREATED, Response.EMPTY);
+    }
+
+    static Response handleGet(@NotNull final ByteBuffer key,
+                              @NotNull final DAO dao,
+                              @NotNull final Logger log) {
+        final Value value;
+        Response response;
+        try {
+            value = dao.getValue(key);
+        } catch (IOException e) {
+            log.error("Internal server error get", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        } catch (NoSuchElementException e) {
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + AsyncServiceImpl.ABSENT);
+            return response;
+        }
+
+        if (value.isTombstone()) {
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+        } else {
+            response = Response.ok(ServiceUtils.getArray(value.getData()));
+        }
+        response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + value.getTimestamp());
+
+        return response;
+    }
+
+    static Response handleDel(@NotNull final ByteBuffer key,
+                              @NotNull final DAO dao,
+                              @NotNull final Logger log) {
+        try {
+            dao.remove(key);
+        } catch (IOException e) {
+            log.error("Internal server error del", e);
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 }
