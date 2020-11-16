@@ -14,9 +14,6 @@ import java.util.concurrent.ThreadLocalRandom;
 
     public final class AmmoGenerator {
         private static final int VALUE_LENGTH = 256;
-        private static final String ERRMSG = "Usage:\n\tjava -cp build/classes/java/main"
-                + " ru.mail.polis.service.<login>."
-                + "AmmoGenerator <put|get> <requests>";
         private static final String RN = "\r\n";
         private static Random random = new Random();
 
@@ -130,15 +127,13 @@ import java.util.concurrent.ThreadLocalRandom;
                 }
             }
         }
-
-
+        
         /**
          * Main function.
          * @param args - name of method to use, number of requests and output file.
          */
         public static void main(final String[] args) throws IOException {
             if (args.length != 3) {
-                System.out.println(ERRMSG);
                 System.exit(-1);
             }
 
