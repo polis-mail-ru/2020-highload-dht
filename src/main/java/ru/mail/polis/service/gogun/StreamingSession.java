@@ -19,11 +19,17 @@ public class StreamingSession extends HttpSession {
 
     private Iterator<Record> iterator;
 
-    public StreamingSession(Socket socket, HttpServer server) {
+    public StreamingSession(final Socket socket, final HttpServer server) {
         super(socket, server);
     }
 
-    public void setIterator(Iterator<Record> iterator) throws IOException {
+    /**
+     * Method provides getting chunked response.
+     *
+     * @param iterator - iterator on data
+     * @throws IOException - error
+     */
+    public void setIterator(final Iterator<Record> iterator) throws IOException {
         this.iterator = iterator;
         final Response response = new Response(Response.OK);
         response.addHeader("Transfer-Encoding: chunked");
@@ -53,14 +59,14 @@ public class StreamingSession extends HttpSession {
 
         write(EOF, 0, EOF.length);
 
-        Request handling = this.handling;
+        final Request handling = this.handling;
         if (handling == null) {
             throw new IOException("Out of order response");
         }
 
         server.incRequestsProcessed();
-        String connection = handling.getHeader("Connection: ");
-        boolean keepAlive = handling.isHttp11()
+        final String connection = handling.getHeader("Connection: ");
+        final boolean keepAlive = handling.isHttp11()
                 ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
         if (!keepAlive) {

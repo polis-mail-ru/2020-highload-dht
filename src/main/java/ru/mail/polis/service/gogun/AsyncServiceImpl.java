@@ -34,10 +34,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.gogun.ServiceUtils.handleDel;
-import static ru.mail.polis.service.gogun.ServiceUtils.handleGet;
-import static ru.mail.polis.service.gogun.ServiceUtils.handlePut;
-import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
+import static ru.mail.polis.service.gogun.ServiceUtils.*;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
@@ -187,7 +184,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }, executorService).isCancelled();
     }
 
-
     private CompletableFuture<Response> proxy(final String node, final Request request) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
@@ -242,6 +238,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * Method provides range request.
+     *
+     * @param start   - start key
+     * @param end     - end key
+     * @param session - http session
+     * @throws IOException - error
+     */
     @Path("/v0/entities")
     @RequestMethod(Request.METHOD_GET)
     public void handleRangeRequest(@Param(value = "start", required = true) @NotNull final String start,
@@ -254,7 +258,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         executorService.execute(() -> {
             try {
                 final ByteBuffer startBytes = ServiceUtils.getBuffer(start.getBytes(UTF_8));
-                final ByteBuffer endBytes = ServiceUtils.checkEndParam(end) ? null : ServiceUtils.getBuffer(end.getBytes(UTF_8));
+                final ByteBuffer endBytes = ServiceUtils.checkEndParam(end)
+                        ? null
+                        : ServiceUtils.getBuffer(end.getBytes(UTF_8));
 
                 ((StreamingSession) session).setIterator(dao.range(startBytes, endBytes));
             } catch (IOException e) {
@@ -264,7 +270,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession(Socket socket) {
+    public HttpSession createSession(final Socket socket) {
         return new StreamingSession(socket, this);
     }
 
