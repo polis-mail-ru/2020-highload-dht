@@ -209,14 +209,6 @@ class ReplicationHandler {
         }
     }
 
-    /**
-     * PUT/DELETE future helper
-     *
-     * @param ack          - ack target value
-     * @param futures      - futures list
-     * @param responseCode - target response code
-     * @return - one-nio Response
-     */
     private static Response futureHelper(
             final int ack,
             final List<CompletableFuture<Response>> futures,
