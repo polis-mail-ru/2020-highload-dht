@@ -7,15 +7,12 @@ import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.gogun.Value;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -138,6 +135,4 @@ final class ServiceUtils {
     static boolean checkEndParam(final String end) {
         return end == null || end.isEmpty();
     }
-
-
 }

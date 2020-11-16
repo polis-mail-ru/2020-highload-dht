@@ -3,7 +3,6 @@ package ru.mail.polis.service.gogun;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.gogun.Value;
 
@@ -14,14 +13,16 @@ import java.util.NoSuchElementException;
 import static ru.mail.polis.service.gogun.AsyncServiceImpl.log;
 
 public class ServiceHelper {
+
     public static final String TIMESTAMP_HEADER = "timestamp: ";
     private final DAO dao;
+
     public ServiceHelper(@NotNull final DAO dao) {
         this.dao = dao;
     }
 
     Response handlePut(@NotNull final ByteBuffer key,
-                              @NotNull final Request request) {
+                       @NotNull final Request request) {
         try {
             this.dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
         } catch (IOException e) {
