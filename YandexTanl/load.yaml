@@ -1,0 +1,12 @@
+overload:
+  enabled: true
+  package: yandextank.plugins.DataUploader
+  token_file: "token.txt"
+phantom:
+  address: 10.0.2.15:8080
+  ammofile: /var/loadtest/two.ammo
+  load_profile:
+    load_type: rps
+    schedule: line(1, 250, 1m) const(250, 4m)
+telegraf:
+  enabled: false
