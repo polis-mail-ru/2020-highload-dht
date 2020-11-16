@@ -34,16 +34,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.gogun.ServiceUtils.handleDel;
-import static ru.mail.polis.service.gogun.ServiceUtils.handleGet;
-import static ru.mail.polis.service.gogun.ServiceUtils.handlePut;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
-    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    public static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final Duration TIMEOUT = Duration.ofSeconds(1);
     public static final String PROXY_HEADER = "X-Proxy-For: ";
-    public static final String TIMESTAMP_HEADER = "timestamp: ";
     public static final String ABSENT = "-1";
     public static final String REPLICA_FACTOR_PARAM = "replicas=";
 
@@ -51,6 +47,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final Hashing<String> topology;
     private final ExecutorService executorService;
+    private final ServiceHelper serviceHelper;
     @NotNull
     private final java.net.http.HttpClient client;
 
@@ -91,6 +88,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .connectTimeout(TIMEOUT)
                         .version(java.net.http.HttpClient.Version.HTTP_1_1)
                         .build();
+
+        this.serviceHelper = new ServiceHelper(dao);
     }
 
     @Override
@@ -132,9 +131,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader(PROXY_HEADER) != null) {
-            ServiceUtils.selector(() -> handlePut(key, request, dao, log),
-                    () -> handleGet(key, dao, log),
-                    () -> handleDel(key, dao, log),
+            ServiceUtils.selector(() -> serviceHelper.handlePut(key, request),
+                    () -> serviceHelper.handleGet(key),
+                    () -> serviceHelper.handleDel(key),
                     request.getMethod(),
                     session);
             return;
@@ -193,9 +192,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         if (topology.isMe(node)) {
             return ServiceUtils.selector(
-                    () -> handlePut(key, request, dao, log),
-                    () -> handleGet(key, dao, log),
-                    () -> handleDel(key, dao, log),
+                    () -> serviceHelper.handlePut(key, request),
+                    () -> serviceHelper.handleGet(key),
+                    () -> serviceHelper.handleDel(key),
                     request.getMethod(),
                     executorService);
         }

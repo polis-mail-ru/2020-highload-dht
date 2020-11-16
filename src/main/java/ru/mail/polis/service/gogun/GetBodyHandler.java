@@ -25,13 +25,13 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Response> {
                         HttpResponse.BodySubscribers.ofByteArray(),
                         bytes -> {
                             final Response response = Response.ok(bytes);
-                            response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + timestamp.get());
+                            response.addHeader(ServiceHelper.TIMESTAMP_HEADER + timestamp.get());
                             return response;
                         }
                 );
             case 404:
                 final Response response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                timestamp.ifPresent(time -> response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + time));
+                timestamp.ifPresent(time -> response.addHeader(ServiceHelper.TIMESTAMP_HEADER + time));
                 return HttpResponse.BodySubscribers.replacing(response);
             default:
                 throw new RejectedExecutionException("Incorrect status code");

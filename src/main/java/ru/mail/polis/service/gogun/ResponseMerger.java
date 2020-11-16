@@ -26,7 +26,7 @@ public class ResponseMerger {
     @NotNull
     private Response getLatest(final Response response, final Response latestResponse, final String timestamp) {
         final long timestampInNumber = Long.parseLong(timestamp);
-        final long latestTimestamp = Long.parseLong(latestResponse.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER));
+        final long latestTimestamp = Long.parseLong(latestResponse.getHeader(ServiceHelper.TIMESTAMP_HEADER));
         Response latestCopy = latestResponse;
         if (timestampInNumber > latestTimestamp) {
             latestCopy = response;
@@ -42,9 +42,9 @@ public class ResponseMerger {
 
         int notFoundResponsesCount = 0;
         Response latestResponse = new Response("");
-        latestResponse.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + Long.MIN_VALUE);
+        latestResponse.addHeader(ServiceHelper.TIMESTAMP_HEADER + Long.MIN_VALUE);
         for (final Response response : responses) {
-            final String timestamp = response.getHeader(AsyncServiceImpl.TIMESTAMP_HEADER);
+            final String timestamp = response.getHeader(ServiceHelper.TIMESTAMP_HEADER);
             switch (response.getStatus()) {
                 case 404:
                     if (timestamp.equals(AsyncServiceImpl.ABSENT)) {

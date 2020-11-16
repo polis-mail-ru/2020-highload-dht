@@ -139,56 +139,5 @@ final class ServiceUtils {
         return end == null || end.isEmpty();
     }
 
-    static Response handlePut(@NotNull final ByteBuffer key,
-                              @NotNull final Request request,
-                              @NotNull final DAO dao,
-                              @NotNull final Logger log) {
-        try {
-            dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
-        } catch (IOException e) {
-            log.error("Internal server error put", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
 
-        return new Response(Response.CREATED, Response.EMPTY);
-    }
-
-    static Response handleGet(@NotNull final ByteBuffer key,
-                              @NotNull final DAO dao,
-                              @NotNull final Logger log) {
-        final Value value;
-        Response response;
-        try {
-            value = dao.getValue(key);
-        } catch (IOException e) {
-            log.error("Internal server error get", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        } catch (NoSuchElementException e) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + AsyncServiceImpl.ABSENT);
-            return response;
-        }
-
-        if (value.isTombstone()) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-        } else {
-            response = Response.ok(ServiceUtils.getArray(value.getData()));
-        }
-        response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + value.getTimestamp());
-
-        return response;
-    }
-
-    static Response handleDel(@NotNull final ByteBuffer key,
-                              @NotNull final DAO dao,
-                              @NotNull final Logger log) {
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            log.error("Internal server error del", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-
-        return new Response(Response.ACCEPTED, Response.EMPTY);
-    }
 }
