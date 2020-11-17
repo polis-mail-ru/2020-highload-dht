@@ -22,7 +22,7 @@ public class ChunkedEncoder {
      * @param session - session.
      * @throws IOException - raised when writing to session failed.
      */
-    public ChunkedEncoder(HttpSession session) throws IOException {
+    public ChunkedEncoder(final HttpSession session) throws IOException {
         this.session = session;
         final var builder = new StringBuilder();
         builder.append("HTTP/1.1 200 OK\r\n");
@@ -40,7 +40,7 @@ public class ChunkedEncoder {
      * @param record - key-value pair, which should be written as chunk to session.
      * @throws IOException - raised when writing to session failed.
      */
-    public void write(ru.mail.polis.Record record) throws IOException {
+    public void write(final ru.mail.polis.Record record) throws IOException {
         final var key = record.getKey();
         final var keyAsBytes = ByteBufferUtils.toArray(key);
         final var value = record.getValue();
@@ -52,9 +52,9 @@ public class ChunkedEncoder {
     }
 
     private void write(final byte[] key, final byte[] value) throws IOException {
-        try (final var byteStream = new ByteArrayOutputStream()) {
+        try (var byteStream = new ByteArrayOutputStream()) {
             final byte[] newLine = new byte[]{'\r', '\n'};
-            int chunkLength = key.length + 1 + value.length;
+            final int chunkLength = key.length + 1 + value.length;
             final byte[] lenInfo = Integer.toHexString(chunkLength).toUpperCase()
                     .getBytes(StandardCharsets.UTF_8);
             byteStream.write(lenInfo, 0, lenInfo.length);

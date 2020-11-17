@@ -27,13 +27,14 @@ public class RecordIterator implements Iterator<ru.mail.polis.Record> {
      *            the records should be delivered, started from start-key.
      * @throws IOException - raised when reading from dao failed.
      */
-    public RecordIterator(@NotNull final DAO dao, @NotNull final String start, String end) throws IOException {
+    public RecordIterator(@NotNull final DAO dao, @NotNull final String start,
+                          final String end) throws IOException {
         final var startKey = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
         iterator = dao.iterator(startKey);
-        if (end != null) {
-            endKeyAsBytes = end.getBytes(StandardCharsets.UTF_8);
-        } else {
+        if (end == null) {
             endKeyAsBytes = null;
+        } else {
+            endKeyAsBytes = end.getBytes(StandardCharsets.UTF_8);
         }
         finished = false;
         readNext();
