@@ -1,8 +1,8 @@
 package ru.mail.polis.service.codearound;
 
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.jetbrains.annotations.NotNull;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -10,6 +10,8 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *  class to enable implementing of methods to advance highload cluster stress tests
@@ -17,7 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class TankAmmoQueries {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TankAmmoQueries.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(TankAmmoQueries.class.getName());
     private static final int KEY_LENGTH = 256;
     private static final String CRLF = "\r\n";
     private static final String tagOfGet = " GET\n";
@@ -31,14 +33,14 @@ public final class TankAmmoQueries {
     }
 
     /**
-     * spawns quasi-random keys for enabling both PUT and GET queries.
+     * spawns quasi-random values to be pushed to the store by PUT requests.
      *
-     * @return key written into plain byte array
+     * @return pool of keys written into plain byte array
      */
-    private static byte[] getRandKey() {
-        final byte[] key = new byte[KEY_LENGTH];
-        ThreadLocalRandom.current().nextBytes(key);
-        return key;
+    private static byte[] getRand() {
+        final byte[] rand = new byte[KEY_LENGTH];
+        ThreadLocalRandom.current().nextBytes(rand);
+        return rand;
     }
 
     /**
@@ -75,15 +77,15 @@ public final class TankAmmoQueries {
      *
      * @param numOfKeys - number of keys to be available for fetching from the storage via GET requests
      */
-    private static void getKeyNormalDist(final long numOfKeys) throws IOException {
+    private static void getKeyNormalDist(final int numOfKeys) throws IOException {
         for (long i = 0; i < numOfKeys; i++) {
-            getKey(Long.toString(ThreadLocalRandom.current().nextLong(i)));
+            getKey(Long.toString(ThreadLocalRandom.current().nextLong(numOfKeys)));
         }
     }
 
     /**
-     * generates GET requests featured to test reading data in the way it follows flash tendency
-     * to handle temporarily rising number of requests for the latest added / refreshed contents (query option #4).
+     * generates GET requests assumed to apply test reading of data in the way it follows flash tendency
+     * to handle temporarily rising number of requests for the newest added / refreshed contents (query option #4).
      *
      * @param numOfKeys - number of keys to be available for fetching from the storage via GET requests
      * @param numOfEntries - size of record pool given to select recently added entries
@@ -106,7 +108,7 @@ public final class TankAmmoQueries {
     }
 
     /**
-     * generates dual (50% PUT same as a share of GET ones) requests consistently
+     * generates mixed (PUT has a share equal one of GET, i.e. just 50%) requests consistently
      * with continuous distribution law (query option #5).
      *
      * @param numOfKeys - number of keys to be available for pushing into / fetching from
@@ -130,31 +132,29 @@ public final class TankAmmoQueries {
     /**
      * issues common request by any GET testing option determined before running any supported test .
      *
-     * @param keyStr - key written into a String
+     * @param keyStr - key written into a String given
      */
-    private static void getKey(@NotNull final String keyStr) throws IOException {
-        final ByteArrayOutputStream inStream = new ByteArrayOutputStream();
-        final byte[] value = getRandKey();
+    private static void getKey(final String keyStr) throws IOException {
+        final ByteArrayOutputStream outStream = new ByteArrayOutputStream();
 
-        try(Writer writer = new OutputStreamWriter(inStream, StandardCharsets.UTF_8)) {
+        try(Writer writer = new OutputStreamWriter(outStream, StandardCharsets.US_ASCII)) {
             writer.write("GET /v0/entity?id=" + keyStr + " HTTP/1.1" + CRLF);
-            writer.write("Content-Length: " + value.length + CRLF);
             writer.write(CRLF);
         }
-        System.out.write(Integer.toString(inStream.size()).getBytes(StandardCharsets.UTF_8));
-        System.out.write(tagOfGet.getBytes(StandardCharsets.UTF_8));
-        inStream.writeTo(System.out);
-        System.out.write(CRLF.getBytes(StandardCharsets.UTF_8));
+        System.out.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
+        System.out.write(tagOfGet.getBytes(StandardCharsets.US_ASCII));
+        outStream.writeTo(System.out);
+        System.out.write(CRLF.getBytes(StandardCharsets.US_ASCII));
     }
 
     /**
      * issues common request by any PUT testing option determined before running any supported test .
      *
-     * @param keyStr - key written into a String
+     * @param keyStr - key written into a String given
      */
-    private static void putKey(@NotNull final String keyStr) throws IOException {
+    private static void putKey(final String keyStr) throws IOException {
         final ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-        final byte[] value = getRandKey();
+        final byte[] value = getRand();
 
         try(Writer writer = new OutputStreamWriter(outStream, StandardCharsets.UTF_8)) {
             writer.write("PUT /v0/entity?id=" + keyStr + " HTTP/1.1" + CRLF);
@@ -166,19 +166,18 @@ public final class TankAmmoQueries {
         System.out.write(tagOfPut.getBytes(StandardCharsets.UTF_8));
         outStream.writeTo(System.out);
         System.out.write(CRLF.getBytes(StandardCharsets.UTF_8));
-
     }
 
     /**
      * initializes determining a test query and (following one) handler option using cmd interface.
      *
-     * @param args - cmd arguments to be specified before running any supported test
+     * @param args - cmd arguments to be specified before running test upon option pick
      */
     public static void main(String [] args) throws IOException {
 
         if (args.length < 2 || args.length > 3) {
-            LOGGER.error("Given inconsistent number of arguments before program running");
-            return;
+            LOGGER.log(Level.SEVERE, "Given inconsistent number of arguments before program running");
+            throw new IllegalArgumentException("Given inconsistent number of arguments before program running");
         }
 
         final String querySelected = args[0];
