@@ -20,7 +20,7 @@ dependencies {
     errorprone("com.google.errorprone:error_prone_core:2.3.3")
 
     // Our beloved one-nio
-    compile("ru.odnoklassniki:one-nio:1.3.1")
+    compile("ru.odnoklassniki:one-nio:1.3.2")
 
     // Logging
     compile("org.slf4j:slf4j-api:1.7.26")
