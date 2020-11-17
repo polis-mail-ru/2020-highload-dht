@@ -19,7 +19,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *  custom DAO implementations based on DAO abstract stuff.
+ *  custom DAO implementations based on abstract DAO functionality.
  */
 public class TaskDAO implements DAO {
 

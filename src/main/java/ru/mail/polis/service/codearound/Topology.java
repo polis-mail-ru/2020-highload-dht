@@ -1,26 +1,3 @@
-/*package ru.mail.polis.service.codearound;
-
-import org.jetbrains.annotations.NotNull;
-
-import java.nio.ByteBuffer;
-import java.util.Set;
-
-public interface Topology<N> {
-
-    @NotNull
-    N primaryFor(@NotNull ByteBuffer nodeKey);
-
-    N[] replicasFor(ByteBuffer key, int numOfReplicas);
-
-    boolean isSelfId(@NotNull N node);
-
-    int getClusterSize();
-
-    Set<N> getNodes();
-
-    N getSelfId();
-}*/
-
 package ru.mail.polis.service.codearound;
 
 import org.jetbrains.annotations.NotNull;
