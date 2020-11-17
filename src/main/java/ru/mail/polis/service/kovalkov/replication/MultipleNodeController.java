@@ -51,12 +51,12 @@ public class MultipleNodeController {
     }
 
     /**
-     * replication implementation of get, using whole cluster
+     * Replication implementation of get, using whole cluster.
      *
      * @param id for get from DB.
      * @param replFactor contains info about ack and from
      * @param isForwarded forwarded flag.
-     * @return response form multiple node
+     * @return response form multiple node.
      */
     public Response replGet(final String id, @NotNull final ReplicationFactor replFactor,
                             final boolean isForwarded) throws IOException {
@@ -122,7 +122,7 @@ public class MultipleNodeController {
     }
 
     /**
-     * replication implementation of put, using whole cluster
+     * Replication implementation of put, using whole cluster.
      *
      * @param id for put to DB.
      * @param isForwarded forwarded flag.
@@ -163,12 +163,12 @@ public class MultipleNodeController {
     }
 
     /**
-     * replication implementation of get, using whole cluster
+     * Replication implementation of get, using whole cluster.
      *
      * @param id who must delete.
      * @param isForwarded forwarded flag.
-     * @param a ack param
-     * @return response form multiple node about delete status
+     * @param a ack param.
+     * @return response form multiple node about delete status.
      */
     public Response replDelete(@NotNull final String id, final boolean isForwarded, final int a) {
         if (isForwarded) {

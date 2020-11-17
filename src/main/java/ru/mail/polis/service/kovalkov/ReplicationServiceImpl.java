@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.kovalkov.ranges.StreamingSession;
+import ru.mail.polis.service.kovalkov.replication.Action;
 import ru.mail.polis.service.kovalkov.replication.MultipleNodeController;
 import ru.mail.polis.service.kovalkov.replication.ReplicationFactor;
 import ru.mail.polis.service.kovalkov.replication.SingleNodeController;
@@ -31,6 +32,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -38,7 +40,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.isNull;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
@@ -186,12 +187,12 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_GET)
     public void entities(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         final var start = request.getParameter("start=");
-        if (isNull(start) || start.isEmpty()) {
+        if (Objects.isNull(start) || start.isEmpty()) {
             session.sendError(Response.BAD_REQUEST, "Start is empty");
         } else {
             final var end = request.getParameter("end=");
             final var recordIterator = dao.range(MultipleNodeController.wrapWithCharset(start),
-                    isNull(end) ? null : MultipleNodeController.wrapWithCharset(end));
+                    Objects.isNull(end) ? null : MultipleNodeController.wrapWithCharset(end));
             ((StreamingSession) session).setDataIterator(recordIterator);
         }
     }
@@ -234,33 +235,14 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             try {
                 switch (request.getMethod()) {
                     case METHOD_GET:
-                        service.execute(() -> {
-                            try {
-                                session.sendResponse(controller.replGet(id, replicationFactor, isForwarded));
-                            } catch (IOException e) {
-                                exceptionIOHandler(session, "IO exception in repl get", e);
-                            }
-                        });
+                        actAsync(session, () -> controller.replGet(id, replicationFactor, isForwarded));
                         break;
                     case METHOD_PUT:
-                            service.execute(() -> {
-                                try {
-                                    session.sendResponse(controller.replPut(id,
-                                             isForwarded, request.getBody(), replicationFactor.getAck()));
-                                } catch (IOException e) {
-                                    exceptionIOHandler(session, "IO exception in repl put", e);
-                                }
-                            });
+                        actAsync(session, () -> controller.replPut(id, isForwarded,
+                                request.getBody(), replicationFactor.getAck()));
                         break;
                     case METHOD_DELETE:
-                        service.execute(() -> {
-                            try {
-                                session.sendResponse(controller.replDelete
-                                        (id, isForwarded, replicationFactor.getAck()));
-                            } catch (IOException e) {
-                                exceptionIOHandler(session, "IO exception in repl delete", e);
-                            }
-                        });
+                        actAsync(session, () -> controller.replDelete(id, isForwarded, replicationFactor.getAck()));
                         break;
                     default:
                         session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
@@ -272,6 +254,13 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             }
     }
 
+    /**
+     * Handling exception from session
+     *
+     * @param session current http session
+     * @param message indicate place which exception cause
+     * @param e exception
+     */
     public static void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
         log.error(message, e);
         try {
@@ -279,6 +268,22 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         } catch (IOException ex) {
             log.error(IO_EX, ex);
         }
+    }
+
+    /**
+     * Allows you to reduce repetitive code by throwing an exception out of bounds.
+     *
+     * @param action simple functional interface
+     * @param session http session
+     */
+    private void actAsync(@NotNull final HttpSession session, @NotNull final Action action) {
+        service.execute(() -> {
+            try {
+                session.sendResponse(action.act());
+            } catch (IOException e) {
+                exceptionIOHandler(session, "IO exception in async act", e);
+            }
+        });
     }
 
     @Override

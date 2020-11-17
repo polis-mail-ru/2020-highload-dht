@@ -27,6 +27,12 @@ public class SingleNodeController {
         this.service = service;
     }
 
+    /**
+     * Async get with for one node
+     *
+     * @param id requested id
+     * @param session http user session
+     */
     public void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         try {
             service.execute(() -> {
@@ -60,6 +66,13 @@ public class SingleNodeController {
         }
     }
 
+    /**
+     * Async put with for one node.
+     *
+     * @param id requested id.
+     * @param request  value who will be put to db.
+     * @param session http user session.
+     */
     public void asyncPut(@NotNull final ByteBuffer id,
                          @NotNull final Request request, @NotNull final HttpSession session) {
         service.execute(() -> {
@@ -79,6 +92,12 @@ public class SingleNodeController {
         session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
     }
 
+    /**
+     * Async delete with for one node.
+     *
+     * @param id requested id.
+     * @param session http user session.
+     */
     public void asyncDelete(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         service.execute(() -> {
             try {

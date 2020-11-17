@@ -81,8 +81,8 @@ public class StreamingSession extends HttpSession {
                 : "Keep-Alive".equalsIgnoreCase(connection);
         if (!keepAlive) scheduleClose();
         handling = pipeline.pollFirst();
-        this.handling = handling ;
-        if ( this.handling != null) {
+        this.handling = handling;
+        if (this.handling != null) {
             if (handling == FIN) {
                 scheduleClose();
             } else {
