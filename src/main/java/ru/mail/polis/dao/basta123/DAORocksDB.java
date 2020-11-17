@@ -1,13 +1,15 @@
 package ru.mail.polis.dao.basta123;
 
 import org.jetbrains.annotations.NotNull;
-import org.rocksdb.ComparatorOptions;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
+import org.rocksdb.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.basta123.TimestampValue;
+import ru.mail.polis.service.basta123.Utils;
+//import ru.mail.polis.dao.basta123.RecordIter;
+//import ru.mail.polis.dao.basta123.SingedBytesComparator;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,24 +17,22 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import static ru.mail.polis.service.basta123.Utils.getByteArrayFromByteBuffer;
-
 public class DAORocksDB implements DAO {
 
-    private final RocksDB rocksDBInstance;
+    private static final Logger log = LoggerFactory.getLogger(DAORocksDB.class);
+
+    private RocksDB rocksDBInstance;
 
     /**
-     * database initialization.
+     * class instance const.
      *
-     * @param path DB location path
+     * @param data - file to store key-value records
      */
-    public DAORocksDB(final File path) {
+    public DAORocksDB(@NotNull final File data) {
         RocksDB.loadLibrary();
-        final ComparatorOptions comOptions = new ComparatorOptions();
-        final Options options = new Options().setCreateIfMissing(true)
-                .setComparator(new SingedBytesComparator(comOptions));
+        final Options options = new Options().setCreateIfMissing(true);
         try {
-            rocksDBInstance = RocksDB.open(options, path.getAbsolutePath());
+            rocksDBInstance = RocksDB.open(options, data.getAbsolutePath());
         } catch (RocksDBException e) {
             throw new RuntimeException("rocksDBInstance can't open : ", e);
         }
@@ -40,44 +40,115 @@ public class DAORocksDB implements DAO {
 
     @NotNull
     @Override
-    public Iterator<Record> iterator(final @NotNull ByteBuffer from) {
+    public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
         final RocksIterator rocksIterator = rocksDBInstance.newIterator();
-        rocksIterator.seek(getByteArrayFromByteBuffer(from));
-        return new RecordIter(rocksIterator);
+        rocksIterator.seek(Utils.bufToArray(from));
+        return new RecordIter2(rocksIterator);
     }
 
     @NotNull
     @Override
-    public ByteBuffer get(@NotNull final ByteBuffer key) throws NoSuchElementException, IOException {
+    public ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
         try {
-            final byte[] valueByte = rocksDBInstance.get(getByteArrayFromByteBuffer(key));
-            if (valueByte == null) {
-                throw new NoSuchElementException("Not such value by this key");
+            final byte[] keys = Utils.bufToArray(key);
+            final byte[] vals = rocksDBInstance.get(keys);
+            if (vals == null) {
+                throw new NoSuchElementException("value doesnt found: " + key.toString());
             }
-            return ByteBuffer.wrap(valueByte);
+            return ByteBuffer.wrap(vals);
+        } catch (RocksDBException exc) {
+            throw new IOException("get exception:", exc);
+        }
+    }
+
+    /**
+     * executes insertion/update on record specified.
+     *
+     * @param key   - key that should match for attaching a value to server response
+     * @param value - key-bound value
+     */
+    @Override
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+        try {
+            final byte[] keys = Utils.bufToArray(key);
+            final byte[] vals = Utils.readArrayBytes(value);
+            rocksDBInstance.put(keys, vals);
         } catch (RocksDBException e) {
-            throw new IOException("get exception:", e);
+            throw new IOException("upsert ex: ",e);
         }
     }
 
     @Override
-    public void upsert(final @NotNull ByteBuffer key, final @NotNull ByteBuffer value) throws IOException {
+    public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
-            final byte[] keyByte = getByteArrayFromByteBuffer(key);
-            final byte[] valueByte = getByteArrayFromByteBuffer(value);
-            rocksDBInstance.put(keyByte, valueByte);
-        } catch (RocksDBException e) {
-            throw new IOException("upsert ex: ", e);
-        }
-    }
-
-    @Override
-    public void remove(final @NotNull ByteBuffer key) throws IOException {
-        try {
-            rocksDBInstance.delete(getByteArrayFromByteBuffer(key));
+            final byte[] byteArray = Utils.bufToArray(key);
+            rocksDBInstance.delete(byteArray);
         } catch (RocksDBException e) {
             throw new IOException("remove exception:", e);
         }
+    }
+
+    /**
+     * resolves timestamp-featured reading data by key specified.
+     *
+     * @param key - key searched to read some value
+     */
+    @Override
+    public TimestampValue getTimestampValue(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
+        try {
+            final byte[] value = getValueFromBytes(key);
+            return TimestampValue.getTimestampValueFromBytes(value);
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * commits timestamp-featured record push or modification by key specified.
+     *
+     * @param key   - key either to add a record or to modify existing one
+     * @param value - key-bound value
+     */
+    @Override
+    public void upsertTimestampValue(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+        try {
+            rocksDBInstance.put(Utils.bufToArray(key),
+                    TimestampValue.getBytesFromTimestampValue(false, System.currentTimeMillis(), value));
+        } catch (RocksDBException e) {
+            log.error("error when putting a value in DB");
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * commits timestamp-featured record deletion by key specified.
+     *
+     * @param key - key searched to remove specific record
+     */
+    @Override
+    public void removeTimestampValue(@NotNull final ByteBuffer key) throws IOException {
+        try {
+            rocksDBInstance.put(Utils.bufToArray(key),
+                    TimestampValue.getBytesFromTimestampValue(true, System.currentTimeMillis(), ByteBuffer.allocate(0)));
+        } catch (RocksDBException e) {
+            log.error("error when deleting a value from DB");
+            throw new IOException(e);
+        }
+    }
+
+    /**
+     * implements processing for a value derived from ByteBuffer.
+     *
+     * @param key - key searched to remove specific record
+     * @return value readable from byte array
+     */
+    private byte[] getValueFromBytes(@NotNull final ByteBuffer key) throws RocksDBException {
+        final byte[] array = Utils.bufToArray(key);
+        final byte[] value = rocksDBInstance.get(array);
+        if (value == null) {
+            throw new NoSuchElementException("key doesn't found");
+        }
+        return value;
     }
 
     @Override

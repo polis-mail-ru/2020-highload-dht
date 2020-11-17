@@ -1,24 +1,9 @@
-/*
- * Copyright 2020 (c) Odnoklassniki
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.service.basta123.TimestampValue;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -68,6 +53,7 @@ public interface DAO extends Closeable {
     /**
      * Obtains {@link Record} corresponding to given key.
      *
+     * @param key - key searched to read some value
      * @throws NoSuchElementException if no such record
      */
     @NotNull
@@ -87,6 +73,9 @@ public interface DAO extends Closeable {
 
     /**
      * Inserts or updates value by given key.
+     *
+     * @param key - key either to add a record or to modify existing one
+     * @param value key-bound value
      */
     void upsert(
             @NotNull ByteBuffer key,
@@ -94,11 +83,35 @@ public interface DAO extends Closeable {
 
     /**
      * Removes value by given key.
+     *
+     * @param key - key searched to remove specific record
      */
     void remove(@NotNull ByteBuffer key) throws IOException;
 
     /**
-     * Perform compaction
+     * resolves timestamp-featured reading data by key specified.
+     *
+     * @param key - key searched to read some value
+     */
+    TimestampValue getTimestampValue(@NotNull ByteBuffer key) throws IOException, NoSuchElementException;
+
+    /**
+     * commits timestamp-featured record push or modification by key specified.
+     *
+     * @param key - key either to add a record or to modify existing one
+     * @param value - key-bound value
+     */
+    void upsertTimestampValue(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException;
+
+    /**
+     * commits timestamp-featured record deletion by key specified.
+     *
+     * @param key - key searched to remove specific record
+     */
+    void removeTimestampValue(@NotNull ByteBuffer key) throws IOException;
+
+    /**
+     * Performs compaction.
      */
     default void compact() throws IOException {
         // Implement me when you get to stage 3

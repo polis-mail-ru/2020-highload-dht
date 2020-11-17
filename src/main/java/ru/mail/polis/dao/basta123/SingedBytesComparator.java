@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.basta123;
+/*package ru.mail.polis.dao.basta123;
 
 import com.google.common.primitives.SignedBytes;
 import org.rocksdb.Comparator;
@@ -22,3 +22,4 @@ public class SingedBytesComparator extends Comparator {
     }
 
 }
+*/
