@@ -86,12 +86,13 @@ public class DaoService implements Closeable, EntitiesService {
     }
 
     @Override
-    public Iterator<Record> range(@NotNull ByteBuffer from, @NotNull ByteBuffer to) throws IOException {
+    public Iterator<Record> range(@NotNull final ByteBuffer from,
+                                  @NotNull final ByteBuffer to) throws IOException {
         return new RangeIterator<>(from(from), Record.of(to, ByteBuffer.allocate(0)));
     }
 
     @Override
-    public Iterator<Record> from(@NotNull ByteBuffer from) throws IOException {
+    public Iterator<Record> from(@NotNull final ByteBuffer from) throws IOException {
         return dao.iterator(from);
     }
 }

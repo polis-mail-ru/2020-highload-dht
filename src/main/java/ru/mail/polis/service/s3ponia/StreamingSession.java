@@ -24,10 +24,10 @@ public class StreamingSession extends HttpSession {
 
     private Iterator<StreamingValue> valueIterator;
 
-    public StreamingSession(Socket socket, HttpServer server) {
+    public StreamingSession(@NotNull final Socket socket,
+                            @NotNull final HttpServer server) {
         super(socket, server);
     }
-
 
     @Override
     protected void processWrite() throws Exception {
@@ -35,6 +35,12 @@ public class StreamingSession extends HttpSession {
         next();
     }
 
+    /**
+     * Starts streaming values from iterator.
+     *
+     * @param streamValues Streaming values
+     * @throws IOException rethrow from next
+     */
     public void stream(@NotNull final Iterator<StreamingValue> streamValues) throws IOException {
         this.valueIterator = streamValues;
         final Response response = new Response(Response.OK);

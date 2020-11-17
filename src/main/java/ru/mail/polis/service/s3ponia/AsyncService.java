@@ -7,7 +7,6 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
@@ -94,6 +93,7 @@ public final class AsyncService implements HttpEntityHandler {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
+
     /**
      * Asynchronous version of delete.
      * @param key Record's key

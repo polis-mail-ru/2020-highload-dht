@@ -63,6 +63,15 @@ public class HttpService extends HttpServer implements Service {
         httpEntityService.entity(id, replicas, request, session);
     }
 
+    /**
+     * Entities request handler. Creates stream of records in
+     *  format(key '\n' value) that contains in range [start; end).
+     *
+     * @param start start of range
+     * @param end end of range
+     * @param session session for streaming
+     * @throws IOException rethrow from {@link HttpSession#sendError} and {@link StreamingSession#stream}
+     */
     @Path("/v0/entities")
     public void entities(@Param(value = "start", required = true) final String start,
                          @Param(value = "end") final String end,
