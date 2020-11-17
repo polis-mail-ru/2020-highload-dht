@@ -14,7 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Iterator;
 
-import static java.util.Objects.*;
+import static java.util.Objects.isNull;
 
 public class StreamingSession extends HttpSession {
     private Iterator<Record> dataIterator;
@@ -26,6 +26,12 @@ public class StreamingSession extends HttpSession {
         super(socket, server);
     }
 
+    /**
+     * Set iterator, mark response for chunked transferring, and init next method.
+     *
+     * @param dataIterator record iterator.
+     * @throws IOException in case fault writeResponse.
+     */
     public void setDataIterator(final Iterator<Record> dataIterator) throws IOException {
         this.dataIterator = dataIterator;
         final var response = new Response(Response.OK);
@@ -73,8 +79,10 @@ public class StreamingSession extends HttpSession {
         final boolean keepAlive = handling.isHttp11()
                 ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
-        if(!keepAlive) scheduleClose();
-        if ((this.handling = handling = pipeline.pollFirst()) != null) {
+        if (!keepAlive) scheduleClose();
+        handling = pipeline.pollFirst();
+        this.handling = handling ;
+        if ( this.handling != null) {
             if (handling == FIN) {
                 scheduleClose();
             } else {

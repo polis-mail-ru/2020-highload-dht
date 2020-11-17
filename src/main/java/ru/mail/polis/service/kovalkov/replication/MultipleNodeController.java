@@ -11,7 +11,6 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.TimestampDataWrapper;
 import ru.mail.polis.service.kovalkov.sharding.Topology;
 
-import javax.swing.*;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -21,12 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-public class ReplicationController {
+public class MultipleNodeController {
     private static final int CREATED = 201;
     private static final int ACCEPTED = 202;
     private static final int INTERNAL_ERROR = 500;
     private static final int NOT_FOUND = 404;
-    private static final Logger log = LoggerFactory.getLogger(ReplicationController.class);
+    private static final Logger log = LoggerFactory.getLogger(MultipleNodeController.class);
     private static final String HEADER = "/v0/entity?id=";
     public static final String PROXY_HEADER = "X-OK-Proxy: True";
     private final DAO dao;
@@ -34,15 +33,31 @@ public class ReplicationController {
     private final Map<String, HttpClient> nodesClient;
     private final ReplicationFactor replicationFactor;
 
-    public ReplicationController(@NotNull final DAO dao, @NotNull final Topology<String> topology,
-                                 @NotNull final Map<String, HttpClient> nodesClient,
-                                 @NotNull final ReplicationFactor replicationFactor) {
+    /**
+     * constructor, use multiple node on one operation.
+     *
+     * @param dao dao implementation.
+     * @param topology cluster topology.
+     * @param nodesClient node clients.
+     * @param replicationFactor replication factor contain ask and for for replication.
+     */
+    public MultipleNodeController(@NotNull final DAO dao, @NotNull final Topology<String> topology,
+                                  @NotNull final Map<String, HttpClient> nodesClient,
+                                  @NotNull final ReplicationFactor replicationFactor) {
         this.dao = dao;
         this.topology = topology;
         this.nodesClient = nodesClient;
         this.replicationFactor = replicationFactor;
     }
 
+    /**
+     * replication implementation of get, using whole cluster
+     *
+     * @param id for get from DB.
+     * @param replFactor contains info about ack and from
+     * @param isForwarded forwarded flag.
+     * @return response form multiple node
+     */
     public Response replGet(final String id, @NotNull final ReplicationFactor replFactor,
                             final boolean isForwarded) throws IOException {
         int replicas = 0;
@@ -94,8 +109,10 @@ public class ReplicationController {
     private Response choseRelevant(@NotNull final List<TimestampDataWrapper> tdws, @NotNull final String[] nodes,
                                           final boolean isForwarded) throws IOException {
         final TimestampDataWrapper relevantTs = TimestampDataWrapper.getRelevantTs(tdws);
-        return relevantTs.isDelete() ? new Response(Response.NOT_FOUND, relevantTs.toBytesFromValue()) :
-                isForwarded && nodes.length == 1 ? new Response(Response.OK, relevantTs.toBytesFromValue())
+        if (relevantTs.isDelete()) {
+            return new Response(Response.NOT_FOUND, relevantTs.toBytesFromValue());
+        }
+        return isForwarded && nodes.length == 1 ? new Response(Response.OK, relevantTs.toBytesFromValue())
                         : new Response(Response.OK, relevantTs.getTSBytes());
     }
 
@@ -104,6 +121,15 @@ public class ReplicationController {
         return ByteBuffer.wrap(id.getBytes(Charset.defaultCharset()));
     }
 
+    /**
+     * replication implementation of put, using whole cluster
+     *
+     * @param id for put to DB.
+     * @param isForwarded forwarded flag.
+     * @param value for put to DB.
+     * @param a ack param.
+     * @return response form multiple node.
+     */
     public Response replPut(@NotNull final String id,
                             final boolean isForwarded, @NotNull final byte[] value, final int a) {
         if (isForwarded) {
@@ -136,6 +162,14 @@ public class ReplicationController {
                 new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
+    /**
+     * replication implementation of get, using whole cluster
+     *
+     * @param id who must delete.
+     * @param isForwarded forwarded flag.
+     * @param a ack param
+     * @return response form multiple node about delete status
+     */
     public Response replDelete(@NotNull final String id, final boolean isForwarded, final int a) {
         if (isForwarded) {
             try {

@@ -110,16 +110,16 @@ public final class DAOImpl implements DAO {
             final byte[] bytesValue = TimestampDataWrapper.getDeletedOne(System.currentTimeMillis()).toBytesFromValue();
             db.put(byteKey, bytesValue);
         } catch (final RocksDBException e) {
-            rockDBExceptionHandler("Remove error: ", e);
+            rockDBExceptionHandler("Remove error with timestamp: ", e);
         }
     }
 
     @Override
     public void upsertWithTime(@NotNull final ByteBuffer key, @NotNull final ByteBuffer values) throws IOException {
         try {
-            final byte[] byteKey = BufferConverter.convertBytes(key);
-            final byte[] bytesValue = TimestampDataWrapper.getOne(values, System.currentTimeMillis()).toBytesFromValue();
-            db.put(byteKey, bytesValue);
+            final var bKey = BufferConverter.convertBytes(key);
+            final var bVal = TimestampDataWrapper.getOne(values, System.currentTimeMillis()).toBytesFromValue();
+            db.put(bKey, bVal);
         } catch (final RocksDBException e) {
             rockDBExceptionHandler("Rocks upsert error: ", e);
         }

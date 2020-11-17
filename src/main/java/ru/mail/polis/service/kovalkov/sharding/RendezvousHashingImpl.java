@@ -6,7 +6,8 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.kovalkov.Topology;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Set;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
@@ -46,7 +47,7 @@ public class RendezvousHashingImpl implements Topology<String> {
         String owner = null;
         for (int i = 0; i < allNodes.length; i++) {
             currentHash = nodeHashes[i] + murmur3_32().newHasher().putBytes(key).hash().hashCode();
-            if (currentHash < min){
+            if (currentHash < min) {
                 min = currentHash;
                 owner = allNodes[i];
             }

@@ -8,7 +8,7 @@ import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-public final class RecordIterator implements Iterator<Record>, AutoCloseable{
+public final class RecordIterator implements Iterator<Record>, AutoCloseable {
 
     private final RocksIterator rocksIterator;
 

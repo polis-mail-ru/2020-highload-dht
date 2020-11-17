@@ -42,7 +42,6 @@ public class ModHashingImpl implements Topology<String> {
         return rep;
     }
 
-
     @Override
     public int nodeCount() {
         return allNodes.length;

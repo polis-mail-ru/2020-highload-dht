@@ -19,21 +19,18 @@ import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.service.kovalkov.ranges.StreamingSession;
-import ru.mail.polis.service.kovalkov.replication.ReplicationController;
+import ru.mail.polis.service.kovalkov.replication.MultipleNodeController;
 import ru.mail.polis.service.kovalkov.replication.ReplicationFactor;
+import ru.mail.polis.service.kovalkov.replication.SingleNodeController;
 import ru.mail.polis.service.kovalkov.sharding.Topology;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -41,7 +38,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.*;
+import static java.util.Objects.isNull;
 import static one.nio.http.Request.METHOD_DELETE;
 import static one.nio.http.Request.METHOD_GET;
 import static one.nio.http.Request.METHOD_PUT;
@@ -55,7 +52,8 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private final ExecutorService service;
     private final DAO dao;
     private final ReplicationFactor replFactor;
-    private final ReplicationController controller;
+    private final MultipleNodeController controller;
+    private final SingleNodeController singleNodeController;
 
     /**
      * Constructor.
@@ -82,12 +80,13 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 continue;
             }
             final HttpClient client = new HttpClient(new ConnectionString(n + TIMEOUT));
-            if (this.nodesClient.put(n, client) != null){
+            if (this.nodesClient.put(n, client) != null) {
                 throw new IllegalStateException("Same ID in the several nodes");
             }
         }
         this.replFactor = new ReplicationFactor(topology.nodeCount() / 2 + 1, topology.nodeCount());
-        this.controller = new ReplicationController(dao, topology, nodesClient, this.replFactor);
+        this.controller = new MultipleNodeController(dao, topology, nodesClient, this.replFactor);
+        this.singleNodeController = new SingleNodeController(this.dao, this.service);
     }
 
     /**
@@ -166,7 +165,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             session.sendError(Response.BAD_REQUEST, "Id is empty. Error handling request");
             return;
         }
-        final boolean isForwarded = request.getHeader(ReplicationController.PROXY_HEADER) != null;
+        final boolean isForwarded = request.getHeader(MultipleNodeController.PROXY_HEADER) != null;
         final ReplicationFactor replicationFactor = ReplicationFactor
                 .getReplicationFactor(request.getParameter("replicas"), replFactor, session);
         if (topology.nodeCount() > 1) {
@@ -176,16 +175,23 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         }
     }
 
+    /**
+     * use for get ranges of key and value using chunked encoding protocol.
+     *
+     * @param request request form client.
+     * @param session session with client and this concrete node.
+     * @throws IOException when send error or set data will be fault
+     */
     @Path("/v0/entities")
     @RequestMethod(METHOD_GET)
-    public void entities(@NotNull final  Request request, @NotNull final HttpSession session) throws IOException {
+    public void entities(@NotNull final Request request, @NotNull final HttpSession session) throws IOException {
         final var start = request.getParameter("start=");
         if (isNull(start) || start.isEmpty()) {
             session.sendError(Response.BAD_REQUEST, "Start is empty");
         } else {
             final var end = request.getParameter("end=");
-            final var recordIterator = dao.range(ReplicationController.wrapWithCharset(start),
-                    isNull(end) ? null :ReplicationController.wrapWithCharset(end));
+            final var recordIterator = dao.range(MultipleNodeController.wrapWithCharset(start),
+                    isNull(end) ? null : MultipleNodeController.wrapWithCharset(end));
             ((StreamingSession) session).setDataIterator(recordIterator);
         }
     }
@@ -204,13 +210,13 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         if (topology.isMe(ownerNode)) {
             switch (request.getMethod()) {
                 case METHOD_GET:
-                    asyncGet(key, session);
+                    singleNodeController.asyncGet(key, session);
                     break;
                 case METHOD_PUT:
-                    asyncPut(key, request, session);
+                    singleNodeController.asyncPut(key, request, session);
                     break;
                 case METHOD_DELETE:
-                    asyncDelete(key, session);
+                    singleNodeController.asyncDelete(key, session);
                     break;
                 default:
                     session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
@@ -249,7 +255,8 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                     case METHOD_DELETE:
                         service.execute(() -> {
                             try {
-                                session.sendResponse(controller.replDelete(id, isForwarded, replicationFactor.getAck()));
+                                session.sendResponse(controller.replDelete
+                                        (id, isForwarded, replicationFactor.getAck()));
                             } catch (IOException e) {
                                 exceptionIOHandler(session, "IO exception in repl delete", e);
                             }
@@ -265,7 +272,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             }
     }
 
-    private void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
+    public static void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
         log.error(message, e);
         try {
             session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
@@ -273,75 +280,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             log.error(IO_EX, ex);
         }
     }
-
-    private void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
-        try {
-            service.execute(() -> {
-                getInternal(id, session);
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("Rejected single get", e);
-            try {
-                session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
-            } catch (IOException e1) {
-                log.error("IO exception when send 503 response: ", e1);
-            }
-        }
-    }
-
-    private void getInternal(@NotNull final ByteBuffer key,
-                             @NotNull final HttpSession session) {
-        try {
-            final ByteBuffer value = dao.get(key);
-            final byte[] bytes = BufferConverter.unfoldToBytes(value);
-            session.sendResponse(Response.ok(bytes));
-        } catch (IOException e) {
-            exceptionIOHandler(session, "Method get. IO exception. ", e);
-        } catch (NoSuchElementException e) {
-            log.info("Method get. Can't find value by this key ", e);
-            try {
-                session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-            } catch (IOException ioException) {
-                log.error("Method get. Id is empty. Can't send response:", e);
-            }
-        }
-    }
-
-    private void asyncPut(@NotNull final ByteBuffer id,
-                          @NotNull final Request request, @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
-                putInternal(id, request, session);
-            } catch (IOException e) {
-                exceptionIOHandler(session, "IO exception. Put ", e);
-            }
-        });
-    }
-
-    private void putInternal(@NotNull final ByteBuffer key,
-                             @NotNull final Request request,
-                             @NotNull final HttpSession session) throws IOException {
-        final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-        dao.upsert(key, value);
-        session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-    }
-
-    private void asyncDelete(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
-        service.execute(() -> {
-            try {
-                deleteInternal(id, session);
-            } catch (IOException e) {
-                exceptionIOHandler(session, "Method delete. IO exception. ", e);
-            }
-        });
-    }
-
-    private void deleteInternal(@NotNull final ByteBuffer key,
-                                @NotNull final HttpSession session) throws IOException {
-        dao.remove(key);
-        session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-    }
-
 
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {

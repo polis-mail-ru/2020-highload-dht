@@ -17,19 +17,25 @@ public class ReplicationFactor {
     private final int ack;
     private final int from;
 
-
     public ReplicationFactor(final int ack, final int from) {
         this.ack = ack;
         this.from = from;
     }
 
+    /**
+     * Get replication factor. He pars response by ask and wrap one.
+     *
+     * @param val request from client.
+     * @param replicationFactor replication factor instance. If not exist return new.
+     * @param session http session
+     * @return new instance if does not exist
+     * @throws IOException cause send error will be fault
+     */
     @NotNull
     public static ReplicationFactor getReplicationFactor(@Nullable final String val,
                                                          @NotNull final ReplicationFactor replicationFactor,
                                                          @NotNull final HttpSession session) throws IOException {
-        if(!Objects.nonNull(val)){
-            return replicationFactor;
-        } else {
+        if (Objects.nonNull(val)) {
             final List<String> ackFromList = Arrays.asList(val.replace("=", "").split("/"));
             final int ack = Integer.parseInt(ackFromList.get(0));
             final int from = Integer.parseInt(ackFromList.get(1));
@@ -39,6 +45,8 @@ public class ReplicationFactor {
                 session.sendError(Response.BAD_REQUEST, msg);
             }
             return new ReplicationFactor(ack,from);
+        } else {
+            return replicationFactor;
         }
     }
 
