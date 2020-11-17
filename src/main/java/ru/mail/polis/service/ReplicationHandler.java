@@ -62,18 +62,6 @@ class ReplicationHandler {
         this.replicationFactor = replicationFactor;
     }
 
-    void range(final String startId, final String endId, final HttpSession session) throws IOException {
-        if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
-            throw new IllegalArgumentException();
-        }
-
-        final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
-        final ByteBuffer end = (endId == null) ? null
-                : ByteBuffer.wrap(endId.getBytes(UTF_8));
-        final Iterator<Record> iterator = dao.range(start, end);
-        ((StreamSession) session).setIterator(iterator);
-    }
-
     Response singleGet(@NotNull final ByteBuffer key, @NotNull final Request req) {
         final String owner = topology.primaryFor(key);
         ByteBuffer buf;

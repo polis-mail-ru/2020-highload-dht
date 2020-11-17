@@ -16,18 +16,21 @@ import one.nio.server.RejectedSessionException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
@@ -51,6 +54,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private final Map<String, HttpClient> nodesToClients;
     private final ReplicationFactor rf;
     private final ReplicationHandler handler;
+    private final DAO dao;
 
     ReplicationServiceImpl(
             final int port,
@@ -70,6 +74,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
+        this.dao = dao;
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
         this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
@@ -114,7 +119,15 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                          @Param(value = "end") final String endId,
                          final HttpSession session) {
         try {
-            handler.range(startId, endId, session);
+            if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
+                throw new IllegalArgumentException();
+            }
+
+            final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
+            final ByteBuffer end = (endId == null) ? null
+                    : ByteBuffer.wrap(endId.getBytes(UTF_8));
+            final Iterator<Record> iterator = dao.range(start, end);
+            ((StreamSession) session).setIterator(iterator);
         } catch (IOException ex) {
             trySendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY), session);
         } catch (IllegalArgumentException ex) {
