@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class ServiceSession extends HttpSession {
-    public static final byte[] CRLR = "\r\n".getBytes(StandardCharsets.US_ASCII);
+    public static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] END = "0\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
 
     private Iterator<Record> iterator;
@@ -56,13 +56,13 @@ public class ServiceSession extends HttpSession {
         outputStream.write(dataValue);
         final byte[] data = outputStream.toByteArray();
         final byte[] length = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-        final byte[] chunk = new byte[length.length + CRLR.length + data.length + CRLR.length];
-        final ByteBuffer buffer = ByteBuffer.wrap(chunk);
-        buffer.put(length);
-        buffer.put(CRLR);
-        buffer.put(data);
-        buffer.put(CRLR);
-        return chunk;
+        return Util.fromByteBufferToByteArray(
+                ByteBuffer.allocate(length.length + CRLF.length + data.length + CRLF.length)
+                .put(length)
+                .put(CRLF)
+                .put(data)
+                .put(CRLF)
+                .position(0));
     }
 
     private void nextWrite() throws IOException {

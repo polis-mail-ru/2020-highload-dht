@@ -143,17 +143,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                        @Param(value = "end") final String end,
                        final HttpSession session) throws IOException {
         if (start.isEmpty()) {
-            basicFuctions.trySendResponse(session, CompletableFuture.supplyAsync(() ->
-                    new Response(Response.BAD_REQUEST, Response.EMPTY)));
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-        final ByteBuffer count;
+        final ByteBuffer bound;
         if (end == null) {
-            count = null;
+            bound = null;
         } else {
-            count = ByteBuffer.wrap(end.getBytes(UTF_8));
+            bound = ByteBuffer.wrap(end.getBytes(UTF_8));
         }
-        final Iterator<Record> iter = db.range(ByteBuffer.wrap(start.getBytes(UTF_8)), count);
+        final Iterator<Record> iter = db.range(ByteBuffer.wrap(start.getBytes(UTF_8)), bound);
         ((ServiceSession) session).setIterator(iter);
     }
 
