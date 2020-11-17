@@ -5,8 +5,8 @@ import one.nio.server.AcceptorConfig;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
-
 import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +16,23 @@ public final class Utils {
     private static final Logger LOGGER = LoggerFactory.getLogger(AckFrom.class);
 
     private Utils() {
+    }
+
+    /**
+     * selects one from all nodes depending on the timestamp.
+     *
+     * @param valuesFromNodes - List of values.
+     * @return valuesFromNodes instance.
+     */
+    public static TimestampValue valuesSync(final List<TimestampValue> valuesFromNodes) {
+        if (valuesFromNodes.size() == 1) {
+            return valuesFromNodes.get(0);
+        } else {
+            return valuesFromNodes.stream()
+                    .filter(timestampValue -> !timestampValue.valueExists())
+                    .max(Comparator.comparingLong(TimestampValue::getTimeStamp))
+                    .orElseGet(TimestampValue::getTimestampValue);
+        }
     }
 
     public static ByteBuffer getByteBufferFromByteArray(final byte[] bytes) {

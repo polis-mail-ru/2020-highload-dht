@@ -49,6 +49,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     private final DAO dao;
     boolean requestForward;
     AckFrom ackFromNew;
+    int nodesSize = 0;
 
     /**
      * class const.
@@ -115,6 +116,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         } else {
             requestForward = true;
         }
+        nodesSize = topology.getSize();
         final String replicas = request.getParameter(REPLICAS);
         try {
             if (replicas == null) {
@@ -144,7 +146,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             return;
         }
         exec(request, httpSession);
-        if (topology.getSize() > 1) {
+        if (nodesSize > 1) {
             final AckFrom finalAckFrom = ackFromNew;
             executeAsync(httpSession, () -> helper.getFromReplicas(
                     id,
@@ -172,7 +174,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             return;
         }
         exec(request, httpSession);
-        if (topology.getSize() > 1) {
+        if (nodesSize > 1) {
             final AckFrom finalAckFrom = ackFromNew;
             executeAsync(httpSession, () -> helper.upsertToReplicas(
                     id,
@@ -200,12 +202,12 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             return;
         }
         exec(request, httpSession);
-        if (topology.getSize() > 1) {
+        if (nodesSize > 1) {
             final AckFrom finalAckFrom = ackFromNew;
             executeAsync(httpSession, () -> helper.deleteFromReplicas(
                     id,
-                    finalAckFrom,
-                    requestForward));
+                    requestForward,
+                    finalAckFrom));
         } else {
             executeAsync(httpSession, () -> helper.delete(id, request));
         }

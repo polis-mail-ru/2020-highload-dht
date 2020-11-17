@@ -50,8 +50,8 @@ public class HelperReplicHttpServerImpl {
 
     Response getTimestampValue(final String id) throws IOException {
         try {
-            final TimestampValue timestampValue = dao.getTimestampValue(ByteBuffer.wrap
-                    (id.getBytes(StandardCharsets.UTF_8)));
+            final TimestampValue timestampValue = dao.getTimestampValue(
+                    ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
             return new Response(Response.OK,
                     TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
                             timestampValue.getTimeStamp(), timestampValue.getBuffer()));
@@ -81,7 +81,7 @@ public class HelperReplicHttpServerImpl {
             try {
                 Response response;
                 if (topology.isLocal(node)) {
-                        response = getTimestampValue(id);
+                    response = getTimestampValue(id);
                 } else {
                     response = clientAndNode.get(node)
                             .get(REQUEST_HEADER + id, ReplicHttpServerImpl.FORWARD_REQ);
@@ -101,10 +101,9 @@ public class HelperReplicHttpServerImpl {
         return checkAcks(ackFrom, ack, TimestampValues);
     }
 
-    private Response checkAcks(@NotNull final AckFrom ackFrom, int ack, List<TimestampValue> TimestampValues)
-    {
+    private Response checkAcks(@NotNull final AckFrom ackFrom, final int ack, final List<TimestampValue> TimestampValues) {
         if (ack >= ackFrom.getAckValue()) {
-            final TimestampValue timestampValue = valuesSync(TimestampValues);
+            final TimestampValue timestampValue = Utils.valuesSync(TimestampValues);
             if (timestampValue.isValueDeleted()) {
                 return new Response(Response.NOT_FOUND,
                         TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
@@ -144,10 +143,7 @@ public class HelperReplicHttpServerImpl {
         }
     }
 
-    Response upsertToReplicas(
-            final String id,
-            final byte[] value,
-            final AckFrom ackFrom,
+    Response upsertToReplicas(final String id, final byte[] value, final AckFrom ackFrom,
             final boolean requestForward) throws IOException {
         if (requestForward) {
             try {
@@ -186,8 +182,7 @@ public class HelperReplicHttpServerImpl {
         }
     }
 
-    Response put(@NotNull final String id,
-                 @NotNull final Request request) throws IOException {
+    Response put(@NotNull final String id, @NotNull final Request request) throws IOException {
 
         final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final byte[] valueByte = request.getBody();
@@ -208,8 +203,8 @@ public class HelperReplicHttpServerImpl {
 
     Response deleteFromReplicas(
             final String id,
-            final AckFrom ackFrom,
-            final boolean requestForward) throws IOException {
+            final boolean requestForward,
+            final AckFrom ackFrom) throws IOException {
         if (requestForward) {
             try {
                 dao.removeTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
@@ -285,23 +280,6 @@ public class HelperReplicHttpServerImpl {
             httpSession.sendResponse(new Response(resultCode, Response.EMPTY));
         } catch (IOException e) {
             LOGGER.error(CANT_SEND_RESPONSE, e);
-        }
-    }
-
-    /**
-     * selects one from all nodes depending on the timestamp.
-     *
-     * @param valuesFromNodes - List of values.
-     * @return valuesFromNodes instance.
-     */
-    public static TimestampValue valuesSync(final List<TimestampValue> valuesFromNodes) {
-        if (valuesFromNodes.size() == 1) {
-            return valuesFromNodes.get(0);
-        } else {
-            return valuesFromNodes.stream()
-                    .filter(timestampValue -> !timestampValue.valueExists())
-                    .max(Comparator.comparingLong(TimestampValue::getTimeStamp))
-                    .orElseGet(TimestampValue::getTimestampValue);
         }
     }
 }
