@@ -85,13 +85,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             logger.error(SERV_UN, e);
             return;
         }
-        var encoder = new ChunkedEncoder();
-        while (iterator.hasNext()) {
-            encoder.add(iterator.next());
-            // encoder.write(session, iterator.next());
+        try {
+            var encoder = new ChunkedEncoder(session);
+            while (iterator.hasNext()) {
+                // encoder.add(iterator.next());
+                encoder.write(iterator.next());
+            }
+            encoder.close();
+            // final var resp = Response.ok(encoder.getBytes());
+        } catch (IOException ex) {
+            logger.error(SERV_UN, ex);
         }
-        // session.close();
-        trySendResponse(session, Response.ok(encoder.getBytes()));
     }
 
     /** Get/set/delete key-value entity.
