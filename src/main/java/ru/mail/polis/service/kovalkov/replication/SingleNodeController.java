@@ -28,10 +28,10 @@ public class SingleNodeController {
     }
 
     /**
-     * Async get with for one node
+     * Async get with for one node.
      *
-     * @param id requested id
-     * @param session http user session
+     * @param id requested id.
+     * @param session http user session.
      */
     public void asyncGet(@NotNull final ByteBuffer id, @NotNull final HttpSession session) {
         try {

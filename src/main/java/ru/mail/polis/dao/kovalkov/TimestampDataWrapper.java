@@ -68,9 +68,9 @@ public final class TimestampDataWrapper {
     }
 
     /**
-     * Get byte from value and add some data about value
+     * Get byte from value and add some data about value.
      *
-     * @return byte arr include delete status, timestamp and value
+     * @return byte arr include delete status, timestamp and value.
      */
     @NotNull
     public byte[] toBytesFromValue() {

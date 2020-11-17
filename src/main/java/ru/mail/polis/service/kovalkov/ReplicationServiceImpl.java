@@ -255,11 +255,11 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Handling exception from session
+     * Handling exception from session.
      *
-     * @param session current http session
-     * @param message indicate place which exception cause
-     * @param e exception
+     * @param session current http session.
+     * @param message indicate place which exception cause.
+     * @param e it exception who will be printed as a stacktrace.
      */
     public static void exceptionIOHandler(final HttpSession session, final String message, final Exception e) {
         log.error(message, e);
