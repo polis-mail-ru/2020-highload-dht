@@ -194,7 +194,8 @@ public class ServiceImpl extends HttpServer implements Service {
                     new ChunkIterator(daoHelper.getRange(start, end))
             );
         } catch (IOException e) {
-
+            log.error("Can't get range from dao", e);
+            httpHelper.sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
