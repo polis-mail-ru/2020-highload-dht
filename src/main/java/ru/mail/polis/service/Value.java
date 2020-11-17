@@ -31,7 +31,7 @@ public final class Value {
      * @param values - values list
      * @return - synchronized value
      */
-    static Value syncValues(final List<Value> values) {
+    static Value mergeValues(final List<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))

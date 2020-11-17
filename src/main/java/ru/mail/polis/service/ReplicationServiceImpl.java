@@ -28,7 +28,6 @@ import static ru.mail.polis.service.ServiceImpl.getConfig;
 public class ReplicationServiceImpl extends HttpServer implements Service {
 
     private static final Logger log = LoggerFactory.getLogger(ReplicationServiceImpl.class);
-    private static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
     private static final int CONNECTION_TIMEOUT = 1;
 
     private enum ErrorNames {
@@ -104,9 +103,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
-
-        handler.handle(isForwardedRequest, req, session, id, replicas);
+        handler.handle(req, session, id, replicas);
     }
 
     /**

@@ -28,9 +28,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
-import static ru.mail.polis.service.Value.syncValues;
+import static ru.mail.polis.service.Value.mergeValues;
 
 class ReplicationHandler {
+    private static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
     private final ExecutorService exec;
     private final DAO dao;
@@ -165,7 +166,7 @@ class ReplicationHandler {
     }
 
     void handle(
-            final boolean isForwardedRequest, @NotNull final Request req, @NotNull final HttpSession session,
+            @NotNull final Request req, @NotNull final HttpSession session,
             final String id, final String replicas
     ) throws IOException {
         final ReplicationFactor replicationFactor;
@@ -177,6 +178,8 @@ class ReplicationHandler {
             session.sendError(Response.BAD_REQUEST, ex.getMessage());
             return;
         }
+
+        final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
         final ByteBuffer key = Util.toByteBuffer(id);
         final Set<String> nodes;
@@ -258,7 +261,7 @@ class ReplicationHandler {
                 values.add(future.get());
                 atomicInteger.incrementAndGet();
                 if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
-                    return Value.toResponse(syncValues(values));
+                    return Value.toResponse(mergeValues(values));
                 }
             } catch (ExecutionException | InterruptedException ex) {
                 log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), ex);
