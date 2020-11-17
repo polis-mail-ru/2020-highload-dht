@@ -87,10 +87,10 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formChunkWithData(final byte[] key, final byte[] value) {
-        final byte[] lf = LF.getBytes(UTF_8);
-        final int bufferSize = key.length + lf.length + value.length;
+        final byte[] lfBytes = LF.getBytes(UTF_8);
+        final int bufferSize = key.length + lfBytes.length + value.length;
         final ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-        buffer.put(key).put(lf).put(value).position(0);
+        buffer.put(key).put(lfBytes).put(value).position(0);
         return formChunk(Util.toByteArray(buffer));
     }
 
