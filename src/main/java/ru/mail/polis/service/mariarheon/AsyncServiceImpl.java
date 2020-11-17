@@ -68,6 +68,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 );
     }
 
+    /**
+     * Get records for keys in range [start; end).
+     *
+     * @param start - start-key of range, inclusively.
+     * @param end - end-key of range, exclusively, or null if all
+     *            the records should be delivered, started from start-key.
+     * @param session - session
+     */
     @Path("/v0/entities")
     @RequestMethod(METHOD_GET)
     public void handleRangeRequest(final @Param(value = "start", required = true) String start,
@@ -88,11 +96,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             var encoder = new ChunkedEncoder(session);
             while (iterator.hasNext()) {
-                // encoder.add(iterator.next());
                 encoder.write(iterator.next());
             }
             encoder.close();
-            // final var resp = Response.ok(encoder.getBytes());
         } catch (IOException ex) {
             logger.error(SERV_UN, ex);
         }
