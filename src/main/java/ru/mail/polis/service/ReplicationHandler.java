@@ -25,7 +25,7 @@ import static java.util.Map.entry;
 
 class ReplicationHandler {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
     private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
     private static final String PROXY_HEADER = "X-Proxy-For: ";
     private final DAO dao;
@@ -64,13 +64,13 @@ class ReplicationHandler {
                 buf = dao.get(key);
                 return new Response(Response.ok(Util.toByteArray(buf)));
             } catch (NoSuchElementException exc) {
-                LOGGER.info(MESSAGE_MAP.get(ErrorNames.NOT_FOUND_ERROR));
+                log.info(MESSAGE_MAP.get(ErrorNames.NOT_FOUND_ERROR));
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             } catch (RejectedExecutionException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
                 return new Response(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -108,13 +108,13 @@ class ReplicationHandler {
                 }
                 replCounter++;
             } catch (HttpException | PoolException | InterruptedException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }
         }
         if (isForwardedRequest || replCounter >= repliFactor.getAck()) {
             return ReplicationServiceUtils.handleExternal(values, nodes, isForwardedRequest);
         } else {
-            LOGGER.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
+            log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
     }
@@ -130,10 +130,10 @@ class ReplicationHandler {
                 dao.upsert(key, val);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (RejectedExecutionException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
                 return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -170,13 +170,13 @@ class ReplicationHandler {
                     }
                 }
             } catch (IOException | PoolException | InterruptedException | HttpException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }
         }
         if (ack >= ackValue) {
             return new Response(Response.CREATED, Response.EMPTY);
         } else {
-            LOGGER.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
+            log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
     }
@@ -192,10 +192,10 @@ class ReplicationHandler {
                 dao.remove(key);
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             } catch (RejectedExecutionException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.QUEUE_LIMIT_ERROR));
                 return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -237,10 +237,10 @@ class ReplicationHandler {
                     return new Response(Response.ACCEPTED, Response.EMPTY);
                 }
             } catch (IOException | PoolException | HttpException | InterruptedException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), exc);
             }
         }
-        LOGGER.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
+        log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
         return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
@@ -249,7 +249,7 @@ class ReplicationHandler {
             req.addHeader(PROXY_HEADER + nodeId);
             return nodesToClients.get(nodeId).invoke(req);
         } catch (IOException | InterruptedException | HttpException | PoolException exc) {
-            LOGGER.error(MESSAGE_MAP.get(ErrorNames.PROXY_ERROR), exc);
+            log.error(MESSAGE_MAP.get(ErrorNames.PROXY_ERROR), exc);
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }

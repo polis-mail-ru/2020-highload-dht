@@ -34,7 +34,7 @@ import static java.util.Map.entry;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ReplicationServiceImpl.class);
     static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     static final String GATEWAY_TIMEOUT_ERROR_LOG = "Your request failed due to timeout";
     private static final int CONNECTION_TIMEOUT = 1000;
@@ -69,7 +69,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
+                        .setUncaughtExceptionHandler((t, e) -> log.error("Worker {} fails running: {}", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
@@ -103,20 +103,23 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession(final Socket socket) throws RejectedSessionException {
+    public HttpSession createSession(final Socket socket) {
         return new StreamSession(socket, this);
     }
 
     /**
      * Handles range requests from "start" to "end".
+     *
      * @param startId - search from
-     * @param endId - search to
+     * @param endId   - search to
      * @param session - session
      */
     @Path("/v0/entities")
-    public void entities(@Param(value = "start", required = true) final String startId,
-                         @Param(value = "end") final String endId,
-                         final HttpSession session) {
+    public void entities(
+            @Param(value = "start", required = true) final String startId,
+            @Param(value = "end") final String endId,
+            final HttpSession session
+    ) {
         try {
             if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
                 throw new IllegalArgumentException();
@@ -138,7 +141,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
-            LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), e);
+            log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), e);
         }
     }
 
@@ -254,7 +257,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             try {
                 session.sendResponse(runner.execute());
             } catch (IOException exc) {
-                LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
+                log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR));
             }
         });
     }
@@ -266,7 +269,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         try {
             exec.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            LOGGER.error("Couldn't terminate executor");
+            log.error("Couldn't terminate executor");
             Thread.currentThread().interrupt();
         }
         for (final HttpClient client : nodesToClients.values()) {

@@ -27,7 +27,7 @@ public class DaoEngine implements DAO {
 
     File dbLocalDir;
     private RocksDB db;
-    private static final Logger LOGGER = Logger.getLogger(DaoEngine.class.getName());
+    private static final Logger log = Logger.getLogger(DaoEngine.class.getName());
 
     /**
      * Database implementation based on RocksDB.
@@ -53,7 +53,7 @@ public class DaoEngine implements DAO {
             Files.createDirectories(dbLocalDir.getAbsoluteFile().toPath());
             db = RocksDB.open(options, dbLocalDir.getAbsolutePath());
         } catch (IOException | RocksDBException exc) {
-            LOGGER.log(Level.SEVERE, "Storage initialization failed", exc);
+            log.log(Level.SEVERE, "Storage initialization failed", exc);
         }
     }
 

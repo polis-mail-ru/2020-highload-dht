@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 
 public final class Value {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Value.class);
+    private static final Logger log = LoggerFactory.getLogger(Value.class);
 
     private final boolean isValueDeleted;
     private final long timestamp;
@@ -51,7 +51,7 @@ public final class Value {
 
     private ByteBuffer getValue() throws IOException {
         if (isValueDeleted) {
-            LOGGER.info("Record was removed");
+            log.info("Record was removed");
             throw new IOException();
         } else {
             return buffer;
