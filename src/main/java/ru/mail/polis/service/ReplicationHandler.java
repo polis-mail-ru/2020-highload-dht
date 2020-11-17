@@ -2,12 +2,14 @@ package ru.mail.polis.service;
 
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
+import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.util.Util;
 
@@ -16,11 +18,13 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.RejectedExecutionException;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
 import static ru.mail.polis.service.ReplicationServiceUtils.getNodeReplica;
 import static ru.mail.polis.service.ReplicationServiceUtils.handleExternal;
@@ -57,6 +61,18 @@ class ReplicationHandler {
         this.topology = topology;
         this.nodesToClients = nodesToClients;
         this.replicationFactor = replicationFactor;
+    }
+
+    void range(final String startId, final String endId, final HttpSession session) throws IOException {
+        if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
+            throw new IllegalArgumentException();
+        }
+
+        final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
+        final ByteBuffer end = (endId == null) ? null
+                : ByteBuffer.wrap(endId.getBytes(UTF_8));
+        final Iterator<Record> iterator = dao.range(start, end);
+        ((StreamSession) session).setIterator(iterator);
     }
 
     Response singleGet(@NotNull final ByteBuffer key, @NotNull final Request req) {

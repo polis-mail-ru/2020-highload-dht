@@ -40,7 +40,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     static final String GATEWAY_TIMEOUT_ERROR_LOG = "Your request failed due to timeout";
     private static final int CONNECTION_TIMEOUT = 1000;
-    private final DAO dao;
 
     private enum ErrorNames {
         IO_ERROR, NOT_ALLOWED_METHOD_ERROR
@@ -77,7 +76,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         );
         this.topology = topology;
         this.nodesToClients = new HashMap<>();
-        this.dao = dao;
         this.rf = new ReplicationFactor(topology.getSize() / 2 + 1, topology.getSize());
         this.handler = new ReplicationHandler(dao, topology, nodesToClients, rf);
 
@@ -110,34 +108,25 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     }
 
     @Path("/v0/entities")
-    public void entities(@Param(value = "start", required = true) final String idStart,
-                         @Param(value = "end") final String idEnd,
+    public void entities(@Param(value = "start", required = true) final String startId,
+                         @Param(value = "end") final String endId,
                          final HttpSession session) {
         try {
-            if (idStart.isEmpty() || ((idEnd != null) && idEnd.isEmpty())) {
-                throw new IllegalArgumentException();
-            }
-
-            final ByteBuffer start = ByteBuffer.wrap(idStart.getBytes(UTF_8));
-            final ByteBuffer end = (idEnd == null) ? null
-                    : ByteBuffer.wrap(idEnd.getBytes(UTF_8));
-            final Iterator<Record> iterator = dao.range(start, end);
-            ((StreamSession) session).setIterator(iterator);
+            handler.range(startId, endId, session);
         } catch (IOException ex) {
-            try {
-                session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            } catch (IOException e) {
-                // e.printStackTrace();
-            }
+            trySendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY), session);
         } catch (IllegalArgumentException ex) {
-            try {
-                session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            } catch (IOException e) {
-                // e.printStackTrace();
-            }
+            trySendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY), session);
         }
     }
 
+    private void trySendResponse(final Response response, final HttpSession session) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            LOGGER.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), e);
+        }
+    }
 
     /**
      * resolves request handling by HTTP REST methods, provides any client with response (incl. server outcome code).
