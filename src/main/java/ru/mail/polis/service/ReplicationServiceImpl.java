@@ -39,14 +39,15 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private static final int CONNECTION_TIMEOUT = 1000;
 
     private enum ErrorNames {
-        IO_ERROR, NOT_ALLOWED_METHOD_ERROR, REJECTED, NOT_ENOUGH_NODES
+        IO_ERROR, NOT_ALLOWED_METHOD_ERROR, REJECTED, NOT_ENOUGH_NODES, BAD_RANGE_PARAMS
     }
 
     private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
             entry(ErrorNames.IO_ERROR, "IO exception raised"),
             entry(ErrorNames.NOT_ALLOWED_METHOD_ERROR, "Method not allowed"),
             entry(ErrorNames.REJECTED, "RejectedExecutionException when handling replicas"),
-            entry(ErrorNames.NOT_ENOUGH_NODES, "Not enough nodes in cluster")
+            entry(ErrorNames.NOT_ENOUGH_NODES, "Not enough nodes in cluster"),
+            entry(ErrorNames.BAD_RANGE_PARAMS, "Bad range request parameters")
     );
 
     private final ExecutorService exec;
@@ -64,7 +65,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) throws IOException {
 
         super(getConfig(port));
-        exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
+        this.exec = new ThreadPoolExecutor(workerPoolSize, workerPoolSize,
                 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
@@ -123,7 +124,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) {
         try {
             if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(MESSAGE_MAP.get(ErrorNames.BAD_RANGE_PARAMS));
             }
 
             final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
