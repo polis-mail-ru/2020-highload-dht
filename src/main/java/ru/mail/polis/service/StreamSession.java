@@ -45,7 +45,7 @@ public class StreamSession extends HttpSession {
         while (iterator.hasNext() && queueHead == null) {
             final Record rawData = iterator.next();
             final byte[] key = Util.toByteArray(rawData.getKey());
-            final byte[] value = Util.toByteArray(rawData.getValue());
+            final byte[] value = Value.composeFromBytes(Util.toByteArray(rawData.getValue())).getBytes();
             data = formChunkWithData(key, value);
             write(data, 0, data.length);
         }
