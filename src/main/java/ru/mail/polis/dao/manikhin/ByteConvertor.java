@@ -20,6 +20,7 @@ public final class ByteConvertor {
         final ByteBuffer bufferCopy = buffer.duplicate();
         final byte[] array = new byte[bufferCopy.remaining()];
         bufferCopy.get(array);
+        bufferCopy.clear();
         return array;
     }
 

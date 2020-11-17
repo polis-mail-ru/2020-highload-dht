@@ -16,7 +16,7 @@ public class TimestampRecord {
     private enum RecordType {
         VALUE((byte) 1),
         DELETED((byte) -1),
-        ABSENT((byte) 0);
+        ABSENT((byte) -2);
 
         final byte value;
 
@@ -45,6 +45,7 @@ public class TimestampRecord {
     public TimestampRecord(final long timestamp,
                            final ByteBuffer value,
                            final RecordType type) {
+
         this.timestamp = timestamp;
         this.recordType = type;
         this.value = value;
@@ -90,7 +91,10 @@ public class TimestampRecord {
             byteBuff.put(value.duplicate());
         }
 
-        return byteBuff.array();
+        byteBuff.rewind();
+        final byte[] result = new byte[byteBuff.remaining()];
+        byteBuff.get(result);
+        return result;
     }
 
     public static TimestampRecord fromValue(@NotNull final ByteBuffer value,

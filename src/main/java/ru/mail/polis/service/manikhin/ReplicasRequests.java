@@ -27,7 +27,6 @@ public class ReplicasRequests {
     private final Map<String, HttpClient> clusterClients;
     private final Logger log = LoggerFactory.getLogger(ReplicasRequests.class);
     private static final String PROXY_HEADER = "X-OK-Proxy: True";
-    private static final String ENTITY_HEADER = "/v0/entity?id=";
 
     ReplicasRequests(final DAO dao, final Map<String, HttpClient> clusterClients, final Topology nodes) {
         this.dao = dao;
@@ -56,7 +55,7 @@ public class ReplicasRequests {
      * @param key - input ByteBuffer key
      */
     public void putTimestamp(@NotNull final ByteBuffer key,
-                              @NotNull final Request request) throws IOException {
+                             @NotNull final Request request) throws IOException {
         dao.upsertTimestampRecord(key, ByteBuffer.wrap(request.getBody()));
     }
 
@@ -126,8 +125,9 @@ public class ReplicasRequests {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         int asks = 0;
-
         final List<TimestampRecord> responses = new ArrayList<>();
+        final boolean isForwardedRequest = request.getHeader(PROXY_HEADER) != null;
+        request.addHeader(PROXY_HEADER);
 
         for (final String node : replicaNodes) {
             try {
@@ -136,7 +136,7 @@ public class ReplicasRequests {
                 if (node.equals(nodes.getId())) {
                     respGet = getTimestamp(key);
                 } else {
-                    respGet = clusterClients.get(node).get(ENTITY_HEADER + id, PROXY_HEADER);
+                    respGet = clusterClients.get(node).invoke(request);
                 }
 
                 if (respGet.getStatus() == 404 && respGet.getBody().length == 0) {
@@ -152,8 +152,6 @@ public class ReplicasRequests {
                 log.error("multiGet error", error);
             }
         }
-
-        final boolean isForwardedRequest = request.getHeader(PROXY_HEADER) != null;
 
         if (asks >= replicateAcks || isForwardedRequest) {
             processResponses(session, replicaNodes, responses, isForwardedRequest);
@@ -177,6 +175,8 @@ public class ReplicasRequests {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         int asks = 0;
+        final boolean isForwardedRequest = request.getHeader(PROXY_HEADER) != null;
+        request.addHeader(PROXY_HEADER);
 
         for (final String node : replicaNodes) {
             try {
@@ -184,8 +184,8 @@ public class ReplicasRequests {
                     putTimestamp(key, request);
                     asks++;
                 } else {
-                    final Response resp = clusterClients.get(node)
-                            .put(ENTITY_HEADER + id, request.getBody(), PROXY_HEADER);
+                    final Response resp = clusterClients.get(node).invoke(request);
+
                     if (resp.getStatus() == 201) {
                         asks++;
                     }
@@ -194,7 +194,7 @@ public class ReplicasRequests {
                 log.error("multiPut error", error);
             }
         }
-        if (asks >= replicateAcks || request.getHeader(PROXY_HEADER) != null) {
+        if (asks >= replicateAcks || isForwardedRequest) {
             sendResponse(session, new Response(Response.CREATED, Response.EMPTY));
         } else {
             sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
@@ -215,6 +215,8 @@ public class ReplicasRequests {
                             final int replicateAcks) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final boolean isForwardedRequest = request.getHeader(PROXY_HEADER) != null;
+        request.addHeader(PROXY_HEADER);
         int asks = 0;
 
         for (final String node : replicaNodes) {
@@ -223,8 +225,8 @@ public class ReplicasRequests {
                     deleteTimestamp(key);
                     asks++;
                 } else {
-                    final Response resp = clusterClients.get(node)
-                            .delete(ENTITY_HEADER + id, PROXY_HEADER);
+                    final Response resp = clusterClients.get(node).invoke(request);
+
                     if (resp.getStatus() == 202) {
                         asks++;
                     }
@@ -233,7 +235,7 @@ public class ReplicasRequests {
                 log.warn("multiDelete error: ", error);
             }
         }
-        if (asks >= replicateAcks || request.getHeader(PROXY_HEADER) != null) {
+        if (asks >= replicateAcks || isForwardedRequest) {
             sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
         } else {
             sendResponse(session, new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));

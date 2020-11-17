@@ -10,10 +10,12 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.ByteConvertor;
 import ru.mail.polis.service.Service;
@@ -21,11 +23,7 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -87,6 +85,32 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(Response.ok("OK"));
         } catch (IOException error) {
             log.error("Can't send response. Error: ", error);
+        }
+    }
+
+    @Override
+    public HttpSession createSession(final Socket socket) throws RejectedExecutionException {
+        return new StreamSession(socket, this);
+    }
+
+    @Path("/v0/entities")
+    public void entities(@Param(value = "start", required = true) final String idStart,
+                         @Param(value = "end") final String idEnd,
+                         final HttpSession session) {
+        try {
+            if (idStart.isEmpty() || ((idEnd != null) && idEnd.isEmpty())) {
+                throw new IllegalArgumentException();
+            }
+
+            final ByteBuffer start = ByteBuffer.wrap(idStart.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer end = (idEnd == null) ? null
+                    : ByteBuffer.wrap(idEnd.getBytes(StandardCharsets.UTF_8));
+            final Iterator<Record> iterator = dao.range(start, end);
+            ((StreamSession) session).setIterator(iterator);
+        } catch (IOException error) {
+            log.error("Can not send entities", error);
+        } catch (IllegalArgumentException error) {
+            sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
     }
 
@@ -212,11 +236,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @Override
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
-        try {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-        } catch (IOException error) {
-            log.error("Handle error: ", error);
-        }
+        sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     private static HttpServerConfig getConfig(final int port) {
