@@ -44,6 +44,12 @@ public final class TimestampValue {
         return timestamp;
     }
 
+    /**
+     * get value from bytes.
+     *
+     * @param bytes - has value and timestamp
+     * @return TimestampValue - leep value and timestamp
+     */
     public static TimestampValue getTimestampValueFromBytes(final byte[] bytes) {
         final ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
         final short isValueDeleted = byteBuffer.getShort();
@@ -56,7 +62,14 @@ public final class TimestampValue {
         final long timestamp = byteBuffer.getLong();
         return new TimestampValue(isDeleted, timestamp, byteBuffer);
     }
-
+    /**
+     * get bytes from timestamp value.
+     *
+     * @param isValueDeleted - value deleted or not
+     * @param timestamp - time when value was added/deleted
+     * @param buffer - keep in inself value
+     * @return timestamp-exposing value written to byte array
+     */
     public static byte[] getBytesFromTimestampValue(final boolean isValueDeleted,
                                                     final long timestamp,
                                                     final ByteBuffer buffer) {

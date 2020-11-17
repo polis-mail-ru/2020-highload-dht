@@ -1,6 +1,7 @@
 package ru.mail.polis.service.basta123;
 
 import org.jetbrains.annotations.NotNull;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,8 +48,7 @@ public class ModularTopology implements Topology<String> {
     }
 
     @Override
-    public boolean isLocal(@NotNull final String nodeId)
-    {
+    public boolean isLocal(@NotNull final String nodeId) {
         return nodeId.equals(localNode);
     }
 
@@ -61,8 +61,8 @@ public class ModularTopology implements Topology<String> {
     @Override
     @SuppressWarnings("unchecked")
     public List<String> getAllNodes() {
-        final ArrayList<String> arrayNodes = (ArrayList<String>)this.nodes;
-        return (ArrayList<String>)arrayNodes.clone();
+        final ArrayList<String> arrayNodes = (ArrayList<String>) this.nodes;
+        return (ArrayList<String>) arrayNodes.clone();
     }
 
 }

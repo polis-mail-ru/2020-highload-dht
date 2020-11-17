@@ -1,12 +1,15 @@
 package ru.mail.polis.service.basta123;
 
-import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.http.HttpException;
+import one.nio.http.HttpSession;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -43,15 +46,16 @@ public class HelperReplicHttpServerImpl {
         this.topology = topology;
         this.clientAndNode = clientAndNode;
     }
-
     Response getFromReplicas(final String id,
                              @NotNull final AckFrom ackFrom,
                              final boolean RequestForward) throws IOException {
         int ack = 0;
         if (RequestForward) {
             try {
-                final TimestampValue timestampValue = dao.getTimestampValue(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                return new Response(Response.OK, TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
+                final TimestampValue timestampValue = dao.getTimestampValue
+                        (ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+                return new Response(Response.OK,
+                        TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
                         timestampValue.getTimeStamp(),
                         timestampValue.getBuffer()));
             } catch (NoSuchElementException exc) {
@@ -68,8 +72,10 @@ public class HelperReplicHttpServerImpl {
                 Response response;
                 if (topology.isLocal(node)) {
                     try {
-                        final TimestampValue timestampValue = dao.getTimestampValue(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                        response = new Response(Response.OK, TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
+                        final TimestampValue timestampValue =
+                                dao.getTimestampValue(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+                        response = new Response(Response.OK,
+                                TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
                                 timestampValue.getTimeStamp(),
                                 timestampValue.getBuffer()));
                     } catch (NoSuchElementException exc) {
@@ -95,7 +101,8 @@ public class HelperReplicHttpServerImpl {
         if (ack >= ackFrom.getAckValue()) {
             final TimestampValue timestampValue = valuesSync(TimestampValues);
             if (timestampValue.isValueDeleted()) {
-                return new Response(Response.NOT_FOUND, TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
+                return new Response(Response.NOT_FOUND,
+                        TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
                         timestampValue.getTimeStamp(),
                         timestampValue.getBuffer()));
             } else {
@@ -112,7 +119,6 @@ public class HelperReplicHttpServerImpl {
 
     Response get(@NotNull final String id,
                  final Request request) throws IOException {
-
         final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         ByteBuffer valueByteBuffer;
         final byte[] valueBytes;
@@ -141,7 +147,8 @@ public class HelperReplicHttpServerImpl {
             final boolean RequestForward) throws IOException {
         if (RequestForward) {
             try {
-                dao.upsertTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
+                dao.upsertTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+                        ByteBuffer.wrap(value));
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException exc) {
                 return new Response(Response.INTERNAL_ERROR, exc.toString().getBytes(Charset.defaultCharset()));
@@ -153,7 +160,8 @@ public class HelperReplicHttpServerImpl {
         for (final String node : nodes) {
             try {
                 if (topology.isLocal(node)) {
-                    dao.upsertTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())), ByteBuffer.wrap(value));
+                    dao.upsertTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
+                            ByteBuffer.wrap(value));
                     ack++;
                 } else {
                     final Response response = clientAndNode.get(node)
@@ -180,7 +188,6 @@ public class HelperReplicHttpServerImpl {
         final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final byte[] valueByte = request.getBody();
         final ByteBuffer valueByteBuffer = ByteBuffer.wrap(valueByte);
-
         final String endNode = topology.getNodeForKey(keyByteBuffer);
         if (topology.isLocal(endNode)) {
             try {
@@ -237,7 +244,6 @@ public class HelperReplicHttpServerImpl {
 
     Response delete(@NotNull final String id,
                     final Request request) throws IOException {
-
         final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final String endNode = topology.getNodeForKey(keyByteBuffer);
         if (topology.isLocal(endNode)) {
@@ -250,7 +256,6 @@ public class HelperReplicHttpServerImpl {
             }
         } else {
             return proxying(endNode, request);
-
         }
     }
 
@@ -263,7 +268,12 @@ public class HelperReplicHttpServerImpl {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
-
+    /**
+     * Send response.
+     *
+     * @param httpSession - httpSession.
+     * @param resultCode  - send resultCode to the user.
+     */
     public static void sendResponse(@NotNull final HttpSession httpSession, final String resultCode) {
         try {
             httpSession.sendResponse(new Response(resultCode, Response.EMPTY));
@@ -271,7 +281,12 @@ public class HelperReplicHttpServerImpl {
             LOGGER.error(CANT_SEND_RESPONSE, e);
         }
     }
-
+    /**
+     * selects one from all nodes depending on the timestamp.
+     *
+     * @param valuesFromNodes - List of values.
+     * @return valuesFromNodes instance.
+     */
     public static TimestampValue valuesSync(final List<TimestampValue> valuesFromNodes) {
         if (valuesFromNodes.size() == 1) {
             return valuesFromNodes.get(0);
@@ -282,5 +297,4 @@ public class HelperReplicHttpServerImpl {
                     .orElseGet(TimestampValue::getTimestampValue);
         }
     }
-
 }
