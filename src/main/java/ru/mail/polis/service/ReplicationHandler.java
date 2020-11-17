@@ -19,9 +19,6 @@ import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
-import static ru.mail.polis.service.ReplicationServiceUtils.getNodeReplica;
-import static ru.mail.polis.service.ReplicationServiceUtils.handleExternal;
-import static ru.mail.polis.service.ReplicationServiceUtils.handleInternal;
 
 class ReplicationHandler {
 
@@ -58,7 +55,7 @@ class ReplicationHandler {
     Response multipleGet(
             final String id, @NotNull final ReplicationFactor repliFactor, final boolean isForwardedRequest
     ) throws NotEnoughNodesException, IOException {
-        final Set<String> nodes = getNodeReplica(
+        final Set<String> nodes = ReplicationServiceUtils.getNodeReplica(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 repliFactor,
                 isForwardedRequest,
@@ -70,7 +67,7 @@ class ReplicationHandler {
             try {
                 Response response;
                 if (topology.isSelfId(node)) {
-                    response = handleInternal(ByteBuffer.wrap(id.getBytes(UTF_8)), dao);
+                    response = ReplicationServiceUtils.handleInternal(ByteBuffer.wrap(id.getBytes(UTF_8)), dao);
                 } else {
                     response = nodesToClients.get(node)
                             .get(NORMAL_REQUEST_HEADER + id, ReplicationServiceImpl.FORWARD_REQUEST_HEADER);
@@ -82,7 +79,7 @@ class ReplicationHandler {
         }
 
         if (isForwardedRequest || values.size() >= repliFactor.getAck()) {
-            return handleExternal(values);
+            return ReplicationServiceUtils.handleExternal(values);
         } else {
             log.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
