@@ -2,15 +2,13 @@ package ru.mail.polis.service.basta123;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
-
+import org.javatuples.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.javatuples.Pair;
 
 public final class Utils {
 
