@@ -124,20 +124,15 @@ public class DaoHelper {
      * Try get range.
      *
      * @param start - first key of storage.
-     * @param end - last key of storage.
+     * @param end   - last key of storage.
      * @return - iterator of range
      */
-    public Iterator<Record> getRange(final String start, final String end) {
+    public Iterator<Record> getRange(final String start, final String end) throws IOException {
         final ByteBuffer startBB = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
         ByteBuffer endBB = null;
         if (end != null) {
             endBB = ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8));
         }
-        try {
-            return dao.range(startBB, endBB);
-        } catch (IOException e) {
-            log.error("Cannot get range.", e);
-            throw new IllegalStateException("Cannot get range.");
-        }
+        return dao.range(startBB, endBB);
     }
 }

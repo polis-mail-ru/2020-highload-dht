@@ -188,10 +188,14 @@ public class ServiceImpl extends HttpServer implements Service {
             httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-        ((RecordStreamingSession) session).setIterator(
-                session,
-                new ChunkIterator(daoHelper.getRange(start, end))
-        );
+        try {
+            ((RecordStreamingSession) session).setIterator(
+                    session,
+                    new ChunkIterator(daoHelper.getRange(start, end))
+            );
+        } catch (IOException e) {
+
+        }
     }
 
     private void getEntityExecutor(final String id,

@@ -27,7 +27,7 @@ public class RecordStreamingSession extends HttpSession {
      *
      * @param chunkIterator - chunk Iterator
      */
-    public void setIterator(HttpSession session, final ChunkIterator chunkIterator) {
+    public void setIterator(final HttpSession session, final ChunkIterator chunkIterator) {
         this.chunks = chunkIterator;
 
         final Response response = new Response(Response.OK, Response.EMPTY);
