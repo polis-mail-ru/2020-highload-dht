@@ -6,37 +6,47 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.util.MapIterator;
 import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 public class HttpService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(HttpService.class);
     final HttpEntityHandler httpEntityService;
+    final EntitiesService entitiesService;
 
     /**
      * Creates a new {@link HttpService} with given port and {@link HttpEntityHandler}.
-     * @param port listenable server's port
+     *
+     * @param port              listenable server's port
      * @param httpEntityService entity request handler
+     * @param entitiesService   wrapper around DAO for providing range iterator
      * @throws IOException rethrow from {@link HttpServer#HttpServer}
      */
-    public HttpService(final int port, @NotNull final HttpEntityHandler httpEntityService) throws IOException {
+    public HttpService(final int port,
+                       @NotNull final HttpEntityHandler httpEntityService,
+                       @NotNull final EntitiesService entitiesService) throws IOException {
         super(Utility.configFrom(port));
+        this.entitiesService = entitiesService;
         BasicConfigurator.configure();
         this.httpEntityService = httpEntityService;
     }
 
     /**
      * Entity request handler.
-     * @param id request's param
+     *
+     * @param id       request's param
      * @param replicas replica configuration
-     * @param request sent request
-     * @param session current session for network interaction
+     * @param request  sent request
+     * @param session  current session for network interaction
      * @throws IOException rethrow from {@link HttpSession#sendResponse} and {@link HttpEntityHandler#entity}
      */
     @Path("/v0/entity")
@@ -53,6 +63,31 @@ public class HttpService extends HttpServer implements Service {
         httpEntityService.entity(id, replicas, request, session);
     }
 
+    @Path("/v0/entities")
+    public void entities(@Param(value = "start", required = true) final String start,
+                         @Param(value = "end") final String end,
+                         final HttpSession session) throws IOException {
+        if (!Utility.validateId(start)) {
+            session.sendError(Response.BAD_REQUEST, "Invalid start");
+            return;
+        }
+
+        Iterator<StreamingValue> streamIterator;
+
+        if (end == null) {
+            streamIterator = new MapIterator<>(
+                    entitiesService.from(Utility.byteBufferFromString(start)),
+                    StreamingRecordValue::new);
+        } else {
+            streamIterator = new MapIterator<>(
+                    entitiesService.range(Utility.byteBufferFromString(start),
+                            Utility.byteBufferFromString(end)),
+                    StreamingRecordValue::new);
+        }
+
+        ((StreamingSession) session).stream(streamIterator);
+    }
+
     /**
      * Handling status request.
      *
@@ -61,6 +96,11 @@ public class HttpService extends HttpServer implements Service {
     @Path("/v0/status")
     public void status(@NotNull final HttpSession session) throws IOException {
         session.sendResponse(Response.ok("OK"));
+    }
+
+    @Override
+    public HttpSession createSession(@NotNull final Socket socket) {
+        return new StreamingSession(socket, this);
     }
 
     @Override

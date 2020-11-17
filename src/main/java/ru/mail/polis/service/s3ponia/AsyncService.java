@@ -32,9 +32,9 @@ public final class AsyncService implements HttpEntityHandler {
      * @param workers count of threads
      * @param queueSize max tasks' count at time
      */
-    public AsyncService(@NotNull final DAO dao,
+    public AsyncService(@NotNull final DaoService dao,
                         final int workers, final int queueSize) {
-        this.daoService = new DaoService(dao);
+        this.daoService = dao;
         this.es = new ThreadPoolExecutor(
                 workers,
                 workers,
