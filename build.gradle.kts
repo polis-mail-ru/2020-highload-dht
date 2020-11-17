@@ -16,12 +16,6 @@ repositories {
 }
 
 dependencies {
-
-    /*compile( "log4j:log4j:1.2.17")*/
-
-
-    compile("org.rocksdb", "rocksdbjni", "6.5.3")
-
     // Checks
     errorprone("com.google.errorprone:error_prone_core:2.3.3")
 
@@ -29,11 +23,15 @@ dependencies {
     compile("ru.odnoklassniki:one-nio:1.3.1")
 
     // Logging
-    compile("org.slf4j:slf4j-api:1.7.26")
+    compile("org.slf4j:slf4j-api:1.7.30")
     compile("ch.qos.logback:logback-classic:1.2.3")
 
     // Annotations for better code documentation
     compile("com.intellij:annotations:12.0")
+
+    compile("org.javatuples:javatuples:1.2")
+    // third party solution to implement DAO
+    compile("org.rocksdb:rocksdbjni:6.11.4")
 
     // Guava primitives
     compile("com.google.guava:guava:27.0.1-jre")
