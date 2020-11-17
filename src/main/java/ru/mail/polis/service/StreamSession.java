@@ -13,6 +13,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class StreamSession extends HttpSession {
     private Iterator<Record> iterator;
 
@@ -80,7 +82,7 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formChunkWithData(final byte[] key, final byte[] value) {
-        final byte[] lf = "\n".getBytes(StandardCharsets.UTF_8);
+        final byte[] lf = "\n".getBytes(UTF_8);
         final int bufferSize = key.length + lf.length + value.length;
         final ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
         buffer.put(key).put(lf).put(value).position(0);
@@ -88,7 +90,7 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formChunk(final byte[] data) {
-        final byte[] crlfBytes = "\r\n".getBytes(StandardCharsets.UTF_8);
+        final byte[] crlfBytes = "\r\n".getBytes(UTF_8);
         final byte[] hexLength = Integer.toHexString(data.length)
                 .getBytes(StandardCharsets.US_ASCII);
         final int chunkLength = data.length + 2 * crlfBytes.length + hexLength.length;

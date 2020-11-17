@@ -16,7 +16,6 @@ import ru.mail.polis.util.Util;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -112,7 +111,7 @@ class ReplicationHandler {
                 Response response;
                 if (topology.isSelfId(node)) {
                     response = handleInternal(
-                            ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)),
+                            ByteBuffer.wrap(id.getBytes(UTF_8)),
                             dao);
                 } else {
                     response = nodesToClients.get(node)

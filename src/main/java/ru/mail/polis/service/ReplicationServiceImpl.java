@@ -16,22 +16,18 @@ import one.nio.server.RejectedSessionException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
@@ -107,6 +103,12 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
         return new StreamSession(socket, this);
     }
 
+    /**
+     * Handles range requests from "start" to "end".
+     * @param startId - search from
+     * @param endId - search to
+     * @param session - session
+     */
     @Path("/v0/entities")
     public void entities(@Param(value = "start", required = true) final String startId,
                          @Param(value = "end") final String endId,
