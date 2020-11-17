@@ -16,7 +16,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -75,7 +74,7 @@ public class HelperReplicHttpServerImpl {
         final List<String> nodes = topology.getNodesForKey(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 ackFrom.getFromValue());
-        final List<TimestampValue> TimestampValues = new ArrayList<>();
+        final List<TimestampValue> timestampValues = new ArrayList<>();
         int ack = 0;
         for (final String node : nodes) {
             try {
@@ -87,23 +86,24 @@ public class HelperReplicHttpServerImpl {
                             .get(REQUEST_HEADER + id, ReplicHttpServerImpl.FORWARD_REQ);
                 }
                 if (response.getStatus() == 404 && response.getBody().length == 0) {
-                    TimestampValues.add(TimestampValue.getTimestampValue());
+                    timestampValues.add(TimestampValue.getTimestampValue());
                 } else if (response.getStatus() == 500) {
                     continue;
                 } else {
-                    TimestampValues.add(TimestampValue.getTimestampValueFromBytes(response.getBody()));
+                    timestampValues.add(TimestampValue.getTimestampValueFromBytes(response.getBody()));
                 }
                 ack++;
             } catch (HttpException | PoolException | InterruptedException exc) {
                 LOGGER.error("error get: ", exc);
             }
         }
-        return checkAcks(ackFrom, ack, TimestampValues);
+        return checkAcks(ackFrom, ack, timestampValues);
     }
 
-    private Response checkAcks(@NotNull final AckFrom ackFrom, final int ack, final List<TimestampValue> TimestampValues) {
+    private Response checkAcks(@NotNull final AckFrom ackFrom,
+                               final int ack, final List<TimestampValue> timestampValues) {
         if (ack >= ackFrom.getAckValue()) {
-            final TimestampValue timestampValue = Utils.valuesSync(TimestampValues);
+            final TimestampValue timestampValue = Utils.valuesSync(timestampValues);
             if (timestampValue.isValueDeleted()) {
                 return new Response(Response.NOT_FOUND,
                         TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),

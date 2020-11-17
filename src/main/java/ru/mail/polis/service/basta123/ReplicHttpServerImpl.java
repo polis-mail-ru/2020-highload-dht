@@ -49,7 +49,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     private final DAO dao;
     boolean requestForward;
     AckFrom ackFromNew;
-    int nodesSize = 0;
+    int nodesSize;
 
     /**
      * class const.
