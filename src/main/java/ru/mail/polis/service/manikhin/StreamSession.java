@@ -15,6 +15,8 @@ import java.util.Iterator;
 
 public class StreamSession extends HttpSession {
     private Iterator<Record> iterator;
+    private final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
+    final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Config StreamSession.
@@ -84,26 +86,24 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formFilledChunk(final byte[] key, final byte[] value) {
-        final byte[] lf = "\n".getBytes(StandardCharsets.UTF_8);
-        final int dataLength = key.length + lf.length + value.length;
+        final int dataLength = key.length + LF.length + value.length;
         final ByteBuffer data = ByteBuffer.allocate(dataLength);
         data.put(key);
-        data.put(lf);
+        data.put(LF);
         data.put(value);
         data.position(0);
         return formChunk(ByteConvertor.toArray(data));
     }
 
     private byte[] formChunk(final byte[] data) {
-        final byte[] crlf = "\r\n".getBytes(StandardCharsets.UTF_8);
         final byte[] hexLength = Integer.toHexString(data.length)
                 .getBytes(StandardCharsets.US_ASCII);
-        final int chunkLength = data.length + 2 * crlf.length + hexLength.length;
+        final int chunkLength = data.length + 2 * CRLF.length + hexLength.length;
         final ByteBuffer chunk = ByteBuffer.allocate(chunkLength);
         chunk.put(hexLength);
-        chunk.put(crlf);
+        chunk.put(CRLF);
         chunk.put(data);
-        chunk.put(crlf);
+        chunk.put(CRLF);
         chunk.position(0);
         return ByteConvertor.toArray(chunk);
     }

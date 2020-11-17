@@ -23,7 +23,12 @@ import ru.mail.polis.service.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -93,19 +98,26 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return new StreamSession(socket, this);
     }
 
+    /**
+     * Provide access to many entities.
+     *
+     * @param start   - start key
+     * @param end     - end key
+     * @param session - HttpSession
+     */
     @Path("/v0/entities")
-    public void entities(@Param(value = "start", required = true) final String idStart,
-                         @Param(value = "end") final String idEnd,
+    public void entities(@Param(value = "start", required = true) final String start,
+                         @Param(value = "end") final String end,
                          final HttpSession session) {
         try {
-            if (idStart.isEmpty() || ((idEnd != null) && idEnd.isEmpty())) {
+            if (start.isEmpty() || ((end != null) && end.isEmpty())) {
                 throw new IllegalArgumentException();
             }
 
-            final ByteBuffer start = ByteBuffer.wrap(idStart.getBytes(StandardCharsets.UTF_8));
-            final ByteBuffer end = (idEnd == null) ? null
-                    : ByteBuffer.wrap(idEnd.getBytes(StandardCharsets.UTF_8));
-            final Iterator<Record> iterator = dao.range(start, end);
+            final ByteBuffer from = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer to = (end == null) ? null
+                    : ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8));
+            final Iterator<Record> iterator = dao.range(from, to);
             ((StreamSession) session).setIterator(iterator);
         } catch (IOException error) {
             log.error("Can not send entities", error);
@@ -115,7 +127,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     /**
-     * Provide access to entities.
+     * Provide access to entity.
      *
      * @param id      key of entity
      * @param request HTTP request
