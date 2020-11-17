@@ -15,8 +15,8 @@ import java.util.Iterator;
 
 public class StreamSession extends HttpSession {
     private Iterator<Record> iterator;
-    private final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
-    final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Config StreamSession.
