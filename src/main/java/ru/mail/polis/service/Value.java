@@ -1,14 +1,11 @@
 package ru.mail.polis.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import one.nio.http.Response;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public final class Value {
-
-    private static final Logger log = LoggerFactory.getLogger(Value.class);
+    private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     private final boolean isValueDeleted;
     private final long timestamp;
@@ -19,7 +16,6 @@ public final class Value {
             final long timestamp,
             final ByteBuffer buffer
     ) {
-
         this.isValueDeleted = isValueDeleted;
         this.timestamp = timestamp;
         this.buffer = buffer;
@@ -30,7 +26,7 @@ public final class Value {
     }
 
     public static Value resolveDeletedValue(final long timestamp) {
-        return new Value(true, timestamp, ByteBuffer.allocate(0));
+        return new Value(true, timestamp, EMPTY_BUFFER);
     }
 
     static Value resolveMissingValue() {
@@ -51,8 +47,7 @@ public final class Value {
 
     private ByteBuffer getValue() throws IOException {
         if (isValueDeleted) {
-            log.info("Record was removed");
-            throw new IOException();
+            throw new IOException("Record was removed");
         } else {
             return buffer;
         }
@@ -90,5 +85,39 @@ public final class Value {
                 .putShort(isDeleted)
                 .putLong(timestamp)
                 .put(buffer.duplicate()).array();
+    }
+
+    static Value fromResponse(final Response response) {
+        final long timestamp = ReplicationServiceUtils.getTimestamp(response);
+
+        if (response.getStatus() == 404 && timestamp > 0) {
+            return Value.resolveDeletedValue(timestamp);
+        }
+
+        if (response.getStatus() != 500 && timestamp > 0) {
+            return Value.resolveExistingValue(ByteBuffer.wrap(response.getBody()), timestamp);
+        }
+
+        return Value.resolveMissingValue();
+    }
+
+    static Response toResponse(
+            final Value value
+    ) throws IOException {
+        // Value is present
+        Response response;
+        if (!value.isValueMissing() && !value.isValueDeleted()) {
+            response = new Response(Response.OK, value.getBytes());
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        }
+
+        // Value is deleted
+        if (value.isValueDeleted()) {
+            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+        }
+
+        // Value is missing
+        return new Response(Response.NOT_FOUND, Response.EMPTY);
     }
 }
