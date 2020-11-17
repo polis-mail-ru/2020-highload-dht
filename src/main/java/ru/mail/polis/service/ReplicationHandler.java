@@ -22,9 +22,6 @@ import java.util.concurrent.RejectedExecutionException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
-import static ru.mail.polis.service.ReplicationServiceUtils.getNodeReplica;
-import static ru.mail.polis.service.ReplicationServiceUtils.handleExternal;
-import static ru.mail.polis.service.ReplicationServiceUtils.handleInternal;
 
 class ReplicationHandler {
 
@@ -85,7 +82,7 @@ class ReplicationHandler {
                          @NotNull final ReplicationFactor repliFactor,
                          final boolean isForwardedRequest) throws IOException {
         int replCounter = 0;
-        final String[] nodes = getNodeReplica(
+        final String[] nodes = ReplicationServiceUtils.getNodeReplica(
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 repliFactor,
                 isForwardedRequest,
@@ -95,7 +92,7 @@ class ReplicationHandler {
             try {
                 Response response;
                 if (topology.isSelfId(node)) {
-                    response = handleInternal(
+                    response = ReplicationServiceUtils.handleInternal(
                             ByteBuffer.wrap(id.getBytes(UTF_8)),
                             dao);
                 } else {
@@ -115,7 +112,7 @@ class ReplicationHandler {
             }
         }
         if (isForwardedRequest || replCounter >= repliFactor.getAck()) {
-            return handleExternal(values, nodes, isForwardedRequest);
+            return ReplicationServiceUtils.handleExternal(values, nodes, isForwardedRequest);
         } else {
             LOGGER.error(ReplicationServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
