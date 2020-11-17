@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
-import static ru.mail.polis.service.ReplicationServiceUtils.syncValues;
+import static ru.mail.polis.service.Value.syncValues;
 
 class ReplicationHandler {
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);

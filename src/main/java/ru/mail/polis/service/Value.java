@@ -4,8 +4,11 @@ import one.nio.http.Response;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Comparator;
+import java.util.List;
 
 public final class Value {
+    private static final String TIMESTAMP = "Timestamp: ";
     private final static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     private final boolean isValueDeleted;
@@ -21,6 +24,18 @@ public final class Value {
         this.isValueDeleted = isValueDeleted;
         this.timestamp = timestamp;
         this.buffer = buffer;
+    }
+
+    /**
+     * This synchronizes received values.
+     * @param values - values list
+     * @return - synchronized value
+     */
+    static Value syncValues(final List<Value> values) {
+        return values.stream()
+                .filter(value -> !value.isValueMissing())
+                .max(Comparator.comparingLong(Value::getTimestamp))
+                .orElseGet(Value::resolveMissingValue);
     }
 
     public static Value resolveExistingValue(final ByteBuffer buffer, final long timestamp) {
@@ -105,13 +120,15 @@ public final class Value {
             } catch (IOException e) {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+            response.addHeader(TIMESTAMP + value.getTimestamp());
+            return response;
         }
 
         // Value is deleted
         if (value.isValueDeleted()) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            return ReplicationServiceUtils.addTimestampHeader(response, value.getTimestamp());
+            response.addHeader(TIMESTAMP + value.getTimestamp());
+            return response;
         }
 
         // Value is missing
