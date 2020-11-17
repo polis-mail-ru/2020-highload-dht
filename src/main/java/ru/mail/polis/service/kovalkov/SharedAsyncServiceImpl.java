@@ -203,10 +203,10 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
 
     private void getInternal(@NotNull final ByteBuffer key,
                              @NotNull final HttpSession session) {
+        byte[] bytes = null;
         try {
             final ByteBuffer value = dao.get(key);
-            final byte[] bytes = BufferConverter.unfoldToBytes(value);
-            session.sendResponse(Response.ok(bytes));
+            bytes = BufferConverter.unfoldToBytes(value);
         } catch (IOException e) {
             exceptionIOHandler(session, "Method get. IO exception. ", e);
         } catch (NoSuchElementException e) {
@@ -216,6 +216,11 @@ public class SharedAsyncServiceImpl extends HttpServer implements Service {
             } catch (IOException ioException) {
                 log.error("Method get. Id is empty. Can't send response:", e);
             }
+        }
+        try {
+            session.sendResponse(Response.ok(bytes != null ? bytes : new byte[0]));
+        } catch (IOException e) {
+            log.error("IO in send response get", e );
         }
     }
 

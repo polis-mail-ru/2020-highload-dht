@@ -48,33 +48,30 @@ public final class TimestampDataWrapper {
     @NotNull
     public byte[] getTSBytes() throws IOException {
         final ByteBuffer buffer = getValue().duplicate();
-        final byte[] bytes = new byte[buffer.remaining()];
+        final var bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
     }
 
     @NotNull
     public ByteBuffer getValue() throws IOException {
-        if (isDelete) {
-            throw new IOException("No such value");
-        } else {
-            return buffer;
-        }
+        if (isDelete) throw new IOException("No such value");
+        return buffer;
     }
 
     @NotNull
     public static TimestampDataWrapper wrapFromBytesAndGetOne(final byte[] bytes) {
-        final ByteBuffer buf = ByteBuffer.wrap(bytes);
-        final boolean isDel = buf.getShort() == 1;
-        final long ts = buf.getLong();
+        final var buf = ByteBuffer.wrap(bytes);
+        final var isDel = buf.getShort() == 1;
+        final var ts = buf.getLong();
         return new TimestampDataWrapper(buf, ts, isDel);
     }
 
 
     @NotNull
     public byte[] toBytesFromValue() {
-        final short cap = (short) (isDelete ? 1 : -1);
-        final ByteBuffer buf = ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining());
+        final var cap = (short) (isDelete ? 1 : -1);
+        final var buf = ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining());
         return buf.putShort(cap).putLong(timestamp).put(buffer.duplicate()).array();
     }
 

@@ -18,6 +18,8 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import static java.util.Objects.isNull;
+
 public final class DAOImpl implements DAO {
     private static final Logger log = LoggerFactory.getLogger(DAOImpl.class);
     private final RocksDB db;
@@ -37,26 +39,22 @@ public final class DAOImpl implements DAO {
     @NotNull
     @Override
     public ByteBuffer get(@NotNull final ByteBuffer key) throws NoSuchElementException, IOException {
+        byte[] valueByteArray = null;
         try {
-            final byte[] valueByteArray = db.get(BufferConverter.convertBytes(key));
-            if (valueByteArray == null) {
-                log.info("No such value key {}.", key);
-                throw new NoSuchElementException("Not such value by this key");
-            }
-            return ByteBuffer.wrap(valueByteArray);
-        } catch (RocksDBException e) {
-            log.error("Getting error: ",e);
-            throw new IOException(e);
+             valueByteArray = db.get(BufferConverter.convertBytes(key));
+        } catch (final RocksDBException e) {
+            rockDBExceptionHandler("Getting error: ",e);
         }
+        checkValueExist(valueByteArray, key);
+        return ByteBuffer.wrap(valueByteArray);
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             db.put(BufferConverter.convertBytes(key), BufferConverter.unfoldToBytes(value));
-        } catch (RocksDBException e) {
-            log.error("Rocks upsert error: ", e);
-            throw new IOException("Rocks upsert error: ", e);
+        } catch (final RocksDBException e) {
+            rockDBExceptionHandler("Rocks upsert error: ", e);
         }
     }
 
@@ -64,9 +62,8 @@ public final class DAOImpl implements DAO {
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         try {
             db.delete(BufferConverter.convertBytes(key));
-        } catch (RocksDBException e) {
-            log.error("Remove error: ", e);
-            throw new IOException("Remove error: ", e);
+        } catch (final RocksDBException e) {
+            rockDBExceptionHandler("Remove error: ", e);
         }
     }
 
@@ -74,9 +71,8 @@ public final class DAOImpl implements DAO {
     public void compact() throws IOException {
         try {
             db.compactRange();
-        } catch (RocksDBException e) {
-            log.error("Compact error: ",e);
-            throw new IOException("Compact error: ", e);
+        } catch (final RocksDBException e) {
+            rockDBExceptionHandler("Compact error: ", e);
         }
     }
 
@@ -89,17 +85,21 @@ public final class DAOImpl implements DAO {
     @Override
     public TimestampDataWrapper getWithTimestamp(@NotNull final ByteBuffer key)
             throws IOException, NoSuchElementException {
+        byte[] bytesValue = null;
         try {
             final byte[] byteKey = BufferConverter.convertBytes(key);
-            final byte[] bytesValue = db.get(byteKey);
-            if (bytesValue == null) {
-                log.info("NSEE in get");
-                throw new NoSuchElementException("Can't find this key");
-            }
-            return TimestampDataWrapper.wrapFromBytesAndGetOne(bytesValue);
+             bytesValue = db.get(byteKey);
         } catch (final RocksDBException e) {
-            log.error("Getting error: ",e);
-            throw new IOException(e);
+            rockDBExceptionHandler("Remove error: ", e);
+        }
+        checkValueExist(bytesValue, key);
+        return TimestampDataWrapper.wrapFromBytesAndGetOne(bytesValue);
+    }
+
+    private void checkValueExist(final byte[] bytesValue, @NotNull final ByteBuffer key) {
+        if (isNull(bytesValue)) {
+            log.info("No such value key {}.", key);
+            throw new NoSuchElementException("Not such value by this key");
         }
     }
 
@@ -110,8 +110,7 @@ public final class DAOImpl implements DAO {
             final byte[] bytesValue = TimestampDataWrapper.getDeletedOne(System.currentTimeMillis()).toBytesFromValue();
             db.put(byteKey, bytesValue);
         } catch (final RocksDBException e) {
-            log.error("Remove error: ", e);
-            throw new IOException("Remove error: ", e);
+            rockDBExceptionHandler("Remove error: ", e);
         }
     }
 
@@ -122,9 +121,14 @@ public final class DAOImpl implements DAO {
             final byte[] bytesValue = TimestampDataWrapper.getOne(values, System.currentTimeMillis()).toBytesFromValue();
             db.put(byteKey, bytesValue);
         } catch (final RocksDBException e) {
-            log.error("Rocks upsert error: ", e);
-            throw new IOException("Rocks upsert error: ", e);
+            rockDBExceptionHandler("Rocks upsert error: ", e);
         }
+    }
+
+    private static void rockDBExceptionHandler(@NotNull final String msg,
+                                               @NotNull final Exception e) throws IOException {
+        log.error(msg, e);
+        throw new IOException(msg, e);
     }
 
     /**
@@ -141,9 +145,9 @@ public final class DAOImpl implements DAO {
                     .setComparator(BuiltinComparator.BYTEWISE_COMPARATOR)
                     .setAllowConcurrentMemtableWrite(true);
             options.enableWriteThreadAdaptiveYield();
-            final RocksDB db = RocksDB.open(options, data.getAbsolutePath());
+            final var db = RocksDB.open(options, data.getAbsolutePath());
             return new DAOImpl(db);
-        } catch (RocksDBException e) {
+        } catch (final RocksDBException e) {
             throw new IOException("RocksDB instantiation failed!", e);
         }
     }

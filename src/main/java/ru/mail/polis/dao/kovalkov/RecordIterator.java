@@ -8,7 +8,7 @@ import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-public final class RecordIterator implements Iterator<Record>{
+public final class RecordIterator implements Iterator<Record>, AutoCloseable{
 
     private final RocksIterator rocksIterator;
 
@@ -22,15 +22,17 @@ public final class RecordIterator implements Iterator<Record>{
     }
 
     @Override
+    @NotNull
     public Record next() throws IllegalStateException {
         if (!hasNext())throw new IllegalStateException("No further");
-        final ByteBuffer bufferKey = BufferConverter.foldToBuffer(rocksIterator.key());
-        final ByteBuffer bufferValue = ByteBuffer.wrap(rocksIterator.value());
-        final Record record = Record.of(bufferKey, bufferValue);
+        final var bufferKey = BufferConverter.foldToBuffer(rocksIterator.key());
+        final var bufferValue = ByteBuffer.wrap(rocksIterator.value());
+        final var record = Record.of(bufferKey, bufferValue);
         rocksIterator.next();
         return record;
     }
 
+    @Override
     public void close() {
         rocksIterator.close();
     }

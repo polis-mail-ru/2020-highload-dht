@@ -11,6 +11,7 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kovalkov.TimestampDataWrapper;
 import ru.mail.polis.service.kovalkov.sharding.Topology;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -21,6 +22,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 public class ReplicationController {
+    private static final int CREATED = 201;
+    private static final int ACCEPTED = 202;
+    private static final int INTERNAL_ERROR = 500;
+    private static final int NOT_FOUND = 404;
     private static final Logger log = LoggerFactory.getLogger(ReplicationController.class);
     private static final String HEADER = "/v0/entity?id=";
     public static final String PROXY_HEADER = "X-OK-Proxy: True";
@@ -30,7 +35,8 @@ public class ReplicationController {
     private final ReplicationFactor replicationFactor;
 
     public ReplicationController(@NotNull final DAO dao, @NotNull final Topology<String> topology,
-                                 @NotNull final Map<String, HttpClient> nodesClient, ReplicationFactor replicationFactor) {
+                                 @NotNull final Map<String, HttpClient> nodesClient,
+                                 @NotNull final ReplicationFactor replicationFactor) {
         this.dao = dao;
         this.topology = topology;
         this.nodesClient = nodesClient;
@@ -51,9 +57,9 @@ public class ReplicationController {
                 } else {
                     response = nodesClient.get(node).get(HEADER + id, PROXY_HEADER);
                 }
-                if (response.getStatus() == 500) {
+                if (response.getStatus() == INTERNAL_ERROR) {
                     continue;
-                } else if (response.getStatus() == 404 && response.getBody().length == 0) {
+                } else if (response.getStatus() == NOT_FOUND && response.getBody().length == 0) {
                     values.add(TimestampDataWrapper.getMissingOne());
                 } else {
                     values.add(TimestampDataWrapper.wrapFromBytesAndGetOne(response.getBody()));
@@ -86,17 +92,11 @@ public class ReplicationController {
 
     @NotNull
     private Response choseRelevant(@NotNull final List<TimestampDataWrapper> tdws, @NotNull final String[] nodes,
-                                   final boolean isForwarded) throws IOException {
+                                          final boolean isForwarded) throws IOException {
         final TimestampDataWrapper relevantTs = TimestampDataWrapper.getRelevantTs(tdws);
-        if (relevantTs.isDelete()) {
-            return new Response(Response.NOT_FOUND, relevantTs.toBytesFromValue());
-        } else {
-            if (isForwarded && nodes.length == 1) {
-                return new Response(Response.OK, relevantTs.toBytesFromValue());
-            } else {
-                return new Response(Response.OK, relevantTs.getTSBytes());
-            }
-        }
+        return relevantTs.isDelete() ? new Response(Response.NOT_FOUND, relevantTs.toBytesFromValue()) :
+                isForwarded && nodes.length == 1 ? new Response(Response.OK, relevantTs.toBytesFromValue())
+                        : new Response(Response.OK, relevantTs.getTSBytes());
     }
 
     @NotNull
@@ -124,7 +124,7 @@ public class ReplicationController {
                     ack++;
                 } else {
                     final Response response = nodesClient.get(node).put(HEADER + id, value, PROXY_HEADER);
-                    if (response.getStatus() == 201) {
+                    if (response.getStatus() == CREATED) {
                         ack++;
                     }
                 }
@@ -155,7 +155,7 @@ public class ReplicationController {
                     ack++;
                 } else {
                     final Response response = nodesClient.get(node).delete(HEADER + id, PROXY_HEADER);
-                    if (response.getStatus() == 202) {
+                    if (response.getStatus() == ACCEPTED) {
                         ack++;
                     }
                 }

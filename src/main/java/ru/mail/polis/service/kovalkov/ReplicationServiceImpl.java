@@ -184,7 +184,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             session.sendError(Response.BAD_REQUEST, "Start is empty");
         } else {
             final var end = request.getParameter("end=");
-            final Iterator<Record> recordIterator = dao.range(ReplicationController.wrapWithCharset(start),
+            final var recordIterator = dao.range(ReplicationController.wrapWithCharset(start),
                     isNull(end) ? null :ReplicationController.wrapWithCharset(end));
             ((StreamingSession) session).setDataIterator(recordIterator);
         }
