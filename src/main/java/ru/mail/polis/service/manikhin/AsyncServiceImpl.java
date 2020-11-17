@@ -120,7 +120,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final Iterator<Record> iterator = dao.range(from, to);
             ((StreamSession) session).setIterator(iterator);
         } catch (IOException error) {
-            log.error("Can not send entities", error);
+            log.error("IOException error: ", error);
         } catch (IllegalArgumentException error) {
             sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
         }
