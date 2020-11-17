@@ -40,13 +40,14 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     public static final String IO_ERROR = "IOexception";
     public static final String FORWARD_REQ = "forward request";
     public static final String TIMEOUT_ERROR = "response time out";
+    public static final String REPLICAS = "replicas";
     private final ExecutorService execService;
     private final Topology<String> topology;
     private final Map<String, HttpClient> clientAndNode;
     private final AckFrom ackFrom;
     private final HelperReplicHttpServerImpl helper;
     private final DAO dao;
-    boolean RequestForward;
+    boolean requestForward;
 
     /**
      * class const.
@@ -128,17 +129,17 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             return;
         }
         if (request.getHeader(FORWARD_REQ) == null) {
-            RequestForward = false;
+            requestForward = false;
         } else {
-            RequestForward = true;
+            requestForward = true;
         }
-        final String replicas = request.getParameter("replicas");
+        final String replicas = request.getParameter(REPLICAS);
         AckFrom ackFromNew = null;
         try {
             if (replicas == null) {
                 ackFromNew = this.ackFrom;
             } else {
-                final Pair<Integer, Integer> ackFromPair = Utils.ParseReplicas(replicas);
+                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
                 ackFromNew = new AckFrom();
                 ackFromNew.setAckValue(ackFromPair.getValue0());
                 ackFromNew.setFromValue(ackFromPair.getValue1());
@@ -151,7 +152,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             executeAsync(httpSession, () -> helper.getFromReplicas(
                     id,
                     finalAckFrom,
-                    RequestForward));
+                    requestForward));
         } else {
             executeAsync(httpSession, () -> helper.get(id, request));
         }
@@ -173,17 +174,17 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             return;
         }
         if (request.getHeader(FORWARD_REQ) == null) {
-            RequestForward = false;
+            requestForward = false;
         } else {
-            RequestForward = true;
+            requestForward = true;
         }
-        final String replicas = request.getParameter("replicas");
+        final String replicas = request.getParameter(REPLICAS);
         AckFrom ackFromNew = null;
         try {
             if (replicas == null) {
                 ackFromNew = this.ackFrom;
             } else {
-                final Pair<Integer, Integer> ackFromPair = Utils.ParseReplicas(replicas);
+                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
                 ackFromNew = new AckFrom();
                 ackFromNew.setAckValue(ackFromPair.getValue0());
                 ackFromNew.setFromValue(ackFromPair.getValue1());
@@ -198,7 +199,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
                     id,
                     request.getBody(),
                     finalAckFrom,
-                    RequestForward));
+                    requestForward));
         } else {
             executeAsync(httpSession, () -> helper.put(id, request));
         }
@@ -219,17 +220,17 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             return;
         }
         if (request.getHeader(FORWARD_REQ) == null) {
-            RequestForward = false;
+            requestForward = false;
         } else {
-            RequestForward = true;
+            requestForward = true;
         }
-        final String replicas = request.getParameter("replicas");
+        final String replicas = request.getParameter(REPLICAS);
         AckFrom ackFromNew = null;
         try {
             if (replicas == null) {
                 ackFromNew = this.ackFrom;
             } else {
-                final Pair<Integer, Integer> ackFromPair = Utils.ParseReplicas(replicas);
+                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
                 ackFromNew = new AckFrom();
                 ackFromNew.setAckValue(ackFromPair.getValue0());
                 ackFromNew.setFromValue(ackFromPair.getValue1());
@@ -242,7 +243,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             executeAsync(httpSession, () -> helper.deleteFromReplicas(
                     id,
                     finalAckFrom,
-                    RequestForward));
+                    requestForward));
         } else {
             executeAsync(httpSession, () -> helper.delete(id, request));
         }

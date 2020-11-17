@@ -6,19 +6,19 @@ import one.nio.server.AcceptorConfig;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+
+import static java.lang.Byte.MIN_VALUE;
+
 import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static java.lang.Byte.MIN_VALUE;
-
-
 public final class Utils {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AckFrom.class);
 
     private Utils() {
     }
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(AckFrom.class);
 
     public static ByteBuffer getByteBufferFromByteArray(final byte[] bytes) {
         return ByteBuffer.wrap(bytes);
@@ -37,8 +37,14 @@ public final class Utils {
         return bytes;
     }
 
-    public static byte[] bufToArray(final ByteBuffer buf) {
-        final byte[] byteArray = readArrayBytes(buf);
+    /**
+     * convert buffer to array.
+     *
+     * @param byteBuffer - ByteBuffer
+     * @return byte array
+     */
+    public static byte[] bufToArray(final ByteBuffer byteBuffer) {
+        final byte[] byteArray = readArrayBytes(byteBuffer);
 
         for (int x = 0; x < byteArray.length; x++) {
             byteArray[x] -= MIN_VALUE;
@@ -46,6 +52,12 @@ public final class Utils {
         return byteArray;
     }
 
+    /**
+     * turn array byte to byte buffer.
+     *
+     * @param byteArray - byte array
+     * @return ByteBuffer
+     */
     public static ByteBuffer arrayToBuf(final byte[] byteArray) {
         final byte[] dupArray = byteArray.clone();
         for (int x = 0; x < byteArray.length; x++) {
@@ -54,8 +66,14 @@ public final class Utils {
         return ByteBuffer.wrap(dupArray);
     }
 
-    public static byte[] readArrayBytes(final ByteBuffer buf) {
-        final ByteBuffer dupBuffer = buf.duplicate();
+    /**
+     * converts ByteBuffer to byte array.
+     *
+     * @param byteBuffer - ByteBuffer object
+     * @return byte array
+     */
+    public static byte[] readArrayBytes(final ByteBuffer byteBuffer) {
+        final ByteBuffer dupBuffer = byteBuffer.duplicate();
         final byte[] vals = new byte[dupBuffer.remaining()];
         dupBuffer.get(vals);
         return vals;
@@ -78,20 +96,24 @@ public final class Utils {
         return httpServerConfig;
     }
 
-    public static Pair<Integer, Integer> ParseReplicas(final String values)
-    {
+    /**
+     * parse request and return ack/from.
+     *
+     * @param values - request
+     * @return pair of ack and from
+     */
+    public static Pair<Integer, Integer> parseReplicas(final String values) {
         final List<String> delimitValues = Arrays.asList(values.replace("=", "").split("/"));
 
-        int ack = Integer.valueOf(delimitValues.get(0));
-        int from = Integer.valueOf(delimitValues.get(1));
+        final int ack = Integer.valueOf(delimitValues.get(0));
+        final int from = Integer.valueOf(delimitValues.get(1));
 
         if ((ack < 1 || from < 1) || (ack > from)) {
             LOGGER.error("error when getting act/from, conditions are not met");
             throw new IllegalArgumentException();
         }
 
-
-        return new Pair<>(ack,from);
+        return new Pair<>(ack, from);
     }
 
 }

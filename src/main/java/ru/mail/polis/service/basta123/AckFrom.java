@@ -9,10 +9,9 @@ class AckFrom {
 
     /**
      * class instance const.
-     *
      */
-    AckFrom()
-    {}
+    AckFrom() {
+    }
 
     AckFrom(@NotNull final Topology<String> topology) {
 
@@ -24,8 +23,7 @@ class AckFrom {
         return ack;
     }
 
-    void setAckValue(final int ack)
-    {
+    void setAckValue(final int ack) {
         this.ack = ack;
     }
 
@@ -33,8 +31,7 @@ class AckFrom {
         return from;
     }
 
-    void setFromValue(final int from)
-    {
+    void setFromValue(final int from) {
         this.from = from;
     }
 }

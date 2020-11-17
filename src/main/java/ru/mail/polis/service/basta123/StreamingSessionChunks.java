@@ -25,13 +25,12 @@ public class StreamingSessionChunks extends HttpSession {
 
     Iterator<Record> iterator;
 
-
     StreamingSessionChunks(@NotNull final Socket socket, @NotNull final HttpServer server) {
         super(socket, server);
     }
 
     /**
-     * launches stream process, which provides getting chunked
+     * launches stream process, which provides getting chunked.
      */
     void init(final Iterator<Record> iter) throws IOException {
         this.iterator = iter;
@@ -41,7 +40,6 @@ public class StreamingSessionChunks extends HttpSession {
         pushWhileFits();
     }
 
-
     @Override
     protected void processWrite() throws Exception {
         super.processWrite();
@@ -49,7 +47,6 @@ public class StreamingSessionChunks extends HttpSession {
             pushWhileFits();
         }
     }
-
 
     private void pushWhileFits() throws IOException {
         if (iterator != null) {
@@ -62,16 +59,20 @@ public class StreamingSessionChunks extends HttpSession {
                 final byte[] noContentBytes = NO_CONTENT;
                 write(noContentBytes, 0, NO_CONTENT.length);
                 server.incRequestsProcessed();
-                if ((handling = pipeline.pollFirst()) != null) {
-                    if (handling == FIN) {
-                        scheduleClose();
-                    } else {
-                        server.handleRequest(handling, this);
-                    }
-                }
+                handleRequest();
             }
         }
         throw new IllegalArgumentException();
+    }
+
+    private void handleRequest() throws IOException {
+        if ((handling = pipeline.pollFirst()) != null) {
+            if (handling == FIN) {
+                scheduleClose();
+            } else {
+                server.handleRequest(handling, this);
+            }
+        }
     }
 
     private byte[] getChunk(final Record record) {

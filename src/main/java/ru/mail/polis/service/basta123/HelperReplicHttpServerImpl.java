@@ -46,12 +46,13 @@ public class HelperReplicHttpServerImpl {
         this.topology = topology;
         this.clientAndNode = clientAndNode;
     }
+
     Response getFromReplicas(final String id,
                              @NotNull final AckFrom ackFrom,
-                             final boolean RequestForward) throws IOException {
-        int ack = 0;
-        if (RequestForward) {
+                             final boolean requestForward) throws IOException {
+        if (requestForward) {
             try {
+
                 final TimestampValue timestampValue = dao.getTimestampValue
                         (ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
                 return new Response(Response.OK,
@@ -67,6 +68,7 @@ public class HelperReplicHttpServerImpl {
                 ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                 ackFrom.getFromValue());
         final List<TimestampValue> TimestampValues = new ArrayList<>();
+        int ack = 0;
         for (final String node : nodes) {
             try {
                 Response response;
@@ -144,8 +146,8 @@ public class HelperReplicHttpServerImpl {
             final String id,
             final byte[] value,
             final AckFrom ackFrom,
-            final boolean RequestForward) throws IOException {
-        if (RequestForward) {
+            final boolean requestForward) throws IOException {
+        if (requestForward) {
             try {
                 dao.upsertTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
                         ByteBuffer.wrap(value));
@@ -205,8 +207,8 @@ public class HelperReplicHttpServerImpl {
     Response deleteFromReplicas(
             final String id,
             final AckFrom ackFrom,
-            final boolean RequestForward) throws IOException {
-        if (RequestForward) {
+            final boolean requestForward) throws IOException {
+        if (requestForward) {
             try {
                 dao.removeTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
                 return new Response(Response.ACCEPTED, Response.EMPTY);
@@ -268,12 +270,14 @@ public class HelperReplicHttpServerImpl {
             return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
+
     /**
      * Send response.
      *
      * @param httpSession - httpSession.
      * @param resultCode  - send resultCode to the user.
      */
+
     public static void sendResponse(@NotNull final HttpSession httpSession, final String resultCode) {
         try {
             httpSession.sendResponse(new Response(resultCode, Response.EMPTY));
@@ -281,6 +285,7 @@ public class HelperReplicHttpServerImpl {
             LOGGER.error(CANT_SEND_RESPONSE, e);
         }
     }
+
     /**
      * selects one from all nodes depending on the timestamp.
      *

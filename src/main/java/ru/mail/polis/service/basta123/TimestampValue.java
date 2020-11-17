@@ -62,6 +62,7 @@ public final class TimestampValue {
         final long timestamp = byteBuffer.getLong();
         return new TimestampValue(isDeleted, timestamp, byteBuffer);
     }
+
     /**
      * get bytes from timestamp value.
      *
@@ -79,7 +80,7 @@ public final class TimestampValue {
         } else {
             isDeleted = (short) -1;
         }
-        ByteBuffer byteBuffer = ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining());
+        final ByteBuffer byteBuffer = ByteBuffer.allocate(Short.BYTES + Long.BYTES + buffer.remaining());
         return byteBuffer
                 .putShort(isDeleted)
                 .putLong(timestamp)

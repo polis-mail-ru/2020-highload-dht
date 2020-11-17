@@ -11,8 +11,6 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.basta123.TimestampValue;
 import ru.mail.polis.service.basta123.Utils;
-//import ru.mail.polis.dao.basta123.RecordIter;
-//import ru.mail.polis.dao.basta123.SingedBytesComparator;
 
 import java.io.File;
 import java.io.IOException;
@@ -116,7 +114,9 @@ public class DAORocksDB implements DAO {
     public void upsertTimestampValue(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         try {
             rocksDBInstance.put(Utils.bufToArray(key),
-                    TimestampValue.getBytesFromTimestampValue(false, System.currentTimeMillis(), value));
+                    TimestampValue.getBytesFromTimestampValue(false,
+                            System.currentTimeMillis(),
+                            value));
         } catch (RocksDBException e) {
             log.error("error when putting a value in DB");
             throw new IOException(e);
@@ -132,7 +132,9 @@ public class DAORocksDB implements DAO {
     public void removeTimestampValue(@NotNull final ByteBuffer key) throws IOException {
         try {
             rocksDBInstance.put(Utils.bufToArray(key),
-                    TimestampValue.getBytesFromTimestampValue(true, System.currentTimeMillis(), ByteBuffer.allocate(0)));
+                    TimestampValue.getBytesFromTimestampValue(true,
+                            System.currentTimeMillis(),
+                            ByteBuffer.allocate(0)));
         } catch (RocksDBException e) {
             log.error("error when deleting a value from DB");
             throw new IOException(e);
