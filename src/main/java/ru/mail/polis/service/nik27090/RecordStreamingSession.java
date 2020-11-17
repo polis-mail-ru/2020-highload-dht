@@ -11,14 +11,20 @@ import java.io.IOException;
 public class RecordStreamingSession extends HttpSession {
     private static final String CHUNK_HEADER = "Transfer-Encoding: chunked";
 
-    private ChunkedIterator chunks;
+    private ChunkIterator chunks;
 
-    public RecordStreamingSession(Socket socket, HttpServer server) {
+    public RecordStreamingSession(final Socket socket, final HttpServer server) {
         super(socket, server);
     }
 
-    public void setIterator(ChunkedIterator chunkedIterator) throws IOException {
-        this.chunks = chunkedIterator;
+    /**
+     * Set field chunks.
+     *
+     * @param chunkIterator - chunk Iterator
+     * @throws IOException - throws IOException
+     */
+    public void setIterator(final ChunkIterator chunkIterator) throws IOException {
+        this.chunks = chunkIterator;
 
         final Response response = new Response(Response.OK, Response.EMPTY);
         response.addHeader(CHUNK_HEADER);
@@ -41,7 +47,7 @@ public class RecordStreamingSession extends HttpSession {
         }
 
         if (!chunks.hasNext()) {
-            Request handling = this.handling;
+            final Request handling = this.handling;
             if (handling == null) {
                 throw new IOException("Out of order response");
             }
@@ -51,8 +57,8 @@ public class RecordStreamingSession extends HttpSession {
 
             server.incRequestsProcessed();
 
-            String connection = handling.getHeader("Connection: ");
-            boolean keepAlive = handling.isHttp11()
+            final String connection = handling.getHeader("Connection: ");
+            final boolean keepAlive = handling.isHttp11()
                     ? !"close".equalsIgnoreCase(connection)
                     : "Keep-Alive".equalsIgnoreCase(connection);
             if (!keepAlive) scheduleClose();

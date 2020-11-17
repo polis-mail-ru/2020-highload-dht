@@ -1,6 +1,5 @@
 package ru.mail.polis.service.nik27090;
 
-import com.sun.jdi.InternalException;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -131,7 +130,7 @@ public class DaoHelper {
             return dao.range(startBB, endBB);
         } catch (IOException e) {
             log.error("Cannot get range.", e);
-            throw new InternalException("Cannot get range.");
+            throw new IllegalStateException("Cannot get range.");
         }
     }
 }

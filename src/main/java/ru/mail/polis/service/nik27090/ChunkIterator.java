@@ -1,22 +1,20 @@
 package ru.mail.polis.service.nik27090;
 
-import one.nio.http.Response;
-import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
-public class ChunkedIterator implements Iterator<byte[]> {
+public class ChunkIterator implements Iterator<byte[]> {
 
-    private final byte[] SEPARATE = "\n".getBytes(StandardCharsets.UTF_8);
-    private final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private final byte[] END = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+    private final static byte[] SEP = "\n".getBytes(StandardCharsets.UTF_8);
+    private final static byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private final static byte[] END = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
 
     private final Iterator<Record> records;
 
-    public ChunkedIterator(Iterator<Record> records) {
+    public ChunkIterator(final Iterator<Record> records) {
         this.records = records;
     }
 
@@ -30,8 +28,8 @@ public class ChunkedIterator implements Iterator<byte[]> {
         final Record record = records.next();
         final ByteBuffer key = record.getKey();
         final ByteBuffer value = record.getValue();
-        final int dataLength = key.remaining() + value.remaining() + SEPARATE.length;
-        final byte[] data = toByteArray(ByteBuffer.allocate(dataLength).put(key).put(SEPARATE).put(value).position(0));
+        final int dataLength = key.remaining() + value.remaining() + SEP.length;
+        final byte[] data = toByteArray(ByteBuffer.allocate(dataLength).put(key).put(SEP).put(value).position(0));
         final byte[] chunkLength = Integer.toHexString(dataLength).getBytes(StandardCharsets.UTF_8);
 
         return toByteArray(
@@ -44,6 +42,12 @@ public class ChunkedIterator implements Iterator<byte[]> {
         );
     }
 
+    /**
+     * Convert ByteBuffer to byte[].
+     *
+     * @param buffer - byteBuffer
+     * @return - byte[]
+     */
     public static byte[] toByteArray(final ByteBuffer buffer) {
         final var bytes = new byte[buffer.remaining()];
         buffer.duplicate().get(bytes);
@@ -51,6 +55,6 @@ public class ChunkedIterator implements Iterator<byte[]> {
     }
 
     public byte[] end() {
-        return END;
+        return END.clone();
     }
 }
