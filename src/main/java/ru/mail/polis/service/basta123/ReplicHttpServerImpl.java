@@ -48,7 +48,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     private final HelperReplicHttpServerImpl helper;
     private final DAO dao;
     boolean requestForward;
-    AckFrom ackFromNew = null;
+    AckFrom ackFromNew;
 
     /**
      * class const.
@@ -121,7 +121,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
                 ackFromNew = this.ackFrom;
             } else {
                 final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
-                ackFromNew = new AckFrom();
+                ackFromNew = new AckFrom(topology);
                 ackFromNew.setAckValue(ackFromPair.getValue0());
                 ackFromNew.setFromValue(ackFromPair.getValue1());
             }
@@ -164,10 +164,11 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putValueByKey(@Param(value = "id", required = true) final String id,
-                              final Request request,
-                              @NotNull final HttpSession httpSession) throws IOException {
+    public void putVal(@Param(value = "id", required = true) final String id,
+                       final Request request,
+                       @NotNull final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
+            log.error("error id: ");
             return;
         }
         exec(request, httpSession);
@@ -191,10 +192,11 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteValueByKey(@Param(value = "id", required = true) final String id,
-                                 final Request request,
-                                 @NotNull final HttpSession httpSession) throws IOException {
+    public void deleteValueKey(@Param(value = "id", required = true) final String id,
+                               final Request request,
+                               @NotNull final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
+            log.error("error id");
             return;
         }
         exec(request, httpSession);

@@ -7,13 +7,9 @@ class AckFrom {
     private int ack;
     private int from;
 
-    public AckFrom() {
-    }
-
     /**
      * class instance const.
      */
-
 
     AckFrom(@NotNull final Topology<String> topology) {
         this.ack = topology.getSize() / 2 + 1;

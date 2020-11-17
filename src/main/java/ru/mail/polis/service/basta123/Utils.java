@@ -11,10 +11,6 @@ import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static java.lang.Byte.MIN_VALUE;
-
-
-
 public final class Utils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AckFrom.class);
@@ -49,7 +45,7 @@ public final class Utils {
         final byte[] byteArray = readArrayBytes(byteBuffer);
 
         for (int x = 0; x < byteArray.length; x++) {
-            byteArray[x] -= MIN_VALUE;
+            byteArray[x] -= Byte.MIN_VALUE;
         }
         return byteArray;
     }
@@ -63,7 +59,7 @@ public final class Utils {
     public static ByteBuffer arrayToBuf(final byte[] byteArray) {
         final byte[] dupArray = byteArray.clone();
         for (int x = 0; x < byteArray.length; x++) {
-            dupArray[x] += MIN_VALUE;
+            dupArray[x] += Byte.MIN_VALUE;
         }
         return ByteBuffer.wrap(dupArray);
     }

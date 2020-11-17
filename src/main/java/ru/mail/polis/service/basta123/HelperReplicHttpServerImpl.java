@@ -50,7 +50,8 @@ public class HelperReplicHttpServerImpl {
 
     Response getTimestampValue(final String id) throws IOException {
         try {
-            final TimestampValue timestampValue = dao.getTimestampValue(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+            final TimestampValue timestampValue = dao.getTimestampValue(ByteBuffer.wrap
+                    (id.getBytes(StandardCharsets.UTF_8)));
             return new Response(Response.OK,
                     TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
                             timestampValue.getTimeStamp(), timestampValue.getBuffer()));
@@ -97,6 +98,11 @@ public class HelperReplicHttpServerImpl {
                 LOGGER.error("error get: ", exc);
             }
         }
+        return checkAcks(ackFrom, ack, TimestampValues);
+    }
+
+    private Response checkAcks(@NotNull final AckFrom ackFrom, int ack, List<TimestampValue> TimestampValues)
+    {
         if (ack >= ackFrom.getAckValue()) {
             final TimestampValue timestampValue = valuesSync(TimestampValues);
             if (timestampValue.isValueDeleted()) {
