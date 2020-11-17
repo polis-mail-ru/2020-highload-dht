@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public final class Value {
-    private static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+    private final static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     private final boolean isValueDeleted;
     private final long timestamp;
@@ -40,7 +40,7 @@ public final class Value {
     }
 
     boolean isValueMissing() {
-        return buffer == null;
+        return timestamp == -1;
     }
 
     long getTimestamp() {

@@ -65,22 +65,11 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
-        final Map<String, HttpClient> nodesToClients = new HashMap<>();
-        this.handler = new ReplicationHandler(dao, topology, nodesToClients, exec);
-
-        for (final String node : topology.getNodes()) {
-
-            if (topology.isSelfId(node)) {
-                continue;
-            }
-            final HttpClient client = HttpClient.newBuilder()
-                    .executor(exec)
-                    .connectTimeout(Duration.ofSeconds(CONNECTION_TIMEOUT))
-                    .build();
-            if (nodesToClients.put(node, client) != null) {
-                throw new IllegalStateException("Found multiple nodes with same ID");
-            }
-        }
+        final HttpClient client = HttpClient.newBuilder()
+                .executor(exec)
+                .connectTimeout(Duration.ofSeconds(CONNECTION_TIMEOUT))
+                .build();
+        this.handler = new ReplicationHandler(dao, topology, exec, client);
     }
 
     /**

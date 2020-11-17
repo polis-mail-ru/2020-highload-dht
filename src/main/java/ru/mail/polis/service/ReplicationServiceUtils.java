@@ -28,22 +28,6 @@ final class ReplicationServiceUtils {
                 .orElseGet(Value::resolveMissingValue);
     }
 
-    static Set<String> getNodeReplica(
-            @NotNull final ByteBuffer key,
-            @NotNull final ReplicationFactor replicationFactor,
-            final boolean isForwardedRequest,
-            @NotNull final Topology topology) throws NotEnoughNodesException {
-
-        return isForwardedRequest ? ImmutableSet.of(
-                topology.getCurrentNode()
-        ) : topology.getReplicas(key, replicationFactor.getFrom());
-    }
-
-    static long getTimestamp(final Response response) throws NumberFormatException {
-        final String timestamp = response.getHeader(TIMESTAMP);
-        return timestamp == null ? -1 : Long.parseLong(timestamp);
-    }
-
     static Response addTimestampHeader(final Response response, final long timestamp) {
         response.addHeader(TIMESTAMP + timestamp);
         return response;

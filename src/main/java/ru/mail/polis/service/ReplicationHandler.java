@@ -1,5 +1,6 @@
 package ru.mail.polis.service;
 
+import com.google.common.collect.ImmutableSet;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -33,6 +34,8 @@ class ReplicationHandler {
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
     private final ExecutorService exec;
     private final DAO dao;
+    private final HttpClient httpClient;
+    private final ReplicationFactor quorum;
 
     private enum ErrorNames {
         NOT_FOUND_ERROR, IO_ERROR, QUEUE_LIMIT_ERROR, PROXY_ERROR, NOT_ENOUGH_NODES, TIMEOUT_ERROR,
@@ -52,26 +55,23 @@ class ReplicationHandler {
 
     @NotNull
     private final Topology topology;
-    @NotNull
-    private final Map<String, HttpClient> nodesToClients;
 
     ReplicationHandler(
             @NotNull final DAO dao, @NotNull final Topology topology,
-            @NotNull final Map<String, HttpClient> nodesToClients,
-            @NotNull final ExecutorService exec
-    ) {
+            @NotNull final ExecutorService exec,
+            HttpClient client) {
         this.topology = topology;
-        this.nodesToClients = nodesToClients;
         this.exec = exec;
         this.dao = dao;
+        this.httpClient = client;
+        this.quorum = ReplicationFactor.getQuorum(topology.getSize());
     }
 
     private void multipleGet(
-            final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session
-    ) {
+            final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session,
+            String id) {
         final List<CompletableFuture<Value>> futures = new ArrayList<>(nodes.size());
         final List<Value> values = new ArrayList<>(nodes.size());
-        final String id = req.getParameter("id");
         final ByteBuffer key = Util.toByteBuffer(id);
         for (final String node : nodes) {
             if (node.equals(topology.getCurrentNode())) {
@@ -85,7 +85,7 @@ class ReplicationHandler {
                         }, exec));
             } else {
                 final HttpRequest request = Util.setProxyHeader(node, req).GET().build();
-                final CompletableFuture<Value> responses = nodesToClients.get(node)
+                final CompletableFuture<Value> responses = httpClient
                         .sendAsync(request, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, exec);
                 futures.add(responses);
@@ -100,10 +100,9 @@ class ReplicationHandler {
 
     private void multipleUpsert(
             final Set<String> nodes, @NotNull final Request req,
-            final int count, @NotNull final HttpSession session
-    ) {
+            final int count, @NotNull final HttpSession session,
+            String id) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
-        final String id = req.getParameter("id");
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
                 futures.add(CompletableFuture.supplyAsync(
@@ -120,7 +119,7 @@ class ReplicationHandler {
                 final HttpRequest request = Util.setProxyHeader(node, req)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
                         .build();
-                final CompletableFuture<Response> responses = nodesToClients.get(node)
+                final CompletableFuture<Response> responses = httpClient
                         .sendAsync(request, PutBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> new Response(Response.CREATED, Response.EMPTY), exec);
                 futures.add(responses);
@@ -135,9 +134,8 @@ class ReplicationHandler {
 
     private void multipleDelete(
             final Set<String> nodes, @NotNull final Request req,
-            final int count, final HttpSession session
-    ) {
-        final String id = req.getParameter("id");
+            final int count, final HttpSession session,
+            String id) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
@@ -153,7 +151,7 @@ class ReplicationHandler {
                 );
             } else {
                 final HttpRequest request = Util.setProxyHeader(node, req).DELETE().build();
-                final CompletableFuture<Response> responses = nodesToClients.get(node)
+                final CompletableFuture<Response> responses = httpClient
                         .sendAsync(request, DeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> new Response(Response.ACCEPTED, Response.EMPTY), exec);
                 futures.add(responses);
@@ -173,7 +171,7 @@ class ReplicationHandler {
         final ReplicationFactor replicationFactor;
 
         try {
-            replicationFactor = replicas == null ? ReplicationFactor.getQuorum(topology.getSize()) :
+            replicationFactor = replicas == null ? quorum :
                     ReplicationFactor.createReplicationFactor(replicas);
         } catch (IllegalArgumentException ex) {
             session.sendError(Response.BAD_REQUEST, ex.getMessage());
@@ -183,7 +181,9 @@ class ReplicationHandler {
         final ByteBuffer key = Util.toByteBuffer(id);
         final Set<String> nodes;
         try {
-            nodes = ReplicationServiceUtils.getNodeReplica(key, replicationFactor, isForwardedRequest, topology);
+            nodes = isForwardedRequest ? ImmutableSet.of(
+                    topology.getCurrentNode()
+            ) : topology.getReplicas(key, replicationFactor.getFrom());
         } catch (NotEnoughNodesException e) {
             log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
             return;
@@ -192,13 +192,13 @@ class ReplicationHandler {
         try {
             switch (req.getMethod()) {
                 case Request.METHOD_GET:
-                    multipleGet(nodes, req, replicationFactor.getAck(), session);
+                    multipleGet(nodes, req, replicationFactor.getAck(), session, id);
                     break;
                 case Request.METHOD_PUT:
-                    multipleUpsert(nodes, req, replicationFactor.getAck(), session);
+                    multipleUpsert(nodes, req, replicationFactor.getAck(), session, id);
                     break;
                 case Request.METHOD_DELETE:
-                    multipleDelete(nodes, req, replicationFactor.getAck(), session);
+                    multipleDelete(nodes, req, replicationFactor.getAck(), session, id);
                     break;
                 default:
                     session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED));
