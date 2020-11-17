@@ -124,7 +124,9 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     ) {
         try {
             if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
-                throw new IllegalArgumentException(MESSAGE_MAP.get(ErrorNames.BAD_RANGE_PARAMS));
+                log.error(MESSAGE_MAP.get(ErrorNames.BAD_RANGE_PARAMS));
+                trySendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY), session);
+                return;
             }
 
             final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
@@ -134,8 +136,6 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             ((StreamSession) session).setIterator(iterator);
         } catch (IOException ex) {
             trySendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY), session);
-        } catch (IllegalArgumentException ex) {
-            trySendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY), session);
         }
     }
 
