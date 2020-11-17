@@ -120,6 +120,13 @@ public class DaoHelper {
         });
     }
 
+    /**
+     * Try get range.
+     *
+     * @param start - first key of storage.
+     * @param end - last key of storage.
+     * @return - iterator of range
+     */
     public Iterator<Record> getRange(final String start, final String end) {
         final ByteBuffer startBB = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
         ByteBuffer endBB = null;

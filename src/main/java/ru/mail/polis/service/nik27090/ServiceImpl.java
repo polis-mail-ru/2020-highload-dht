@@ -1,7 +1,6 @@
 package ru.mail.polis.service.nik27090;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.sun.jdi.InternalException;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -177,8 +176,8 @@ public class ServiceImpl extends HttpServer implements Service {
      * Get range data.
      *
      * @param session - session
-     * @param start - first key of storage
-     * @param end - last key of storage
+     * @param start   - first key of storage
+     * @param end     - last key of storage
      */
     @Path("/v0/entities")
     public void entitiesHandler(
@@ -189,13 +188,10 @@ public class ServiceImpl extends HttpServer implements Service {
             httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-
-        try {
-            ((RecordStreamingSession) session).setIterator(new ChunkIterator(daoHelper.getRange(start, end)));
-        } catch (IOException | IllegalStateException e) {
-            log.error("Socket internal error", e);
-            httpHelper.sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-        }
+        ((RecordStreamingSession) session).setIterator(
+                session,
+                new ChunkIterator(daoHelper.getRange(start, end))
+        );
     }
 
     private void getEntityExecutor(final String id,
@@ -290,7 +286,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
-        return new RecordStreamingSession(socket, this);
+        return new RecordStreamingSession(socket, this, httpHelper);
     }
 
     @Override

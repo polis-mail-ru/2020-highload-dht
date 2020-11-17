@@ -8,9 +8,9 @@ import java.util.Iterator;
 
 public class ChunkIterator implements Iterator<byte[]> {
 
-    private final static byte[] SEP = "\n".getBytes(StandardCharsets.UTF_8);
-    private final static byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private final static byte[] END = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SEP = "\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] END = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
 
     private final Iterator<Record> records;
 
