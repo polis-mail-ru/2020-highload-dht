@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -35,8 +36,8 @@ public class HelperReplicHttpServerImpl {
     /**
      * class const.
      *
-     * @param dao            - DAO instance
-     * @param topology       - topology implementation instance
+     * @param dao           - DAO instance
+     * @param topology      - topology implementation instance
      * @param clientAndNode - HashMap-implemented mapping available nodes over HTTP clients
      */
     HelperReplicHttpServerImpl(@NotNull final DAO dao,
@@ -47,20 +48,26 @@ public class HelperReplicHttpServerImpl {
         this.clientAndNode = clientAndNode;
     }
 
+    Response getTimestampValue(final String id) throws IOException {
+        try {
+            final TimestampValue timestampValue = dao.getTimestampValue(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+            return new Response(Response.OK,
+                    TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
+                            timestampValue.getTimeStamp(), timestampValue.getBuffer()));
+        } catch (NoSuchElementException exc) {
+            LOGGER.error("no key found");
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
+    }
+
     Response getFromReplicas(final String id,
                              @NotNull final AckFrom ackFrom,
                              final boolean requestForward) throws IOException {
         if (requestForward) {
             try {
-
-                final TimestampValue timestampValue = dao.getTimestampValue
-                        (ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                return new Response(Response.OK,
-                        TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
-                        timestampValue.getTimeStamp(),
-                        timestampValue.getBuffer()));
+                return getTimestampValue(id);
             } catch (NoSuchElementException exc) {
-                LOGGER.error("No match key found on local node replica");
+                LOGGER.error("no key found");
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
         }
@@ -73,17 +80,7 @@ public class HelperReplicHttpServerImpl {
             try {
                 Response response;
                 if (topology.isLocal(node)) {
-                    try {
-                        final TimestampValue timestampValue =
-                                dao.getTimestampValue(ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
-                        response = new Response(Response.OK,
-                                TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
-                                timestampValue.getTimeStamp(),
-                                timestampValue.getBuffer()));
-                    } catch (NoSuchElementException exc) {
-                        LOGGER.error("No match key found on local node replica");
-                        response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                    }
+                        response = getTimestampValue(id);
                 } else {
                     response = clientAndNode.get(node)
                             .get(REQUEST_HEADER + id, ReplicHttpServerImpl.FORWARD_REQ);
@@ -97,7 +94,7 @@ public class HelperReplicHttpServerImpl {
                 }
                 ack++;
             } catch (HttpException | PoolException | InterruptedException exc) {
-                LOGGER.error("Error running GET handler on cluster replica node", exc);
+                LOGGER.error("error get: ", exc);
             }
         }
         if (ack >= ackFrom.getAckValue()) {
@@ -105,8 +102,7 @@ public class HelperReplicHttpServerImpl {
             if (timestampValue.isValueDeleted()) {
                 return new Response(Response.NOT_FOUND,
                         TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
-                        timestampValue.getTimeStamp(),
-                        timestampValue.getBuffer()));
+                                timestampValue.getTimeStamp(), timestampValue.getBuffer()));
             } else {
                 final ByteBuffer byteBuffer = timestampValue.getBuffer();
                 final byte[] bytes = new byte[byteBuffer.remaining()];
@@ -173,7 +169,7 @@ public class HelperReplicHttpServerImpl {
                     }
                 }
             } catch (IOException | PoolException | InterruptedException | HttpException exc) {
-                LOGGER.error("Error running PUT handler on cluster replica node", exc);
+                LOGGER.error("Error put: ", exc);
             }
         }
         if (ack >= ackFrom.getAckValue()) {
@@ -237,7 +233,7 @@ public class HelperReplicHttpServerImpl {
                     return new Response(Response.ACCEPTED, Response.EMPTY);
                 }
             } catch (IOException | PoolException | HttpException | InterruptedException exc) {
-                LOGGER.error("Error running DELETE handler on cluster replica node", exc);
+                LOGGER.error("Error delete:", exc);
             }
         }
         LOGGER.error(ReplicHttpServerImpl.TIMEOUT_ERROR);

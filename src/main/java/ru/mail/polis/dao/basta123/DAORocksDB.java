@@ -111,7 +111,8 @@ public class DAORocksDB implements DAO {
      * @param value - key-bound value
      */
     @Override
-    public void upsertTimestampValue(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+    public void upsertTimestampValue(@NotNull final ByteBuffer key,
+                                     @NotNull final ByteBuffer value) throws IOException {
         try {
             rocksDBInstance.put(Utils.bufToArray(key),
                     TimestampValue.getBytesFromTimestampValue(false,

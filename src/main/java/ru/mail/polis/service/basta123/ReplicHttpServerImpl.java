@@ -48,6 +48,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     private final HelperReplicHttpServerImpl helper;
     private final DAO dao;
     boolean requestForward;
+    AckFrom ackFromNew = null;
 
     /**
      * class const.
@@ -76,16 +77,10 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             }
         }
         this.execService = new ThreadPoolExecutor(numWorkers,
-                numWorkers,
-                0,
-                TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(QUEUE_SIZE),
+                numWorkers, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE),
                 new ThreadFactoryBuilder()
                         .setUncaughtExceptionHandler((t, e) -> log.error("Error in worker {}", t, e))
-                        .setNameFormat("worker-%d")
-                        .build(),
-                new ThreadPoolExecutor.AbortPolicy());
-
+                        .setNameFormat("worker-%d").build(), new ThreadPoolExecutor.AbortPolicy());
     }
 
     @Path("/v0/status")
@@ -112,7 +107,27 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         for (final HttpClient client : clientAndNode.values()) {
             client.clear();
         }
+    }
 
+    private void exec(final Request request, @NotNull final HttpSession httpSession) throws IOException {
+        if (request.getHeader(FORWARD_REQ) == null) {
+            requestForward = false;
+        } else {
+            requestForward = true;
+        }
+        final String replicas = request.getParameter(REPLICAS);
+        try {
+            if (replicas == null) {
+                ackFromNew = this.ackFrom;
+            } else {
+                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
+                ackFromNew = new AckFrom();
+                ackFromNew.setAckValue(ackFromPair.getValue0());
+                ackFromNew.setFromValue(ackFromPair.getValue1());
+            }
+        } catch (IllegalArgumentException exc) {
+            httpSession.sendError(Response.BAD_REQUEST, "request cant be parsed ");
+        }
     }
 
     /**
@@ -128,25 +143,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         if (!isIdValid(id, httpSession)) {
             return;
         }
-        if (request.getHeader(FORWARD_REQ) == null) {
-            requestForward = false;
-        } else {
-            requestForward = true;
-        }
-        final String replicas = request.getParameter(REPLICAS);
-        AckFrom ackFromNew = null;
-        try {
-            if (replicas == null) {
-                ackFromNew = this.ackFrom;
-            } else {
-                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
-                ackFromNew = new AckFrom();
-                ackFromNew.setAckValue(ackFromPair.getValue0());
-                ackFromNew.setFromValue(ackFromPair.getValue1());
-            }
-        } catch (IllegalArgumentException exc) {
-            httpSession.sendError(Response.BAD_REQUEST, "request cant be parsed");
-        }
+        exec(request, httpSession);
         if (topology.getSize() > 1) {
             final AckFrom finalAckFrom = ackFromNew;
             executeAsync(httpSession, () -> helper.getFromReplicas(
@@ -173,26 +170,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         if (!isIdValid(id, httpSession)) {
             return;
         }
-        if (request.getHeader(FORWARD_REQ) == null) {
-            requestForward = false;
-        } else {
-            requestForward = true;
-        }
-        final String replicas = request.getParameter(REPLICAS);
-        AckFrom ackFromNew = null;
-        try {
-            if (replicas == null) {
-                ackFromNew = this.ackFrom;
-            } else {
-                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
-                ackFromNew = new AckFrom();
-                ackFromNew.setAckValue(ackFromPair.getValue0());
-                ackFromNew.setFromValue(ackFromPair.getValue1());
-            }
-        } catch (IllegalArgumentException exc) {
-            httpSession.sendError(Response.BAD_REQUEST, "request cant be parsed");
-        }
-
+        exec(request, httpSession);
         if (topology.getSize() > 1) {
             final AckFrom finalAckFrom = ackFromNew;
             executeAsync(httpSession, () -> helper.upsertToReplicas(
@@ -219,25 +197,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         if (!isIdValid(id, httpSession)) {
             return;
         }
-        if (request.getHeader(FORWARD_REQ) == null) {
-            requestForward = false;
-        } else {
-            requestForward = true;
-        }
-        final String replicas = request.getParameter(REPLICAS);
-        AckFrom ackFromNew = null;
-        try {
-            if (replicas == null) {
-                ackFromNew = this.ackFrom;
-            } else {
-                final Pair<Integer, Integer> ackFromPair = Utils.parseReplicas(replicas);
-                ackFromNew = new AckFrom();
-                ackFromNew.setAckValue(ackFromPair.getValue0());
-                ackFromNew.setFromValue(ackFromPair.getValue1());
-            }
-        } catch (IllegalArgumentException exc) {
-            httpSession.sendError(Response.BAD_REQUEST, "request cant be parsed");
-        }
+        exec(request, httpSession);
         if (topology.getSize() > 1) {
             final AckFrom finalAckFrom = ackFromNew;
             executeAsync(httpSession, () -> helper.deleteFromReplicas(
