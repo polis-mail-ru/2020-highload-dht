@@ -165,7 +165,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
 
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
 
-        final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes(UTF_8));
         final ReplicationFactor replicationFactor = ReplicationFactor
                 .getReplicationFactor(replicas, rf, session);
 

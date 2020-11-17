@@ -2,14 +2,12 @@ package ru.mail.polis.service;
 
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
-import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.util.Util;
 
@@ -17,7 +15,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
