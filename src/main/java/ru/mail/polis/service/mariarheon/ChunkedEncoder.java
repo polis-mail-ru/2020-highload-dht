@@ -9,10 +9,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Encoder for writing chunks to the session in Transfer-Chunked-Encoding format.
+ */
 public class ChunkedEncoder {
     private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
     final HttpSession session;
 
+    /**
+     * Create encoder for writing chunks to the session.
+     *
+     * @param session - session.
+     * @throws IOException - raised when writing to session failed.
+     */
     public ChunkedEncoder(HttpSession session) throws IOException {
         this.session = session;
         final var builder = new StringBuilder();
@@ -25,6 +34,12 @@ public class ChunkedEncoder {
         session.write(head, 0, head.length);
     }
 
+    /**
+     * Write new chunk with the record information to session.
+     *
+     * @param record - key-value pair, which should be written as chunk to session.
+     * @throws IOException - raised when writing to session failed.
+     */
     public void write(ru.mail.polis.Record record) throws IOException {
         final var key = record.getKey();
         final var keyAsBytes = ByteBufferUtils.toArray(key);
@@ -54,6 +69,11 @@ public class ChunkedEncoder {
         }
     }
 
+    /**
+     * Write last chunk (0-lengthed) to session.
+     *
+     * @throws IOException - raised when writing to session failed.
+     */
     public void close() throws IOException {
         final byte[] res = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
         logger.info("Closed chunked response item: " + new String(res, StandardCharsets.UTF_8));

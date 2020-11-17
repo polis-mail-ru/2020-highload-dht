@@ -1,5 +1,6 @@
 package ru.mail.polis.service.mariarheon;
 
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 
@@ -8,13 +9,25 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
+/**
+ * Iterator for getting records for keys in range [start, end).
+ */
 public class RecordIterator implements Iterator<ru.mail.polis.Record> {
     private final Iterator<ru.mail.polis.Record> iterator;
     private final byte[] endKeyAsBytes;
     private boolean finished;
     private ru.mail.polis.Record current;
 
-    public RecordIterator(DAO dao, String start, String end) throws IOException {
+    /**
+     * Create iterator for getting records for keys in range [start, end).
+     *
+     * @param dao - dao implementation with records
+     * @param start - start-key of range, inclusively.
+     * @param end - end-key of range, exclusively, or null if all
+     *            the records should be delivered, started from start-key.
+     * @throws IOException - raised when reading from dao failed.
+     */
+    public RecordIterator(@NotNull final DAO dao, @NotNull final String start, String end) throws IOException {
         final var startKey = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
         iterator = dao.iterator(startKey);
         if (end != null) {
@@ -41,11 +54,21 @@ public class RecordIterator implements Iterator<ru.mail.polis.Record> {
         }
     }
 
+    /**
+     * Returns true if the next record exists.
+     *
+     * @return - true if the next record exists, false - otherwise.
+     */
     @Override
     public boolean hasNext() {
         return !finished;
     }
 
+    /**
+     * Returns the next record or null if it does not exist.
+     *
+     * @return - the next record or null if it does not exist.
+     */
     @Override
     public ru.mail.polis.Record next() {
         final var res = current;
