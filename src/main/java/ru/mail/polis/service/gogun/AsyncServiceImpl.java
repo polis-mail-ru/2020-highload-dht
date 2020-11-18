@@ -15,6 +15,7 @@ import ru.mail.polis.dao.gogun.Value;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
@@ -32,6 +33,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
@@ -41,15 +43,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public static final Duration TIMEOUT = Duration.ofSeconds(1);
     public static final String PROXY_HEADER = "X-Proxy-For: ";
     public static final String TIMESTAMP_HEADER = "timestamp: ";
-    public static final String ABSENT = "-1";
     public static final String REPLICA_FACTOR_PARAM = "replicas=";
 
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
+    @NotNull
+    private ReplicasFactor replicasFactor;
     private final ExecutorService executorService;
     @NotNull
-    private final java.net.http.HttpClient client;
+    private final HttpClient client;
 
     /**
      * class that provides requests to lsm dao via http.
@@ -88,6 +91,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .connectTimeout(TIMEOUT)
                         .version(java.net.http.HttpClient.Version.HTTP_1_1)
                         .build();
+        this.replicasFactor = ReplicasFactor.quorum(topology.all().size());
     }
 
     @Override
@@ -129,20 +133,27 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader(PROXY_HEADER) != null) {
-            ServiceUtils.selector(() -> handlePut(key, request),
-                    () -> handleGet(key),
-                    () -> handleDel(key),
-                    request.getMethod(),
-                    session);
+            switch (request.getMethod()) {
+                case Request.METHOD_PUT:
+                    session.sendResponse(handlePut(key, request).getResponse());
+                    break;
+                case Request.METHOD_GET:
+                    session.sendResponse(handleGet(key).getResponse());
+                    break;
+                case Request.METHOD_DELETE:
+                    session.sendResponse(handleDel(key).getResponse());
+                    break;
+                default:
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    break;
+            }
             return;
         }
 
-        final ReplicasFactor replicasFactor;
+
         final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
         try {
-            if (replicaFactor == null) {
-                replicasFactor = ReplicasFactor.quorum(topology.all().size());
-            } else {
+            if (replicaFactor != null) {
                 replicasFactor = ReplicasFactor.quorum(replicaFactor);
             }
         } catch (IllegalArgumentException e) {
@@ -163,8 +174,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final List<CompletableFuture<Response>> responsesFuture = new ArrayList<>(replicasFactor.getFrom());
-        replNodes.forEach((node) -> responsesFuture.add(proxy(node, request)));
+        final List<CompletableFuture<Entry>> responsesFuture = replNodes.stream()
+                .map(node -> proxy(node, request))
+                .collect(Collectors.toCollection(ArrayList::new));
+
         Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
             try {
                 if (v == null) {
@@ -172,11 +185,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     return;
                 }
 
-                final ResponseMerger responseMerger = new ResponseMerger(v, replicasFactor.getAck());
+                final EntryMerger entryMerger = new EntryMerger(v, replicasFactor.getAck());
 
-                ServiceUtils.selector(responseMerger::mergePutResponses,
-                        responseMerger::mergeGetResponses,
-                        responseMerger::mergeDeleteResponses,
+                ServiceUtils.selector(entryMerger::mergePutResponses,
+                        entryMerger::mergeGetResponses,
+                        entryMerger::mergeDeleteResponses,
                         request.getMethod(), session);
             } catch (IOException e) {
                 log.error("error sending response", e);
@@ -184,55 +197,52 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }, executorService).isCancelled();
     }
 
-    private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
+    private Entry handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
         try {
             dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
         } catch (IOException e) {
             log.error("Internal server error put", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-
+            return new Entry(Entry.INTERNAL_ERROR);
         }
 
-        return new Response(Response.CREATED, Response.EMPTY);
+        return new Entry(Entry.CREATED);
     }
 
-    private Response handleGet(@NotNull final ByteBuffer key) {
+    private Entry handleGet(@NotNull final ByteBuffer key) {
         final Value value;
-        Response response;
+        Entry entry;
         try {
             value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            return new Entry(Entry.INTERNAL_ERROR);
         } catch (NoSuchElementException e) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TIMESTAMP_HEADER + ABSENT);
-            return response;
+            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Entry.NOT_FOUND);
+            return entry;
         }
 
         if (value.isTombstone()) {
-            response = new Response(Response.NOT_FOUND, Response.EMPTY);
+            entry = new Entry(Entry.EMPTY_DATA, Entry.NOT_FOUND);
         } else {
-            response = Response.ok(ServiceUtils.getArray(value.getData()));
+            entry = new Entry(ServiceUtils.getArray(value.getData()), Entry.OK);
         }
-        response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
+        entry.setTimestamp(value.getTimestamp());
 
-        return response;
+        return entry;
     }
 
-    private Response handleDel(@NotNull final ByteBuffer key) {
+    private Entry handleDel(@NotNull final ByteBuffer key) {
         try {
             dao.remove(key);
         } catch (IOException e) {
             log.error("Internal server error del", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-
+            return new Entry(Entry.INTERNAL_ERROR);
         }
 
-        return new Response(Response.ACCEPTED, Response.EMPTY);
+        return new Entry(Entry.ACCEPTED);
     }
 
-    private CompletableFuture<Response> proxy(final String node, final Request request) {
+    private CompletableFuture<Entry> proxy(final String node, final Request request) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 

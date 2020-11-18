@@ -93,11 +93,11 @@ final class ServiceUtils {
         }
     }
 
-    public static CompletableFuture<Response> selector(final Supplier<Response> putRequest,
-                                                       final Supplier<Response> getRequest,
-                                                       final Supplier<Response> deleteRequest,
-                                                       final int method,
-                                                       final ExecutorService executorService) {
+    public static CompletableFuture<Entry> selector(final Supplier<Entry> putRequest,
+                                                    final Supplier<Entry> getRequest,
+                                                    final Supplier<Entry> deleteRequest,
+                                                    final int method,
+                                                    final ExecutorService executorService) {
         switch (method) {
             case Request.METHOD_PUT:
                 return CompletableFuture.supplyAsync(putRequest, executorService);
