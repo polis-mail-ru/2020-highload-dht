@@ -84,17 +84,15 @@ public class StreamingSession extends HttpSession {
     private byte[] getChunk(final Record record) {
         final byte[] key = ServiceUtils.getArray(record.getKey());
         final byte[] value = ServiceUtils.getArray(record.getValue());
-        final byte[] data = new byte[key.length + LF.length + value.length];
-        System.arraycopy(key, 0, data, 0, key.length);
-        System.arraycopy(LF, 0, data, key.length, LF.length);
-        System.arraycopy(value, 0, data, key.length + LF.length, value.length);
-
-        final byte[] length = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-        final byte[] chunk = new byte[length.length + CRLF.length + data.length + CRLF.length];
+        final int dataLength = key.length + LF.length + value.length;
+        final byte[] length = Integer.toHexString(dataLength).getBytes(StandardCharsets.US_ASCII);
+        final byte[] chunk = new byte[length.length + CRLF.length + dataLength + CRLF.length];
         final ByteBuffer buffer = ByteBuffer.wrap(chunk);
         buffer.put(length);
         buffer.put(CRLF);
-        buffer.put(data);
+        buffer.put(key);
+        buffer.put(LF);
+        buffer.put(value);
         buffer.put(CRLF);
 
         return chunk;
