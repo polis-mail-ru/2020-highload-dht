@@ -150,7 +150,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
         try {
             if (replicaFactor != null) {
-                replicasFactor = ReplicasFactor.quorum(replicaFactor);
+                replicasFactor = ReplicasFactor.parseReplicaFactor(replicaFactor);
             }
         } catch (IllegalArgumentException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));

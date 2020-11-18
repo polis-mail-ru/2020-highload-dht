@@ -38,7 +38,7 @@ public final class ReplicasFactor {
         }
     }
 
-    public static ReplicasFactor quorum(@NotNull final String replicas) {
+    public static ReplicasFactor parseReplicaFactor(@NotNull final String replicas) {
         return new ReplicasFactor(replicas);
     }
 
