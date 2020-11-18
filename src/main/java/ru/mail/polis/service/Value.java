@@ -47,7 +47,7 @@ public final class Value {
     }
 
     public static Value resolveMissingValue() {
-        return new Value(false, -1, null);
+        return new Value(false, -1, EMPTY_BUFFER);
     }
 
     private boolean isValueDeleted() {
@@ -58,7 +58,7 @@ public final class Value {
         return timestamp == -1;
     }
 
-    long getTimestamp() {
+    private long getTimestamp() {
         return timestamp;
     }
 
