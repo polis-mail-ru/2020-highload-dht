@@ -246,6 +246,8 @@ public class CustomServer extends BaseFunctionalityServer {
                 } catch (IOException e) {
                     logger.error(e.getMessage(), e);
                 }
+            } else {
+                logger.error("Session " + session.toString() + " is not a instance of " + StreamingSession.class);
             }
         }
     }

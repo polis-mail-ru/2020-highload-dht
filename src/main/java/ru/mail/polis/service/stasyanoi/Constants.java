@@ -17,6 +17,7 @@ public final class Constants {
     public static final byte[] EOF = "0\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] EOL = "\n".getBytes(StandardCharsets.US_ASCII);
+    public static final byte[] EMPTY_BODY = new byte[0];
 
     private Constants() {
 

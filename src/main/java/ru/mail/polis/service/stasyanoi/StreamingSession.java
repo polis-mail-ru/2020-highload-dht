@@ -10,6 +10,7 @@ import ru.mail.polis.service.Mapper;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import static ru.mail.polis.service.stasyanoi.Constants.CRLF;
@@ -44,11 +45,13 @@ public class StreamingSession extends HttpSession {
     }
 
     private synchronized void sendStream() throws IOException {
-        while (rocksIterator.hasNext() && queueHead == null) {
-            final Record record = rocksIterator.next();
-            final byte[] data = getRecordData(record);
-            write(data, 0, data.length);
-        }
+        do {
+            while (rocksIterator.hasNext() && queueHead == null) {
+                final Record record = rocksIterator.next();
+                final byte[] data = getRecordData(record);
+                write(data, 0, data.length);
+            }
+        } while (queueHead.remaining() != 0);
     }
 
     private void closeStream() throws IOException {
@@ -71,24 +74,25 @@ public class StreamingSession extends HttpSession {
     private byte[] getRecordData(final Record record) {
         final byte[] key = Mapper.toBytes(record.getKey());
         final byte[] value = Mapper.toBytes(record.getValue());
-        byte[] valueWithoutTimestamp = new byte[value.length - Constants.TIMESTAMP_LENGTH];
-        final byte[] emptyBody = new byte[0];
-        if (valueWithoutTimestamp.length == 1) {
-          valueWithoutTimestamp = emptyBody;
+        final byte[] valueWithoutTimestamp;
+        final byte[] dataLength;
+        final byte[] chunk;
+        if (value.length == Constants.EMPTY_BODY_SIZE) {
+            valueWithoutTimestamp = Constants.EMPTY_BODY;
         } else {
-            System.arraycopy(value, 0, valueWithoutTimestamp, 0, value.length - Constants.TIMESTAMP_LENGTH);
+            int pureBodyLength = value.length - Constants.TIMESTAMP_LENGTH;
+            valueWithoutTimestamp = Arrays.copyOfRange(value, 0, pureBodyLength);
         }
-        final byte[] data = new byte[key.length + EOL.length + valueWithoutTimestamp.length];
-        final ByteBuffer byteBufferData = ByteBuffer.wrap(data);
-        byteBufferData.put(key);
-        byteBufferData.put(EOL);
-        byteBufferData.put(valueWithoutTimestamp);
-        final byte[] dataLength = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-        final byte[] chunk = new byte[dataLength.length + CRLF.length + data.length + CRLF.length];
+        dataLength = Integer.toHexString(key.length + EOL.length + valueWithoutTimestamp.length)
+                .getBytes(StandardCharsets.US_ASCII);
+        chunk = new byte[dataLength.length + CRLF.length + key.length + EOL.length +
+                valueWithoutTimestamp.length + CRLF.length];
         final ByteBuffer byteBuffer = ByteBuffer.wrap(chunk);
         byteBuffer.put(dataLength);
         byteBuffer.put(CRLF);
-        byteBuffer.put(data);
+        byteBuffer.put(key);
+        byteBuffer.put(EOL);
+        byteBuffer.put(valueWithoutTimestamp);
         byteBuffer.put(CRLF);
         return chunk;
     }
