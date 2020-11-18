@@ -51,7 +51,7 @@ public class StreamingSession extends HttpSession {
                 final byte[] data = getRecordData(record);
                 write(data, 0, data.length);
             }
-        } while (rocksIterator.hasNext() && queueHead.remaining() != 0);
+        } while (queueHead != null && rocksIterator.hasNext());
     }
 
     private void closeStream() throws IOException {
