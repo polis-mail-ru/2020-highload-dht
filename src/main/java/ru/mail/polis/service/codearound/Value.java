@@ -11,8 +11,8 @@ import java.nio.ByteBuffer;
  */
 public final class Value {
 
-    private static final Value SINGLE_VALUE = new Value(false, -1, ByteBuffer.allocate(0));
     private static final Logger LOGGER = LoggerFactory.getLogger(Value.class);
+    private static final Value SINGLE_VALUE = new Value(false, -1, ByteBuffer.allocate(0));
     private final boolean isValueDeleted;
     private final long timestamp;
     private final ByteBuffer buffer;
@@ -45,7 +45,7 @@ public final class Value {
     }
 
     /**
-     * resolves handling value as a deleted one.
+     * resolves handling value as deleted one.
      *
      * @param timestamp - timestamp to enable tracing back value modification moment
      * @return Value instance
@@ -55,7 +55,7 @@ public final class Value {
     }
 
     /**
-     * resolves handling value as a missing one.
+     * resolves handling value as missing one.
      *
      * @return Value instance
      */
@@ -106,7 +106,7 @@ public final class Value {
      */
     private ByteBuffer getValue() throws IOException {
         if (isValueDeleted) {
-            LOGGER.info("Target record has been removed");
+            LOGGER.info("Record no longer available since being removed");
             throw new IOException();
         } else {
             return buffer;

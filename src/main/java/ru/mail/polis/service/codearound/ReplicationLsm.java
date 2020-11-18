@@ -126,6 +126,7 @@ public class ReplicationLsm {
                 replCounter++;
             } catch (HttpException | PoolException | InterruptedException exc) {
                 LOGGER.error("Error running GET handler on cluster replica node", exc);
+                System.out.println("Error running PUT handler on cluster replica node");
             }
         }
         if (isForwardedRequest || replCounter >= repliFactor.getAckValue()) {
@@ -155,10 +156,10 @@ public class ReplicationLsm {
                 dao.upsert(key, val);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (RejectedExecutionException exc) {
-                LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
+                //LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
             } catch (IOException exc) {
-                LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
+                //LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -207,6 +208,7 @@ public class ReplicationLsm {
                 }
             } catch (IOException | PoolException | InterruptedException | HttpException exc) {
                 LOGGER.error("Error running PUT handler on cluster replica node", exc);
+                System.out.println("Error running PUT handler on cluster replica node");
             }
         }
         if (ack >= ackValue) {
@@ -285,6 +287,7 @@ public class ReplicationLsm {
                 }
             } catch (IOException | PoolException | HttpException | InterruptedException exc) {
                 LOGGER.error("Error running DELETE handler on cluster replica node", exc);
+                System.out.println("Error running DELETE handler on cluster replica node");
             }
         }
         LOGGER.error(RepliServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);

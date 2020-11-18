@@ -1,25 +1,19 @@
 package ru.mail.polis.service.codearound;
 
-//import org.jetbrains.annotations.NotNull;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- *  class to enable implementing of methods to advance highload cluster stress tests
- *  using both Yandex Tank and Overload service.
+ *  class pools implementations of methods to carry out highload cluster stress tests
+ *  using both Yandex Tank and Overload analytics service.
  */
 public final class TankAmmoQueries {
 
-    private static final Logger LOGGER = Logger.getLogger(TankAmmoQueries.class.getName());
     private static final int KEY_LENGTH = 256;
     private static final String CRLF = "\r\n";
     private static final String tagOfGet = " GET\n";
@@ -29,7 +23,7 @@ public final class TankAmmoQueries {
      * class instance const.
      */
     private TankAmmoQueries() {
-
+        // Not supposed to be instantiated
     }
 
     /**
@@ -73,13 +67,14 @@ public final class TankAmmoQueries {
     }
 
     /**
-     * generates GET requests consistently with normal distribution law (query option #3).
+     * generates GET requests consistently with continuous distribution law (query option #3).
      *
      * @param numOfKeys - number of keys to be available for fetching from the storage via GET requests
      */
-    private static void getKeyNormalDist(final int numOfKeys) throws IOException {
+    private static void getKeyContinuously(final int numOfKeys) throws IOException {
         for (long i = 0; i < numOfKeys; i++) {
-            getKey(Long.toString(ThreadLocalRandom.current().nextLong(numOfKeys)));
+            final int key = new Random().nextInt(numOfKeys);
+            getKey(Long.toString(key));
         }
     }
 
@@ -169,14 +164,13 @@ public final class TankAmmoQueries {
     }
 
     /**
-     * initializes determining a test query and (following one) handler option using cmd interface.
+     * launches picking test option to generate tank ammo respectively.
      *
-     * @param args - cmd arguments to be specified before running test upon option pick
+     * @param args - cmd arguments to execute generating ammo upon test pick
      */
     public static void main(String [] args) throws IOException {
 
         if (args.length < 2 || args.length > 3) {
-            LOGGER.log(Level.SEVERE, "Given inconsistent number of arguments before program running");
             throw new IllegalArgumentException("Given inconsistent number of arguments before program running");
         }
 
@@ -191,7 +185,7 @@ public final class TankAmmoQueries {
                 putWhenOverwriting(requestPool);
                 break;
             case "3":
-                getKeyNormalDist(requestPool);
+                getKeyContinuously(requestPool);
                 break;
             case "4":
                 final long numOfEntries = Long.parseLong(args[2]);

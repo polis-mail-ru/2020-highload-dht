@@ -76,7 +76,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
+                        //.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
@@ -245,6 +245,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
                     session.sendError(Response.INTERNAL_ERROR, COMMON_RESPONSE_ERROR_LOG);
                 } catch (IOException e) {
                     LOGGER.error(IO_ERROR_LOG);
+                    System.out.println(IO_ERROR_LOG);
                 }
             }
         });
@@ -260,7 +261,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
         try {
             exec.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            LOGGER.error("Failed executor termination");
+            //LOGGER.error("Failed executor termination");
             Thread.currentThread().interrupt();
         }
         for (final HttpClient client : nodesToClients.values()) {
