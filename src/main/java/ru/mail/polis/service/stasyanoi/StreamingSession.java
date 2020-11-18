@@ -80,7 +80,7 @@ public class StreamingSession extends HttpSession {
         if (value.length == Constants.EMPTY_BODY_SIZE) {
             valueWithoutTimestamp = Constants.EMPTY_BODY;
         } else {
-            int pureBodyLength = value.length - Constants.TIMESTAMP_LENGTH;
+            final int pureBodyLength = value.length - Constants.TIMESTAMP_LENGTH;
             valueWithoutTimestamp = Arrays.copyOfRange(value, 0, pureBodyLength);
         }
         dataLength = Integer.toHexString(key.length + EOL.length + valueWithoutTimestamp.length)
