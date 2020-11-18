@@ -87,8 +87,8 @@ public class StreamingSession extends HttpSession {
         }
         dataLength = Integer.toHexString(key.length + EOL.length + valueWithoutTimestamp.length)
                 .getBytes(StandardCharsets.US_ASCII);
-        chunk = new byte[dataLength.length + CRLF.length + key.length + EOL.length +
-                valueWithoutTimestamp.length + CRLF.length];
+        chunk = new byte[dataLength.length + CRLF.length + key.length + EOL.length
+                + valueWithoutTimestamp.length + CRLF.length];
         final ByteBuffer byteBuffer = ByteBuffer.wrap(chunk);
         byteBuffer.put(dataLength);
         byteBuffer.put(CRLF);
