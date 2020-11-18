@@ -16,8 +16,6 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.security.InvalidParameterException;
 import java.time.Duration;
@@ -36,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
@@ -86,10 +83,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .setNameFormat("Client_%d")
                         .build());
         this.client =
-                java.net.http.HttpClient.newBuilder()
+                HttpClient.newBuilder()
                         .executor(clientExecutor)
                         .connectTimeout(TIMEOUT)
-                        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                        .version(HttpClient.Version.HTTP_1_1)
                         .build();
         this.replicasFactor = ReplicasFactor.quorum(topology.all().size());
     }
@@ -150,7 +147,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-
         final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
         try {
             if (replicaFactor != null) {
@@ -187,7 +183,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
                 final EntryMerger entryMerger = new EntryMerger(v, replicasFactor.getAck());
 
-                ServiceUtils.selector(entryMerger::mergePutResponses,
+                ServiceUtils.getCompletableFutureOnResponse(entryMerger::mergePutResponses,
                         entryMerger::mergeGetResponses,
                         entryMerger::mergeDeleteResponses,
                         request.getMethod(), session);
@@ -247,7 +243,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (topology.isMe(node)) {
-            return ServiceUtils.selector(
+            return ServiceUtils.getCompletableFutureOnResponse(
                     () -> handlePut(key, request),
                     () -> handleGet(key),
                     () -> handleDel(key),
@@ -255,28 +251,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     executorService);
         }
 
-        HttpRequest requestForReplica;
-        switch (request.getMethod()) {
-            case Request.METHOD_PUT:
-                requestForReplica = requestForRepl(node, id)
-                        .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
-                        .build();
-                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executorService);
-            case Request.METHOD_GET:
-                requestForReplica = requestForRepl(node, id).GET()
-                        .build();
-                return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executorService);
-            case Request.METHOD_DELETE:
-                requestForReplica = requestForRepl(node, id).DELETE()
-                        .build();
-                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executorService);
-            default:
-                log.error("Wrong request method");
-                throw new IllegalStateException("Wrong request method");
-        }
+        return ServiceUtils.getCompletableFutureOnResponse(
+                node,
+                id,
+                request,
+                client,
+                executorService);
     }
 
     /**

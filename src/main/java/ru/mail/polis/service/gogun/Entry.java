@@ -21,7 +21,7 @@ final class Entry {
                  final byte[] body,
                  final int status) {
         this.timestamp = timestamp;
-        this.body = body;
+        this.body = body.clone();
         this.status = status;
     }
 
@@ -34,7 +34,7 @@ final class Entry {
     public Entry(final byte[] body,
                  final int status) {
         this.timestamp = Entry.ABSENT;
-        this.body = body;
+        this.body = body.clone();
         this.status = status;
     }
 
@@ -48,12 +48,12 @@ final class Entry {
         return status;
     }
 
-    public void setTimestamp(long timestamp) {
+    public void setTimestamp(final long timestamp) {
         this.timestamp = timestamp;
     }
 
     public byte[] getBody() {
-        return body;
+        return body.clone();
     }
 
     public long getTimestamp() {
@@ -61,7 +61,7 @@ final class Entry {
     }
 
     public Response getResponse() {
-        Response response = new Response(getResponseCode(status), body);
+        final Response response = new Response(getResponseCode(status), body);
         if (timestamp != Entry.ABSENT) {
             response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + timestamp);
         }
@@ -69,7 +69,7 @@ final class Entry {
         return response;
     }
 
-    private String getResponseCode(int status) {
+    private String getResponseCode(final int status) {
         switch (status) {
             case Entry.OK:
                 return Response.OK;

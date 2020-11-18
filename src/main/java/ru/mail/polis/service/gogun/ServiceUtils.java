@@ -11,7 +11,9 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -72,11 +74,11 @@ final class ServiceUtils {
      * @param session       http session
      * @throws IOException send response exception
      */
-    public static void selector(final Supplier<Response> putRequest,
-                                final Supplier<Response> getRequest,
-                                final Supplier<Response> deleteRequest,
-                                final int method,
-                                final HttpSession session) throws IOException {
+    public static void getCompletableFutureOnResponse(final Supplier<Response> putRequest,
+                                                      final Supplier<Response> getRequest,
+                                                      final Supplier<Response> deleteRequest,
+                                                      final int method,
+                                                      final HttpSession session) throws IOException {
         switch (method) {
             case Request.METHOD_PUT:
                 session.sendResponse(putRequest.get());
@@ -93,11 +95,11 @@ final class ServiceUtils {
         }
     }
 
-    public static CompletableFuture<Entry> selector(final Supplier<Entry> putRequest,
-                                                    final Supplier<Entry> getRequest,
-                                                    final Supplier<Entry> deleteRequest,
-                                                    final int method,
-                                                    final ExecutorService executorService) {
+    public static CompletableFuture<Entry> getCompletableFutureOnResponse(final Supplier<Entry> putRequest,
+                                                                          final Supplier<Entry> getRequest,
+                                                                          final Supplier<Entry> deleteRequest,
+                                                                          final int method,
+                                                                          final ExecutorService executorService) {
         switch (method) {
             case Request.METHOD_PUT:
                 return CompletableFuture.supplyAsync(putRequest, executorService);
@@ -107,6 +109,34 @@ final class ServiceUtils {
                 return CompletableFuture.supplyAsync(deleteRequest, executorService);
             default:
                 return null;
+        }
+    }
+
+    public static CompletableFuture<Entry> getCompletableFutureOnResponse(final String node,
+                                                                          final String id,
+                                                                          final Request request,
+                                                                          final HttpClient client,
+                                                                          final ExecutorService executorService) {
+        HttpRequest requestForReplica;
+        switch (request.getMethod()) {
+            case Request.METHOD_PUT:
+                requestForReplica = requestForRepl(node, id)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
+                        .build();
+                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executorService);
+            case Request.METHOD_GET:
+                requestForReplica = requestForRepl(node, id).GET()
+                        .build();
+                return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executorService);
+            case Request.METHOD_DELETE:
+                requestForReplica = requestForRepl(node, id).DELETE()
+                        .build();
+                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync(HttpResponse::body, executorService);
+            default:
+                throw new IllegalStateException("Wrong request method");
         }
     }
 
