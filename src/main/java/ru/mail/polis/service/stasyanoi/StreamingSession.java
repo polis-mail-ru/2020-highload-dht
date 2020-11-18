@@ -45,15 +45,15 @@ public class StreamingSession extends HttpSession {
     }
 
     private synchronized void sendStream() throws IOException {
-        boolean queueNotEmpty;
+        boolean queueNotNull;
         do {
             while (rocksIterator.hasNext() && queueHead == null) {
                 final Record record = rocksIterator.next();
                 final byte[] data = getRecordData(record);
                 write(data, 0, data.length);
             }
-            queueNotEmpty = queueHead != null;
-        } while (queueNotEmpty && rocksIterator.hasNext());
+            queueNotNull = queueHead != null;
+        } while (queueNotNull);
     }
 
     private void closeStream() throws IOException {
