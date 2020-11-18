@@ -47,20 +47,18 @@ public class ServiceSession extends HttpSession {
         }
     }
 
-    private byte[] toChunk(final Record elem) throws IOException {
+    private byte[] toChunk(final Record elem) {
         final byte[] dataKey = Util.fromByteBufferToByteArray(elem.getKey());
         final byte[] dataValue = Timestamp.getTimestampByData(elem.getValue()).getData();
-        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        outputStream.write(dataKey);
-        outputStream.write('\n');
-        outputStream.write(dataValue);
-        final byte[] data = outputStream.toByteArray();
-        final byte[] length = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
+        final int dataLength = dataKey.length + dataValue.length + 1;
+        final byte[] length = Integer.toHexString(dataLength).getBytes(StandardCharsets.US_ASCII);
         return Util.fromByteBufferToByteArray(
-                ByteBuffer.allocate(length.length + CRLF.length + data.length + CRLF.length)
+                ByteBuffer.allocate(length.length + CRLF.length + dataLength + CRLF.length)
                 .put(length)
                 .put(CRLF)
-                .put(data)
+                .put(dataKey)
+                .put("\n".getBytes(StandardCharsets.US_ASCII))
+                .put(dataValue)
                 .put(CRLF)
                 .position(0));
     }
