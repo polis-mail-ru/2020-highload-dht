@@ -14,11 +14,12 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
     @Override
     public HttpResponse.BodySubscriber<Entry> apply(final HttpResponse.ResponseInfo responseInfo) {
         final Optional<String> timestamp = responseInfo.headers().firstValue("timestamp");
-        if (timestamp.isEmpty()) {
-            throw new IllegalStateException("No timestamp");
-        }
+
         switch (responseInfo.statusCode()) {
             case 200:
+                if (timestamp.isEmpty()) {
+                    throw new IllegalStateException("No timestamp");
+                }
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
                         bytes -> new Entry(Long.parseLong(timestamp.get()), bytes, Entry.OK)
