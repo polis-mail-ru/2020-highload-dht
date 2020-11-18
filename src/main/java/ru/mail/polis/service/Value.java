@@ -8,8 +8,8 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class Value {
-    private static final String TIMESTAMP = "Timestamp: ";
-    private final static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+    private static final String TIMESTAMP_HEADER = "Timestamp: ";
+    private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
 
     private final boolean isValueDeleted;
     private final long timestamp;
@@ -120,14 +120,14 @@ public final class Value {
             } catch (IOException e) {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-            response.addHeader(TIMESTAMP + value.getTimestamp());
+            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
             return response;
         }
 
         // Value is deleted
         if (value.isValueDeleted()) {
             response = new Response(Response.NOT_FOUND, Response.EMPTY);
-            response.addHeader(TIMESTAMP + value.getTimestamp());
+            response.addHeader(TIMESTAMP_HEADER + value.getTimestamp());
             return response;
         }
 

@@ -59,8 +59,8 @@ class ReplicationHandler {
 
     ReplicationHandler(
             @NotNull final DAO dao, @NotNull final Topology topology,
-            @NotNull final ExecutorService exec,
-            HttpClient client) {
+            @NotNull final ExecutorService exec, @NotNull final HttpClient client
+    ) {
         this.topology = topology;
         this.exec = exec;
         this.dao = dao;
@@ -70,7 +70,7 @@ class ReplicationHandler {
 
     private void multipleGet(
             final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session,
-            String id) {
+            final String id) {
         final List<CompletableFuture<Value>> futures = new ArrayList<>(nodes.size());
         final List<Value> values = new ArrayList<>(nodes.size());
         final ByteBuffer key = Util.toByteBuffer(id);
@@ -102,7 +102,7 @@ class ReplicationHandler {
     private void multipleUpsert(
             final Set<String> nodes, @NotNull final Request req,
             final int count, @NotNull final HttpSession session,
-            String id) {
+            final String id) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
@@ -135,8 +135,8 @@ class ReplicationHandler {
 
     private void multipleDelete(
             final Set<String> nodes, @NotNull final Request req,
-            final int count, final HttpSession session,
-            String id) {
+            final int count, final HttpSession session, final String id
+    ) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
@@ -166,11 +166,9 @@ class ReplicationHandler {
     }
 
     void handle(
-            @NotNull final Request req, @NotNull final HttpSession session,
-            final String id, final String replicas
+            @NotNull final Request req, @NotNull final HttpSession session, final String id, final String replicas
     ) throws IOException {
         final ReplicationFactor replicationFactor;
-
         try {
             replicationFactor = replicas == null ? quorum :
                     ReplicationFactor.createReplicationFactor(replicas);
@@ -180,9 +178,9 @@ class ReplicationHandler {
         }
 
         final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
-
         final ByteBuffer key = Util.toByteBuffer(id);
         final Set<String> nodes;
+
         try {
             nodes = isForwardedRequest ? ImmutableSet.of(
                     topology.getCurrentNode()
