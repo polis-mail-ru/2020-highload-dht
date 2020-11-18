@@ -101,8 +101,8 @@ class ReplicationHandler {
 
     private void multipleUpsert(
             final Set<String> nodes, @NotNull final Request req,
-            final int count, @NotNull final HttpSession session,
-            final String id) {
+            final int count, @NotNull final HttpSession session, final String id
+    ) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
@@ -211,10 +211,8 @@ class ReplicationHandler {
     }
 
     private static Response futureHelper(
-            final int ack,
-            final List<CompletableFuture<Response>> futures,
-            final String responseCode,
-            final int code
+            final int ack, final List<CompletableFuture<Response>> futures,
+            final String responseCode, final int code
     ) {
         final AtomicInteger atomicInteger = new AtomicInteger(0);
         final boolean res = count(ack, atomicInteger, code, futures);
@@ -226,10 +224,8 @@ class ReplicationHandler {
     }
 
     private static boolean count(
-            final int ack,
-            final AtomicInteger atomicInteger,
-            final int returnCode,
-            final List<CompletableFuture<Response>> futures
+            final int ack, final AtomicInteger atomicInteger,
+            final int returnCode, final List<CompletableFuture<Response>> futures
     ) {
         for (final CompletableFuture<Response> future : futures) {
             try {
@@ -248,9 +244,7 @@ class ReplicationHandler {
     }
 
     private static Response futureGet(
-            final List<Value> values,
-            final List<CompletableFuture<Value>> futures,
-            final int ack
+            final List<Value> values, final List<CompletableFuture<Value>> futures, final int ack
     ) {
         final AtomicInteger atomicInteger = new AtomicInteger(0);
         for (final CompletableFuture<Value> future : futures) {
