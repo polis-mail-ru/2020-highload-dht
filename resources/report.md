@@ -8,10 +8,11 @@
 | Объём RAM | 8 ГБ |
 | Количество ядер ЦПУ | 2 |
 | Тип дисковой памяти | HDD |
+| [async-profiler](https://github.com/jvm-profiling-tools/async-profiler) | 1.8.1 |
 | [Яндекс.Overload](https://overload.yandex.net/) | <данные о версии не предоставлены> |
 | [Яндекс.Танк](https://hub.docker.com/r/direvius/yandex-tank/) | <текущая публикация образа на <em>dockerhub</em>, данные о версии не предоставлены> |
 
-В рамках задания, дополняющего обязательные этапы курсового проекта, проведена серия нагрузочных испытаний highload-сервера на основе сервиса тестовой аналитики Яндекс.Overload и специализированного клиента Яндекс.Танк. Объект тестирования - кластер из 3 трёх узлов с реализацией синхронного клиента <em>one-nio</em>, воспроизводящей результат этапа №5. В соответствии с [актуальными требованиями](https://github.com/polis-mail-ru/2019-highload-dht#этап-7-нагрузочное-тестирование-deadline-2019-11-23) для получения и анализа статистики быстродействия подготовлены программные генераторы запросов, ориентированные на поддержку 5 различных режимов подачи и обработки запросов на выделенном узле кластера:<br/>
+В ходе отчётной работы, дополняющей обязательные этапы курсового проекта, проведена серия нагрузочных испытаний highload-сервера на основе сервиса тестовой аналитики Яндекс.Overload и специализированного клиента Яндекс.Танк. Объект тестирования - кластер из 3 трёх узлов с реализацией синхронного клиента <em>one-nio</em>, воспроизводящей результат этапа №5. В соответствии с [актуальными требованиями](https://github.com/polis-mail-ru/2019-highload-dht#этап-7-нагрузочное-тестирование-deadline-2019-11-23) для получения и анализа статистики быстродействия подготовлены программные генераторы запросов, ориентированные на поддержку 5 различных режимов подачи и обработки запросов на выделенном узле кластера:<br/>
 
 1) `PUT` с уникальными ключами <br/>
 2) `PUT` с частичной перезаписью ключей (вероятность 10%) <br/>
@@ -41,52 +42,103 @@ load_profile:
 | 4 | 3300 | 2200 |
 | 5 | 3900 | 2600 |
 
+Для сбора и изучения вспомогательной информации о потреблении ресурсов процессора, памяти и реализации контроля разделяемых данных на уровне потоков в рамках основных испытаний проведены сеансы комплексного профилирования с применением ПО <em>async-profiler</em>, опыт апробации которого был получен на предыдущих этапах подготовки проекта.            
+
 Аналитические комментарии к статистике тестов в различных режимах нагрузки приведены далее.  
 
-**Команды <em>wrk2</em>**<br/>
+### <ins>1. PUT с уникальными ключами</ins> 
 
-<p></p>
+Табл 3. Сводка основных метрик в режиме испытаний №1. 
 
-<ins><em>wrk2</em> / PUT / basic sharding</ins>
-```
-wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/put.lua -R10000 --latency http://127.0.0.1:8080
-```
+\> Результаты в нагрузочной конфигурации [**line**](https://overload.yandex.net/351436#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605628236&slider_end=1605628558)
 
-<ins><em>wrk2</em> / GET / basic sharding</ins>
-```
-wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R10000 --latency http://127.0.0.1:8080
-```
+\> Результаты в конфигурации [**line/const**](https://overload.yandex.net/351439#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605629111&slider_end=1605629711)
 
-<ins><em>wrk2</em> / PUT / replication</ins>
-```
-wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/put.lua -R5000 --latency http://127.0.0.1:8080
-```
+| | | 
+|-|-|
+| 1 | 4000 | 2700 |
+| 2 | 4200 | 2800 |
+| 3 | 3100 | 2150 |
+| 4 | 3300 | 2200 |
+| 5 | 3900 | 2600 |
 
-<ins><em>wrk2</em> / GET / replication</ins>
-```
-wrk -t2 -c64 -d7m -s src/profiling/wrk_scripts/get.lua -R5000 --latency http://127.0.0.1:8080
-```
+![put_cpu_opt1](./graph_profiles/put_cpu_opt1.svg)
+<p align="center">Рис. 1. Профиль CPU в режиме испытаний №1 </p>
 
-**Команды <em>async-profiler</em>**<br/>
+![put_alloc_opt1](./graph_profiles/put_alloc_opt1.svg)
+<p align="center">Рис. 2. Профиль RAM в режиме испытаний №1 </p>
 
-<p></p>
+![put_lock_opt1](./graph_profiles/put_lock_opt1.svg)
+<p align="center">Рис. 3. Профиль lock/monitor в режиме испытаний №1</p>
 
-<ins><em>async-profiler</em> / cpu</ins>
-```
-./profiler.sh -d 60 -e cpu -f /path/to/output/folder/flame_output_cpu.svg <server_process_pid>
-```
+### <ins>2. PUT с частичной перезаписью</ins> 
 
-<ins><em>async-profiler</em> / alloc</ins>
-```
-./profiler.sh -d 60 -e alloc -f /path/to/output/folder/flame_output_alloc.svg <server_process_pid>
-```
+\> Результаты в нагрузочной конфигурации [**line**](https://overload.yandex.net/351588#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605634598&slider_end=1605634914)<br/>
 
-<ins><em>async-profiler</em> / lock</ins>
-```
-./profiler.sh -d 60 -e lock -f /path/to/output/folder/flame_output_lock.svg <server_pid>
-```
+\> Результаты в конфигурации [**line/const**](https://overload.yandex.net/351603#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605635188&slider_end=1605635789)<br/>
 
-Результаты измерений и сравнение этапных конфигураций кластера приведены далее.
+Табл 4. Сводка основных метрик в режиме тестирования №2. 
+
+![put_cpu_opt2](./graph_profiles/put_cpu_opt2.svg)
+<p align="center">Рис. 4. Профиль CPU в режиме испытаний №2 </p>
+
+![put_alloc_opt2](./graph_profiles/put_alloc_opt2.svg)
+<p align="center">Рис. 5. Профиль RAM в режиме испытаний №2 </p>
+
+![put_alloc_opt2](./graph_profiles/put_lock_opt2.svg)
+<p align="center">Рис. 6. Профиль lock/monitor в режиме испытаний №2</p>
+
+### <ins>3. GET в условиях равномерного распределения</ins> 
+
+\> Результаты в нагрузочной конфигурации [**line**](https://overload.yandex.net/351677#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605639694&slider_end=1605640047)<br/>
+
+\> Результаты в конфигурации [**line/const**](https://overload.yandex.net/351696#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605642955&slider_end=1605643573)<br/>
+
+Табл 5. Сводка основных метрик в режиме тестирования №3. 
+
+![get_cpu_opt3](./graph_profiles/get_cpu_opt3.svg)
+<p align="center">Рис. 7. Профиль CPU в режиме испытаний №3 </p>
+
+![get_alloc_opt3](./graph_profiles/get_alloc_opt3.svg)
+<p align="center">Рис. 8. Профиль RAM в режиме испытаний №3 </p>
+
+![get_cpu_opt3](./graph_profiles/get_lock_opt3.svg)
+<p align="center">Рис. 9. Профиль lock/monitor в режиме испытаний №3</p>
+
+### <ins>4. GET с преобладанием доступа к последним включениям/обновлениям записей</ins>
+
+\> Результаты в нагрузочной конфигурации [**line**](https://overload.yandex.net/351618#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605635989&slider_end=1605636350)<br/>
+
+\> Результаты в конфигурации [**line/const**](https://overload.yandex.net/351637#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605636665&slider_end=1605637265)<br/>
+
+Табл 6. Сводка основных метрик в режиме тестирования №4. 
+
+![get_cpu_opt4](./graph_profiles/get_cpu_opt4.svg)
+<p align="center">Рис. 10. Профиль CPU в режиме испытаний №4 </p>
+
+![get_alloc_opt4](./graph_profiles/get_alloc_opt4.svg)
+<p align="center">Рис. 11. Профиль RAM в режиме испытаний №4 </p>
+
+![get_lock_opt4](./graph_profiles/get_lock_opt4.svg)
+<p align="center">Рис. 12. Профиль lock/monitor в режиме испытаний №4</p>
+
+### <ins>5. PUT/GET-комбинация в текущей сессии обмена данными</ins> 
+
+\> Результаты в нагрузочной конфигурации [**line**](https://overload.yandex.net/351700#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605644168&slider_end=1605644470)<br/>
+
+\> Результаты в конфигурации [**line/const**](https://overload.yandex.net/351702#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1605644861&slider_end=1605645478)<br/>
+
+Табл 7. Сводка основных метрик в режиме тестирования №5. 
+
+![get_put_cpu_opt5](./graph_profiles/get_put_cpu_opt5.svg)
+<p align="center">Рис. 13. Профиль CPU в режиме испытаний №5 </p>
+
+![get_put_alloc_opt5](./graph_profiles/get_put_alloc_opt5.svg)
+<p align="center">Рис. 14. Профиль RAM в режиме испытаний №5 </p>
+
+![get_put_lock_opt5](./graph_profiles/get_put_lock_opt5.svg)
+<p align="center">Рис. 15. Профиль lock/monitor в режиме испытаний №5</p>
+
 
 ### 1. Добавление/изменение записей (PUT)
 
