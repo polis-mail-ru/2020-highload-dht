@@ -110,15 +110,16 @@ public final class Util {
             @NotNull final Collection<CompletableFuture<T>> futures,
             final int ack,
             @NotNull final ExecutorService executor) {
-        final AtomicInteger oksLeft = new AtomicInteger(ack);
-        final AtomicInteger errorsLeft = new AtomicInteger(futures.size() - ack + 1);
-        final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> target = new CompletableFuture<>();
 
         if (futures.size() < ack) {
             target.completeExceptionally(new IllegalStateException("Futures's size is less than ack"));
             return target;
         }
+        
+        final AtomicInteger oksLeft = new AtomicInteger(ack);
+        final AtomicInteger errorsLeft = new AtomicInteger(futures.size() - ack + 1);
+        final Collection<T> results = new CopyOnWriteArrayList<>();
 
         futures.forEach(f -> f.whenCompleteAsync((v, t) -> {
             if (t == null) {
