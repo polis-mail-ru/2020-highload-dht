@@ -212,8 +212,8 @@ class ReplicationHandler {
                 if (t instanceof CompletionException) {
                     t = t.getCause();
                 }
-                final String errorCode = t instanceof IllegalStateException ?
-                        Response.GATEWAY_TIMEOUT : Response.INTERNAL_ERROR;
+                final String errorCode = t instanceof IllegalStateException
+                        ? Response.GATEWAY_TIMEOUT : Response.INTERNAL_ERROR;
                 trySend(session, new Response(errorCode, t.getMessage().getBytes(StandardCharsets.UTF_8)));
             }
         }).isCancelled();
