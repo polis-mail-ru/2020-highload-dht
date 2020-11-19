@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class RendezvousTest {
     private final RandezvouzTopology randezvouzTopology = new RandezvouzTopology(8080);
     final Set<String> topology = new HashSet<>();
-    final int numberOfRequests = 1000000;
+    final int numberOfRequests = 100000;
     final int inaccuracy = 5;
 
     @NotNull
@@ -106,7 +106,7 @@ public class RendezvousTest {
         distribution(50);
     }
 
-    @RepeatedTest(20)
+    @RepeatedTest(10)
     void random() {
         Random r = new Random();
         int ports = (r.nextInt(100) + 1);
