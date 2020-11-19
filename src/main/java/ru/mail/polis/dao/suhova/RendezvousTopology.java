@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Set;
 
+import static com.google.common.hash.Hashing.murmur3_128;
+
 public class RendezvousTopology implements Topology<String> {
     @NotNull
     private final String[] topology;
@@ -31,7 +33,8 @@ public class RendezvousTopology implements Topology<String> {
     public String[] getNodesByKey(@NotNull final String key, final int n) {
         if (n == size()) return topology.clone();
         return Arrays.stream(topology)
-            .sorted(Comparator.comparingInt(node -> (node + key).hashCode()))
+            .sorted(Comparator.comparingInt(node ->
+                murmur3_128().newHasher().putUnencodedChars(key + node).hash().hashCode()))
             .limit(n)
             .toArray(String[]::new);
     }
