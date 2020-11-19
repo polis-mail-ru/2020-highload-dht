@@ -212,13 +212,14 @@ class ReplicationHandler {
                 if (t instanceof CompletionException) {
                     t = t.getCause();
                 }
-                final String errorCode = t instanceof IllegalStateException ? Response.GATEWAY_TIMEOUT : Response.INTERNAL_ERROR;
+                final String errorCode = t instanceof IllegalStateException ?
+                        Response.GATEWAY_TIMEOUT : Response.INTERNAL_ERROR;
                 trySend(session, new Response(errorCode, t.getMessage().getBytes(StandardCharsets.UTF_8)));
             }
         }).isCancelled();
     }
 
-    private CompletableFuture<Response> handleLocal(String id, final Request request) {
+    private CompletableFuture<Response> handleLocal(final String id, final Request request) {
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 return CompletableFuture.supplyAsync(
