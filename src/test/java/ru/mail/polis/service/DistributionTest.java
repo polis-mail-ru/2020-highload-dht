@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DistributionTest extends ClusterTestBase {
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
-    private static final int KEYS_COUNT = 1000;
+    private static final int KEYS_COUNT = 500;
 
     @Override
     int getClusterSize() {
