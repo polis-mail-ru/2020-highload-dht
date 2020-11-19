@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DistributionTest extends ClusterTestBase {
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
-    private static final int KEYS_COUNT = 500;
+    private static final int KEYS_COUNT = 300;
 
     @Override
     int getClusterSize() {
@@ -67,8 +67,8 @@ class DistributionTest extends ClusterTestBase {
             createAndStart(2);
             int countNode2 = this.countKeysFromNode(keys, value, 2);
 
-            // Allowable difference in the number of keys on nodes = 10%
-            final int diff = KEYS_COUNT / 10;
+            // Allowable difference in the number of keys on nodes = 20%
+            final int diff = KEYS_COUNT / 5;
             final String mess = "Keys on node 0: " + countNode0 + " node 1: " + countNode1 + " node 2: " + countNode2;
             assertEquals(keys.size(), countNode0 + countNode1 + countNode2);
             assertTrue(Math.abs(countNode0 - countNode1) < diff, mess);
