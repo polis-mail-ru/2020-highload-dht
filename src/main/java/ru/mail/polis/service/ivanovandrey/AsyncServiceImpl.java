@@ -43,7 +43,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final Replica defaultReplicas;
 
     private static final String PROXY_HEADER = "X-OK-Proxy";
-    private final SimpleTopology simpleTopology;
+    private final RandezvouzTopology randezvouzTopology;
     private final DAO db;
 
     /**
@@ -71,8 +71,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .setNameFormat("Executor-%d")
                         .build()
         );
-        this.basicFuctions = new BasicFuctions(dao,execPool);
-        this.simpleTopology = new SimpleTopology(executors,execPool, port);
+        this.basicFuctions = new BasicFuctions(dao, execPool, executors);
+        this.randezvouzTopology = new RandezvouzTopology(port);
         this.topology = topology;
         this.defaultReplicas = new Replica(topology.size());
         this.db = dao;
@@ -168,12 +168,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return CompletableFuture.supplyAsync(() ->
                     new Response(Response.BAD_REQUEST, Response.EMPTY));
         } else {
-            requestNodes = Util.getNodes(topology, key, replicasInfo.getFromCount());
+            requestNodes = randezvouzTopology.getNodes(topology, key, replicasInfo.getFromCount());
             for (final String requestNode : requestNodes) {
-                if (simpleTopology.isCurrentNode(requestNode)) {
+                if (randezvouzTopology.isCurrentNode(requestNode)) {
                     answers.add(processRequest(request, key));
                 } else {
-                    answers.add(simpleTopology.forwardRequest(requestNode, request));
+                    answers.add(basicFuctions.forwardRequest(requestNode, request));
                 }
             }
             return Futures.getAckResponses(replicasInfo.getAckCount(),answers)
