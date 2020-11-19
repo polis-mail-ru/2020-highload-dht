@@ -4,8 +4,8 @@ import one.nio.http.Response;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 
 public final class Value {
     private static final String TIMESTAMP_HEADER = "Timestamp: ";
@@ -31,7 +31,7 @@ public final class Value {
      * @param values - values list
      * @return - synchronized value
      */
-    static Value mergeValues(final List<Value> values) {
+    static Value mergeValues(final Collection<Value> values) {
         return values.stream()
                 .filter(value -> !value.isValueMissing())
                 .max(Comparator.comparingLong(Value::getTimestamp))

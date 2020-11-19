@@ -9,9 +9,14 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class Util {
-    private static final String PROXY_HEADER = "X-OK-Proxy: True";
+    public static final String PROXY_HEADER = "X-OK-Proxy";
 
     private Util() {
         /* Add private constructor to prevent instantiation */
@@ -70,6 +75,7 @@ public final class Util {
 
     /**
      * Wraps string to ByteBuffer.
+     *
      * @param id - string to wrap
      * @return ByteBuffer
      */
@@ -88,6 +94,38 @@ public final class Util {
         return HttpRequest.newBuilder()
                 .uri(URI.create(node + req.getURI()))
                 .timeout(Duration.ofSeconds(1))
-                .setHeader("PROXY_HEADER", PROXY_HEADER);
+                .setHeader(PROXY_HEADER, "True");
+    }
+
+    /**
+     * This returns CompletableFuture collection of generic entities when essential num of ack is received.
+     *
+     * @param futures  - generic futures collections
+     * @param ack      - minimum number of successes to complete future
+     * @param executor - thread pool executor
+     * @param <T>      - generic future type
+     * @return - CompletableFuture collection of generic entities
+     */
+    public static <T> CompletableFuture<Collection<T>> getMinimumAckData(
+            @NotNull final Collection<CompletableFuture<T>> futures,
+            final int ack,
+            @NotNull final ExecutorService executor) {
+        final AtomicInteger oksLeft = new AtomicInteger(ack);
+        final AtomicInteger errorsLeft = new AtomicInteger(futures.size() - ack + 1);
+        final Collection<T> results = new CopyOnWriteArrayList<>();
+        final CompletableFuture<Collection<T>> target = new CompletableFuture<>();
+        futures.forEach(f -> f.whenCompleteAsync((v, t) -> {
+            if (t == null) {
+                results.add(v);
+                if (oksLeft.decrementAndGet() == 0) {
+                    target.complete(results);
+                }
+            } else {
+                if (errorsLeft.decrementAndGet() == 0) {
+                    target.completeExceptionally(new IllegalStateException("Can't get " + ack + " values"));
+                }
+            }
+        }, executor).isCancelled());
+        return target;
     }
 }

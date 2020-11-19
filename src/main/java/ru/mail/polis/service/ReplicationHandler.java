@@ -1,6 +1,5 @@
 package ru.mail.polis.service;
 
-import com.google.common.collect.ImmutableSet;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -18,20 +17,20 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Map.entry;
 import static ru.mail.polis.service.Value.mergeValues;
 
 class ReplicationHandler {
-    private static final String FORWARD_REQUEST_HEADER = "PROXY_HEADER";
     private static final Logger log = LoggerFactory.getLogger(ReplicationHandler.class);
     private final ExecutorService exec;
     private final DAO dao;
@@ -68,12 +67,12 @@ class ReplicationHandler {
         this.quorum = ReplicationFactor.getQuorum(topology.getSize());
     }
 
-    private void multipleGet(
-            final Set<String> nodes, @NotNull final Request req, final int ack, @NotNull final HttpSession session,
-            final String id) {
+    private CompletableFuture<Response> multipleGet(
+            final Set<String> nodes, final int minSuccesses, final String id, final Request request
+    ) {
         final List<CompletableFuture<Value>> futures = new ArrayList<>(nodes.size());
-        final List<Value> values = new ArrayList<>(nodes.size());
         final ByteBuffer key = Util.toByteBuffer(id);
+
         for (final String node : nodes) {
             if (node.equals(topology.getCurrentNode())) {
                 futures.add(CompletableFuture.supplyAsync(
@@ -85,88 +84,71 @@ class ReplicationHandler {
                             }
                         }, exec));
             } else {
-                final HttpRequest request = Util.setProxyHeader(node, req).GET().build();
+                final HttpRequest httpRequest = Util.setProxyHeader(node, request).GET().build();
                 final CompletableFuture<Value> responses = httpClient
-                        .sendAsync(request, GetBodyHandler.INSTANCE)
+                        .sendAsync(httpRequest, GetBodyHandler.INSTANCE)
                         .thenApplyAsync(HttpResponse::body, exec);
                 futures.add(responses);
             }
         }
-        try {
-            session.sendResponse(futureGet(values, futures, ack));
-        } catch (IOException exc) {
-            log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
-        }
+
+        return Util.getMinimumAckData(futures, minSuccesses, exec)
+                .handle((res, ex) -> ex == null ? Value.toResponse(mergeValues(res))
+                        : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
     }
 
-    private void multipleUpsert(
-            final Set<String> nodes, @NotNull final Request req,
-            final int count, @NotNull final HttpSession session, final String id
+    private CompletableFuture<Response> multipleUpsert(
+            final Set<String> nodes, final int minSuccesses, final String id, @NotNull final Request request
     ) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
-                futures.add(CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                dao.upsertValue(Util.toByteBuffer(id), ByteBuffer.wrap(req.getBody()));
-                                return new Response(Response.CREATED, Response.EMPTY);
-                            } catch (IOException e) {
-                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                            }
-                        }, exec)
-                );
+                futures.add(handleLocal(id, request));
             } else {
-                final HttpRequest request = Util.setProxyHeader(node, req)
-                        .PUT(HttpRequest.BodyPublishers.ofByteArray(req.getBody()))
+                final HttpRequest httpRequest = Util.setProxyHeader(node, request)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
                         .build();
                 final CompletableFuture<Response> responses = httpClient
-                        .sendAsync(request, PutBodyHandler.INSTANCE)
+                        .sendAsync(httpRequest, PutBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> new Response(Response.CREATED, Response.EMPTY), exec);
                 futures.add(responses);
             }
         }
-        try {
-            session.sendResponse(futureHelper(count, futures, Response.CREATED, 201));
-        } catch (IOException exc) {
-            log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
-        }
+
+        return futureHelper(futures, minSuccesses);
     }
 
-    private void multipleDelete(
-            final Set<String> nodes, @NotNull final Request req,
-            final int count, final HttpSession session, final String id
+    private CompletableFuture<Response> futureHelper(
+            @NotNull final Collection<CompletableFuture<Response>> futures, final int minSuccesses
+    ) {
+        return Util.getMinimumAckData(futures, minSuccesses, exec)
+                .thenApplyAsync((result) -> result.stream()
+                        .findFirst()
+                        .orElse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY)), exec);
+    }
+
+    private CompletableFuture<Response> multipleDelete(
+            final Set<String> nodes, final int minSuccesses, final String id, final Request request
     ) {
         final List<CompletableFuture<Response>> futures = new ArrayList<>(nodes.size());
+
         for (final String node : nodes) {
             if (topology.isSelfId(node)) {
-                futures.add(CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                dao.removeValue(Util.toByteBuffer(id));
-                                return new Response(Response.ACCEPTED, Response.EMPTY);
-                            } catch (IOException e) {
-                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                            }
-                        }, exec)
-                );
+                futures.add(handleLocal(id, request));
             } else {
-                final HttpRequest request = Util.setProxyHeader(node, req).DELETE().build();
+                final HttpRequest httpRequest = Util.setProxyHeader(node, request).DELETE().build();
                 final CompletableFuture<Response> responses = httpClient
-                        .sendAsync(request, DeleteBodyHandler.INSTANCE)
+                        .sendAsync(httpRequest, DeleteBodyHandler.INSTANCE)
                         .thenApplyAsync(r -> new Response(Response.ACCEPTED, Response.EMPTY), exec);
                 futures.add(responses);
             }
         }
-        try {
-            session.sendResponse(futureHelper(count, futures, Response.ACCEPTED, 202));
-        } catch (IOException exc) {
-            log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR));
-        }
+
+        return futureHelper(futures, minSuccesses);
     }
 
     void handle(
-            @NotNull final Request req, @NotNull final HttpSession session, final String id, final String replicas
+            @NotNull final Request request, @NotNull final HttpSession session, final String id, final String replicas
     ) throws IOException {
         final ReplicationFactor replicationFactor;
         try {
@@ -177,29 +159,33 @@ class ReplicationHandler {
             return;
         }
 
-        final boolean isForwardedRequest = req.getHeader(FORWARD_REQUEST_HEADER) != null;
+        final boolean isForwardedRequest = request.getHeader(Util.PROXY_HEADER) != null;
+
+        if (isForwardedRequest) {
+            sendFromFuture(session, handleLocal(id, request));
+            return;
+        }
+
         final ByteBuffer key = Util.toByteBuffer(id);
         final Set<String> nodes;
 
         try {
-            nodes = isForwardedRequest ? ImmutableSet.of(
-                    topology.getCurrentNode()
-            ) : topology.getReplicas(key, replicationFactor.getFrom());
+            nodes = topology.getReplicas(key, replicationFactor.getFrom());
         } catch (NotEnoughNodesException e) {
             log.error(MESSAGE_MAP.get(ErrorNames.NOT_ENOUGH_NODES), e);
             return;
         }
 
         try {
-            switch (req.getMethod()) {
+            switch (request.getMethod()) {
                 case Request.METHOD_GET:
-                    multipleGet(nodes, req, replicationFactor.getAck(), session, id);
+                    sendFromFuture(session, multipleGet(nodes, replicationFactor.getAck(), id, request));
                     break;
                 case Request.METHOD_PUT:
-                    multipleUpsert(nodes, req, replicationFactor.getAck(), session, id);
+                    sendFromFuture(session, multipleUpsert(nodes, replicationFactor.getAck(), id, request));
                     break;
                 case Request.METHOD_DELETE:
-                    multipleDelete(nodes, req, replicationFactor.getAck(), session, id);
+                    sendFromFuture(session, multipleDelete(nodes, replicationFactor.getAck(), id, request));
                     break;
                 default:
                     session.sendError(Response.METHOD_NOT_ALLOWED, MESSAGE_MAP.get(ErrorNames.NOT_ALLOWED));
@@ -210,55 +196,62 @@ class ReplicationHandler {
         }
     }
 
-    private static Response futureHelper(
-            final int ack, final List<CompletableFuture<Response>> futures,
-            final String responseCode, final int code
-    ) {
-        final AtomicInteger atomicInteger = new AtomicInteger(0);
-        final boolean res = count(ack, atomicInteger, code, futures);
-
-        if (res) {
-            return new Response(responseCode, Response.EMPTY);
+    private void trySend(@NotNull final HttpSession session, final Response response) {
+        try {
+            session.sendResponse(response);
+        } catch (IOException e) {
+            log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), e);
         }
-        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
-    private static boolean count(
-            final int ack, final AtomicInteger atomicInteger,
-            final int returnCode, final List<CompletableFuture<Response>> futures
-    ) {
-        for (final CompletableFuture<Response> future : futures) {
-            try {
-                final Response result = future.get();
-                if (result.getStatus() == returnCode) {
-                    atomicInteger.incrementAndGet();
-                    if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
-                        return true;
-                    }
+    private void sendFromFuture(@NotNull final HttpSession session, @NotNull final CompletableFuture<Response> future) {
+        future.whenComplete((r, t) -> {
+            if (t == null) {
+                trySend(session, r);
+            } else {
+                if (t instanceof CompletionException) {
+                    t = t.getCause();
                 }
-            } catch (ExecutionException | InterruptedException exc) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), exc);
+                final String errorCode = t instanceof IllegalStateException ? Response.GATEWAY_TIMEOUT : Response.INTERNAL_ERROR;
+                trySend(session, new Response(errorCode, t.getMessage().getBytes(StandardCharsets.UTF_8)));
             }
-        }
-        return false;
+        }).isCancelled();
     }
 
-    private static Response futureGet(
-            final List<Value> values, final List<CompletableFuture<Value>> futures, final int ack
-    ) {
-        final AtomicInteger atomicInteger = new AtomicInteger(0);
-        for (final CompletableFuture<Value> future : futures) {
-            try {
-                if (future.isCompletedExceptionally()) continue;
-                values.add(future.get());
-                atomicInteger.incrementAndGet();
-                if (atomicInteger.get() == futures.size() || atomicInteger.get() == ack) {
-                    return Value.toResponse(mergeValues(values));
-                }
-            } catch (ExecutionException | InterruptedException ex) {
-                log.error(MESSAGE_MAP.get(ErrorNames.FUTURE_ERROR), ex);
-            }
+    private CompletableFuture<Response> handleLocal(String id, final Request request) {
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                return CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return Value.toResponse(dao.getValue(Util.toByteBuffer(id)));
+                            } catch (IOException e) {
+                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                            }
+                        }, exec);
+            case Request.METHOD_PUT:
+                return CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                dao.upsertValue(Util.toByteBuffer(id), ByteBuffer.wrap(request.getBody()));
+                                return new Response(Response.CREATED, Response.EMPTY);
+                            } catch (IOException e) {
+                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                            }
+                        }, exec);
+            case Request.METHOD_DELETE:
+                return CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                dao.removeValue(Util.toByteBuffer(id));
+                                return new Response(Response.ACCEPTED, Response.EMPTY);
+                            } catch (IOException e) {
+                                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                            }
+                        }, exec);
+            default:
+                return CompletableFuture.supplyAsync(
+                        () -> new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY), exec);
         }
-        return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 }
