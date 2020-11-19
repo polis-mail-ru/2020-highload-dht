@@ -103,7 +103,7 @@ public class TurboDAO implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        final boolean needsFlush;
+        boolean needsFlush = false;
         lock.readLock().lock();
         try {
             needsFlush = tables.memTable.sizeInBytes() >= flushThreshold;

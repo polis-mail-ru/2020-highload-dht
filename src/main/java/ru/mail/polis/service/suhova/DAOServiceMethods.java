@@ -5,12 +5,14 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.suhova.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 public final class DAOServiceMethods {
@@ -79,11 +81,42 @@ public final class DAOServiceMethods {
         }
     }
 
-    private static ByteBuffer toByteBuffer(@NotNull final String id) {
+    /**
+     * Get range of values.
+     *
+     * @param start - start id
+     * @param end   - end id
+     * @return - range iterator
+     */
+    public Iterator<Record> range(@NotNull final String start, final String end) {
+        try {
+            return dao.range(toByteBuffer(start), toByteBuffer(end));
+        } catch (IOException e) {
+            logger.error("FAIL RANGE! start: {}, end: {}", start, end, e);
+            return null;
+        }
+    }
+
+    /**
+     * Cast string to ByteBuffer.
+     *
+     * @param id - string
+     * @return new ByteBuffer from string
+     */
+    public static ByteBuffer toByteBuffer(final String id) {
+        if (id == null) {
+            return null;
+        }
         return ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static byte[] toByteArray(@NotNull final ByteBuffer byteBuffer) {
+    /**
+     * Cast ByteBuffer to byte array.
+     *
+     * @param byteBuffer - byteBuffer
+     * @return new byte[] from ByteBuffer
+     */
+    public static byte[] toByteArray(@NotNull final ByteBuffer byteBuffer) {
         if (!byteBuffer.hasRemaining()) {
             return Response.EMPTY;
         }

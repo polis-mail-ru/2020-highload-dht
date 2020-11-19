@@ -33,7 +33,7 @@ public class MemTable implements Table {
         final Value prev = map.put(key.duplicate(), new Value(value.duplicate(), System.currentTimeMillis()));
         if (prev == null) {
             size.getAndAdd(key.remaining() + value.remaining() + Long.BYTES);
-        } else {
+        } else if (prev.getData() != null) {
             size.getAndAdd(value.remaining() - prev.getData().remaining());
         }
     }
