@@ -27,7 +27,7 @@ public final class TankAmmoQueries {
     }
 
     /**
-     * spawns quasi-random values to be pushed to the store by PUT requests.
+     * retrieves quasi-random values to be pushed to the store by PUT requests.
      *
      * @return pool of keys written into plain byte array
      */
