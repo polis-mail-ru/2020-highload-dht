@@ -1,6 +1,9 @@
 package ru.mail.polis.service.codearound;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -135,7 +138,7 @@ public final class TankAmmoQueries {
         }
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
         outStream.write(TAG_GET_AMMO.getBytes(StandardCharsets.US_ASCII));
-        outStream.writeTo(System.out);
+        outStream.flush();
         outStream.write(CRLF.getBytes(StandardCharsets.US_ASCII));
     }
 
@@ -156,7 +159,7 @@ public final class TankAmmoQueries {
         outStream.write(value);
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.UTF_8));
         outStream.write(TAG_PUT_AMMO.getBytes(StandardCharsets.UTF_8));
-        outStream.writeTo(System.out);
+        outStream.flush();
         outStream.write(CRLF.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -165,7 +168,7 @@ public final class TankAmmoQueries {
      *
      * @param args - cmd arguments to execute generating ammo upon test pick
      */
-    private static void main(String [] args) throws IOException {
+    public static void main(final String [] args) throws IOException {
 
         if (args.length < 2 || args.length > 3) {
             throw new IllegalArgumentException("Given inconsistent number of arguments before program running");
