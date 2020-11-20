@@ -16,6 +16,7 @@ import java.util.Iterator;
 public class ServiceSession extends HttpSession {
     public static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] END = "0\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
+    public static final byte[] LF = "\n".getBytes(StandardCharsets.US_ASCII);
 
     private Iterator<Record> iterator;
 
@@ -56,7 +57,7 @@ public class ServiceSession extends HttpSession {
                 .put(length)
                 .put(CRLF)
                 .put(dataKey)
-                .put("\n".getBytes(StandardCharsets.US_ASCII))
+                .put(LF)
                 .put(dataValue)
                 .put(CRLF)
                 .position(0));
