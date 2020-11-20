@@ -40,7 +40,7 @@ public final class TankAmmoQueries {
     /**
      * generates PUT requests without key duplicates (query option #1).
      *
-     * @param numOfKeys - number of keys to be available for pushing into the storage via PUT requests
+     * @param numOfKeys - number of keys to be initially provided for pushing into the storage via PUT requests
      */
     private static void putRandKey(final long numOfKeys) throws IOException {
         for (long i = 0; i < numOfKeys; i++) {
@@ -51,7 +51,7 @@ public final class TankAmmoQueries {
     /**
      * generates PUT requests featured to resolving partial overwrites among keys stored (query option #2).
      *
-     * @param numOfKeys - number of keys to be available for pushing into the storage via PUT requests
+     * @param numOfKeys - number of keys to be initially provided for pushing into the storage via PUT requests
      */
     private static void putWhenOverwriting(final long numOfKeys) throws IOException {
         long initKey = 0;
@@ -69,7 +69,7 @@ public final class TankAmmoQueries {
     /**
      * generates GET requests consistently with continuous distribution law (query option #3).
      *
-     * @param numOfKeys - number of keys to be available for fetching from the storage via GET requests
+     * @param numOfKeys - number of keys to be initially provided for fetching from the storage via GET requests
      */
     private static void getKeyContinuously(final int numOfKeys) throws IOException {
         for (long i = 0; i < numOfKeys; i++) {
@@ -106,7 +106,7 @@ public final class TankAmmoQueries {
      * generates mixed (PUT has a share equal one of GET, i.e. 50% precisely) requests consistently
      * with continuous distribution law (query option #5).
      *
-     * @param numOfKeys - number of keys to be available for pushing into / fetching from
+     * @param numOfKeys - number of keys to be initially provided for pushing into / fetching from
      *                  the storage via respective requests
      */
     private static void mixPutGetLoad(final long numOfKeys) throws IOException {
