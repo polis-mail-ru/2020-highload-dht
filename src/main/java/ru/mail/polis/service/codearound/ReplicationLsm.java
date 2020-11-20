@@ -29,6 +29,10 @@ public class ReplicationLsm {
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
     private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
+    private static final String GET_REPL_ERROR_LOG = "Error running GET handler on cluster replica node";
+    private static final String UPSERT_REPL_ERROR_LOG = "Error running PUT handler on cluster replica node";
+    private static final String DELETE_REPL_ERROR_LOG = "Error running DELETE handler on cluster replica node";
+
     @NotNull
     private final DAO dao;
     @NotNull
@@ -125,8 +129,7 @@ public class ReplicationLsm {
                 }
                 replCounter++;
             } catch (HttpException | PoolException | InterruptedException exc) {
-                LOGGER.error("Error running GET handler on cluster replica node", exc);
-                System.out.println("Error running PUT handler on cluster replica node");
+                LOGGER.error(GET_REPL_ERROR_LOG, exc);
             }
         }
         if (isForwardedRequest || replCounter >= repliFactor.getAckValue()) {
@@ -156,10 +159,10 @@ public class ReplicationLsm {
                 dao.upsert(key, val);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (RejectedExecutionException exc) {
-                //LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
+                LOGGER.error(QUEUE_LIMIT_ERROR_LOG);
                 return new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY);
             } catch (IOException exc) {
-                //LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
+                LOGGER.error(RepliServiceImpl.IO_ERROR_LOG);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -207,8 +210,7 @@ public class ReplicationLsm {
                     }
                 }
             } catch (IOException | PoolException | InterruptedException | HttpException exc) {
-                LOGGER.error("Error running PUT handler on cluster replica node", exc);
-                System.out.println("Error running PUT handler on cluster replica node");
+                LOGGER.error(UPSERT_REPL_ERROR_LOG, exc);
             }
         }
         if (ack >= ackValue) {
@@ -286,8 +288,7 @@ public class ReplicationLsm {
                     return new Response(Response.ACCEPTED, Response.EMPTY);
                 }
             } catch (IOException | PoolException | HttpException | InterruptedException exc) {
-                LOGGER.error("Error running DELETE handler on cluster replica node", exc);
-                System.out.println("Error running DELETE handler on cluster replica node");
+                LOGGER.error(DELETE_REPL_ERROR_LOG, exc);
             }
         }
         LOGGER.error(RepliServiceImpl.GATEWAY_TIMEOUT_ERROR_LOG);

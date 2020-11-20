@@ -58,7 +58,6 @@ public class TaskDAO implements DAO {
             db = RocksDB.open(opts, dbLocalDir.getAbsolutePath());
         } catch (IOException | RocksDBException exc) {
             LOGGER.log(Level.SEVERE, "Storage initialization failed", exc);
-            System.out.println("Storage initialization failed");
         }
     }
 

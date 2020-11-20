@@ -1,9 +1,6 @@
 package ru.mail.polis.service.codearound;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -16,8 +13,8 @@ public final class TankAmmoQueries {
 
     private static final int KEY_LENGTH = 256;
     private static final String CRLF = "\r\n";
-    private static final String tagOfGet = " GET\n";
-    private static final String tagOfPut = " PUT\n";
+    private static final String TAG_GET_AMMO = " GET\n";
+    private static final String TAG_PUT_AMMO = " PUT\n";
 
     /**
      * class instance const.
@@ -132,14 +129,14 @@ public final class TankAmmoQueries {
     private static void getKey(final String keyStr) throws IOException {
         final ByteArrayOutputStream outStream = new ByteArrayOutputStream();
 
-        try(Writer writer = new OutputStreamWriter(outStream, StandardCharsets.US_ASCII)) {
+        try (Writer writer = new OutputStreamWriter(outStream, StandardCharsets.US_ASCII)) {
             writer.write("GET /v0/entity?id=" + keyStr + " HTTP/1.1" + CRLF);
             writer.write(CRLF);
         }
-        System.out.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
-        System.out.write(tagOfGet.getBytes(StandardCharsets.US_ASCII));
+        outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
+        outStream.write(TAG_GET_AMMO.getBytes(StandardCharsets.US_ASCII));
         outStream.writeTo(System.out);
-        System.out.write(CRLF.getBytes(StandardCharsets.US_ASCII));
+        outStream.write(CRLF.getBytes(StandardCharsets.US_ASCII));
     }
 
     /**
@@ -151,16 +148,16 @@ public final class TankAmmoQueries {
         final ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         final byte[] value = getRand();
 
-        try(Writer writer = new OutputStreamWriter(outStream, StandardCharsets.UTF_8)) {
+        try (Writer writer = new OutputStreamWriter(outStream, StandardCharsets.UTF_8)) {
             writer.write("PUT /v0/entity?id=" + keyStr + " HTTP/1.1" + CRLF);
             writer.write("Content-Length: " + value.length + CRLF);
             writer.write(CRLF);
         }
         outStream.write(value);
-        System.out.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.UTF_8));
-        System.out.write(tagOfPut.getBytes(StandardCharsets.UTF_8));
+        outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.UTF_8));
+        outStream.write(TAG_PUT_AMMO.getBytes(StandardCharsets.UTF_8));
         outStream.writeTo(System.out);
-        System.out.write(CRLF.getBytes(StandardCharsets.UTF_8));
+        outStream.write(CRLF.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -168,7 +165,7 @@ public final class TankAmmoQueries {
      *
      * @param args - cmd arguments to execute generating ammo upon test pick
      */
-    public static void main(String [] args) throws IOException {
+    private static void main(String [] args) throws IOException {
 
         if (args.length < 2 || args.length > 3) {
             throw new IllegalArgumentException("Given inconsistent number of arguments before program running");
