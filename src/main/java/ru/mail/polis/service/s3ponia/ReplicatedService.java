@@ -11,7 +11,9 @@ import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.Proxy;
 import ru.mail.polis.util.Utility;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -47,6 +49,14 @@ public class ReplicatedService implements HttpEntityHandler {
                        final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
+        ((SendFileSession) session).sendFile(
+                new RandomAccessFile(
+                        new File("C:\\Users\\slava\\2020-highload-dht\\src\\main\\java\\ru\\mail\\polis\\Cluster.java"),
+                        "r"
+                ),
+                policy.getNode(Utility.byteBufferFromString(id))
+        );
+
         final var proxyHeader = Header.getHeader(Proxy.PROXY_HEADER, request);
         if (proxyHeader != null) {
             asyncService.entity(id, replicas, request, session);

@@ -5,6 +5,7 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
+import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.Socket;
 import org.apache.log4j.BasicConfigurator;
@@ -15,7 +16,9 @@ import ru.mail.polis.service.Service;
 import ru.mail.polis.util.MapIterator;
 import ru.mail.polis.util.Utility;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.Iterator;
 
 public class HttpService extends HttpServer implements Service {
@@ -38,6 +41,13 @@ public class HttpService extends HttpServer implements Service {
         this.entitiesService = entitiesService;
         BasicConfigurator.configure();
         this.httpEntityService = httpEntityService;
+    }
+
+    @Path("/v0/sync")
+    @RequestMethod(Request.METHOD_PUT)
+    public void sync(@NotNull final Request request,
+                     @NotNull final HttpSession session) {
+        System.out.println("Hi!");
     }
 
     /**
@@ -109,7 +119,7 @@ public class HttpService extends HttpServer implements Service {
 
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
-        return new StreamingSession(socket, this);
+        return new SendFileSession(socket, this);
     }
 
     @Override

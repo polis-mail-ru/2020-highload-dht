@@ -51,16 +51,19 @@ public class StreamingSession extends HttpSession {
 
     private void next() throws IOException {
         while (valueIterator.hasNext() && queueHead == null) {
-            final var sendVal = valueIterator.next().value();
-            final var sendSize = sendVal.length;
+            final var value = valueIterator.next();
+            final var sendSize = value.valueSize();
             final var stringSize = Integer.toHexString(sendSize);
             final var chunkSize = stringSize.length() + CARRIAGE_RETURN_LINE_FEED.length
                     + sendSize + CARRIAGE_RETURN_LINE_FEED.length;
             final byte[] chunk = new byte[chunkSize];
-            ByteBuffer.wrap(chunk)
+            final var wrapBuffer = ByteBuffer.wrap(chunk);
+            wrapBuffer
                     .put(stringSize.getBytes(Charsets.UTF_8))
-                    .put(CARRIAGE_RETURN_LINE_FEED)
-                    .put(sendVal)
+                    .put(CARRIAGE_RETURN_LINE_FEED);
+            value
+                    .value(wrapBuffer);
+            wrapBuffer
                     .put(CARRIAGE_RETURN_LINE_FEED);
 
             write(chunk, 0, chunkSize);
