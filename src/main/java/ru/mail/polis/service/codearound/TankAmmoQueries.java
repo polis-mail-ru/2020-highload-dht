@@ -103,7 +103,7 @@ public final class TankAmmoQueries {
     }
 
     /**
-     * generates mixed (PUT has a share equal one of GET, i.e. just 50%) requests consistently
+     * generates mixed (PUT has a share equal one of GET, i.e. 50% precisely) requests consistently
      * with continuous distribution law (query option #5).
      *
      * @param numOfKeys - number of keys to be available for pushing into / fetching from
