@@ -4,6 +4,7 @@ import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
 import one.nio.net.Socket;
+import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.service.Mapper;
 
@@ -31,7 +32,7 @@ public class StreamingSession extends HttpSession {
      * @param rocksIterator - iterator.
      * @throws IOException - if an io exception occurs whilst sending the response.
      */
-    public void sendStreamResponse(final Iterator<Record> rocksIterator) throws IOException {
+    public void sendStreamResponse(final Iterator<Record> rocksIterator) throws Exception {
         this.rocksIterator = rocksIterator;
         openStream();
         sendStream();
@@ -44,16 +45,16 @@ public class StreamingSession extends HttpSession {
         writeResponse(response,false);
     }
 
-    private synchronized void sendStream() throws IOException {
-        boolean queueNotNull;
-        do {
-            while (rocksIterator.hasNext() && queueHead == null) {
-                final Record record = rocksIterator.next();
-                final byte[] data = getRecordData(record);
-                write(data, 0, data.length);
-            }
-            queueNotNull = queueHead != null;
-        } while (queueNotNull);
+    private synchronized void sendStream() throws Exception {
+        while (rocksIterator.hasNext() && queueHead == null) {
+            final Record record = rocksIterator.next();
+            final byte[] data = getRecordData(record);
+            write(data, 0, data.length);
+        }
+        final boolean queueHeadIsNotNull = queueHead != null;
+        if (queueHeadIsNotNull) {
+            processWrite();
+        }
     }
 
     private void closeStream() throws IOException {
@@ -76,25 +77,18 @@ public class StreamingSession extends HttpSession {
     private byte[] getRecordData(final Record record) {
         final byte[] key = Mapper.toBytes(record.getKey());
         final byte[] value = Mapper.toBytes(record.getValue());
-        final byte[] valueWithoutTimestamp;
-        final byte[] dataLength;
-        final byte[] chunk;
-        if (value.length == Constants.EMPTY_BODY_SIZE) {
-            valueWithoutTimestamp = Constants.EMPTY_BODY;
-        } else {
-            final int pureBodyLength = value.length - Constants.TIMESTAMP_LENGTH;
-            valueWithoutTimestamp = Arrays.copyOfRange(value, 0, pureBodyLength);
-        }
-        dataLength = Integer.toHexString(key.length + EOL.length + valueWithoutTimestamp.length)
+        final int valueLengthWithoutTimestamp = value.length == Constants.EMPTY_BODY_SIZE ?
+                0 : value.length - Constants.TIMESTAMP_LENGTH;
+        final byte[] dataLength = Integer.toHexString(key.length + EOL.length + valueLengthWithoutTimestamp)
                 .getBytes(StandardCharsets.US_ASCII);
-        chunk = new byte[dataLength.length + CRLF.length + key.length + EOL.length
-                + valueWithoutTimestamp.length + CRLF.length];
+        final byte[] chunk = new byte[dataLength.length + CRLF.length + key.length + EOL.length
+                + valueLengthWithoutTimestamp + CRLF.length];
         final ByteBuffer byteBuffer = ByteBuffer.wrap(chunk);
         byteBuffer.put(dataLength);
         byteBuffer.put(CRLF);
         byteBuffer.put(key);
         byteBuffer.put(EOL);
-        byteBuffer.put(valueWithoutTimestamp);
+        byteBuffer.put(value, 0, valueLengthWithoutTimestamp);
         byteBuffer.put(CRLF);
         return chunk;
     }

@@ -243,11 +243,16 @@ public class CustomServer extends BaseFunctionalityServer {
                 final Iterator<Record> iterator = getRecordIterator(startKey, endKey, session);
                 try {
                     ((StreamingSession) session).sendStreamResponse(iterator);
-                } catch (IOException e) {
+                } catch (Exception e) {
                     logger.error(e.getMessage(), e);
                 }
             } else {
-                logger.error("Session " + session.toString() + " is not a instance of " + StreamingSession.class);
+                try {
+                    logger.error("Session " + session.toString() + " is not a instance of " + StreamingSession.class);
+                    session.sendResponse(Util.responseWithNoBody(Response.INTERNAL_ERROR));
+                } catch (IOException e) {
+                    logger.error(e.getMessage(), e);
+                }
             }
         }
     }
