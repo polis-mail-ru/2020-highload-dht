@@ -40,7 +40,8 @@ public class DaoManager {
                     } catch (final IOException e) {
                         return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
                     }
-                }
+                },
+                daoExecutor
         );
     }
 
@@ -59,7 +60,8 @@ public class DaoManager {
                     } catch (final IOException e) {
                         return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
                     }
-                }
+                },
+                daoExecutor
         );
     }
 

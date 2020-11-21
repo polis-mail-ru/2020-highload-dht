@@ -41,7 +41,7 @@ public final class FutureAnalyzer {
                 }
             }).isCancelled();
             if (canceled) {
-                throw new RuntimeException("Who canceled my future??");
+                throw new IllegalStateException("Who canceled my future??");
             }
         });
         return future;

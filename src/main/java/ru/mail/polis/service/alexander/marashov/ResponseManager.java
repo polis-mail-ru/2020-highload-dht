@@ -11,6 +11,7 @@ import ru.mail.polis.service.alexander.marashov.topologies.Topology;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
@@ -26,9 +27,8 @@ import static ru.mail.polis.service.alexander.marashov.ServiceImpl.TIMESTAMP_HEA
 public class ResponseManager {
 
     private final Topology<String> topology;
-    private final java.net.http.HttpClient httpClient;
+    private final HttpClient httpClient;
     private final DaoManager daoManager;
-    private final ExecutorService proxyExecutor;
 
     private final Duration timeout;
 
@@ -48,12 +48,11 @@ public class ResponseManager {
     ) {
         this.daoManager = new DaoManager(dao, daoExecutor);
         this.topology = topology;
-        this.proxyExecutor = proxyExecutor;
         this.timeout = Duration.ofMillis(proxyTimeoutValue);
-        this.httpClient = java.net.http.HttpClient.newBuilder()
+        this.httpClient = HttpClient.newBuilder()
                 .executor(proxyExecutor)
                 .connectTimeout(timeout)
-                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .version(HttpClient.Version.HTTP_1_1)
                 .build();
     }
 
@@ -67,7 +66,7 @@ public class ResponseManager {
 
         final String proxyHeader = request.getHeader(PROXY_HEADER);
         if (proxyHeader != null) {
-            return daoManager.rowGet(validParams.key).thenApplyAsync(
+            return daoManager.rowGet(validParams.key).thenApply(
                     value -> {
                         if (value == null) {
                             return new Response(Response.NOT_FOUND, Response.EMPTY);
@@ -80,8 +79,7 @@ public class ResponseManager {
                             response.addHeader(TIMESTAMP_HEADER_NAME + ": " + value.getTimestamp());
                             return response;
                         }
-                    },
-                    proxyExecutor
+                    }
             );
         }
 
@@ -97,12 +95,12 @@ public class ResponseManager {
                         .header(PROXY_HEADER, "true")
                         .build();
                 final CompletableFuture<Value> future = httpClient.sendAsync(httpRequest, BodyHandlerGet.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, proxyExecutor);
+                        .thenApply(HttpResponse::body);
                 list.add(future);
             }
         }
         return FutureAnalyzer.atLeastAsync(list, validParams.ack)
-                .thenApplyAsync(ValuesAnalyzer::analyze, proxyExecutor);
+                .thenApply(ValuesAnalyzer::analyze);
     }
 
     private static HttpRequest.Builder requestForReplicaBuilder(
@@ -152,16 +150,15 @@ public class ResponseManager {
                                 .build();
                 final CompletableFuture<Response> future =
                         httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
-                                .thenApplyAsync(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
+                                .thenApply(voidHttpResponse -> new Response(Response.CREATED, Response.EMPTY));
                 list.add(future);
             }
         }
         return FutureAnalyzer.atLeastAsync(list, validParams.ack)
-                .thenApplyAsync(
+                .thenApply(
                         responses -> responses.size() >= validParams.ack
                             ? new Response(Response.CREATED, Response.EMPTY)
-                            : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
-                        proxyExecutor
+                            : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY)
                 );
     }
 
@@ -191,16 +188,15 @@ public class ResponseManager {
                                 .build();
                 final CompletableFuture<Response> future =
                         httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.discarding())
-                                .thenApplyAsync(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
+                                .thenApply(voidHttpResponse -> new Response(Response.ACCEPTED, Response.EMPTY));
                 list.add(future);
             }
         }
         return FutureAnalyzer.atLeastAsync(list, validParams.ack)
-                .thenApplyAsync(
+                .thenApply(
                         responses -> responses.size() >= validParams.ack
                                 ? new Response(Response.ACCEPTED, Response.EMPTY)
-                                : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY),
-                        proxyExecutor
+                                : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY)
                 );
     }
 
