@@ -62,7 +62,7 @@ public class StreamingSession extends HttpSession {
         }
 
         for (QueueItem item = queueHead; item != null; queueHead = item = item.next()) {
-            int written = item.write(socket);
+            final int written = item.write(socket);
             if (item.remaining() > 0) {
                 listen(written >= 0 ? WRITEABLE : SSL | READABLE);
                 return;
