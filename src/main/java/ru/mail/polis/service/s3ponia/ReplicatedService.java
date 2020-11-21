@@ -14,8 +14,8 @@ import ru.mail.polis.util.Utility;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.http.HttpRequest;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Arrays;
@@ -180,6 +180,7 @@ public class ReplicatedService implements HttpEntityHandler {
             asyncService.entity(id, replicas, request, session);
             return;
         }
+        
         final var time = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + time);
 
