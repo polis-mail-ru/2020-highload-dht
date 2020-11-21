@@ -5,6 +5,7 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.kate.moreva.Value;
 
@@ -14,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -234,27 +236,18 @@ public class MyRequestHelper {
      */
     public void workRangeRequest(final HttpSession session, final ByteBuffer start,
                                  final ByteBuffer end, final Executor executor) {
-        final boolean futuresWereCanceled = CompletableFuture.supplyAsync(() -> {
-            try {
-                return dao.range(start, end);
-            } catch (IOException e) {
-                throw new RuntimeException("Error while getting range data", e);
-            }
-        }, executor).whenComplete((ri, t) -> {
-            if (t != null) {
-                log.error("Error while completing future for range request ");
-                sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-            }
-            try {
-                ((StreamingSession) session).setRecordIterator(ri);
-            } catch (IOException e) {
-                log.error("Error while working range request ", e);
-                sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-            }
-        }).isCancelled();
-        if (futuresWereCanceled) {
-            log.error("Error while collecting futures. Futures were canceled ");
-            sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        try {
+            executor.execute(() -> {
+                try {
+                    final Iterator<Record> records = dao.range(start, end);
+                    ((StreamingSession) session).setRecordIterator(records);
+                } catch (IOException e) {
+                    sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    log.error("Exception", e);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            sendLoggedResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
         }
     }
 }

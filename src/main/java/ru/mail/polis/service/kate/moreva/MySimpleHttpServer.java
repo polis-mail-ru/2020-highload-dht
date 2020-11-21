@@ -144,7 +144,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                          @Param("start") final String start,
                          @Param("end") final String end) {
         if (start == null || start.isEmpty() || (end != null && end.isEmpty())) {
-            log.error("Request with incorrect parameters on /v0/entities");
+            log.error("Request with incorrect parameters start {}, end {} on /v0/entities", start, end);
             requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
