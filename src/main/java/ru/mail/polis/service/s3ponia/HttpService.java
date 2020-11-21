@@ -16,9 +16,7 @@ import ru.mail.polis.service.Service;
 import ru.mail.polis.util.MapIterator;
 import ru.mail.polis.util.Utility;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.util.Iterator;
 
 public class HttpService extends HttpServer implements Service {

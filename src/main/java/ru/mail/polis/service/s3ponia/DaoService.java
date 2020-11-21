@@ -69,15 +69,14 @@ public class DaoService implements Closeable, EntitiesService {
         } catch (IOException e) {
             throw new DaoOperationException("Get error", e);
         }
+        final Response resp;
         if (v.isDead()) {
-            final var resp = new Response(Response.NOT_FOUND, Response.EMPTY);
-            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
-            return resp;
+            resp = new Response(Response.NOT_FOUND, Response.EMPTY);
         } else {
-            final var resp = Response.ok(Utility.fromByteBuffer(v.getValue()));
-            resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
-            return resp;
+            resp = Response.ok(Utility.fromByteBuffer(v.getValue()));
         }
+        resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
+        return resp;
     }
 
     @Override

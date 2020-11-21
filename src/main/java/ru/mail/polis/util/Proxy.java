@@ -7,9 +7,13 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.service.s3ponia.FutureValue;
+import ru.mail.polis.service.s3ponia.FutureValues;
 import ru.mail.polis.service.s3ponia.ProxyException;
 
 import java.io.IOException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -29,8 +33,9 @@ public final class Proxy {
 
     /**
      * Proxying request.
+     *
      * @param request request to proxy
-     * @param client destination point
+     * @param client  destination point
      * @return Response from server
      */
     public static Response proxy(
@@ -49,7 +54,7 @@ public final class Proxy {
      *
      * @param request     proxying request
      * @param httpClients array of httpclients to proxy
-     * @param min minimum responses for success
+     * @param min         minimum responses for success
      * @return list of sucess responses
      */
     @NotNull
@@ -80,9 +85,33 @@ public final class Proxy {
         return responses;
     }
 
+    @NotNull
+    private static <T> FutureValue<T> proxyAsync(
+            @NotNull final java.net.http.HttpClient httpClient,
+            @NotNull final HttpRequest request,
+            @NotNull final HttpResponse.BodyHandler<T> handler) {
+        return new FutureValue<>(
+                httpClient.sendAsync(request, handler)
+                        .thenApplyAsync(HttpResponse::body)
+        );
+    }
+
+    @NotNull
+    public static <T> FutureValues<T> proxyReplicasAsync(
+            @NotNull final java.net.http.HttpClient httpClient,
+            @NotNull final HttpResponse.BodyHandler<T> handler,
+            @NotNull final Collection<HttpRequest> requests) {
+        final var futures = new ArrayList<FutureValue<T>>();
+        for (final var request : requests) {
+            futures.add(proxyAsync(httpClient, request, handler));
+        }
+        return new FutureValues<>(futures);
+    }
+
     /**
      * Handle CompletableFuture Response on responding to proxy request.
-     * @param session session for responding
+     *
+     * @param session      session for responding
      * @param proxyHandler asynchronous response on proxy request
      */
     public static void proxyHandle(@NotNull final HttpSession session,

@@ -15,8 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class Utility {
-    public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
-    public static final String TIME_HEADER = "XTime";
+    public static final String DEADFLAG_TIMESTAMP_HEADER = "DeadFlagTimestamp";
+    public static final String TIME_HEADER = "Time";
     
     private Utility() {
     }

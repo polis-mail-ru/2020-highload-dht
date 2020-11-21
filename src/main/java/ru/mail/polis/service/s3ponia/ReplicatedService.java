@@ -1,6 +1,6 @@
 package ru.mail.polis.service.s3ponia;
 
-import one.nio.http.HttpClient;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -11,26 +11,24 @@ import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.Proxy;
 import ru.mail.polis.util.Utility;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpRequest;
+import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class ReplicatedService implements HttpEntityHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReplicatedService.class);
     final AsyncService asyncService;
     final ShardingPolicy<ByteBuffer, String> policy;
-    private final Map<String, HttpClient> urlToClient;
-    
+    final HttpClient httpClient;
+
     /**
      * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
      *
@@ -41,22 +39,142 @@ public class ReplicatedService implements HttpEntityHandler {
                              @NotNull final ShardingPolicy<ByteBuffer, String> policy) {
         this.asyncService = service;
         this.policy = policy;
-        this.urlToClient = Utility.urltoClientFromSet(policy.homeNode(), policy.all());
+        final var executor = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("client-%d")
+                        .build()
+        );
+        this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(1))
+                .executor(executor)
+                .build();
     }
-    
+
+    private static URI entityUri(
+            @NotNull final String node,
+            @NotNull final String id) {
+        try {
+            return new URI(node + "/v0/entity?id=" + id);
+        } catch (URISyntaxException e) {
+            logger.error("Error in uri", e);
+            throw new RuntimeException("Error in URI parsing", e);
+        }
+    }
+
+    private static HttpRequest.Builder request(
+            @NotNull final URI uri) {
+        return HttpRequest.newBuilder()
+                .uri(uri)
+                .timeout(Duration.ofSeconds(1));
+    }
+
+    private static HttpRequest getRequest(
+            @NotNull final URI uri) {
+        return request(uri)
+                .header(Proxy.PROXY_HEADER, "proxied")
+                .GET()
+                .build();
+    }
+
+    private static HttpRequest putRequest(
+            @NotNull final URI uri,
+            final long time,
+            @NotNull final byte[] body) {
+        return request(uri)
+                .header(Proxy.PROXY_HEADER, "proxied")
+                .header(Utility.TIME_HEADER, Long.toString(time))
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
+    }
+
+    private static HttpRequest deleteRequest(
+            @NotNull final URI uri,
+            final long time) {
+        return request(uri)
+                .header(Proxy.PROXY_HEADER, "proxied")
+                .header(Utility.TIME_HEADER, Long.toString(time))
+                .DELETE()
+                .build();
+    }
+
+    private FutureValues<Value> get(
+            @NotNull final String id,
+            @NotNull final String... nodes) {
+        final var futureValues = Proxy.proxyReplicasAsync(
+                httpClient,
+                new GetBodyHandler(),
+                Arrays.stream(nodes)
+                        .filter(n -> !n.equals(policy.homeNode()))
+                        .map(n -> getRequest(entityUri(n, id)))
+                        .collect(Collectors.toList())
+        );
+        if (Utility.arrayContains(policy.homeNode(), nodes)) {
+            futureValues.add(
+                    new FutureValue<>(asyncService
+                            .getAsync(Utility.byteBufferFromString(id))
+                            .thenApply(Value::fromResponse)
+                    )
+            );
+        }
+        return futureValues;
+    }
+
+    private FutureValues<Void> put(
+            @NotNull final String id,
+            final long time,
+            @NotNull final byte[] body,
+            @NotNull final String... nodes) {
+        final var futureValues = Proxy.proxyReplicasAsync(
+                httpClient,
+                new UpsertBodyHandler(),
+                Arrays.stream(nodes)
+                        .filter(n -> !n.equals(policy.homeNode()))
+                        .map(n -> putRequest(entityUri(n, id), time, body))
+                        .collect(Collectors.toList())
+        );
+        if (Utility.arrayContains(policy.homeNode(), nodes)) {
+            futureValues.add(
+                    new FutureValue<>(asyncService
+                            .putAsync(Utility.byteBufferFromString(id),
+                                    ByteBuffer.wrap(body), time)
+                            .thenApply(a -> null)
+                    )
+            );
+        }
+        return futureValues;
+    }
+
+    private FutureValues<Void> delete(
+            @NotNull final String id,
+            final long time,
+            @NotNull final String... nodes) {
+        final var futureValues = Proxy.proxyReplicasAsync(
+                httpClient,
+                new DeleteBodyHandler(),
+                Arrays.stream(nodes)
+                        .filter(n -> !n.equals(policy.homeNode()))
+                        .map(n -> deleteRequest(entityUri(n, id), time))
+                        .collect(Collectors.toList())
+        );
+
+        if (Utility.arrayContains(policy.homeNode(), nodes)) {
+            futureValues.add(
+                    new FutureValue<>(asyncService
+                            .deleteAsync(Utility.byteBufferFromString(id), time)
+                            .thenApply(a -> null)
+                    )
+            );
+        }
+        return futureValues;
+    }
+
     @Override
     public void entity(@NotNull final String id,
                        final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        ((SendFileSession) session).sendFile(
-                new RandomAccessFile(
-                        new File("C:\\Users\\slava\\2020-highload-dht\\src\\main\\java\\ru\\mail\\polis\\Cluster.java"),
-                        "r"
-                ),
-                policy.getNode(Utility.byteBufferFromString(id))
-        );
-
         final var proxyHeader = Header.getHeader(Proxy.PROXY_HEADER, request);
         if (proxyHeader != null) {
             asyncService.entity(id, replicas, request, session);
@@ -64,13 +182,7 @@ public class ReplicatedService implements HttpEntityHandler {
         }
         final var time = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + time);
-        final ByteBuffer value;
-        if (request.getBody() == null) {
-            value = ByteBuffer.allocate(0);
-        } else {
-            value = ByteBuffer.wrap(request.getBody());
-        }
-        
+
         final ReplicationConfiguration parsedReplica;
         try {
             parsedReplica = ReplicationConfiguration.parseOrDefault(replicas, policy.all().length);
@@ -79,124 +191,62 @@ public class ReplicatedService implements HttpEntityHandler {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             throw new RuntimeException("Bad request's method", e);
         }
-        
+
         final var key = Utility.byteBufferFromString(id);
         final var nodes = policy.getNodeReplicas(key, parsedReplica.replicas);
-        final boolean homeInReplicas = Utility.arrayContains(policy.homeNode(), nodes);
-        
-        final var replicaResponses =
-                Proxy.proxyReplicas(request, Arrays.stream(nodes)
-                                                     .filter(n -> !n.equals(policy.homeNode()))
-                                                     .map(urlToClient::get)
-                                                     .collect(Collectors.toList()),
-                        parsedReplica.acks);
-        
-        final Response resultResponse;
-        
+
+        final var factory = new ResolvedFactory(parsedReplica.acks, request.getMethod());
+        final CompletableFuture<Response> resolvedFutureResponse;
+
         try {
             switch (request.getMethod()) {
                 case Request.METHOD_GET: {
-                    resultResponse = resolveGetProxyResult(
-                            parsedReplica, homeInReplicas, replicaResponses, key);
-                    break;
-                }
-                case Request.METHOD_DELETE: {
-                    resultResponse =
-                            resolvePutDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses,
-                                    () -> asyncService.deleteAsync(key, time),
-                                    new Response(Response.ACCEPTED, Response.EMPTY));
+                    resolvedFutureResponse = factory.resolvedFutureReplicaResponses(
+                            get(id, nodes)
+                    ).resolved();
                     break;
                 }
                 case Request.METHOD_PUT: {
-                    resultResponse =
-                            resolvePutDeleteProxyResult(parsedReplica, homeInReplicas, replicaResponses,
-                                    () -> asyncService.putAsync(key, value, time),
-                                    new Response(Response.CREATED, Response.EMPTY));
+                    resolvedFutureResponse = factory.resolvedFutureReplicaResponses(
+                            put(id, time, request.getBody(), nodes)
+                    ).resolved();
+                    break;
+                }
+                case Request.METHOD_DELETE: {
+                    resolvedFutureResponse = factory.resolvedFutureReplicaResponses(
+                            delete(id, time, nodes)
+                    ).resolved();
                     break;
                 }
                 default: {
-                    logger.error("Unhandled request method");
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    return;
+                    session.sendError(Response.BAD_REQUEST, "Unhandled method");
+                    throw new IllegalArgumentException("Unhandled method");
                 }
             }
-            session.sendResponse(resultResponse);
-        } catch (ReplicaException e) {
-            logger.error("Not enough replicas response", e);
-            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+        } catch (InvalidRequestMethod e) {
+            session.sendError(Response.BAD_REQUEST, "Unhandled method");
+            throw new IllegalArgumentException("Unhandled method");
         }
-    }
-    
-    private static Response fromFutureResponse(@NotNull final CompletableFuture<Response> future) {
-        try {
-            return future.get(100, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error in getting future", e);
-            throw new FutureResponseException("Error in getting from future", e);
-        }
-    }
-    
-    private Response resolveGetProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
-                                           final boolean homeInReplicas,
-                                           @NotNull final List<Response> replicaResponses,
-                                           @NotNull final ByteBuffer key) throws ReplicaException {
-        if (homeInReplicas && replicaResponses.size() < parsedReplica.acks) {
+
+        if (resolvedFutureResponse.whenComplete((r, t) -> {
             try {
-                replicaResponses.add(fromFutureResponse(asyncService.getAsync(key)));
-            } catch (FutureResponseException ignored) {
-                logger.error("Error in getting from dao");
+                if (t == null) {
+                    session.sendResponse(r);
+                } else {
+                    logger.error("Logic error. resolvedResponse must not complete exceptionally", t);
+                    session.sendError(Response.INTERNAL_ERROR, "ResolvedResponse complete exceptionally");
+                }
+            } catch (IOException e) {
+                logger.error("Exception in sending response");
             }
-        }
-        final List<Value> values;
-        try {
-            values = replicaResponses.stream()
-                             .map(Value::fromResponse)
-                             .collect(Collectors.toList());
-        } catch (IllegalArgumentException e) {
-            logger.error("Invalid response for parsing to value", e);
-            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-        }
-        if (values.size() < parsedReplica.acks) {
-            throw new ReplicaException("Not enough replicas in getting");
-        }
-        
-        values.sort(Value.valueResponseComparator());
-        
-        final var bestVal = values.get(0);
-        if (bestVal.isDead()) {
-            return new Response(Response.NOT_FOUND, Response.EMPTY);
-        } else {
-            return Response.ok(Utility.fromByteBuffer(bestVal.getValue()));
+        }).isCancelled()) {
+            logger.error("Canceled resolve task");
+            session.sendError(Response.INTERNAL_ERROR, "Canceled resolve task");
         }
     }
-    
-    private Response resolvePutDeleteProxyResult(@NotNull final ReplicationConfiguration parsedReplica,
-                                                 final boolean homeInReplicas,
-                                                 @NotNull final List<Response> replicaResponses,
-                                                 @NotNull final Supplier<CompletableFuture<Response>> future,
-                                                 @NotNull final Response successResponse)
-            throws ReplicaException {
-        if (homeInReplicas && replicaResponses.size() < parsedReplica.acks) {
-            try {
-                replicaResponses.add(fromFutureResponse(future.get()));
-            } catch (FutureResponseException e) {
-                logger.error("Error in deleting from dao", e);
-            }
-        }
-        if (replicaResponses.size() < parsedReplica.acks) {
-            throw new ReplicaException("Not enough replicas in deleting");
-        } else {
-            return successResponse;
-        }
-    }
-    
+
     @Override
     public void close() throws IOException {
         asyncService.close();
-        
-        for (final var client :
-                urlToClient.values()) {
-            client.close();
-        }
     }
 }
