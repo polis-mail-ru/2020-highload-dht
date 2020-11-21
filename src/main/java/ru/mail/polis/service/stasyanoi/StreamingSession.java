@@ -51,12 +51,11 @@ public class StreamingSession extends HttpSession {
         }
         final boolean queueHeadIsNotNull = queueHead != null;
         if (queueHeadIsNotNull) {
-            processWrite();
+            processWriteStream();
         }
     }
 
-    @Override
-    protected void processWrite() throws IOException {
+    protected void processWriteStream() throws IOException {
         if (eventsToListen == READABLE || eventsToListen == (SSL | WRITEABLE)) {
             throw new IOException("Illegal subscription state: " + eventsToListen);
         }
