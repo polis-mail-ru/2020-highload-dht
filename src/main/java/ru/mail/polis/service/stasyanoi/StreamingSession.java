@@ -34,44 +34,39 @@ public class StreamingSession extends HttpSession {
         this.rocksIterator = rocksIterator;
         openStream();
         sendStream();
-        closeStream();
+        if (!rocksIterator.hasNext()) {
+            closeStream();
+        }
     }
 
     private void openStream() throws IOException {
         final Response response = Util.responseWithNoBody(Response.OK);
         response.addHeader(Constants.TRANSFER_ENCODING_HEADER_NAME + "chunked");
-        writeResponse(response,false);
+        writeResponse(response, false);
     }
 
     private synchronized void sendStream() throws IOException {
-        while (rocksIterator.hasNext()) {
+        while (rocksIterator.hasNext() && queueHead == null) {
             final Record record = rocksIterator.next();
             final byte[] data = getRecordData(record);
             write(data, 0, data.length);
         }
-        final boolean queueHeadIsNotNull = queueHead != null;
-        if (queueHeadIsNotNull) {
-            processWriteStream();
-        }
     }
 
-    private void processWriteStream() throws IOException {
-        if (eventsToListen == READABLE || eventsToListen == (SSL | WRITEABLE)) {
-            throw new IOException("Illegal subscription state: " + eventsToListen);
-        }
+    @Override
+    protected void processWrite() throws Exception {
+        super.processWrite();
 
-        for (QueueItem item = queueHead; item != null; queueHead = item = item.next()) {
-            final int written = item.write(socket);
-            if (item.remaining() > 0) {
-                listen(written >= 0 ? WRITEABLE : SSL | READABLE);
-                return;
+        if (rocksIterator != null) {
+            sendStream();
+            if (!rocksIterator.hasNext()) {
+                closeStream();
             }
-            item.release();
         }
     }
 
     private void closeStream() throws IOException {
-        write(EOF,0, EOF.length);
+        write(EOF, 0, EOF.length);
         final String connection = handling.getHeader(Constants.CONNECTION_HEADER_NAME);
         final boolean keepAlive = handling.isHttp11() ? !"close".equalsIgnoreCase(connection)
                 : "Keep-Alive".equalsIgnoreCase(connection);
@@ -85,6 +80,7 @@ public class StreamingSession extends HttpSession {
                 server.handleRequest(handling, this);
             }
         }
+
     }
 
     private byte[] getRecordData(final Record record) {
