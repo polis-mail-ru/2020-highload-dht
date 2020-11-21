@@ -55,7 +55,7 @@ public class StreamingSession extends HttpSession {
         }
     }
 
-    protected void processWriteStream() throws IOException {
+    private void processWriteStream() throws IOException {
         if (eventsToListen == READABLE || eventsToListen == (SSL | WRITEABLE)) {
             throw new IOException("Illegal subscription state: " + eventsToListen);
         }
