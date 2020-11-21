@@ -17,6 +17,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -30,6 +33,10 @@ public final class ResponseUtils {
     public static final String PROXY = "X-Proxy-For";
     public static final String TIMESTAMP = "Timestamp";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+    public static final String EXPIRES = "Expires";
+
+    public static final DateTimeFormatter expirationFormat =
+            DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH).withZone(ZoneId.of("GMT"));
 
     private ResponseUtils() {
     }
@@ -90,6 +97,10 @@ public final class ResponseUtils {
 
     public static String getTimestamp(@NotNull final Entry entry) {
         return TIMESTAMP + ": " + entry.getTimestamp();
+    }
+
+    public static String getExpires(@NotNull final Entry entry) {
+        return EXPIRES + ": " + entry.getExpires();
     }
 
     /** GET response from Entry.*/

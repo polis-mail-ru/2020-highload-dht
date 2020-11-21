@@ -11,6 +11,7 @@ import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -28,14 +29,19 @@ public final class Entry implements Comparable<Entry> {
     private final long timestamp;
     @Nullable
     private final byte[] data;
+    @NotNull
     private final State state;
+    @Nullable
+    private final ZonedDateTime expires;
 
     private Entry(final long timestamp,
-                 @Nullable final byte[] data,
-                 @NotNull final State state) {
+                  @Nullable final byte[] data,
+                  @NotNull final State state,
+                  @Nullable final ZonedDateTime expires) {
         this.timestamp = timestamp;
         this.data = data == null ? null : Arrays.copyOf(data, data.length);
         this.state = state;
+        this.expires = expires;
     }
 
     public long getTimestamp() {
@@ -52,22 +58,29 @@ public final class Entry implements Comparable<Entry> {
         return state;
     }
 
+    @Nullable
+    public ZonedDateTime getExpires() {
+        return expires;
+    }
+
     @Override
     public int compareTo(@NotNull final Entry o) {
         return -Long.compare(timestamp, o.timestamp);
     }
 
     public static Entry present(final long timestamp,
-                                @NotNull final byte[] data) {
-        return new Entry(timestamp, data, State.PRESENT);
+                                @NotNull final byte[] data,
+                                @NotNull final ZonedDateTime expires) {
+        return new Entry(timestamp, data, State.PRESENT, expires);
     }
 
-    public static Entry removed(final long timestamp) {
-        return new Entry(timestamp, null, State.REMOVED);
+    public static Entry removed(final long timestamp,
+                                @NotNull final ZonedDateTime expires) {
+        return new Entry(timestamp, null, State.REMOVED, expires);
     }
 
     public static Entry absent() {
-        return new Entry(-1, null, State.ABSENT);
+        return new Entry(-1, null, State.ABSENT, null);
     }
 
     /** Merge all existed Entries comparing to their timestamp.
@@ -126,12 +139,13 @@ public final class Entry implements Comparable<Entry> {
         if (!cell.getKey().equals(key)) {
             return Entry.absent();
         }
-        if (cell.getValue().isTombstone()) {
-            return Entry.removed(cell.getValue().getTimestamp());
+        if (cell.getValue().isTombstone()
+                || cell.getValue().isExpired()) {
+            return Entry.removed(cell.getValue().getTimestamp(), cell.getValue().getExpire());
         } else {
             final ByteBuffer value = cell.getValue().getData();
             final byte[] buf = ByteUtils.toByteArray(Objects.requireNonNull(value));
-            return Entry.present(cell.getValue().getTimestamp(), buf);
+            return Entry.present(cell.getValue().getTimestamp(), buf, cell.getValue().getExpire());
         }
     }
 }

@@ -5,8 +5,6 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.utils.ByteUtils;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -34,24 +32,21 @@ public class ChunksProvider {
      *
      * @return byte array of chunk.
      */
-    byte[] next() throws IOException {
+    byte[] next() {
         final Record record = records.next();
         final byte[] key = ByteUtils.toByteArray(record.getKey());
         final byte[] value = ByteUtils.toByteArray(record.getValue());
-        final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        outputStream.write(key);
-        outputStream.write(eol);
-        outputStream.write(value);
-        final byte[] data = outputStream.toByteArray();
-
-        final byte[] chunkHexSize = Integer.toHexString(data.length).getBytes(StandardCharsets.US_ASCII);
-        final byte[] chunk = new byte[chunkHexSize.length + 2 * crlf.length + data.length];
+        final int payloadSize = key.length + 1 + value.length;
+        final String chunkHexSize = Integer.toHexString(payloadSize);
+        final byte[] chunk = new byte[chunkHexSize.length() + 2 * crlf.length + payloadSize];
 
         ByteBuffer.wrap(chunk)
-                .put(chunkHexSize)
+                .put(chunkHexSize.getBytes(StandardCharsets.US_ASCII))
                 .put(crlf)
-                .put(data)
+                .put(key)
+                .put(eol)
+                .put(value)
                 .put(crlf);
         return chunk;
     }
