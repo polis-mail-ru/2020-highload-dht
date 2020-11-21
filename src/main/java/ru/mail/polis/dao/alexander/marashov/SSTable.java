@@ -53,12 +53,14 @@ public class SSTable implements Table {
             final AtomicInteger position = new AtomicInteger(0);
             final AtomicInteger currentRowIndex = new AtomicInteger(0);
             final ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
-            final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
+            final ByteBuffer longBuffer1 = ByteBuffer.allocate(Long.BYTES);
+            final ByteBuffer longBuffer2 = ByteBuffer.allocate(Long.BYTES);
 
             iterator.forEachRemaining(it -> {
                 indexesList.add(position.get());
 
                 long timestamp = it.getValue().getTimestamp();
+                long expiresTimestamp = it.getValue().getExpiresTimestamp();
                 final boolean isTombstone = it.getValue().isTombstone();
 
                 if (isTombstone) {
@@ -66,11 +68,13 @@ public class SSTable implements Table {
                 }
 
                 intBuffer.rewind().putInt(it.getKey().capacity()).rewind();
-                longBuffer.rewind().putLong(timestamp).rewind();
+                longBuffer1.rewind().putLong(timestamp).rewind();
+                longBuffer2.rewind().putLong(expiresTimestamp).rewind();
                 try {
                     position.addAndGet(channel.write(intBuffer));
                     position.addAndGet(channel.write(it.getKey()));
-                    position.addAndGet(channel.write(longBuffer));
+                    position.addAndGet(channel.write(longBuffer1));
+                    position.addAndGet(channel.write(longBuffer2));
                     if (!isTombstone) {
                         intBuffer.rewind().putInt(it.getValue().getData().capacity()).rewind();
                         position.addAndGet(channel.write(intBuffer));
@@ -80,12 +84,11 @@ public class SSTable implements Table {
                     log.error("SSTable: can't write to the channel", e);
                     throw new UncheckedIOException(e);
                 }
-
                 currentRowIndex.incrementAndGet();
             });
 
             final ByteBuffer indexesBuffer = ByteBuffer.allocate((indexesList.size() + 1) * Integer.BYTES);
-            for (final Integer i: indexesList) {
+            for (final Integer i : indexesList) {
                 indexesBuffer.putInt(i);
             }
             indexesBuffer.putInt(indexesList.size());
@@ -137,13 +140,14 @@ public class SSTable implements Table {
         final int keyLength = getIntFrom(offset);
 
         final long timestamp = getLongFrom(offset + Integer.BYTES + keyLength);
+        final long expiresTimestamp = getLongFrom(offset + Integer.BYTES + keyLength + Long.BYTES);
         final ByteBuffer valueBuffer = timestamp > 0
                 ? getFrom(
-                offset + Integer.BYTES + keyLength + Long.BYTES + Integer.BYTES,
-                getIntFrom(offset + Integer.BYTES + keyLength + Long.BYTES)
+                offset + Integer.BYTES + keyLength + Long.BYTES + Long.BYTES + Integer.BYTES,
+                getIntFrom(offset + Integer.BYTES + keyLength + Long.BYTES + Long.BYTES)
         )
                 : null;
-        return new Value(timestamp & 0x7fffffff, valueBuffer);
+        return new Value(timestamp & 0x7fffffff, expiresTimestamp, valueBuffer);
     }
 
     private int binarySearch(@NotNull final ByteBuffer from) throws IOException {
@@ -193,7 +197,11 @@ public class SSTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+    public void upsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer value,
+            final long expiresTimestamp
+    ) throws IOException {
         throw new UnsupportedOperationException("Immutable!");
     }
 

@@ -6,21 +6,37 @@ import java.nio.ByteBuffer;
 
 public final class Value implements Comparable<Value> {
 
+    public static final long NEVER_EXPIRES = -1L;
+
     private final long timestamp;
+    private final long expiresTimestamp;
     private final ByteBuffer data;
 
     /**
      * Creates the Value instance.
      * Creates the tombstone if data is null
      */
+    public Value(final long timestamp, final long expiresTimestamp, final ByteBuffer data) {
+        assert timestamp >= 0L;
+        assert expiresTimestamp >= 0L || expiresTimestamp == NEVER_EXPIRES;
+        this.timestamp = timestamp;
+        this.expiresTimestamp = expiresTimestamp;
+        this.data = data;
+    }
+
     public Value(final long timestamp, final ByteBuffer data) {
         assert timestamp >= 0L;
         this.timestamp = timestamp;
+        this.expiresTimestamp = NEVER_EXPIRES;
         this.data = data;
     }
 
     public boolean isTombstone() {
         return data == null;
+    }
+
+    public boolean isExpired() {
+        return System.currentTimeMillis() >= expiresTimestamp;
     }
 
     @Override
@@ -46,8 +62,12 @@ public final class Value implements Comparable<Value> {
         return timestamp;
     }
 
+    public long getExpiresTimestamp() {
+        return expiresTimestamp;
+    }
+
     @Override
     public String toString() {
-        return "Value(timestamp = " + getTimestamp() + "; data = " + data + ")";
+        return "Value(timestamp = " + timestamp + "; expiresTimestamp = " + expiresTimestamp + "; data = " + data + ")";
     }
 }

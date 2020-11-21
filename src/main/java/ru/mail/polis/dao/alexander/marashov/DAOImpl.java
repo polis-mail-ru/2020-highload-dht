@@ -85,14 +85,14 @@ public class DAOImpl implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        final Iterator<Cell> fresh = rowIterator(from);
+        final Iterator<Cell> fresh = cellIterator(from);
         final Iterator<Cell> alive = Iterators.filter(fresh, i -> !i.getValue().isTombstone());
         return Iterators.transform(alive, i -> Record.of(i.getKey(), i.getValue().getData()));
     }
 
     @NotNull
     @Override
-    public Iterator<Cell> rowIterator(@NotNull final ByteBuffer from) throws IOException {
+    public Iterator<Cell> cellIterator(@NotNull final ByteBuffer from) throws IOException {
         final TableSnapshot snapshot;
         lock.readLock().lock();
         try {
@@ -114,11 +114,20 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+        upsert(key, value, Value.NEVER_EXPIRES);
+    }
+
+    @Override
+    public void upsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer value,
+            final long expiresTimestamp
+    ) throws IOException {
         final boolean needFlush;
         lock.readLock().lock();
         try {
-            tableSnapshot.memTable.upsert(key.duplicate(), value.duplicate());
+            tableSnapshot.memTable.upsert(key.duplicate(), value.duplicate(), expiresTimestamp);
             needFlush = tableSnapshot.memTable.sizeInBytes() > flushThreshold;
         } finally {
             lock.readLock().unlock();

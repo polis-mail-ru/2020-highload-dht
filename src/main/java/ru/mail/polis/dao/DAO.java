@@ -41,7 +41,7 @@ public interface DAO extends Closeable {
      * in <b>ascending</b> order according to {@link Cell#COMPARATOR}.
      */
     @NotNull
-    Iterator<Cell> rowIterator(@NotNull ByteBuffer from) throws IOException;
+    Iterator<Cell> cellIterator(@NotNull ByteBuffer from) throws IOException;
 
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
@@ -101,7 +101,7 @@ public interface DAO extends Closeable {
      */
     @NotNull
     default Value rowGet(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
-        final Iterator<Cell> iter = rowIterator(key);
+        final Iterator<Cell> iter = cellIterator(key);
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Row value not found");
         }
@@ -120,7 +120,17 @@ public interface DAO extends Closeable {
      */
     void upsert(
             @NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) throws IOException;
+            @NotNull ByteBuffer value
+    ) throws IOException;
+
+    /**
+     * Inserts or updates value by given key that expires in the future.
+     */
+    void upsert(
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value,
+            long expiresTimestamp
+    ) throws IOException;
 
     /**
      * Removes value by given key.

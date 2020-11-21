@@ -38,6 +38,7 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     public static final String PROXY_HEADER = "Proxy_Header";
+    public static final String EXPIRES_HEADER_NAME = "Expires";
     public static final String TIMESTAMP_HEADER_NAME = "Timestamp_Header";
     public static final String FUTURE_CANCELED_ERROR = "Who canceled my future?!";
 

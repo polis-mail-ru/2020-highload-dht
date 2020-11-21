@@ -15,7 +15,9 @@ public interface Table extends Closeable {
 
     void upsert(
             @NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) throws IOException;
+            @NotNull ByteBuffer value,
+            long expiresTimestamp
+    ) throws IOException;
 
     void remove(@NotNull ByteBuffer key) throws IOException;
 

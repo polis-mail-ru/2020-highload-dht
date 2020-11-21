@@ -37,7 +37,7 @@ public class DaoManager {
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        this.dao.upsert(key, value);
+                        this.dao.upsert(key, value, Value.NEVER_EXPIRES);
                         return new Response(Response.CREATED, Response.EMPTY);
                     } catch (final IOException e) {
                         return new Response(Response.INTERNAL_ERROR, Response.EMPTY);

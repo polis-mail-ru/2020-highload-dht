@@ -10,6 +10,8 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static ru.mail.polis.dao.alexander.marashov.Value.NEVER_EXPIRES;
+
 public class MemTable implements Table {
 
     private final SortedMap<ByteBuffer, Value> map;
@@ -31,12 +33,20 @@ public class MemTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+    public void upsert(
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer value,
+            final long expiresTimestamp
+    ) throws IOException {
+        final long timestamp = System.currentTimeMillis();
+        if (expiresTimestamp != NEVER_EXPIRES && expiresTimestamp <= timestamp) {
+            return;
+        }
         sizeInBytes.addAndGet(value.capacity());
-        final Value prev = map.put(key, new Value(System.currentTimeMillis(), value));
+        final Value prev = map.put(key, new Value(timestamp, expiresTimestamp, value));
         if (prev == null) {
-            // + key and timestamp
-            sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
+            // + key, timestamp, expiresTimestamp
+            sizeInBytes.addAndGet(key.capacity() + Long.BYTES + 3 * Long.BYTES);
         } else if (!prev.isTombstone()) {
             // - old value
             sizeInBytes.addAndGet(-prev.getData().capacity());
@@ -45,7 +55,7 @@ public class MemTable implements Table {
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        final Value prev = map.put(key, new Value(System.currentTimeMillis(), null));
+        final Value prev = map.put(key, new Value(System.currentTimeMillis(), NEVER_EXPIRES, null));
         if (prev == null) {
             // + key and timestamp
             sizeInBytes.addAndGet(key.capacity() + Long.BYTES);
