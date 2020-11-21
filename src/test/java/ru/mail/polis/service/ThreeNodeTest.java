@@ -16,7 +16,6 @@
 
 package ru.mail.polis.service;
 
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
