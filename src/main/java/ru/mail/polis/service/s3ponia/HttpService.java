@@ -40,11 +40,6 @@ public class HttpService extends HttpServer implements Service {
         this.httpEntityService = httpEntityService;
     }
     
-    @Path("/v0/sync")
-    public void sync(@NotNull final HttpSession session) throws IOException {
-        session.sendResponse(Response.ok(Response.EMPTY));
-    }
-    
     /**
      * Entity request handler.
      *
@@ -114,7 +109,7 @@ public class HttpService extends HttpServer implements Service {
     
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
-        return new FileExchangeSession(socket, this);
+        return new StreamingSession(socket, this);
     }
     
     @Override
