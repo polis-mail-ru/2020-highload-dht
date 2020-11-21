@@ -15,6 +15,11 @@ public class ResolvedDeleteResponse implements ResolvedFutureReplicaResponse {
     @Override
     public CompletableFuture<Response> resolved() {
         return resolvedResponse.resolved()
-                .thenApply(c -> new Response(Response.ACCEPTED, Response.EMPTY));
+                .thenApply(c -> {
+                    if (c.getStatus() > 400) {
+                        return c;
+                    }
+                    return new Response(Response.ACCEPTED, Response.EMPTY);
+                });
     }
 }

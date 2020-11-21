@@ -3,7 +3,17 @@ package ru.mail.polis.service.s3ponia;
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class ReplicationConfiguration {
+    public static final List<ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
+            new ReplicationConfiguration(1, 1),
+            new ReplicationConfiguration(2, 2),
+            new ReplicationConfiguration(2, 3),
+            new ReplicationConfiguration(3, 4),
+            new ReplicationConfiguration(3, 5)
+    );
     public final int acks;
     public final int replicas;
 
@@ -46,7 +56,7 @@ public class ReplicationConfiguration {
      */
     public static ReplicationConfiguration parseOrDefault(final String s, final int sz) {
         if (s == null) {
-            return defaultConfiguration(sz - 1);
+            return defaultConfiguration(sz);
         } else {
             return parse(s);
         }

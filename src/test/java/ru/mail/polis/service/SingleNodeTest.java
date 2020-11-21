@@ -277,7 +277,7 @@ class SingleNodeTest extends TestBase {
         });
     }
 
-    @RepeatedTest(100)
+    @Test
     void delete() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
