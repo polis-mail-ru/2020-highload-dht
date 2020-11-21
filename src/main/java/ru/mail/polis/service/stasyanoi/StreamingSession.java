@@ -30,7 +30,7 @@ public class StreamingSession extends HttpSession {
      * @param rocksIterator - iterator.
      * @throws IOException - if an io exception occurs whilst sending the response.
      */
-    public void sendStreamResponse(final Iterator<Record> rocksIterator) throws Exception {
+    public void sendStreamResponse(final Iterator<Record> rocksIterator) throws IOException {
         this.rocksIterator = rocksIterator;
         openStream();
         sendStream();
@@ -43,8 +43,8 @@ public class StreamingSession extends HttpSession {
         writeResponse(response,false);
     }
 
-    private synchronized void sendStream() throws Exception {
-        while (rocksIterator.hasNext() && queueHead == null) {
+    private synchronized void sendStream() throws IOException {
+        while (rocksIterator.hasNext()) {
             final Record record = rocksIterator.next();
             final byte[] data = getRecordData(record);
             write(data, 0, data.length);
@@ -52,6 +52,28 @@ public class StreamingSession extends HttpSession {
         final boolean queueHeadIsNotNull = queueHead != null;
         if (queueHeadIsNotNull) {
             processWrite();
+        }
+    }
+
+    @Override
+    protected void processWrite() throws IOException {
+        if (eventsToListen == READABLE || eventsToListen == (SSL | WRITEABLE)) {
+            throw new IOException("Illegal subscription state: " + eventsToListen);
+        }
+
+        for (QueueItem item = queueHead; item != null; queueHead = item = item.next()) {
+            int written = item.write(socket);
+            if (item.remaining() > 0) {
+                listen(written >= 0 ? WRITEABLE : SSL | READABLE);
+                return;
+            }
+            item.release();
+        }
+
+        if (closing) {
+            close();
+        } else {
+            listen(READABLE);
         }
     }
 

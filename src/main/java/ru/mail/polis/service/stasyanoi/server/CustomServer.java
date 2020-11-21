@@ -243,7 +243,7 @@ public class CustomServer extends BaseFunctionalityServer {
                 final Iterator<Record> iterator = getRecordIterator(startKey, endKey, session);
                 try {
                     ((StreamingSession) session).sendStreamResponse(iterator);
-                } catch (Exception e) {
+                } catch (IOException e) {
                     logger.error(e.getMessage(), e);
                 }
             } else {
