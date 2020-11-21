@@ -4,14 +4,12 @@ import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
 import one.nio.net.Socket;
-import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.service.Mapper;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Iterator;
 
 import static ru.mail.polis.service.stasyanoi.Constants.CRLF;
@@ -77,8 +75,8 @@ public class StreamingSession extends HttpSession {
     private byte[] getRecordData(final Record record) {
         final byte[] key = Mapper.toBytes(record.getKey());
         final byte[] value = Mapper.toBytes(record.getValue());
-        final int valueLengthWithoutTimestamp = value.length == Constants.EMPTY_BODY_SIZE ?
-                0 : value.length - Constants.TIMESTAMP_LENGTH;
+        final int valueLengthWithoutTimestamp = value.length == Constants.EMPTY_BODY_SIZE
+                ? 0 : value.length - Constants.TIMESTAMP_LENGTH;
         final byte[] dataLength = Integer.toHexString(key.length + EOL.length + valueLengthWithoutTimestamp)
                 .getBytes(StandardCharsets.US_ASCII);
         final byte[] chunk = new byte[dataLength.length + CRLF.length + key.length + EOL.length
