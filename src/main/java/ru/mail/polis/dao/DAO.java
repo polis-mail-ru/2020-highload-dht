@@ -19,7 +19,8 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
-import ru.mail.polis.dao.s3ponia.Table;
+import ru.mail.polis.dao.s3ponia.ICell;
+import ru.mail.polis.dao.s3ponia.Value;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -45,13 +46,11 @@ public interface DAO extends Closeable {
     Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
     
     /**
-     * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
-     * in <b>ascending</b> order according to {@link Record#compareTo(Record)}.
-     * N.B. The iterator should be obtained as fast as possible, e.g.
-     * one should not "seek" to start point ("from" element) in linear time ;)
+     * Provides iterator (possibly empty) over {@link ICell}s starting at "from" key (inclusive)
+     * in <b>ascending</b> order according to {@link ICell#compareTo(ICell)}.
      */
     @NotNull
-    Iterator<Table.ICell> iteratorRaw(@NotNull ByteBuffer from) throws IOException;
+    Iterator<ICell> cellsIterator(@NotNull ByteBuffer from) throws IOException;
 
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
@@ -82,7 +81,7 @@ public interface DAO extends Closeable {
      */
     @NotNull
     default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
-        final var temp = getRaw(key);
+        final var temp = getValue(key);
         
         if (temp.isDead()) {
             throw new NoSuchElementException("Not found");
@@ -97,17 +96,17 @@ public interface DAO extends Closeable {
      * @throws NoSuchElementException if no such record
      */
     @NotNull
-    default Table.Value getRaw(@NotNull ByteBuffer key) throws IOException {
-        final Iterator<Table.ICell> iter = iteratorRaw(key);
+    default Value getValue(@NotNull ByteBuffer key) throws IOException {
+        final Iterator<ICell> iter = cellsIterator(key);
         if (!iter.hasNext()) {
-            return Table.Value.ABSENT;
+            return Value.ABSENT;
         }
         
-        final Table.ICell next = iter.next();
+        final ICell next = iter.next();
         if (next.getKey().equals(key)) {
             return next.getValue();
         } else {
-            return Table.Value.ABSENT;
+            return Value.ABSENT;
         }
     }
 
@@ -119,7 +118,7 @@ public interface DAO extends Closeable {
             @NotNull ByteBuffer value) throws IOException;
     
     /**
-     * Inserts or updates value by given key.
+     * Inserts or updates value by given key at given time.
      */
     void upsertWithTimeStamp(
             @NotNull ByteBuffer key,
@@ -132,7 +131,7 @@ public interface DAO extends Closeable {
     void remove(@NotNull ByteBuffer key) throws IOException;
     
     /**
-     * Inserts or updates value by given key.
+     * Inserts or updates value by given key at given time.
      */
     void removeWithTimeStamp(
             @NotNull ByteBuffer key,

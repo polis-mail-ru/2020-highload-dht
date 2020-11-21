@@ -152,12 +152,7 @@ class PersistenceTest extends TestBase {
             for (int i = 0; i < records; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 keys.add(key);
-                ByteBuffer suffixed = null;
-                try {
-                    suffixed = join(key, suffix);
-                } catch (OutOfMemoryError e) {
-                    System.out.println(e);
-                }
+                ByteBuffer suffixed = join(key, suffix);
                 dao.upsert(suffixed, value);
                 assertEquals(value, dao.get(suffixed));
             }

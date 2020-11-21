@@ -24,7 +24,7 @@ public class DiskManager implements Closeable {
     private final List<DiskTable> diskTables;
     private int generation;
 
-    private void saveTo(final Iterator<Table.ICell> it, final Path file) throws IOException {
+    private void saveTo(final Iterator<ICell> it, final Path file) throws IOException {
         Files.createFile(file);
         try (FileChannel writer = FileChannel.open(file, StandardOpenOption.WRITE)) {
             final var shifts = new ArrayList<Integer>();
@@ -56,40 +56,7 @@ public class DiskManager implements Closeable {
             writer.write(ByteBuffer.allocate(Integer.BYTES).putInt(shifts.size()).flip());
         }
     }
-
-    private void saveTo(final Table dao, final Path file) throws IOException {
-        Files.createFile(file);
-        try (FileChannel writer = FileChannel.open(file, StandardOpenOption.WRITE)) {
-            var shifts = new int[dao.size()];
-            shifts[0] = 0;
-            var index = 0;
-            final var iterator = dao.iterator();
-            while (iterator.hasNext()) {
-                final var cell = iterator.next();
-                var nextShift = shifts[index];
-                final var key = cell.getKey();
-                final var value = cell.getValue();
-
-                nextShift += key.remaining() + value.getValue().remaining() + Long.BYTES /* Meta size */
-                        + Integer.BYTES /* Shift size */;
-
-                writer.write(ByteBuffer.allocate(Long.BYTES).putLong(value.getDeadFlagTimeStamp()).flip());
-                writer.write(ByteBuffer.allocate(Integer.BYTES).putInt(key.remaining()).flip());
-                writer.write(key);
-                writer.write(value.getValue());
-
-                if (index < dao.size() - 1) {
-                    shifts[++index] = nextShift;
-                }
-            }
-
-            final var buffer = ByteBuffer.allocate(shifts.length * Integer.BYTES);
-            buffer.asIntBuffer().put(shifts).flip();
-            writer.write(buffer);
-            writer.write(ByteBuffer.allocate(Integer.BYTES).putInt(dao.size()).flip());
-        }
-    }
-
+    
     private void setSeed() {
         if (fileNames.isEmpty()) {
             return;
@@ -134,27 +101,20 @@ public class DiskManager implements Closeable {
         return DiskTable.of(filePath);
     }
 
-    private synchronized void saveFileNameToMeta(final String fileName) throws IOException {
+    private void saveFileNameToMeta(final String fileName) throws IOException {
         try (var writer = Files.newBufferedWriter(this.metaFile,
                 Charset.defaultCharset(), StandardOpenOption.APPEND)) {
             writer.write(fileName + "\n");
         }
     }
 
-    void save(final Iterator<Table.ICell> it, final int generation) throws IOException {
+    void save(final Iterator<ICell> it, final int generation) throws IOException {
         final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         final var fileName = filePath.toString();
         saveFileNameToMeta(fileName);
         saveTo(it, filePath);
     }
-
-    void save(final Table dao, final int generation) throws IOException {
-        final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
-        final var fileName = filePath.toString();
-        saveFileNameToMeta(fileName);
-        saveTo(dao, filePath);
-    }
-
+    
     int getGeneration() {
         return generation;
     }

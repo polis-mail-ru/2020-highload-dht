@@ -1,84 +1,40 @@
 package ru.mail.polis.service.s3ponia;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
-import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.s3ponia.Table;
-import ru.mail.polis.s3ponia.AsyncServiceUtility;
-import ru.mail.polis.s3ponia.Utility;
-import ru.mail.polis.service.Service;
+import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
-import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public final class AsyncService extends HttpServer implements Service {
-    public static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
-    public static final byte[] EMPTY = Response.EMPTY;
-    public static final List<Utility.ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
-            new Utility.ReplicationConfiguration(1, 1),
-            new Utility.ReplicationConfiguration(2, 2),
-            new Utility.ReplicationConfiguration(2, 3),
-            new Utility.ReplicationConfiguration(3, 4),
-            new Utility.ReplicationConfiguration(3, 5)
-    );
-    public final DAO dao;
-    public final ExecutorService es;
-    public final ShardingPolicy<ByteBuffer, String> policy;
-    public final Map<String, HttpClient> urlToClient;
-    public final java.net.http.HttpClient httpClient;
+import static ru.mail.polis.util.Utility.sendResponse;
+
+public final class AsyncService implements HttpEntityHandler {
+    private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
+    private final ExecutorService es;
+    private final DaoService daoService;
 
     /**
-     * AsyncService's constructor.
+     * Creates a new {@link AsyncService} with given dao, workers and queueSize.
      *
-     * @param port      port
-     * @param dao       dao
-     * @param workers   workers count
-     * @param queueSize queue's size
-     * @param policy    policy
-     * @throws IOException rethrow ioexception
+     * @param dao       database
+     * @param workers   count of threads
+     * @param queueSize max tasks' count at time
      */
-    public AsyncService(final int port, @NotNull final DAO dao,
-                        final int workers, final int queueSize,
-                        @NotNull final ShardingPolicy<ByteBuffer, String> policy) throws IOException {
-        super(Utility.configFrom(port));
-        assert 0 < workers;
-        assert 0 < queueSize;
-        final var executor = Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors(),
-                new ThreadFactoryBuilder()
-                        .setNameFormat("client-%d")
-                        .build()
-        );
-        this.httpClient = java.net.http.HttpClient.newBuilder()
-                .version(java.net.http.HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(1))
-                .executor(executor)
-                .build();
-        this.policy = policy;
-        this.urlToClient = Utility.urltoClientFromSet(this.policy.homeNode(), this.policy.all());
-        this.dao = dao;
+    public AsyncService(@NotNull final DaoService dao,
+                        final int workers, final int queueSize) {
+        this.daoService = dao;
         this.es = new ThreadPoolExecutor(
                 workers,
                 workers,
@@ -91,200 +47,117 @@ public final class AsyncService extends HttpServer implements Service {
                 new ThreadPoolExecutor.AbortPolicy());
     }
 
-    /**
-     * Handling status request.
-     *
-     * @param session current Session
-     */
-    @Path("/v0/status")
-    public void status(final HttpSession session) throws IOException {
-        try {
-            this.es.execute(() -> {
-                AsyncServiceUtility.handleStatusError(session);
-            });
-        } catch (RejectedExecutionException e) {
-            logger.error("Internal error in status handling", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-
-    private CompletableFuture<Table.Value> futureGet(@NotNull final ByteBuffer key) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return dao.getRaw(key);
-            } catch (IOException e) {
-                logger.error("IOException in getRAW", e);
-                throw new RuntimeException("IOException in getRAW", e);
-            }
-        }, this.es);
-    }
-
-    /**
-     * Basic implementation of http get handling.
-     *
-     * @param id key in database
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_GET)
-    public void get(@Param(value = "id", required = true) final String id,
-                    @Param(value = "replicas") final String replicas,
-                    @NotNull final Request request,
-                    @NotNull final HttpSession session) throws IOException {
-        if (Utility.validateId(id)) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
-
-        final var key = Utility.byteBufferFromString(id);
-        if (request.getHeader(Utility.PROXY_HEADER) != null) {
-            if (futureGet(key).whenCompleteAsync(Utility.getCompleteHandler(session)).isCancelled()) {
-                logger.error("Canceled task");
-            }
-            return;
-        }
-        final Utility.ReplicationConfiguration parsed =
-                AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
-        if (parsed == null) return;
-
-        final var nodeReplicas = policy.getNodeReplicas(key, parsed.from);
-        final var futureResponses =
-                AsyncServiceUtility.getGetFutures(id, parsed, this, nodeReplicas);
-        final boolean homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodeReplicas);
-
-        if (homeInReplicas) {
-            futureResponses.add(futureGet(key));
-        }
-
-        if (Utility.atLeast(parsed.ack, futureResponses).thenApplyAsync(c ->
-                c.stream().min(Utility.valueResponseComparator()))
-                .whenCompleteAsync((v, t) -> {
-                    try {
-                        if (t != null) {
-                            session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-                            return;
-                        }
-
-                        if (v.isEmpty() || v.get().isDead()) {
-                            session.sendResponse(new Response(Response.NOT_FOUND, EMPTY));
-                            return;
-                        }
-
-                        session.sendResponse(Response.ok(Utility.fromByteBuffer(v.get().getValue())));
-                    } catch (IOException e) {
-                        logger.error("Error sending response");
-                    }
-                }).isCancelled()) {
-            logger.error("Cancelled get");
-        }
-    }
-
-    /**
-     * Basic implementation of http put handling.
-     *
-     * @param id      key
-     * @param request value for putting in database
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_PUT)
-    public void put(@Param(value = "id", required = true) final String id,
-                    @Param(value = "replicas") final String replicas,
-                    @NotNull final Request request,
-                    @NotNull final HttpSession session) throws IOException {
-        if (Utility.validateId(id)) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
-        }
-
-        try {
-            AsyncServiceUtility.putImpl(id, replicas, request, session, this);
-        } catch (RejectedExecutionException e) {
-            logger.error("Error in execute", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
-        }
-    }
-
-    /**
-     * Basic implementation of http put handling.
-     *
-     * @param id key in database to delete
-     */
-    @Path("/v0/entity")
-    @RequestMethod(Request.METHOD_DELETE)
-    public void delete(@Param(value = "id", required = true) final String id,
-                       @Param(value = "replicas") final String replicas,
+    @Override
+    public void entity(final String id,
+                       final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (Utility.validateId(id)) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
-            return;
+        final CompletableFuture<Response> op;
+        final var timeHeader = Header.getHeader(Utility.TIME_HEADER, request);
+        final long time;
+        if (timeHeader == null) {
+            time = System.currentTimeMillis();
+        } else {
+            time = Long.parseLong(timeHeader.value);
         }
-
         final var key = Utility.byteBufferFromString(id);
-        final var header = Utility.Header.getHeader(Utility.TIME_HEADER, request);
-        if (header != null) {
-            if (AsyncServiceUtility.deleteWithTimeStampAsync(key, Long.parseLong(header.value), this)
-                    .whenCompleteAsync(Utility.deleteCompleteHandler(session)).isCancelled()) {
-                logger.error("Canceled removing from dao");
+        try {
+            switch (request.getMethod()) {
+                case Request.METHOD_DELETE:
+                    op = deleteAsync(key, time);
+                    break;
+                case Request.METHOD_GET:
+                    op = getAsync(key);
+                    break;
+                case Request.METHOD_PUT:
+                    op = putAsync(key, ByteBuffer.wrap(request.getBody()), time);
+                    break;
+                default:
+                    logger.error("Unhandled request method");
+                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    return;
             }
+        } catch (RejectedExecutionException e) {
+            logger.error("Rejected task", e);
+            session.sendResponse(new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
             return;
         }
-
-        final var currTime = System.currentTimeMillis();
-        request.addHeader(Utility.TIME_HEADER + ": " + currTime);
-
-        final Utility.ReplicationConfiguration parsed =
-                AsyncServiceUtility.getReplicationConfiguration(replicas, session, this);
-        if (parsed == null) return;
-
-        final var nodes = this.policy.getNodeReplicas(key, parsed.from);
-        final var futures =
-                AsyncServiceUtility.getFuturesResponse(id, HttpRequest.newBuilder()
-                                .header(Utility.PROXY_HEADER, this.policy.homeNode())
-                                .headers(Utility.TIME_HEADER, Long.toString(currTime))
-                                .timeout(Duration.ofMillis(100))
-                                .DELETE(),
-                        parsed, this, nodes);
-        final var homeInReplicas = Utility.isHomeInReplicas(policy.homeNode(), nodes);
-
-        if (homeInReplicas) {
-            futures.add(AsyncServiceUtility.deleteWithTimeStampAsync(key, currTime, this));
-        }
-
-        if (Utility.atLeast(parsed.ack, futures).whenCompleteAsync((c, t) -> {
-            try {
-                if (t == null) {
-                    session.sendResponse(new Response(Response.ACCEPTED, EMPTY));
-                } else {
-                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, EMPTY));
-                }
-            } catch (IOException e) {
-                AsyncService.logger.error("Error in sending response in delete", e);
+        if (op.whenComplete((r, t) -> {
+            if (t == null) {
+                sendResponse(session, r);
+            } else {
+                logger.error("Error in dao operation", t);
+                sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
         }).isCancelled()) {
-            AsyncService.logger.error("Canceled task");
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, EMPTY));
+            logger.error("Canceled task");
+            session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
         }
     }
 
-    @Override
-    public void handleDefault(final Request request, final HttpSession session) throws IOException {
-        logger.error("Unhandled request: {}", request);
-        session.sendResponse(new Response(Response.BAD_REQUEST, EMPTY));
+    /**
+     * Asynchronous version of delete.
+     *
+     * @param key Record's key
+     * @return {@link CompletableFuture} future result of deleting
+     */
+    public CompletableFuture<Response> deleteAsync(@NotNull final ByteBuffer key,
+                                                   final long time) {
+        return CompletableFuture.<Void>supplyAsync(() -> {
+            try {
+                daoService.delete(key, time);
+                return null;
+            } catch (DaoOperationException e) {
+                throw new FutureResponseException("IOException in dao.removeWithTimeStamp", e);
+            }
+        }, es).thenApply(v -> new Response(Response.ACCEPTED, Response.EMPTY));
+    }
+
+    /**
+     * Asynchronous version of put.
+     *
+     * @param key   Record's key
+     * @param value Record's value
+     * @param time  time of putting in dao
+     * @return {@link CompletableFuture} future result of putting
+     */
+    public CompletableFuture<Response> putAsync(@NotNull final ByteBuffer key,
+                                                @NotNull final ByteBuffer value,
+                                                final long time) {
+        return CompletableFuture.<Void>supplyAsync(() -> {
+            try {
+                daoService.put(key, value, time);
+                return null;
+            } catch (DaoOperationException e) {
+                throw new FutureResponseException("IOException in dao.upsertWithTimeStamp", e);
+            }
+        }, es).thenApply(v -> new Response(Response.CREATED, Response.EMPTY));
+    }
+
+    /**
+     * Asynchronous version of get.
+     *
+     * @param key Record's key
+     * @return {@link CompletableFuture} future result of getting
+     */
+    public CompletableFuture<Response> getAsync(@NotNull final ByteBuffer key) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return daoService.get(key);
+            } catch (DaoOperationException e) {
+                throw new FutureResponseException("IOException in dao.getRAW", e);
+            }
+        }, es);
     }
 
     @Override
-    public synchronized void stop() {
-        super.stop();
+    public synchronized void close() throws IOException {
         this.es.shutdown();
         try {
-            this.es.awaitTermination(3, TimeUnit.SECONDS);
+            this.es.awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            logger.error("Can't shutdown executor", e);
+            logger.error("Error in waiting es", e);
             Thread.currentThread().interrupt();
-        }
-
-        for (final HttpClient client : this.urlToClient.values()) {
-            client.clear();
         }
     }
 }
