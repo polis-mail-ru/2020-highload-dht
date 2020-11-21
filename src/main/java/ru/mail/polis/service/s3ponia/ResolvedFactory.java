@@ -12,7 +12,7 @@ public class ResolvedFactory {
     private final int minResponses;
     private final int requestMethod;
 
-    public ResolvedFactory(int minResponses, int requestMethod) {
+    public ResolvedFactory(final int minResponses, final int requestMethod) {
         this.minResponses = minResponses;
         this.requestMethod = requestMethod;
     }
@@ -35,19 +35,33 @@ public class ResolvedFactory {
                         .collect(Collectors.toList()));
     }
 
-    public <T> ResolvedFutureReplicaResponses resolvedFutureReplicaResponses(
-            @NotNull final FutureValues<T> futureValues
-    ) throws InvalidRequestMethod {
+    /**
+     * Creates {@link ResolvedFutureReplicaResponse} corresponding to request method.
+     * @param futureValues future values for resolving
+     * @param <T> future's result type
+     * @return a {@link ResolvedFutureReplicaResponse}
+     * @throws InvalidRequestMethod throws on unsupported request method and mismatch of method and futureValues type
+     */
+    public <T> ResolvedFutureReplicaResponse resolvedFutureReplicaResponses(
+            @NotNull final FutureValues<T> futureValues) throws InvalidRequestMethod {
         final var futureCollection = futureValues.atLeast(minResponses);
-        switch (requestMethod) {
-            case Request.METHOD_GET:
-                return new ResolvedGetResponses(castToGetFutureCollection(futureCollection));
-            case Request.METHOD_DELETE:
-                return new ResolvedDeleteResponses(castToVoidFutureCollection(futureCollection));
-            case Request.METHOD_PUT:
-                return new ResolvedPutResponses(castToVoidFutureCollection(futureCollection));
-            default:
-                throw new InvalidRequestMethod("Unhandled request method in resolver");
+        try {
+            switch (requestMethod) {
+                case Request.METHOD_GET:
+                    return new ResolvedGetResponse(castToGetFutureCollection(futureCollection));
+                case Request.METHOD_DELETE:
+                    return new ResolvedDeleteResponse(
+                            new ResolvedVoidResponse(castToVoidFutureCollection(futureCollection))
+                    );
+                case Request.METHOD_PUT:
+                    return new ResolvedPutResponse(
+                            new ResolvedVoidResponse(castToVoidFutureCollection(futureCollection))
+                    );
+                default:
+                    throw new InvalidRequestMethod("Unsupported request method");
+            }
+        } catch (ClassCastException e) {
+            throw new InvalidRequestMethod("Mismatch request method and future values type", e);
         }
     }
 }

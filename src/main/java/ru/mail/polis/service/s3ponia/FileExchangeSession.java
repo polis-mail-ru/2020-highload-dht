@@ -19,14 +19,24 @@ import java.nio.file.StandardOpenOption;
 
 public class FileExchangeSession extends StreamingSession {
     private static final String FILE_HEADER = "FILE_NAME";
+    private static final String CONTENT_LENGTH_HEADER = "Content-Length";
     private static final int MAX_HEADERS = 48;
-    private FileChannel receiveFileChannel = null;
-    private int maxFileSize = 0;
+    private FileChannel receiveFileChannel;
+    private int maxFileSize;
 
-    public FileExchangeSession(@NotNull Socket socket, @NotNull HttpServer server) {
+    public FileExchangeSession(@NotNull final Socket socket, @NotNull final HttpServer server) {
         super(socket, server);
     }
 
+    /**
+     * Sends file in Request.
+     *
+     * @param path       file's path
+     * @param socketPool socket for sending
+     * @throws IOException          rethrows from socketPool
+     * @throws InterruptedException rethrows from socketPool
+     * @throws PoolException        rethrows from socketPool
+     */
     public static synchronized void sendFile(@NotNull final Path path,
                                              @NotNull final SocketPool socketPool)
             throws IOException, InterruptedException, PoolException {
@@ -34,7 +44,7 @@ public class FileExchangeSession extends StreamingSession {
         final var file = path.toFile();
         final var randomAccessFile = new RandomAccessFile(file, "r");
         final var size = randomAccessFile.length();
-        request.addHeader("Content-Length: " + size);
+        request.addHeader(CONTENT_LENGTH_HEADER + ": " + size);
         request.addHeader(FILE_HEADER + ": " + file.getName());
         var socket = socketPool.borrowObject();
         final var sendBytes = request.toBytes();
@@ -50,13 +60,29 @@ public class FileExchangeSession extends StreamingSession {
     }
 
     @Override
-    protected int processHttpBuffer(byte[] buffer, int length) throws IOException, HttpException {
+    protected int processHttpBuffer(@NotNull final byte[] buffer, final int length) throws IOException, HttpException {
         int lineStart = 0; // Current position in the buffer
 
         if ((parsing != null && parsing.getBody() != null) || receiveFileChannel != null) { // Resume consuming request
             // body
-            if (receiveFileChannel != null) {
-                int remaining = Math.min(length, maxFileSize - requestBodyOffset);
+            if (receiveFileChannel == null) {
+                final byte[] body = parsing.getBody();
+                final int remaining = Math.min(length, body.length - requestBodyOffset);
+                System.arraycopy(buffer, 0, body, requestBodyOffset, remaining);
+                requestBodyOffset += remaining;
+
+                if (requestBodyOffset < body.length) {
+                    // All the buffer copied to body, but that is not enough -- wait for next data
+                    return length;
+                } else if (closing) {
+                    return remaining;
+                }
+
+                // Process current request
+                handleParsedRequest();
+                lineStart = remaining;
+            } else {
+                final int remaining = Math.min(length, maxFileSize - requestBodyOffset);
                 receiveFileChannel.write(ByteBuffer.wrap(buffer, 0,
                         remaining));
                 requestBodyOffset += remaining;
@@ -70,22 +96,6 @@ public class FileExchangeSession extends StreamingSession {
 
                 receiveFileChannel.close();
                 receiveFileChannel = null;
-
-                // Process current request
-                handleParsedRequest();
-                lineStart = remaining;
-            } else {
-                byte[] body = parsing.getBody();
-                int remaining = Math.min(length, body.length - requestBodyOffset);
-                System.arraycopy(buffer, 0, body, requestBodyOffset, remaining);
-                requestBodyOffset += remaining;
-
-                if (requestBodyOffset < body.length) {
-                    // All the buffer copied to body, but that is not enough -- wait for next data
-                    return length;
-                } else if (closing) {
-                    return remaining;
-                }
 
                 // Process current request
                 handleParsedRequest();
@@ -110,18 +120,18 @@ public class FileExchangeSession extends StreamingSession {
                 if (parsing.getHeaderCount() < MAX_HEADERS) {
                     parsing.addHeader(Utf8.read(buffer, lineStart, lineLength));
                 }
-                if (receiveFileChannel == null &&
-                        parsing.getHeaderCount() == 2 && parsing.getHeader(FILE_HEADER + ": ") != null) {
+                if (receiveFileChannel == null
+                        && parsing.getHeaderCount() == 2 && parsing.getHeader(FILE_HEADER + ": ") != null) {
                     final var file = Path.of("/home/geodesia", parsing.getHeader(FILE_HEADER + ": "));
                     if (!Files.exists(file)) {
                         Files.createFile(file);
                     }
                     receiveFileChannel = FileChannel.open(file, StandardOpenOption.WRITE);
-                    maxFileSize = Integer.parseInt(parsing.getHeader("Content-Length: "));
+                    maxFileSize = Integer.parseInt(parsing.getHeader(CONTENT_LENGTH_HEADER + ": "));
                 }
             } else if (receiveFileChannel == null) {
                 // Empty line -- there is next request or body of the current request
-                String contentLengthHeader = parsing.getHeader("Content-Length: ");
+                final String contentLengthHeader = parsing.getHeader(CONTENT_LENGTH_HEADER + ": ");
                 if (contentLengthHeader != null) {
                     skip += startParsingRequestBody(contentLengthHeader, buffer, skip, length - skip);
                     if (requestBodyOffset < parsing.getBody().length) {

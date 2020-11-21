@@ -7,19 +7,16 @@ import java.util.Arrays;
 import java.util.List;
 
 public class ReplicationConfiguration {
-    public static final List<ReplicationConfiguration> DEFAULT_CONFIGURATIONS = Arrays.asList(
-            new ReplicationConfiguration(1, 1),
-            new ReplicationConfiguration(2, 2),
-            new ReplicationConfiguration(2, 3),
-            new ReplicationConfiguration(3, 4),
-            new ReplicationConfiguration(3, 5)
-    );
     public final int acks;
     public final int replicas;
 
     public ReplicationConfiguration(final int ack, final int from) {
         this.acks = ack;
         this.replicas = from;
+    }
+
+    public static ReplicationConfiguration defaultConfiguration(final int sz) {
+        return new ReplicationConfiguration(sz / 2 + 1, sz);
     }
 
     /**
@@ -45,13 +42,14 @@ public class ReplicationConfiguration {
 
     /**
      * Returning default configuration for passed nodes' count if null passed or parse string.
-     * @param s replica's string config
+     *
+     * @param s  replica's string config
      * @param sz node's count
      * @return ReplicationConfiguration
      */
     public static ReplicationConfiguration parseOrDefault(final String s, final int sz) {
         if (s == null) {
-            return DEFAULT_CONFIGURATIONS.get(sz - 1);
+            return defaultConfiguration(sz - 1);
         } else {
             return parse(s);
         }

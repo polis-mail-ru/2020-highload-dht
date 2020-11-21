@@ -9,14 +9,19 @@ import java.util.function.BiConsumer;
 
 public class FutureValue<T> {
     private static final Logger logger = LoggerFactory.getLogger(FutureValue.class);
-    private final CompletableFuture<T> futureValue;
+    private final CompletableFuture<T> future;
 
-    public FutureValue(CompletableFuture<T> futureResponse) {
-        this.futureValue = futureResponse;
+    public FutureValue(@NotNull final CompletableFuture<T> future) {
+        this.future = future
+    ;
     }
 
+    /**
+     * Executes given action when future completes.
+     * @param biConsumer the action to perform
+     */
     public void whenCompleteAsync(@NotNull final BiConsumer<? super T, ? super Throwable> biConsumer) {
-        if (futureValue.whenCompleteAsync(biConsumer)
+        if (future.whenCompleteAsync(biConsumer)
                 .isCancelled()) {
             logger.error("Canceled future task");
             throw new FutureResponseException("Canceled future task");

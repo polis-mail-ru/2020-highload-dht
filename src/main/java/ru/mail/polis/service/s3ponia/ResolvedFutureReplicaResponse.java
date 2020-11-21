@@ -4,6 +4,6 @@ import one.nio.http.Response;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface ResolvedFutureReplicaResponses {
+public interface ResolvedFutureReplicaResponse {
     CompletableFuture<Response> resolved();
 }

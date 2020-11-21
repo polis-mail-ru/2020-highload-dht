@@ -7,20 +7,20 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
-public class ResolvedPutResponses implements ResolvedFutureReplicaResponses {
-    private static final Logger logger = LoggerFactory.getLogger(ResolvedPutResponses.class);
+public class ResolvedVoidResponse implements ResolvedFutureReplicaResponse {
+    private static final Logger logger = LoggerFactory.getLogger(ResolvedVoidResponse.class);
     final CompletableFuture<Collection<Void>> futureValues;
 
-    public ResolvedPutResponses(CompletableFuture<Collection<Void>> futureValues) {
+    public ResolvedVoidResponse(CompletableFuture<Collection<Void>> futureValues) {
         this.futureValues = futureValues;
     }
 
     @Override
     public CompletableFuture<Response> resolved() {
         return futureValues
-                .thenApply(c -> new Response(Response.CREATED, Response.EMPTY))
+                .thenApply(c -> Response.ok(Response.EMPTY))
                 .exceptionally(t -> {
-                    logger.error("Exception in resolving PUT", t);
+                    logger.error("Exception in resolving", t);
                     return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
                 });
     }

@@ -1,8 +1,6 @@
 package ru.mail.polis.dao.s3ponia;
 
-import jdk.jshell.execution.Util;
 import one.nio.http.Response;
-import org.apache.commons.logging.Log;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.service.s3ponia.Header;
 import ru.mail.polis.util.Utility;

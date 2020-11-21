@@ -73,7 +73,7 @@ public class ReplicatedService implements HttpEntityHandler {
     private static HttpRequest getRequest(
             @NotNull final URI uri) {
         return request(uri)
-                .header(Proxy.PROXY_HEADER, "proxied")
+                .header(Proxy.PROXY_HEADER, "get")
                 .GET()
                 .build();
     }
@@ -83,7 +83,7 @@ public class ReplicatedService implements HttpEntityHandler {
             final long time,
             @NotNull final byte[] body) {
         return request(uri)
-                .header(Proxy.PROXY_HEADER, "proxied")
+                .header(Proxy.PROXY_HEADER, "put")
                 .header(Utility.TIME_HEADER, Long.toString(time))
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
@@ -93,7 +93,7 @@ public class ReplicatedService implements HttpEntityHandler {
             @NotNull final URI uri,
             final long time) {
         return request(uri)
-                .header(Proxy.PROXY_HEADER, "proxied")
+                .header(Proxy.PROXY_HEADER, "delete")
                 .header(Utility.TIME_HEADER, Long.toString(time))
                 .DELETE()
                 .build();
@@ -220,13 +220,13 @@ public class ReplicatedService implements HttpEntityHandler {
                     break;
                 }
                 default: {
-                    session.sendError(Response.BAD_REQUEST, "Unhandled method");
-                    throw new IllegalArgumentException("Unhandled method");
+                    session.sendError(Response.BAD_REQUEST, "Invalid method");
+                    throw new IllegalArgumentException("Invalid method");
                 }
             }
         } catch (InvalidRequestMethod e) {
-            session.sendError(Response.BAD_REQUEST, "Unhandled method");
-            throw new IllegalArgumentException("Unhandled method");
+            session.sendError(Response.BAD_REQUEST, "Invalid request");
+            throw new IllegalArgumentException("Invalid request", e);
         }
 
         if (resolvedFutureResponse.whenComplete((r, t) -> {

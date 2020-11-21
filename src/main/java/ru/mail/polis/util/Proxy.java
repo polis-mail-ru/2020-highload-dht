@@ -96,6 +96,14 @@ public final class Proxy {
         );
     }
 
+    /**
+     * Proxies requests asynchronously.
+     * @param httpClient client for sending requests
+     * @param handler responses body handler
+     * @param requests sent requests
+     * @param <T> response body type
+     * @return a {@code FutureValues<T>}
+     */
     @NotNull
     public static <T> FutureValues<T> proxyReplicasAsync(
             @NotNull final java.net.http.HttpClient httpClient,

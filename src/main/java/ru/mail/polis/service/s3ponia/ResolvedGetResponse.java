@@ -6,17 +6,16 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.Utility;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 
-public class ResolvedGetResponses implements ResolvedFutureReplicaResponses {
-    private static final Logger logger = LoggerFactory.getLogger(ResolvedGetResponses.class);
+public class ResolvedGetResponse implements ResolvedFutureReplicaResponse {
+    private static final Logger logger = LoggerFactory.getLogger(ResolvedGetResponse.class);
     final CompletableFuture<Collection<Value>> futureValues;
 
-    public ResolvedGetResponses(CompletableFuture<Collection<Value>> futureValues) {
+    public ResolvedGetResponse(CompletableFuture<Collection<Value>> futureValues) {
         this.futureValues = futureValues;
     }
 
