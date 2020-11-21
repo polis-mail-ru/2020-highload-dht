@@ -3,9 +3,6 @@ package ru.mail.polis.service.s3ponia;
 import com.google.common.base.Splitter;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Arrays;
-import java.util.List;
-
 public class ReplicationConfiguration {
     public final int acks;
     public final int replicas;

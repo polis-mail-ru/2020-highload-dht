@@ -1,6 +1,7 @@
 package ru.mail.polis.service.s3ponia;
 
 import one.nio.http.Response;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.s3ponia.Value;
@@ -15,7 +16,7 @@ public class ResolvedGetResponse implements ResolvedFutureReplicaResponse {
     private static final Logger logger = LoggerFactory.getLogger(ResolvedGetResponse.class);
     final CompletableFuture<Collection<Value>> futureValues;
 
-    public ResolvedGetResponse(CompletableFuture<Collection<Value>> futureValues) {
+    public ResolvedGetResponse(@NotNull final CompletableFuture<Collection<Value>> futureValues) {
         this.futureValues = futureValues;
     }
 
