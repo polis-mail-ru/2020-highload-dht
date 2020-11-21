@@ -5,7 +5,6 @@ import one.nio.http.HttpSession;
 import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
-import one.nio.http.RequestMethod;
 import one.nio.http.Response;
 import one.nio.net.Socket;
 import org.apache.log4j.BasicConfigurator;
@@ -18,14 +17,14 @@ import ru.mail.polis.util.Utility;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.nio.file.Paths;
 import java.util.Iterator;
 
 public class HttpService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(HttpService.class);
     final HttpEntityHandler httpEntityService;
     final EntitiesService entitiesService;
-
+    
     /**
      * Creates a new {@link HttpService} with given port and {@link HttpEntityHandler}.
      *
@@ -42,14 +41,15 @@ public class HttpService extends HttpServer implements Service {
         BasicConfigurator.configure();
         this.httpEntityService = httpEntityService;
     }
-
+    
     @Path("/v0/sync")
-    @RequestMethod(Request.METHOD_PUT)
+//    @RequestMethod(Request.METHOD_PUT)
     public void sync(@NotNull final Request request,
-                     @NotNull final HttpSession session) {
+                     @NotNull final HttpSession session) throws IOException {
         System.out.println("Hi!");
+        session.sendResponse(Response.ok(Response.EMPTY));
     }
-
+    
     /**
      * Entity request handler.
      *
@@ -69,16 +69,16 @@ public class HttpService extends HttpServer implements Service {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             throw new IllegalArgumentException("Empty key");
         }
-
+        
         httpEntityService.entity(id, replicas, request, session);
     }
-
+    
     /**
      * Entities request handler. Creates stream of records in
-     *  format(key '\n' value) that contains in range [start; end).
+     * format(key '\n' value) that contains in range [start; end).
      *
-     * @param start start of range
-     * @param end end of range
+     * @param start   start of range
+     * @param end     end of range
      * @param session session for streaming
      * @throws IOException rethrow from {@link HttpSession#sendError} and {@link StreamingSession#stream}
      */
@@ -90,9 +90,9 @@ public class HttpService extends HttpServer implements Service {
             session.sendError(Response.BAD_REQUEST, "Invalid start");
             return;
         }
-
+        
         Iterator<StreamingValue> streamIterator;
-
+        
         if (end == null) {
             streamIterator = new MapIterator<>(
                     entitiesService.from(Utility.byteBufferFromString(start)),
@@ -103,10 +103,10 @@ public class HttpService extends HttpServer implements Service {
                             Utility.byteBufferFromString(end)),
                     StreamingRecordValue::new);
         }
-
+        
         ((StreamingSession) session).stream(streamIterator);
     }
-
+    
     /**
      * Handling status request.
      *
@@ -116,18 +116,18 @@ public class HttpService extends HttpServer implements Service {
     public void status(@NotNull final HttpSession session) throws IOException {
         session.sendResponse(Response.ok("OK"));
     }
-
+    
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
         return new SendFileSession(socket, this);
     }
-
+    
     @Override
     public void handleDefault(final Request request, final HttpSession session) throws IOException {
         logger.error("Unhandled request: {}", request);
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
-
+    
     @Override
     public synchronized void stop() {
         super.stop();
