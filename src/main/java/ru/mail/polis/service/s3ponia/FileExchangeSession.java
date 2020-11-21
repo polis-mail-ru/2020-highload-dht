@@ -17,13 +17,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-public class SendFileSession extends StreamingSession {
+public class FileExchangeSession extends StreamingSession {
     private static final String FILE_HEADER = "FILE_NAME";
     private static final int MAX_HEADERS = 48;
     private FileChannel receiveFileChannel = null;
     private int maxFileSize = 0;
     
-    public SendFileSession(@NotNull Socket socket, @NotNull HttpServer server) {
+    public FileExchangeSession(@NotNull Socket socket, @NotNull HttpServer server) {
         super(socket, server);
     }
     

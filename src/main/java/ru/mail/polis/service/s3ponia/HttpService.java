@@ -15,9 +15,7 @@ import ru.mail.polis.service.Service;
 import ru.mail.polis.util.MapIterator;
 import ru.mail.polis.util.Utility;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Iterator;
 
 public class HttpService extends HttpServer implements Service {
@@ -43,10 +41,7 @@ public class HttpService extends HttpServer implements Service {
     }
     
     @Path("/v0/sync")
-//    @RequestMethod(Request.METHOD_PUT)
-    public void sync(@NotNull final Request request,
-                     @NotNull final HttpSession session) throws IOException {
-        System.out.println("Hi!");
+    public void sync(@NotNull final HttpSession session) throws IOException {
         session.sendResponse(Response.ok(Response.EMPTY));
     }
     
@@ -119,7 +114,7 @@ public class HttpService extends HttpServer implements Service {
     
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
-        return new SendFileSession(socket, this);
+        return new FileExchangeSession(socket, this);
     }
     
     @Override

@@ -1,7 +1,6 @@
 package ru.mail.polis.service.s3ponia;
 
 import one.nio.http.HttpClient;
-import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -13,12 +12,9 @@ import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.Proxy;
 import ru.mail.polis.util.Utility;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -59,18 +55,6 @@ public class ReplicatedService implements HttpEntityHandler {
             return;
         }
         
-        final var node = Arrays.stream(policy.getNodeReplicas(Utility.byteBufferFromString(id), 2))
-                                 .filter(n -> !n.equals(policy.homeNode()))
-                                 .collect(Collectors.toList()).get(0);
-        final var client = urlToClient.get(node);
-        try {
-//            test = client.invoke(new Request(Request.METHOD_CONNECT, "/v0/sync", false));
-            SendFileSession.sendFile(
-                            Paths.get("/tmp/junit11897649723778147244/0.db"),
-                            client);
-        } catch (IOException | PoolException | InterruptedException e) {
-            e.printStackTrace();
-        }
         final var time = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + time);
         final ByteBuffer value;
