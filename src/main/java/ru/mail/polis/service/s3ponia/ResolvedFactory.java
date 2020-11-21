@@ -50,12 +50,12 @@ public class ResolvedFactory {
                 case Request.METHOD_GET:
                     return new ResolvedGetResponse(castToGetFutureCollection(futureCollection));
                 case Request.METHOD_DELETE:
-                    return new ResolvedDeleteResponse(
-                            new ResolvedVoidResponse(castToVoidFutureCollection(futureCollection))
+                    return new ResolvedVoidResponse(
+                            new ResolvedDeleteResponse(castToVoidFutureCollection(futureCollection))
                     );
                 case Request.METHOD_PUT:
-                    return new ResolvedPutResponse(
-                            new ResolvedVoidResponse(castToVoidFutureCollection(futureCollection))
+                    return new ResolvedVoidResponse(
+                            new ResolvedPutResponse(castToVoidFutureCollection(futureCollection))
                     );
                 default:
                     throw new InvalidRequestMethod("Unsupported request method");
