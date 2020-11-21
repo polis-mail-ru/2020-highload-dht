@@ -238,16 +238,20 @@ public class MyRequestHelper {
                                  final ByteBuffer end, final Executor executor) {
         try {
             executor.execute(() -> {
-                try {
-                    final Iterator<Record> records = dao.range(start, end);
-                    ((StreamingSession) session).setRecordIterator(records);
-                } catch (IOException e) {
-                    sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    log.error("Exception", e);
-                }
+                makeRangeResponse(session, start, end);
             });
         } catch (RejectedExecutionException e) {
             sendLoggedResponse(session, new Response(Response.SERVICE_UNAVAILABLE, Response.EMPTY));
+        }
+    }
+
+    private void makeRangeResponse(final HttpSession session, final ByteBuffer start, final  ByteBuffer end) {
+        try {
+            final Iterator<Record> records = dao.range(start, end);
+            ((StreamingSession) session).setRecordIterator(records);
+        } catch (IOException e) {
+            sendLoggedResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+            log.error("Exception", e);
         }
     }
 }
