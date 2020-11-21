@@ -87,7 +87,7 @@ public class MoribundService extends HttpServer implements Service {
         );
     }
 
-    private boolean idIsEmpty(final String start, final String end, final HttpSession session) {
+    private boolean badRequestIfEmptyId(final String start, final String end, final HttpSession session) {
         if (start.isEmpty() || ((end != null) && end.isEmpty())) {
             try {
                 session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -111,12 +111,12 @@ public class MoribundService extends HttpServer implements Service {
     public void sendRangeResponse(@Param(value = "start", required = true) final String start,
                                   @Param(value = "end") final String end,
                                   final HttpSession session) {
-        if (!idIsEmpty(start, end, session)) {
+        if (!badRequestIfEmptyId(start, end, session)) {
             try {
                 ((StreamSession) session).setIterator(daoServiceMethods.range(start, end));
             } catch (IOException ioException) {
                 try {
-                    session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
                 } catch (IOException e) {
                     logger.error("Can't send response", e);
                 }
@@ -138,7 +138,7 @@ public class MoribundService extends HttpServer implements Service {
                              final HttpSession session,
                              final Request request) {
         executor.execute(() -> {
-            if (!idIsEmpty(id, null, session)) {
+            if (!badRequestIfEmptyId(id, null, session)) {
                 if (request.getHeader(PROXY_HEADER) == null) {
                     sendReplicationResponse(id, replicas, session, request);
                 } else {
