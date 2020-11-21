@@ -24,6 +24,18 @@ public class StreamingSession extends HttpSession {
         super(socket, server);
     }
 
+    @Override
+    protected void processWrite() throws Exception {
+        super.processWrite();
+
+        if (rocksIterator != null) {
+            sendStream();
+            if (!rocksIterator.hasNext()) {
+                closeStream();
+            }
+        }
+    }
+
     /**
      * Send a stream back to client from the given iterator.
      *
@@ -50,18 +62,6 @@ public class StreamingSession extends HttpSession {
             final Record record = rocksIterator.next();
             final byte[] data = getRecordData(record);
             write(data, 0, data.length);
-        }
-    }
-
-    @Override
-    protected void processWrite() throws Exception {
-        super.processWrite();
-
-        if (rocksIterator != null) {
-            sendStream();
-            if (!rocksIterator.hasNext()) {
-                closeStream();
-            }
         }
     }
 
