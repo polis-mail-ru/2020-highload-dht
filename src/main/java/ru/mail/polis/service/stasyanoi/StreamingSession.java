@@ -69,12 +69,6 @@ public class StreamingSession extends HttpSession {
             }
             item.release();
         }
-
-        if (closing) {
-            close();
-        } else {
-            listen(READABLE);
-        }
     }
 
     private void closeStream() throws IOException {
