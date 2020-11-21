@@ -245,7 +245,7 @@ public class MyRequestHelper {
         }
     }
 
-    private void makeRangeResponse(final HttpSession session, final ByteBuffer start, final  ByteBuffer end) {
+    private void makeRangeResponse(final HttpSession session, final ByteBuffer start, final ByteBuffer end) {
         try {
             final Iterator<Record> records = dao.range(start, end);
             ((StreamingSession) session).setRecordIterator(records);
