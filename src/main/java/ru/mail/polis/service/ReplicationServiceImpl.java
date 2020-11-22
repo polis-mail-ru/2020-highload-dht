@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -45,7 +46,7 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
     private static final Map<ErrorNames, String> MESSAGE_MAP = Map.ofEntries(
             entry(ErrorNames.IO_ERROR, "IO exception raised"),
             entry(ErrorNames.NOT_ALLOWED_METHOD_ERROR, "Method not allowed"),
-            entry(ErrorNames.REJECTED, "RejectedExecutionException when handling replicas"),
+            entry(ErrorNames.REJECTED, "RejectedExecutionException in range request"),
             entry(ErrorNames.NOT_ENOUGH_NODES, "Not enough nodes in cluster"),
             entry(ErrorNames.BAD_RANGE_PARAMS, "Bad range request parameters")
     );
@@ -122,20 +123,31 @@ public class ReplicationServiceImpl extends HttpServer implements Service {
             @Param(value = "end") final String endId,
             final HttpSession session
     ) {
-        try {
-            if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
-                log.error(MESSAGE_MAP.get(ErrorNames.BAD_RANGE_PARAMS));
-                trySendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY), session);
-                return;
-            }
+        if (startId.isEmpty() || ((endId != null) && endId.isEmpty())) {
+            log.error(MESSAGE_MAP.get(ErrorNames.BAD_RANGE_PARAMS));
+            trySendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY), session);
+            return;
+        }
 
-            final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
-            final ByteBuffer end = (endId == null) ? null
-                    : ByteBuffer.wrap(endId.getBytes(UTF_8));
-            final Iterator<Record> iterator = dao.range(start, end);
-            ((StreamSession) session).setIterator(iterator);
-        } catch (IOException ex) {
+        final ByteBuffer start = ByteBuffer.wrap(startId.getBytes(UTF_8));
+        final ByteBuffer end = (endId == null) ? null
+                : ByteBuffer.wrap(endId.getBytes(UTF_8));
+
+        try {
+            exec.execute(() -> makeRangeRequest(session, start, end));
+        } catch (RejectedExecutionException e) {
             trySendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY), session);
+            log.error(MESSAGE_MAP.get(ErrorNames.REJECTED));
+        }
+    }
+
+    private void makeRangeRequest(final HttpSession session, final ByteBuffer from, final ByteBuffer to) {
+        try {
+            final Iterator<Record> records = dao.range(from, to);
+            ((StreamSession) session).setIterator(records);
+        } catch (IOException e) {
+            trySendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY), session);
+            log.error(MESSAGE_MAP.get(ErrorNames.IO_ERROR), e);
         }
     }
 

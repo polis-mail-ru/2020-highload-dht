@@ -10,16 +10,15 @@ import ru.mail.polis.util.Util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class StreamSession extends HttpSession {
-    private static final String LF = "\n";
-    private static final String CRLF = "\r\n";
-
-    private static final byte[] emptyBuffer = new byte[0];
+    private static final byte[] LF_BYTES = "\n".getBytes(UTF_8);
+    private static final byte[] CRLF_BYTES = "\r\n".getBytes(UTF_8);
+    private static final byte[] EMPTY_BUFFER_BYTES = "0\r\n\r\n".getBytes(UTF_8);
+    private static final String TRANSFER_ENCODING_HEADER = "Transfer-Encoding: chunked";
 
     private Iterator<Record> iterator;
 
@@ -30,7 +29,7 @@ public class StreamSession extends HttpSession {
     void setIterator(final Iterator<Record> iterator) throws IOException {
         this.iterator = iterator;
         final Response response = new Response(Response.OK);
-        response.addHeader("Transfer-Encoding: chunked");
+        response.addHeader(TRANSFER_ENCODING_HEADER);
         writeResponse(response, false);
         init();
     }
@@ -59,8 +58,7 @@ public class StreamSession extends HttpSession {
             return;
         }
 
-        data = formChunk(emptyBuffer);
-        write(data, 0, data.length);
+        write(EMPTY_BUFFER_BYTES, 0, EMPTY_BUFFER_BYTES.length);
 
         Request requestHandling = handling;
         if (requestHandling == null) {
@@ -87,20 +85,18 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formChunkWithData(final byte[] key, final byte[] value) {
-        final byte[] lfBytes = LF.getBytes(UTF_8);
-        final int bufferSize = key.length + lfBytes.length + value.length;
-        final ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-        buffer.put(key).put(lfBytes).put(value).position(0);
-        return formChunk(Util.toByteArray(buffer));
+        final int bufferSize = key.length + LF_BYTES.length + value.length;
+        final byte[] hexLength = Integer.toHexString(bufferSize).getBytes(UTF_8);
+        final byte[] bytes = new byte[bufferSize + 2 * CRLF_BYTES.length + hexLength.length];
+
+        return ByteBuffer.wrap(bytes)
+                .put(hexLength)
+                .put(CRLF_BYTES)
+                .put(key)
+                .put(LF_BYTES)
+                .put(value)
+                .put(CRLF_BYTES)
+                .array();
     }
 
-    private byte[] formChunk(final byte[] data) {
-        final byte[] crlfBytes = CRLF.getBytes(UTF_8);
-        final byte[] hexLength = Integer.toHexString(data.length)
-                .getBytes(StandardCharsets.US_ASCII);
-        final int chunkLength = data.length + 2 * crlfBytes.length + hexLength.length;
-        final ByteBuffer chunk = ByteBuffer.allocate(chunkLength);
-        chunk.put(hexLength).put(crlfBytes).put(data).put(crlfBytes).position(0);
-        return Util.toByteArray(chunk);
-    }
 }
