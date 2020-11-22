@@ -16,7 +16,7 @@ public class StreamSession extends HttpSession {
     private Iterator<Record> iterator;
     private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] END_CHUNK_DATA = new byte[0];
+    private static final ByteBuffer END_CHUNK_DATA = ByteBuffer.wrap(new byte[0]);
 
     /**
      * Config StreamSession.
@@ -62,6 +62,7 @@ public class StreamSession extends HttpSession {
             if (handling == null) {
                 throw new IOException("Out of order response");
             }
+
             server.incRequestsProcessed();
             final String connection = handling.getHeader("Connection: ");
             final boolean keepAlive = handling.isHttp11()
@@ -81,28 +82,35 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formEndChunk() {
-        return formChunk(END_CHUNK_DATA);
+        return formChunk();
     }
 
     private byte[] formFilledChunk(final ByteBuffer key, final ByteBuffer value) {
         final int dataLength = key.limit() + LF.length + value.limit();
-        final ByteBuffer data = ByteBuffer.wrap(new byte[dataLength]);
+        final byte[] hexLength = Integer.toHexString(dataLength)
+                .getBytes(StandardCharsets.US_ASCII);
+        final int chunkLength = dataLength + 2 * CRLF.length + hexLength.length;
+        final ByteBuffer data = ByteBuffer.wrap(new byte[chunkLength]);
+
+        data.put(hexLength);
+        data.put(CRLF);
         data.put(key);
         data.put(LF);
         data.put(value);
+        data.put(CRLF);
         data.position(0);
-        return formChunk(data.array());
+        return data.array();
     }
 
-    private byte[] formChunk(final byte[] data) {
-        final byte[] hexLength = Integer.toHexString(data.length)
+    private byte[] formChunk() {
+        final byte[] hexLength = Integer.toHexString(END_CHUNK_DATA.limit())
                 .getBytes(StandardCharsets.US_ASCII);
-        final int chunkLength = data.length + 2 * CRLF.length + hexLength.length;
+        final int chunkLength = END_CHUNK_DATA.limit() + 2 * CRLF.length + hexLength.length;
         final ByteBuffer chunk = ByteBuffer.wrap(new byte[chunkLength]);
 
         chunk.put(hexLength);
         chunk.put(CRLF);
-        chunk.put(data);
+        chunk.put(END_CHUNK_DATA);
         chunk.put(CRLF);
         chunk.position(0);
         return chunk.array();
