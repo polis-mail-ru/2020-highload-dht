@@ -18,10 +18,11 @@ import java.util.Iterator;
  */
 public class ChunkStreamingSession extends HttpSession {
 
-    private static final String CRLF = "\r\n";
-    private static final String LF = "\n";
-    private static final String NO_CONTENT = "0\r\n\r\n";
-    Iterator<Record> it;
+    private static final byte[] bytesOfCRLF = "\r\n".getBytes(Charset.defaultCharset());;
+    private static final byte[] bytesOfLF = "\n".getBytes(Charset.defaultCharset());;
+    private static final byte[] nullContentBytes = "0\r\n\r\n".getBytes(Charset.defaultCharset());
+    private static final String ENCODING_HEADER = "Transfer-Encoding: chunked";
+    private Iterator<Record> it;
 
     /**
      * class const.
@@ -39,7 +40,7 @@ public class ChunkStreamingSession extends HttpSession {
     void initStreaming(final Iterator<Record> it) throws IOException {
         this.it = it;
         final Response response = new Response(Response.OK);
-        response.addHeader("Transfer-Encoding: chunked");
+        response.addHeader(ENCODING_HEADER);
         writeResponse(response, false);
         nextWrite();
     }
@@ -63,12 +64,8 @@ public class ChunkStreamingSession extends HttpSession {
 
         while (it.hasNext() && queueHead == null) {
             final Record rawRecord = it.next();
-            final byte[] id = DAOByteOnlyConverter.readByteArray(rawRecord.getKey());
-            final byte[] value = DAOByteOnlyConverter.readByteArray(rawRecord.getValue());
-            final int recordString = id.length + LF.length() + value.length;
-            final String base16RecordString = Integer.toHexString(recordString);
-            final int chunkSize = base16RecordString.length() + recordString + 2 * CRLF.length();
-            execChunkWrite(id, value, chunkSize, base16RecordString);
+            final byte[] chunk = getBytesFromRecord(rawRecord);
+            write(chunk, 0, chunk.length);
         }
         if (!it.hasNext()) {
             commitTailHandling();
@@ -76,37 +73,37 @@ public class ChunkStreamingSession extends HttpSession {
     }
 
     /**
-     * executes immediate writing chunks from buffer in successive way.
+     * retrieves a chunk which is made up primarily by record ID (key) and some value coupled, also by adding
+     * CRLF and LF byte sequences to parse the input orderly.
      *
-     * @param id - record ID specified to fetch data from storage as enforcing stream of chunks to deliver to client
-     * @param value - record-wrapped value
-     * @param recordString - String-formatted combination of record ID and value content
-     * @param base16RecordString - record ID and value content joined to enable processing hexadecimal inputs
+     * @param record - specific record a chunk is composed from
+     * @return chunk of data wrapped into byte array
      */
-    private void execChunkWrite(final byte[] id,
-                                final byte[] value,
-                                final int recordString,
-                                final String base16RecordString) throws IOException {
-        final byte[] recordBytes = base16RecordString.getBytes(Charset.defaultCharset());
-        final byte[] bytesOfCRLF = CRLF.getBytes(Charset.defaultCharset());
-        final byte[] bytesOfLF = LF.getBytes(Charset.defaultCharset());
-        final byte[] chunkArray = new byte[recordString];
+    private byte[] getBytesFromRecord(@NotNull final Record record) {
+
+        final byte[] key = DAOByteOnlyConverter.readByteArray(record.getKey());
+        final byte[] value = DAOByteOnlyConverter.readByteArray(record.getValue());
+        final int recordSize = key.length + bytesOfLF.length + value.length;
+        final String base16RecordSize = Integer.toHexString(recordSize);
+        final int chunkSize = base16RecordSize.length() + recordSize + 2 * bytesOfCRLF.length;
+        final byte[] recordBytes = base16RecordSize.getBytes(Charset.defaultCharset());
+        final byte[] chunkArray = new byte[chunkSize];
         final ByteBuffer chunkBuf = ByteBuffer.wrap(chunkArray);
-        chunkBuf.put(recordBytes);
-        chunkBuf.put(bytesOfCRLF);
-        chunkBuf.put(id);
-        chunkBuf.put(bytesOfLF);
-        chunkBuf.put(value);
-        chunkBuf.put(bytesOfCRLF);
-        write(chunkArray, 0, chunkArray.length);
+        chunkBuf.put(recordBytes)
+                .put(bytesOfCRLF)
+                .put(key)
+                .put(bytesOfLF)
+                .put(value)
+                .put(bytesOfCRLF);
+
+        return chunkArray;
     }
 
     /**
      * handles end of chunk consumed.
      */
     private void commitTailHandling() throws IOException {
-        final byte[] noContentBytes = NO_CONTENT.getBytes(Charset.defaultCharset());
-        write(noContentBytes, 0, NO_CONTENT.length());
+        write(nullContentBytes, 0, nullContentBytes.length);
         server.incRequestsProcessed();
 
         if ((handling = pipeline.pollFirst()) != null) {
