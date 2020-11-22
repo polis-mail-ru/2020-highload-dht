@@ -5,11 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Set;
-
-import static com.google.common.hash.Hashing.murmur3_32;
 
 public class RendezvousHashingImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(RendezvousHashingImpl.class);
@@ -31,8 +28,8 @@ public class RendezvousHashingImpl implements Topology<String> {
         Arrays.sort(this.allNodes);
         this.nodeHashes = new int[this.allNodes.length];
         for (int i = 0; i < this.allNodes.length; i++) {
-            nodeHashes[i] = murmur3_32().newHasher()
-                    .putString(this.allNodes[i], StandardCharsets.UTF_8).hash().hashCode();
+            nodeHashes[i] = this.allNodes[i].hashCode();
+//            murmur3_32().newHasher().putString(this.allNodes[i], StandardCharsets.UTF_8).hash().hashCode();
         }
     }
 
@@ -43,7 +40,8 @@ public class RendezvousHashingImpl implements Topology<String> {
         int min = Integer.MAX_VALUE;
         String owner = null;
         for (int i = 0; i < allNodes.length; i++) {
-            currentHash = nodeHashes[i] + murmur3_32().newHasher().putBytes(key).hash().hashCode();
+            currentHash = nodeHashes[i] + key.hashCode();
+//            murmur3_32().newHasher().putBytes(key).hash().hashCode()
             if (currentHash < min) {
                 min = currentHash;
                 owner = allNodes[i];
