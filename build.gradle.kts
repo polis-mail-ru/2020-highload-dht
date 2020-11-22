@@ -36,6 +36,7 @@ dependencies {
     compile("org.rocksdb", "rocksdbjni", "6.11.4")
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
+    testCompile("org.junit.jupiter:junit-jupiter-params:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")
 }
 

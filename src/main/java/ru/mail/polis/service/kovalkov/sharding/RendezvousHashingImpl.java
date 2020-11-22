@@ -3,8 +3,8 @@ package ru.mail.polis.service.kovalkov.sharding;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.service.kovalkov.Topology;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Set;
@@ -24,10 +24,7 @@ public class RendezvousHashingImpl implements Topology<String> {
      * @param allNodes - sets with all nodes.
      */
     public RendezvousHashingImpl(final String currentNode, final Set<String> allNodes) {
-        if (!allNodes.contains(currentNode)) {
-            log.error("This node - {} is not a part of cluster", currentNode);
-            throw new IllegalArgumentException("Current not is invalid.");
-        }
+        assert allNodes.contains(currentNode);
         this.currentNode = currentNode;
         this.allNodes = new String[allNodes.size()];
         allNodes.toArray(this.allNodes);
@@ -59,11 +56,24 @@ public class RendezvousHashingImpl implements Topology<String> {
         return owner;
     }
 
+    @NotNull
+    @Override
+    public String[] replicasFor(@NotNull ByteBuffer key, int replicas) {
+        int nodeStarterIndex = (key.hashCode() & Integer.MAX_VALUE) % allNodes.length;
+        final String[] rep = new String[replicas];
+        for (int i = 0; i < replicas; i++) {
+            rep[i] = allNodes[nodeStarterIndex];
+            nodeStarterIndex = (nodeStarterIndex + 1) % allNodes.length;
+        }
+        return rep;
+    }
+
     @Override
     public int nodeCount() {
         return allNodes.length;
     }
 
+    @NotNull
     @Override
     public String[] allNodes() {
         return allNodes.clone();
@@ -72,5 +82,11 @@ public class RendezvousHashingImpl implements Topology<String> {
     @Override
     public boolean isMe(final String node) {
         return node.equals(currentNode);
+    }
+
+    @Override
+    @NotNull
+    public String getCurrentNode() {
+        return currentNode;
     }
 }
