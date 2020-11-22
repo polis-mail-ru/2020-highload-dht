@@ -18,8 +18,8 @@ import java.util.Iterator;
  */
 public class ChunkStreamingSession extends HttpSession {
 
-    private static final byte[] bytesOfCRLF = "\r\n".getBytes(Charset.defaultCharset());;
-    private static final byte[] bytesOfLF = "\n".getBytes(Charset.defaultCharset());;
+    private static final byte[] bytesOfCRLF = "\r\n".getBytes(Charset.defaultCharset());
+    private static final byte[] bytesOfLF = "\n".getBytes(Charset.defaultCharset());
     private static final byte[] nullContentBytes = "0\r\n\r\n".getBytes(Charset.defaultCharset());
     private static final String ENCODING_HEADER = "Transfer-Encoding: chunked";
     private Iterator<Record> it;
