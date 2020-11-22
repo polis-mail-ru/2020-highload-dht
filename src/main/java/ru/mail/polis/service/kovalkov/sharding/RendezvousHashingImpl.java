@@ -60,7 +60,7 @@ public class RendezvousHashingImpl implements Topology<String> {
         final String[] rep = new String[replicas];
         final Map<Integer, String> owners = new TreeMap<>();
         final byte[] bytesKey = BufferConverter.unfoldToBytes(key);
-        for (String node : allNodes) {
+        for (final String node : allNodes) {
             owners.put(murmur3_32().newHasher().putString(node, StandardCharsets.UTF_8)
                     .putBytes(bytesKey).hash().hashCode(), node);
         }
