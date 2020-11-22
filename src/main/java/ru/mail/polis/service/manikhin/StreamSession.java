@@ -6,7 +6,6 @@ import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.Socket;
 import ru.mail.polis.Record;
-import ru.mail.polis.dao.manikhin.ByteConvertor;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -17,6 +16,7 @@ public class StreamSession extends HttpSession {
     private Iterator<Record> iterator;
     private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] END_CHUNK_DATA = new byte[0];
 
     /**
      * Config StreamSession.
@@ -49,10 +49,8 @@ public class StreamSession extends HttpSession {
         byte[] data;
         while (iterator.hasNext() && queueHead == null) {
             final Record record = iterator.next();
-            final byte[] key = ByteConvertor.toArray(record.getKey());
-            final byte[] value = ByteConvertor.toArray(record.getValue());
 
-            data = formFilledChunk(key, value);
+            data = formFilledChunk(record.getKey(), record.getValue());
             write(data,0,data.length);
         }
 
@@ -71,6 +69,7 @@ public class StreamSession extends HttpSession {
                     : "Keep-Alive".equalsIgnoreCase(connection);
             if (!keepAlive) scheduleClose();
             this.handling = handling = pipeline.pollFirst();
+
             if (handling != null) {
                 if (handling == FIN) {
                     scheduleClose();
@@ -82,29 +81,30 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formEndChunk() {
-        return formChunk(new byte[0]);
+        return formChunk(END_CHUNK_DATA);
     }
 
-    private byte[] formFilledChunk(final byte[] key, final byte[] value) {
-        final int dataLength = key.length + LF.length + value.length;
-        final ByteBuffer data = ByteBuffer.allocate(dataLength);
+    private byte[] formFilledChunk(final ByteBuffer key, final ByteBuffer value) {
+        final int dataLength = key.limit() + LF.length + value.limit();
+        final ByteBuffer data = ByteBuffer.wrap(new byte[dataLength]);
         data.put(key);
         data.put(LF);
         data.put(value);
         data.position(0);
-        return formChunk(ByteConvertor.toArray(data));
+        return formChunk(data.array());
     }
 
     private byte[] formChunk(final byte[] data) {
         final byte[] hexLength = Integer.toHexString(data.length)
                 .getBytes(StandardCharsets.US_ASCII);
         final int chunkLength = data.length + 2 * CRLF.length + hexLength.length;
-        final ByteBuffer chunk = ByteBuffer.allocate(chunkLength);
+        final ByteBuffer chunk = ByteBuffer.wrap(new byte[chunkLength]);
+
         chunk.put(hexLength);
         chunk.put(CRLF);
         chunk.put(data);
         chunk.put(CRLF);
         chunk.position(0);
-        return ByteConvertor.toArray(chunk);
+        return chunk.array();
     }
 }
