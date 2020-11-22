@@ -89,7 +89,6 @@ public class StreamSession extends HttpSession {
 
         chunk.put(hexLength);
         chunk.put(CRLF);
-        chunk.put(END_CHUNK_DATA);
         chunk.put(CRLF);
 
         return chunk.array();
