@@ -58,7 +58,7 @@ public class RendezvousHashingImpl implements Topology<String> {
 
     @NotNull
     @Override
-    public String[] replicasFor(@NotNull ByteBuffer key, int replicas) {
+    public String[] replicasFor(@NotNull final ByteBuffer key, final int replicas) {
         int nodeStarterIndex = (key.hashCode() & Integer.MAX_VALUE) % allNodes.length;
         final String[] rep = new String[replicas];
         for (int i = 0; i < replicas; i++) {
