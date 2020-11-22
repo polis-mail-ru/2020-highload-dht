@@ -16,7 +16,7 @@ public class StreamSession extends HttpSession {
     private Iterator<Record> iterator;
     private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private static final ByteBuffer END_CHUNK_DATA = ByteBuffer.wrap(new byte[0]);
+    private static final byte [] END_CHUNK_DATA = new byte[0];
 
     /**
      * Config StreamSession.
@@ -82,7 +82,16 @@ public class StreamSession extends HttpSession {
     }
 
     private byte[] formEndChunk() {
-        return formChunk();
+        final byte[] hexLength = Integer.toHexString(END_CHUNK_DATA.length)
+                .getBytes(StandardCharsets.US_ASCII);
+        final int chunkLength = END_CHUNK_DATA.length + 2 * CRLF.length + hexLength.length;
+        final ByteBuffer chunk = ByteBuffer.wrap(new byte[chunkLength]);
+
+        chunk.put(hexLength);
+        chunk.put(CRLF);
+        chunk.put(CRLF);
+        chunk.position(0);
+        return chunk.array();
     }
 
     private byte[] formFilledChunk(final ByteBuffer key, final ByteBuffer value) {
@@ -100,19 +109,5 @@ public class StreamSession extends HttpSession {
         data.put(CRLF);
         data.position(0);
         return data.array();
-    }
-
-    private byte[] formChunk() {
-        final byte[] hexLength = Integer.toHexString(END_CHUNK_DATA.limit())
-                .getBytes(StandardCharsets.US_ASCII);
-        final int chunkLength = END_CHUNK_DATA.limit() + 2 * CRLF.length + hexLength.length;
-        final ByteBuffer chunk = ByteBuffer.wrap(new byte[chunkLength]);
-
-        chunk.put(hexLength);
-        chunk.put(CRLF);
-        chunk.put(END_CHUNK_DATA);
-        chunk.put(CRLF);
-        chunk.position(0);
-        return chunk.array();
     }
 }
