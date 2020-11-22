@@ -13,6 +13,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -67,6 +68,7 @@ public final class SSTable implements Table {
                     final ByteBuffer data = Objects.requireNonNull(cell.getValue().getData()).duplicate();
                     offset += data.remaining();
                     fc.write(data);
+                    fc.write(ByteUtils.fromInstant(cell.getValue().getExpire()));
                 }
             }
 
@@ -113,7 +115,18 @@ public final class SSTable implements Table {
                 }
                 final ByteBuffer data = ByteBuffer.allocate(dataSize);
                 fileChannel.read(data.duplicate(), offset);
-                return new Cell(keyBuffer.duplicate().rewind(), new Value(timestamp, data.duplicate().rewind()));
+                offset += Long.BYTES;
+                final ByteBuffer expireSecondsBuffer = ByteBuffer.allocate(Long.BYTES);
+                fileChannel.read(expireSecondsBuffer.duplicate(), offset);
+                final long expireSeconds = expireSecondsBuffer.duplicate().rewind().getLong();
+                offset += Integer.BYTES;
+                final ByteBuffer expireNanosBuffer = ByteBuffer.allocate(Integer.BYTES);
+                fileChannel.read(expireNanosBuffer.duplicate(), offset);
+                final int expireNanos = expireSecondsBuffer.duplicate().rewind().getInt();
+                return new Cell(keyBuffer.duplicate().rewind(),
+                        new Value(timestamp,
+                                data.duplicate().rewind(),
+                                Instant.ofEpochSecond(expireSeconds, expireNanos)));
             }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
@@ -180,7 +193,8 @@ public final class SSTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key,
-                       @NotNull final ByteBuffer value) {
+                       @NotNull final ByteBuffer value,
+                       @NotNull final Instant expire) {
         throw new UnsupportedOperationException();
     }
 

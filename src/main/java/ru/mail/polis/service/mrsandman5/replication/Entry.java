@@ -11,7 +11,7 @@ import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.ZonedDateTime;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -32,12 +32,12 @@ public final class Entry implements Comparable<Entry> {
     @NotNull
     private final State state;
     @Nullable
-    private final ZonedDateTime expires;
+    private final Instant expires;
 
     private Entry(final long timestamp,
                   @Nullable final byte[] data,
                   @NotNull final State state,
-                  @Nullable final ZonedDateTime expires) {
+                  @Nullable final Instant expires) {
         this.timestamp = timestamp;
         this.data = data == null ? null : Arrays.copyOf(data, data.length);
         this.state = state;
@@ -59,7 +59,7 @@ public final class Entry implements Comparable<Entry> {
     }
 
     @Nullable
-    public ZonedDateTime getExpires() {
+    public Instant getExpires() {
         return expires;
     }
 
@@ -70,12 +70,12 @@ public final class Entry implements Comparable<Entry> {
 
     public static Entry present(final long timestamp,
                                 @NotNull final byte[] data,
-                                @NotNull final ZonedDateTime expires) {
+                                @NotNull final Instant expires) {
         return new Entry(timestamp, data, State.PRESENT, expires);
     }
 
     public static Entry removed(final long timestamp,
-                                @NotNull final ZonedDateTime expires) {
+                                @NotNull final Instant expires) {
         return new Entry(timestamp, null, State.REMOVED, expires);
     }
 

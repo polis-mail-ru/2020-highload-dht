@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
 public final class ByteUtils {
 
@@ -17,6 +18,11 @@ public final class ByteUtils {
 
     public static ByteBuffer fromLong(final long value) {
         return ByteBuffer.allocate(Long.BYTES).rewind().putLong(value).rewind();
+    }
+
+    public static ByteBuffer fromInstant(final Instant value) {
+        return ByteBuffer.allocate(Long.BYTES + Integer.BYTES).rewind()
+                .putLong(value.getEpochSecond()).putInt(value.getNano()).rewind();
     }
 
     /** Transform ByteBuffer to byte array.

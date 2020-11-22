@@ -7,6 +7,7 @@ import ru.mail.polis.dao.impl.models.Value;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -34,9 +35,12 @@ public class MemTable implements Table {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key,
-                       @NotNull final ByteBuffer value) {
+                       @NotNull final ByteBuffer value,
+                       @NotNull final Instant expire) {
         map.put(key.duplicate().asReadOnlyBuffer(),
-                new Value(System.currentTimeMillis(), value.duplicate().asReadOnlyBuffer()));
+                new Value(System.currentTimeMillis(),
+                        value.duplicate().asReadOnlyBuffer(),
+                        expire));
         sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
     }
 
@@ -44,7 +48,7 @@ public class MemTable implements Table {
     public void remove(@NotNull final ByteBuffer key) {
         if (map.containsKey(key)) {
             if (!map.get(key).isTombstone()) {
-                sizeInBytes.addAndGet(-map.get(key).getData().remaining());
+                sizeInBytes.addAndGet(-Objects.requireNonNull(map.get(key).getData()).remaining());
             }
         } else {
             sizeInBytes.addAndGet(key.remaining() + Long.BYTES);

@@ -2,18 +2,17 @@ package ru.mail.polis.dao.impl.models;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import ru.mail.polis.utils.ResponseUtils;
 
 import java.nio.ByteBuffer;
-import java.time.ZonedDateTime;
+import java.time.Instant;
+import java.util.Objects;
 
 public final class Value {
 
     private final long timestamp;
     @Nullable
     private final ByteBuffer data;
-    @NotNull
-    private final ZonedDateTime expire;
+    private final Instant expire;
 
     /**
      * Creates value from Bytebuffer.
@@ -23,7 +22,7 @@ public final class Value {
      */
     public Value(final long timestamp,
                  @Nullable final ByteBuffer data,
-                 @NotNull final ZonedDateTime expire) {
+                 final Instant expire) {
         this.timestamp = timestamp;
         this.data = data;
         this.expire = expire;
@@ -34,15 +33,14 @@ public final class Value {
      *
      * @param timestamp that represents time of creation
      */
-    public Value(final long timestamp,
-                 @NotNull final ZonedDateTime expire) {
+    public Value(final long timestamp) {
         this.timestamp = timestamp;
         this.data = null;
-        this.expire = expire;
+        this.expire = null;
     }
 
     public static Value of(@NotNull final ByteBuffer data,
-                           @NotNull final ZonedDateTime expire) {
+                           final Instant expire) {
         return new Value(System.currentTimeMillis(),
                 data.duplicate().asReadOnlyBuffer(),
                 expire);
@@ -53,8 +51,10 @@ public final class Value {
     }
 
     public boolean isExpired() {
-        final String current = ZonedDateTime.now().format(ResponseUtils.expirationFormat);
-        return (ZonedDateTime.parse(current, ResponseUtils.expirationFormat)).isAfter(expire);
+        return Instant.now().isAfter(Objects.requireNonNull(expire));
+        /*final String current = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).format(ResponseUtils.expirationFormat);
+        return (OffsetDateTime.parse(current, ResponseUtils.expirationFormat))
+                .isAfter(Objects.requireNonNull(expire));*/
     }
 
     public ByteBuffer getData() {
@@ -65,8 +65,7 @@ public final class Value {
         return timestamp;
     }
 
-    @NotNull
-    public ZonedDateTime getExpire() {
+    public Instant getExpire() {
         return expire;
     }
 }
