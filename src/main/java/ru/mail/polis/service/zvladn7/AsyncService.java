@@ -191,32 +191,34 @@ public class AsyncService extends HttpServer implements Service {
                                 @NotNull final String id,
                                 @NotNull final String methodName,
                                 final String replicas) {
-        final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
-        log.debug("{} request with mapping: /v0/entity with: key={}", methodName, id);
-        try {
-            if (id.isEmpty()) {
-                sendEmptyIdResponse(session, methodName);
-                return;
+        es.execute(() -> {
+            final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
+            log.debug("{} request with mapping: /v0/entity with: key={}", methodName, id);
+            try {
+                if (id.isEmpty()) {
+                    sendEmptyIdResponse(session, methodName);
+                    return;
+                }
+                if (isInvalidReplicationFactor(replicasHolder)) {
+                    log.info("Invalid replication factor with, replicas={}", replicas);
+                    sendInvalidRFResponse(session);
+                    return;
+                }
+                log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
+                respond(
+                        session,
+                        processor.process(replicasHolder)
+                );
+            } catch (RejectedExecutionException | IOException e) {
+                log.error(ERROR_SENDING_RESPONSE, e);
+                sendServiceUnavailableResponse(session, e);
             }
-            if (isInvalidReplicationFactor(replicasHolder)) {
-                log.info("Invalid replication factor with, replicas={}", replicas);
-                sendInvalidRFResponse(session);
-                return;
-            }
-            log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
-            respond(
-                    session,
-                    processor.process(replicasHolder)
-            );
-        } catch (RejectedExecutionException | IOException e) {
-            log.error(ERROR_SENDING_RESPONSE, e);
-            sendServiceUnavailableResponse(session, e);
-        }
+        });
     }
 
     private void respond(@NotNull final HttpSession session,
                          @NotNull final CompletableFuture<Response> future) {
-        if (future.whenComplete((r, t) -> {
+        if (future.whenCompleteAsync((r, t) -> {
             try {
                 if (t == null) {
                     session.sendResponse(r);
@@ -232,7 +234,7 @@ public class AsyncService extends HttpServer implements Service {
             } catch (IOException e) {
                 log.error("Cannot send response: {}", r, e);
             }
-        }).isCancelled()) {
+        }, es).isCancelled()) {
             log.error("Canceled request");
         }
     }
