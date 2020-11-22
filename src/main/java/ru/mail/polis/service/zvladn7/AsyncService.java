@@ -193,16 +193,17 @@ public class AsyncService extends HttpServer implements Service {
                                 final String replicas) {
         final ReplicasHolder replicasHolder = parseReplicasParameter(replicas);
         log.debug("{} request with mapping: /v0/entity with: key={}", methodName, id);
-        log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
         try {
             if (id.isEmpty()) {
                 sendEmptyIdResponse(session, methodName);
                 return;
             }
             if (isInvalidReplicationFactor(replicasHolder)) {
-                sendInvalidRFResponse(session, replicasHolder);
+                log.info("Invalid replication factor with, replicas={}", replicas);
+                sendInvalidRFResponse(session);
                 return;
             }
+            log.debug("ack: {}, from: {}", replicasHolder.ack, replicasHolder.from);
             respond(
                     session,
                     processor.process(replicasHolder)
@@ -236,8 +237,8 @@ public class AsyncService extends HttpServer implements Service {
         }
     }
 
-    private static boolean isInvalidReplicationFactor(@NotNull final ReplicasHolder replicasHolder) {
-        return replicasHolder.ack == 0 || replicasHolder.ack > replicasHolder.from;
+    private static boolean isInvalidReplicationFactor(final ReplicasHolder replicasHolder) {
+        return replicasHolder == null || replicasHolder.ack == 0 || replicasHolder.ack > replicasHolder.from;
     }
 
     private static void sendEmptyIdResponse(final HttpSession session,
@@ -246,9 +247,7 @@ public class AsyncService extends HttpServer implements Service {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
-    private static void sendInvalidRFResponse(final HttpSession session,
-                                              final ReplicasHolder replicasHolder) throws IOException {
-        log.info("Invalid replication factor with ack = {}, from = {}", replicasHolder.ack, replicasHolder.from);
+    private static void sendInvalidRFResponse(final HttpSession session) throws IOException {
         session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
@@ -256,7 +255,12 @@ public class AsyncService extends HttpServer implements Service {
         if (replicas == null) {
             return new ReplicasHolder(topology.size() / ServiceTopology.VIRTUAL_NODES_PER_NODE);
         } else {
-            return new ReplicasHolder(replicas);
+            try {
+                return new ReplicasHolder(replicas);
+            } catch (NumberFormatException ex) {
+                log.error("Invalid replicas parameters, replicas={}",replicas);
+                return null;
+            }
         }
     }
 

@@ -110,7 +110,7 @@ class ServiceHelper {
             final HttpRequest request = requestProvider.apply(node);
             final CompletableFuture<T> futureResponse =
                     client.sendAsync(request, handler)
-                            .thenApplyAsync(HttpResponse::body);
+                            .thenApply(HttpResponse::body);
             responses.add(futureResponse);
         });
         return responses;
@@ -131,7 +131,7 @@ class ServiceHelper {
             nodesForResponse.remove(topology.local());
             localResponse = localExecutor.execute();
             if (header != null) {
-                return localResponse.thenApplyAsync(ResponseValue::toProxyResponse, es);
+                return localResponse.thenApply(ResponseValue::toProxyResponse);
             }
         }
         List<CompletableFuture<ResponseValue>> responses;
@@ -145,8 +145,8 @@ class ServiceHelper {
 
     private CompletableFuture<Response> resolveGet(final int ack,
                                                    @NotNull final List<CompletableFuture<ResponseValue>> futures) {
-        return ConflictResolver.atLeastAsync(futures, ack)
-                .thenApplyAsync(collection -> ResponseValue.toResponse(ConflictResolver.resolveGet(collection)), es);
+        return ConflictResolver.atLeastAsync(futures, ack, es)
+                .thenApply(collection -> ResponseValue.toResponse(ConflictResolver.resolveGet(collection)));
     }
 
     private CompletableFuture<String> localDelete(@NotNull final ByteBuffer key,
@@ -198,8 +198,8 @@ class ServiceHelper {
 
     private CompletableFuture<Response> resolveChange(final int ack,
                                                       @NotNull final List<CompletableFuture<String>> futures) {
-        return ConflictResolver.atLeastAsync(futures, ack)
-                .thenApplyAsync(v -> new Response(v.iterator().next(), Response.EMPTY), es);
+        return ConflictResolver.atLeastAsync(futures, ack, es)
+                .thenApply(v -> new Response(v.iterator().next(), Response.EMPTY));
     }
 
     private CompletableFuture<Response> handleChangeOrProxy(final ByteBuffer key,
@@ -216,7 +216,7 @@ class ServiceHelper {
             nodesForResponse.remove(topology.local());
             localResponse = localExecutor.execute();
             if (header != null) {
-                return localResponse.thenApplyAsync(v -> Nets.getChangeResponse(request.getMethodName()), es);
+                return localResponse.thenApply(v -> Nets.getChangeResponse(request.getMethodName()));
             }
         }
         List<CompletableFuture<String>> responses;

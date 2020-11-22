@@ -14,7 +14,7 @@ import java.time.Duration;
 public final class Nets {
 
     private static final Logger log = LoggerFactory.getLogger(Nets.class);
-    public static final String PROXY_REQUEST_HEADER = "X-Proxy-To-Node";
+    public static final String PROXY_REQUEST_HEADER = "Proxied-Node";
     public static final int TIMEOUT = 500;
 
     private Nets() {

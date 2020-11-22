@@ -1,8 +1,8 @@
 package ru.mail.polis.service.zvladn7;
 
-class ReplicasHolder {
-    int ack;
-    int from;
+final class ReplicasHolder {
+    final int ack;
+    final int from;
 
     ReplicasHolder(final String replicas) {
         final int slashIndex = replicas.indexOf('/');
