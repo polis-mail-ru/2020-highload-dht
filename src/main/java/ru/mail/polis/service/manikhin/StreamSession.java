@@ -89,8 +89,9 @@ public class StreamSession extends HttpSession {
 
         chunk.put(hexLength);
         chunk.put(CRLF);
+        chunk.put(END_CHUNK_DATA);
         chunk.put(CRLF);
-        chunk.position(0);
+
         return chunk.array();
     }
 
@@ -107,7 +108,7 @@ public class StreamSession extends HttpSession {
         data.put(LF);
         data.put(value);
         data.put(CRLF);
-        data.position(0);
+
         return data.array();
     }
 }
