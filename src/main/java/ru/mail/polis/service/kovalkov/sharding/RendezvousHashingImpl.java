@@ -1,18 +1,21 @@
 package ru.mail.polis.service.kovalkov.sharding;
 
+import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+import static com.google.common.hash.Hashing.murmur3_32;
 
 public class RendezvousHashingImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(RendezvousHashingImpl.class);
     private final String[] allNodes;
     private final String currentNode;
-    final int[] nodeHashes;
 
     /**
      * Constructor for modular topology implementation.
@@ -26,11 +29,6 @@ public class RendezvousHashingImpl implements Topology<String> {
         this.allNodes = new String[allNodes.size()];
         allNodes.toArray(this.allNodes);
         Arrays.sort(this.allNodes);
-        this.nodeHashes = new int[this.allNodes.length];
-        for (int i = 0; i < this.allNodes.length; i++) {
-            nodeHashes[i] = this.allNodes[i].hashCode();
-//            murmur3_32().newHasher().putString(this.allNodes[i], StandardCharsets.UTF_8).hash().hashCode();
-        }
     }
 
     @Override
@@ -40,8 +38,8 @@ public class RendezvousHashingImpl implements Topology<String> {
         int min = Integer.MAX_VALUE;
         String owner = null;
         for (int i = 0; i < allNodes.length; i++) {
-            currentHash = nodeHashes[i] + key.hashCode();
-//            murmur3_32().newHasher().putBytes(key).hash().hashCode()
+            currentHash = murmur3_32().newHasher()
+                    .putString(allNodes[i],StandardCharsets.UTF_8).putBytes(key).hash().hashCode();
             if (currentHash < min) {
                 min = currentHash;
                 owner = allNodes[i];
@@ -57,14 +55,24 @@ public class RendezvousHashingImpl implements Topology<String> {
     @NotNull
     @Override
     public String[] replicasFor(@NotNull final ByteBuffer key, final int replicas) {
-        int nodeStarterIndex = (key.hashCode() & Integer.MAX_VALUE) % allNodes.length;
         final String[] rep = new String[replicas];
-        for (int i = 0; i < replicas; i++) {
-            rep[i] = allNodes[nodeStarterIndex];
-            nodeStarterIndex = (nodeStarterIndex + 1) % allNodes.length;
+        final Map<Integer, String> owners = new TreeMap<>();
+        final byte[] bytesKey = BufferConverter.unfoldToBytes(key);
+        for (int i = 0; i < allNodes.length; i++) {
+            owners.put(murmur3_32().newHasher().putString(allNodes[i],StandardCharsets.UTF_8)
+                    .putBytes(bytesKey).hash().hashCode(), allNodes[i]);
+        }
+        int replicasCounter = 0;
+        for (final Map.Entry<Integer, String> entry : owners.entrySet() ){
+            if (replicas == replicasCounter) {
+                break;
+            }
+            rep[replicasCounter] = entry.getValue();
+            replicasCounter++;
         }
         return rep;
     }
+
 
     @Override
     public int nodeCount() {
