@@ -15,12 +15,12 @@
 
 
 # Yahoo! Cloud System Benchmark
-# Workload A: Update heavy workload
-#   Application example: Session store recording recent actions
-#                        
-#   Read/update ratio: 50/50
-#   Default data size: 1 KB records (10 fields, 100 bytes each, plus key)
-#   Request distribution: zipfian
+# Workload D: Read latest workload
+#   Application example: user status updates; people want to read the latest
+#
+#   Read/update ratio: 95/5
+#   Request distribution: hotspot
+
 
 #	Core Properties
 workload=site.ycsb.workloads.RestWorkload
@@ -33,8 +33,8 @@ measurementtype=hdrhistogram
 #	Workload Properties
 fieldcount=5
 fieldlength=100
-updateproportion=0
-readproportion=1
+updateproportion=0.05
+readproportion=0.95
 deleteproportion=0
 insertproportion=0
 requestdistribution=hotspot
@@ -56,6 +56,7 @@ timeout.read=60
 timeout.exec=60
 log.enable=true
 readrecordcount=1000000
+updaterecordcount=1000000
 
 
 #	Measurement Properties

@@ -1,4 +1,4 @@
-he core workloads consist of six different workloads:
+The core workloads consist of six different workloads:
 
 Workload A: Update heavy workload
 
