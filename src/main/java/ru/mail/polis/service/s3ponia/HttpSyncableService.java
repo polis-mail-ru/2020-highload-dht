@@ -51,7 +51,7 @@ public class HttpSyncableService extends HttpBasicService {
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) throws IOException {
-        if (!Utility.validateId(id)) {
+        if (Utility.invalid(id)) {
             logger.error("Empty key");
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             throw new IllegalArgumentException("Empty key");
@@ -73,7 +73,7 @@ public class HttpSyncableService extends HttpBasicService {
     public void entities(@Param(value = "start", required = true) final String start,
                          @Param(value = "end") final String end,
                          final HttpSession session) throws IOException {
-        if (!Utility.validateId(start)) {
+        if (Utility.invalid(start)) {
             session.sendError(Response.BAD_REQUEST, "Invalid start");
             return;
         }

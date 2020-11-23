@@ -143,4 +143,12 @@ public interface DAO extends Closeable {
     default void compact() throws IOException {
         // Implement me when you get to stage 3
     }
+
+    /**
+     * Constructs recent snapshot of Dao.
+     * @return a {@code DaoSnapshot}
+     */
+    default DaoSnapshot snapshot() {
+        throw new UnsupportedOperationException();
+    }
 }

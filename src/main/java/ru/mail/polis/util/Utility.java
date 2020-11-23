@@ -21,10 +21,21 @@ public final class Utility {
     private Utility() {
     }
     
-    public static boolean validateId(@NotNull final String id) {
-        return !id.isEmpty();
+    public static boolean invalid(@NotNull final String id) {
+        return id.isEmpty();
     }
-    
+
+    public static long fromByteArray(final byte[] in, final int offset, final int size) {
+        if (size != Long.BYTES) {
+            throw new IllegalArgumentException("Byte arrays is not the same size as Long");
+        }
+        return ByteBuffer.wrap(in, offset, size).getLong();
+    }
+
+    public static long fromByteArray(final byte[] in) {
+        return fromByteArray(in, 0, in.length);
+    }
+
     public static ByteBuffer byteBufferFromString(@NotNull final String s) {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
