@@ -11,7 +11,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
-public class AmmoGenerator {
+public final class AmmoGenerator {
     private static final String CRLF = "\r\n";
     private static final String PUT_URL = "PUT /v0/entity?id=";
     private static final String GET_URL = "GET /v0/entity?id=";
