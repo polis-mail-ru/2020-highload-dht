@@ -148,7 +148,7 @@ public class ServiceImpl extends HttpServer implements Service {
             }
         }).isCancelled();
         if (canceled) {
-            throw new RuntimeException(FUTURE_CANCELED_ERROR);
+            throw new IllegalStateException(FUTURE_CANCELED_ERROR);
         }
     }
 
