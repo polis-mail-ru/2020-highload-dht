@@ -29,6 +29,8 @@ import java.io.IOException;
  */
 public final class DAOFactory {
     static final long MAX_HEAP = 256 * 1024 * 1024;
+    static final long FLUSH_THRESHOLD = MAX_HEAP / 64;
+    static final long TABLES_TO_COMPACT_COUNT = 10;
 
     private DAOFactory() {
         // Not instantiatable
@@ -54,6 +56,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new DAOImpl(data, MAX_HEAP / 32 / 2);
+        return new DAOImpl(data, FLUSH_THRESHOLD, TABLES_TO_COMPACT_COUNT);
     }
 }

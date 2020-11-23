@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
 
 public class ExpiresTest extends TestBase {
 
-    private static final long LIFE_TIME_DELTA = 1000L;
-    private static final long DELAY = LIFE_TIME_DELTA * 2;
+    private static final long LIFE_TIME_DELTA = 500L;
+    private static final long DELAY = LIFE_TIME_DELTA * 2L;
     private static final CountDownLatch waiter = new CountDownLatch(1);
 
     @Test
@@ -75,6 +75,34 @@ public class ExpiresTest extends TestBase {
             delay(DELAY);
             // assert that our record hasn't expired
             Assertions.assertEquals(dao.get(keyBuffer), valueBuffer2);
+        }
+    }
+
+    @Test
+    void expireSerializerIsCorrect(@TempDir final File data) throws IOException, InterruptedException {
+        final ByteBuffer keyBuffer = randomKeyBuffer();
+        final ByteBuffer valueBuffer = randomValueBuffer();
+        final long expiresTimestamp = System.currentTimeMillis() + LIFE_TIME_DELTA;
+
+        try (final DAO dao = DAOFactory.create(data)) {
+            // upsert record with key, value1, expiresTimestamp
+            dao.upsert(keyBuffer, valueBuffer, expiresTimestamp);
+            // check that upsert is successful
+            Assertions.assertEquals(dao.get(keyBuffer), valueBuffer);
+        }
+
+        try (final DAO dao = DAOFactory.create(data)) {
+            Assertions.assertTrue(
+                    System.currentTimeMillis() < expiresTimestamp,
+                    "Your storage is so slow. Please, increase LIFE_TIME_DELTA variable."
+            );
+            // check that data is saved
+            Assertions.assertEquals(dao.get(keyBuffer), valueBuffer);
+            Assertions.assertEquals(dao.rowGet(keyBuffer).getExpiresTimestamp(), expiresTimestamp);
+
+            delay(DELAY);
+            // assert that our record has expired
+            Assertions.assertThrows(NoSuchElementException.class, () -> dao.get(keyBuffer));
         }
     }
 

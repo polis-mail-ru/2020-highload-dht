@@ -47,7 +47,7 @@ public class Flusher extends Thread {
                 log.debug("FLUSHER: flush task queued");
                 if (numberedTable.table == null) {
                     log.info("Flusher stopped");
-                    return;
+                    break;
                 }
                 final int generation = numberedTable.generation;
                 final Iterator<Cell> cellIterator = numberedTable.table.iterator(ByteBuffer.allocate(0));
@@ -58,11 +58,10 @@ public class Flusher extends Thread {
                 this.tableFlashedCallback.accept(numberedTable.generation, dst);
             }
         } catch (final InterruptedException e) {
-            log.error("Flusher interrupted. The program stops.", e);
+            log.error("Flusher interrupted.", e);
             Thread.currentThread().interrupt();
         } catch (final IOException e) {
-            log.error("Flusher met an unexpected IOException. The program stops.", e);
+            log.error("Flusher met an unexpected IOException.", e);
         }
-        System.exit(-1);
     }
 }
