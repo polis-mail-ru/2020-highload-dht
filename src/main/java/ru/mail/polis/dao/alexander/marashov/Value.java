@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 
 public final class Value implements Comparable<Value> {
 
-    public static final long NEVER_EXPIRES = -1L;
+    public static final long NEVER_EXPIRES = Long.MAX_VALUE;
 
     private final long timestamp;
     private final long expiresTimestamp;
