@@ -2,16 +2,12 @@ package ru.mail.polis.dao.s3ponia;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.Record;
 import ru.mail.polis.dao.DaoSnapshot;
-import ru.mail.polis.dao.Iters;
-import ru.mail.polis.service.s3ponia.StreamingRecordValue;
 import ru.mail.polis.util.hash.ConcatHash;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Iterator;
 
 import static ru.mail.polis.util.Utility.fromByteArray;
@@ -39,14 +35,7 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     }
 
     private Iterator<ICell> iterator() {
-        final var zeroBuffer = ByteBuffer.allocate(0);
-        final var diskIterators = new ArrayList<Iterator<ICell>>();
-        diskIterators.add(tableSet.memTable.iterator(zeroBuffer));
-        tableSet.diskTables.forEach((a, table) -> diskIterators.add(table.iterator(zeroBuffer)));
-        tableSet.flushingTables.forEach(table -> diskIterators.add(table.iterator(zeroBuffer)));
-        final var merge = Iterators.mergeSorted(diskIterators, ICell::compareTo);
-
-        return Iters.collapseEquals(merge, ICell::getKey);
+        return tableSet.cellsIterator(ByteBuffer.allocate(0));
     }
 
     /**
