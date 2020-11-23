@@ -8,7 +8,6 @@ import one.nio.http.Param;
 import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -19,20 +18,17 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
-import java.time.Duration;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
-import static ru.mail.polis.service.ServiceImpl.getConfig;
 
 public class ReplicationServiceImpl extends HttpServer implements Service {
 

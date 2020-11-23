@@ -22,8 +22,20 @@ public class AmmoGenerator {
     private static final int OFFSET = 100;
     private static Random random = new Random();
 
+    private AmmoGenerator() {
+        /* Add private constructor to prevent instantiation */
+    }
+
+    /**
+     * Generates PUT request based on given params.
+     *
+     * @param out   - where to write
+     * @param key   - request key
+     * @param value - request body
+     * @throws IOException - something went wrong
+     */
     private static void makePutRequest(
-            final OutputStream stream, final String key, final byte[] value
+            final OutputStream out, final String key, final byte[] value
     ) throws IOException {
         final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try (Writer writer = new OutputStreamWriter(outputStream, US_ASCII)) {
@@ -32,12 +44,19 @@ public class AmmoGenerator {
             writer.write(CRLF);
         }
         outputStream.write(value);
-        stream.write(Integer.toString(outputStream.size()).getBytes(US_ASCII));
-        stream.write(PUT_BYTES);
-        outputStream.writeTo(stream);
-        stream.write(CRLF.getBytes(US_ASCII));
+        out.write(Integer.toString(outputStream.size()).getBytes(US_ASCII));
+        out.write(PUT_BYTES);
+        outputStream.writeTo(out);
+        out.write(CRLF.getBytes(US_ASCII));
     }
 
+    /**
+     * Generates GET request based on given params.
+     *
+     * @param out - where to write
+     * @param key - request key
+     * @throws IOException - something went wrong
+     */
     private static void makeGetRequest(
             final OutputStream out,
             final String key
@@ -53,6 +72,13 @@ public class AmmoGenerator {
         out.write(CRLF.getBytes(US_ASCII));
     }
 
+    /**
+     * Generates PUT requests with unique keys.
+     *
+     * @param numOfRequests - how many requests to generate
+     * @param outputFile    - where to write generated requests
+     * @throws IOException - something went wrong
+     */
     private static void generatePutUnique(
             final int numOfRequests,
             final FileOutputStream outputFile
@@ -64,6 +90,13 @@ public class AmmoGenerator {
         }
     }
 
+    /**
+     * Generates PUT requests partially overwriting existing data.
+     *
+     * @param numOfRequests - how many requests to generate
+     * @param outputFile    - where to write generated requests
+     * @throws IOException - something went wrong
+     */
     private static void generatePutPartialRewrite(
             final int numOfRequests,
             final FileOutputStream outputFile
@@ -80,6 +113,13 @@ public class AmmoGenerator {
         }
     }
 
+    /**
+     * Generates GET requests to existing records using Gauss distribution.
+     *
+     * @param numOfRequests - how many requests to generate
+     * @param outputFile    - where to write generated requests
+     * @throws IOException - something went wrong
+     */
     private static void generateGetExistingGauss(
             final int numOfRequests,
             final FileOutputStream outputFile
@@ -92,6 +132,13 @@ public class AmmoGenerator {
         }
     }
 
+    /**
+     * Generates GET requests to recently created records.
+     *
+     * @param numOfRequests - how many requests to generate
+     * @param outputFile    - where to write generated requests
+     * @throws IOException - something went wrong
+     */
     private static void generateGetExistingWithOffset(
             final int numOfRequests, final FileOutputStream outputFile
     ) throws IOException {
@@ -119,6 +166,13 @@ public class AmmoGenerator {
         }
     }
 
+    /**
+     * Generates mixture of PUT & GET requests.
+     *
+     * @param numOfRequests - how many requests to generate
+     * @param outputFile    - where to write generated requests
+     * @throws IOException - something went wrong
+     */
     private static void generatePutGetMixed(
             final int numOfRequests,
             final FileOutputStream outputFile
@@ -141,6 +195,12 @@ public class AmmoGenerator {
         }
     }
 
+    /**
+     * This generates PUT or GET Ammo requests based on a user choice.
+     *
+     * @param args - request settings array
+     * @throws IOException - something went wrong
+     */
     public static void main(final String[] args) throws IOException {
         if (args.length != 3) {
             throw new IllegalArgumentException(
