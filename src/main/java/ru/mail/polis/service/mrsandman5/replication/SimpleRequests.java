@@ -7,6 +7,7 @@ import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -62,12 +63,13 @@ public final class SimpleRequests {
      * {@code 500} (internal server error occurred).
      */
     public CompletableFuture<Response> put(@NotNull final ByteBuffer key,
-                                           @NotNull final byte[] bytes) {
+                                           @NotNull final byte[] bytes,
+                                           @NotNull final Instant expire) {
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         final ByteBuffer body = ByteBuffer.wrap(bytes);
-                        dao.upsert(key, body);
+                        dao.upsert(key, body, expire);
                         return ResponseUtils.emptyResponse(Response.CREATED);
                     } catch (IOException e) {
                         return ResponseUtils.emptyResponse(Response.INTERNAL_ERROR);

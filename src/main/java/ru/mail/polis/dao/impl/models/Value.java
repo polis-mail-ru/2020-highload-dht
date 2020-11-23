@@ -52,9 +52,6 @@ public final class Value {
 
     public boolean isExpired() {
         return Instant.now().isAfter(Objects.requireNonNull(expire));
-        /*final String current = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC).format(ResponseUtils.expirationFormat);
-        return (OffsetDateTime.parse(current, ResponseUtils.expirationFormat))
-                .isAfter(Objects.requireNonNull(expire));*/
     }
 
     public ByteBuffer getData() {

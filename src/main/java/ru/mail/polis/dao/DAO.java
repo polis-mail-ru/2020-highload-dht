@@ -23,6 +23,7 @@ import ru.mail.polis.Record;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -41,7 +42,7 @@ public interface DAO extends Closeable {
      * one should not "seek" to start point ("from" element) in linear time ;)
      */
     @NotNull
-    Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
+    Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException;
 
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
@@ -51,8 +52,8 @@ public interface DAO extends Closeable {
      */
     @NotNull
     default Iterator<Record> range(
-            @NotNull ByteBuffer from,
-            @Nullable ByteBuffer to) throws IOException {
+            @NotNull final ByteBuffer from,
+            @Nullable final ByteBuffer to) throws IOException {
         if (to == null) {
             return iterator(from);
         }
@@ -71,7 +72,7 @@ public interface DAO extends Closeable {
      * @throws NoSuchElementException if no such record
      */
     @NotNull
-    default ByteBuffer get(@NotNull ByteBuffer key) throws IOException, NoSuchElementException {
+    default ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
             throw new NoSuchElementException("Not found");
@@ -89,13 +90,14 @@ public interface DAO extends Closeable {
      * Inserts or updates value by given key.
      */
     void upsert(
-            @NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) throws IOException;
+            @NotNull final ByteBuffer key,
+            @NotNull final ByteBuffer value,
+            @NotNull final Instant expire) throws IOException;
 
     /**
      * Removes value by given key.
      */
-    void remove(@NotNull ByteBuffer key) throws IOException;
+    void remove(@NotNull final ByteBuffer key) throws IOException;
 
     /**
      * Perform compaction

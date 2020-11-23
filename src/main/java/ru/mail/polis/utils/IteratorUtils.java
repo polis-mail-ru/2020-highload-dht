@@ -28,7 +28,7 @@ public final class IteratorUtils {
      */
     @NotNull
     public static Iterator<Cell> cellIterator(@NotNull final ByteBuffer from,
-                                       @NotNull final DAOImpl dao) throws IOException {
+                                              @NotNull final DAOImpl dao) throws IOException {
         final TableSet snapshot;
         dao.getLock().readLock().lock();
         try {
@@ -47,7 +47,8 @@ public final class IteratorUtils {
         });
         final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
         return Iterators.filter(
-                fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone());
+                fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone() &&
+                        !Objects.requireNonNull(cell).getValue().isExpired());
     }
 
     /**
@@ -57,8 +58,8 @@ public final class IteratorUtils {
      */
     @SuppressWarnings("UnstableApiUsage")
     public static Iterator<Cell> freshCellIterators(@NotNull final TableSet snapshot,
-                                              @NotNull final ByteBuffer from,
-                                              @NotNull final List<Iterator<Cell>> fileIterators) {
+                                                    @NotNull final ByteBuffer from,
+                                                    @NotNull final List<Iterator<Cell>> fileIterators) {
         snapshot.ssTables.descendingMap().values().forEach(v -> {
             try {
                 fileIterators.add(v.iterator(from));

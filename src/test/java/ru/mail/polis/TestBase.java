@@ -23,6 +23,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -75,6 +77,16 @@ abstract public class TestBase {
     @NotNull
     protected static ByteBuffer randomValueBuffer() {
         return randomBuffer(VALUE_LENGTH);
+    }
+
+    @NotNull
+    protected static Instant randomExpire() {
+        long startSeconds = Instant.now().minus(Duration.ofHours(1)).getEpochSecond();
+        long endSeconds = Instant.now().plus(Duration.ofHours(1)).getEpochSecond();
+        long random = ThreadLocalRandom
+                .current()
+                .nextLong(startSeconds, endSeconds);
+        return Instant.ofEpochSecond(random);
     }
 
     @NotNull

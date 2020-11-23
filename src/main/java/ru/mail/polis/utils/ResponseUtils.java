@@ -17,7 +17,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
@@ -101,6 +104,11 @@ public final class ResponseUtils {
 
     public static String getExpires(@NotNull final Entry entry) {
         return EXPIRES + ": " + entry.getExpires();
+    }
+
+    public static Instant parseExpires(@NotNull final String expires) {
+        return LocalDateTime.parse(expires, ResponseUtils.expirationFormat)
+                .toInstant(ZoneOffset.ofTotalSeconds(0));
     }
 
     /** GET response from Entry.*/

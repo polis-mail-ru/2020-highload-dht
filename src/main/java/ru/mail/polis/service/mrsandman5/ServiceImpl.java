@@ -29,6 +29,9 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -106,12 +109,14 @@ public final class ServiceImpl extends HttpServer implements Service {
      * {@code 405} (unexpected method).
      *
      * @param id       value id
+     * @param expire       record ttl
      * @param replicas         replica to whom value belongs
      * @param request     HTTP request
      * @param session HTTP session
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
+                       @Param(value = "expire") final String expire,
                        @Param(value = "replicas") final String replicas,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
@@ -135,13 +140,14 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final Instant expireTime = ResponseUtils.parseExpires(expire);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor));
                 break;
             case Request.METHOD_PUT:
-                respond(session, proxied ? simpleRequests.put(key, request.getBody())
-                                : replicasPut(id, request.getBody(), replicasFactor));
+                respond(session, proxied ? simpleRequests.put(key, request.getBody(), expireTime)
+                                : replicasPut(id, request.getBody(), replicasFactor, expireTime));
                 break;
             case Request.METHOD_DELETE:
                 respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(id, replicasFactor));
@@ -215,12 +221,13 @@ public final class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private CompletableFuture<Response> replicasPut(@NotNull final String id,
                                                     @NotNull final byte[] value,
-                                                    @NotNull final ReplicasFactor replicasFactor) {
+                                                    @NotNull final ReplicasFactor replicasFactor,
+                                                    @NotNull final Instant expire) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
-                result.add(simpleRequests.put(key, value));
+                result.add(simpleRequests.put(key, value, expire));
             } else {
                 result.add(ResponseUtils.putResponse(httpClients, node, id, value, executor));
             }

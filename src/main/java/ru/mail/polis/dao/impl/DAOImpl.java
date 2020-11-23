@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -93,11 +94,14 @@ public class DAOImpl implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key,
-                       @NotNull final ByteBuffer value) throws IOException {
+                       @NotNull final ByteBuffer value,
+                       @NotNull final Instant expire) throws IOException {
         final boolean isToFlush;
         lock.readLock().lock();
         try {
-            tableSet.memTable.upsert(key.duplicate().asReadOnlyBuffer(), value.duplicate().asReadOnlyBuffer());
+            tableSet.memTable.upsert(key.duplicate().asReadOnlyBuffer(),
+                    value.duplicate().asReadOnlyBuffer(),
+                    expire);
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
         } finally {
             lock.readLock().unlock();
@@ -114,7 +118,6 @@ public class DAOImpl implements DAO {
         try {
             tableSet.memTable.remove(key.duplicate().asReadOnlyBuffer());
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
-
         } finally {
             lock.readLock().unlock();
         }
@@ -195,7 +198,6 @@ public class DAOImpl implements DAO {
         if (!fresh.hasNext()) {
             return;
         }
-
         lock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.compacting();
