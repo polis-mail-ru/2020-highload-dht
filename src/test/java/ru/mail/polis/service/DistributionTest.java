@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.dao.suhova.RendezvousTopology;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -14,7 +13,6 @@ import java.util.Map;
 import java.util.Set;
 
 class DistributionTest extends ClusterTestBase {
-    private static final Duration TIMEOUT = Duration.ofMinutes(1);
     private static final int KEYS_COUNT = 1000;
 
     @Override
