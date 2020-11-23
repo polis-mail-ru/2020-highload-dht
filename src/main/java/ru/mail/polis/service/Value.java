@@ -1,7 +1,6 @@
 package ru.mail.polis.service;
 
 import one.nio.http.Response;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -20,7 +19,6 @@ public final class Value {
             final long timestamp,
             final ByteBuffer buffer
     ) {
-
         this.isValueDeleted = isValueDeleted;
         this.timestamp = timestamp;
         this.buffer = buffer;
@@ -58,7 +56,7 @@ public final class Value {
         return timestamp == -1;
     }
 
-    private long getTimestamp() {
+    long getTimestamp() {
         return timestamp;
     }
 
@@ -70,7 +68,7 @@ public final class Value {
         }
     }
 
-    private byte[] getBytes() throws IOException {
+    byte[] getBytes() throws IOException {
         final ByteBuffer buf = getValue().duplicate();
         final byte[] bytes = new byte[buf.remaining()];
         buf.get(bytes);

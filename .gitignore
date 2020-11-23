@@ -15,6 +15,7 @@
 !.codeclimate.yml
 !*.md
 !*.svg
+!*.lua
 
 # ...even if they are in subdirectories
 !*/
