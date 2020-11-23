@@ -210,7 +210,11 @@ public class DAOImpl implements DAO {
 
     @Override
     public synchronized void compact() {
-        compactor.tasksQueue.add(new CompactorTask(false));
+        try {
+            compactor.tasksQueue.add(new CompactorTask(false));
+        } catch (final IllegalStateException e) {
+            log.info("Compactor queue is full!", e);
+        }
     }
 
     @Override

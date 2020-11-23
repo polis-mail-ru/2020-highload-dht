@@ -33,11 +33,11 @@ public class DaoManager {
      * @param value - ByteBuffer that contains the value data.
      * @return future to response to send.
      */
-    public CompletableFuture<Response> put(final ByteBuffer key, final ByteBuffer value) {
+    public CompletableFuture<Response> put(final ByteBuffer key, final ByteBuffer value, final long expiresTimestamp) {
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        this.dao.upsert(key, value, Value.NEVER_EXPIRES);
+                        this.dao.upsert(key, value, expiresTimestamp);
                         return new Response(Response.CREATED, Response.EMPTY);
                     } catch (final IOException e) {
                         return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
@@ -88,17 +88,6 @@ public class DaoManager {
                 },
                 daoExecutor
         );
-    }
-
-    /**
-     * Closes the DAO or writes an error to the log.
-     */
-    public void close() {
-        try {
-            dao.close();
-        } catch (final IOException e) {
-            throw new RuntimeException("Error closing dao", e);
-        }
     }
 
     /**

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
+import static ru.mail.polis.service.alexander.marashov.ServiceImpl.EXPIRES_HEADER;
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.PROXY_HEADER;
 import static ru.mail.polis.service.alexander.marashov.ServiceImpl.TIMESTAMP_HEADER_NAME;
 
@@ -134,16 +135,24 @@ public class ResponseManager {
             final Request request
     ) {
         final String proxyHeader = request.getHeader(PROXY_HEADER);
+        final String expiresHeader = request.getHeader(EXPIRES_HEADER);
+
+        long expiresTimestamp;
+        try {
+            expiresTimestamp = Long.parseLong(expiresHeader);
+        } catch (final NumberFormatException e) {
+            expiresTimestamp = Value.NEVER_EXPIRES;
+        }
 
         if (proxyHeader != null) {
-            return daoManager.put(validParams.key, value);
+            return daoManager.put(validParams.key, value, expiresTimestamp);
         }
         final String[] primaries = topology.primariesFor(validParams.key, validParams.from);
 
         final List<CompletableFuture<Response>> list = new ArrayList<>(primaries.length);
         for (final String node : primaries) {
             if (topology.isLocal(node)) {
-                list.add(daoManager.put(validParams.key, value));
+                list.add(daoManager.put(validParams.key, value, expiresTimestamp));
             } else {
                 final HttpRequest httpRequest =
                         requestForReplicaBuilder(node, validParams.rowKey, timeout)
@@ -200,13 +209,6 @@ public class ResponseManager {
                                 ? new Response(Response.ACCEPTED, Response.EMPTY)
                                 : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY)
                 );
-    }
-
-    /**
-     * Closes the daoManager.
-     */
-    public void clear() {
-        daoManager.close();
     }
 
     public CompletableFuture<Iterator<Record>> iterator(final ByteBuffer keyFrom, final ByteBuffer keyTo) {

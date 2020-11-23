@@ -38,7 +38,7 @@ public class ServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     public static final String PROXY_HEADER = "Proxy_Header";
-    public static final String EXPIRES_HEADER_NAME = "Expires";
+    public static final String EXPIRES_HEADER = "Expires: ";
     public static final String TIMESTAMP_HEADER_NAME = "Timestamp_Header";
     public static final String FUTURE_CANCELED_ERROR = "Who canceled my future?!";
 
@@ -195,7 +195,7 @@ public class ServiceImpl extends HttpServer implements Service {
     /**
      * Http method handler for managing the dao.
      *
-     * @param id - dao record key.
+     * @param id       - dao record key.
      * @param replicas - replicas parameter, has ack/from format.
      */
     @Path("/v0/entity")
@@ -222,7 +222,10 @@ public class ServiceImpl extends HttpServer implements Service {
                         }
                         case Request.METHOD_PUT: {
                             final ByteBuffer value = ByteBuffer.wrap(request.getBody());
-                            respond(httpSession, responseManager.put(validParams, value, request.getBody(), request));
+                            respond(
+                                    httpSession,
+                                    responseManager.put(validParams, value, request.getBody(), request)
+                            );
                             break;
                         }
                         case Request.METHOD_DELETE: {
@@ -242,7 +245,7 @@ public class ServiceImpl extends HttpServer implements Service {
      * HTTP method handler for getting key-values pairs from the DAO storage.
      *
      * @param start - key to start the search.
-     * @param end - key where the search will stop.
+     * @param end   - key where the search will stop.
      */
     @Path("/v0/entities")
     @RequestMethod(Request.METHOD_GET)
@@ -286,6 +289,7 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Waiting for a stop is interrupted");
             Thread.currentThread().interrupt();
         }
-        responseManager.clear();
+        // We shouldn't do it
+//         responseManager.clear();
     }
 }

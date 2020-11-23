@@ -44,6 +44,10 @@ abstract public class TestBase {
         }
     }
 
+    protected static int randomSize(final int modulo) {
+        return (ThreadLocalRandom.current().nextInt() & 0x7fffffff) % modulo + 1;
+    }
+
     @NotNull
     protected static String randomId() {
         return Long.toHexString(ThreadLocalRandom.current().nextLong());
