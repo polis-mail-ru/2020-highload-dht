@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-public class ReplicatedService implements HttpEntityHandler {
+public class ReplicatedService implements HttpEntityEntitiesHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReplicatedService.class);
     final AsyncService asyncService;
     final ShardingPolicy<ByteBuffer, String> policy;
@@ -249,5 +249,10 @@ public class ReplicatedService implements HttpEntityHandler {
     @Override
     public void close() throws IOException {
         asyncService.close();
+    }
+
+    @Override
+    public void entities(final String start, final String end, final StreamingSession session) throws IOException {
+        asyncService.entities(start, end, session);
     }
 }

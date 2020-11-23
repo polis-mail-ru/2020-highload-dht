@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 import static ru.mail.polis.util.Utility.sendResponse;
 
-public final class AsyncService implements HttpEntityHandler {
+public final class AsyncService implements HttpEntityEntitiesHandler {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private final ExecutorService es;
     private final DaoService daoService;
@@ -159,5 +159,10 @@ public final class AsyncService implements HttpEntityHandler {
             logger.error("Error in waiting es", e);
             Thread.currentThread().interrupt();
         }
+    }
+
+    @Override
+    public void entities(final String start, final String end, final StreamingSession session) throws IOException {
+        daoService.entities(start, end, session);
     }
 }
