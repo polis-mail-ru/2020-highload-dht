@@ -1,92 +1,149 @@
 package ru.mail.polis.service;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import ru.mail.polis.dao.suhova.RendezvousTopology;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 class DistributionTest extends ClusterTestBase {
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
-    private static final int KEYS_COUNT = 300;
+    private static final int KEYS_COUNT = 1000;
 
     @Override
     int getClusterSize() {
-        return 3;
+        return 5;
     }
 
     @Test
     void randomKeysDistribution() {
         // Random keys of the same length
-        Collection<String> keys = new HashSet<>();
+        final Collection<String> keys = new ArrayList<>();
         for (int i = 0; i < KEYS_COUNT; i++) {
             keys.add(randomId());
         }
-        distributionUniformityCheck(keys);
+        Assertions.assertAll(
+            () -> checkDistribution(1, keys),
+            () -> checkDistribution(2, keys),
+            () -> checkDistribution(3, keys),
+            () -> checkDistribution(4, keys)
+        );
     }
 
     @Test
     void randomKeysWithPostfixDistribution() {
         // Simulation of random keys generated from an email template
-        Collection<String> keys = new HashSet<>();
+        final Collection<String> keys = new ArrayList<>();
         for (int i = 0; i < KEYS_COUNT; i++) {
             keys.add(randomId() + "@mail.ru");
         }
-        distributionUniformityCheck(keys);
+        Assertions.assertAll(
+            () -> checkDistribution(1, keys),
+            () -> checkDistribution(2, keys),
+            () -> checkDistribution(3, keys),
+            () -> checkDistribution(4, keys)
+        );
     }
 
     @Test
     void numKeysDistribution() {
         // Hash check on numeric keys
-        Collection<String> keys = new HashSet<>();
+        final Collection<String> keys = new ArrayList<>();
         for (int i = 0; i < KEYS_COUNT; i++) {
             keys.add(Integer.toString(i));
         }
-        distributionUniformityCheck(keys);
+        Assertions.assertAll(
+            () -> checkDistribution(1, keys),
+            () -> checkDistribution(2, keys),
+            () -> checkDistribution(3, keys),
+            () -> checkDistribution(4, keys)
+        );
     }
 
-    private void distributionUniformityCheck(Collection<String> keys) {
-        assertTimeoutPreemptively(TIMEOUT, () -> {
-            final byte[] value = randomValue();
-            stop(1);
-            stop(2);
+    @Test
+    void addNodeToTopology() {
+        final Set<String> topologySet = new HashSet<>();
+        String me = "";
+        for (int i = 0; i < getClusterSize(); i++) {
+            String node = endpoint(randomPort());
+            topologySet.add(node);
+            me = node;
+        }
+        RendezvousTopology topology = new RendezvousTopology(topologySet, me);
 
-            int countNode0 = this.countKeysFromNode(keys, value, 0);
+        final Collection<String> keys = new ArrayList<>();
+        for (int i = 0; i < KEYS_COUNT; i++) {
+            keys.add(randomId());
+        }
 
-            stop(0);
-            createAndStart(1);
-
-            int countNode1 = this.countKeysFromNode(keys, value, 1);
-
-            stop(1);
-            createAndStart(2);
-            int countNode2 = this.countKeysFromNode(keys, value, 2);
-
-            // Allowable difference in the number of keys on nodes = 20%
-            final int diff = KEYS_COUNT / 5;
-            final String mess = "Keys on node 0: " + countNode0 + " node 1: " + countNode1 + " node 2: " + countNode2;
-            assertEquals(keys.size(), countNode0 + countNode1 + countNode2);
-            assertTrue(Math.abs(countNode0 - countNode1) < diff, mess);
-            assertTrue(Math.abs(countNode1 - countNode2) < diff, mess);
-            assertTrue(Math.abs(countNode0 - countNode2) < diff, mess);
-        });
-    }
-
-    private int countKeysFromNode(Collection<String> keys, byte[] value, int node) {
-        AtomicInteger countNode = new AtomicInteger();
-        assertTimeoutPreemptively(TIMEOUT, () -> {
-            for (String key : keys) {
-                if (upsert(node, key, value, 1, 1).getStatus() == 201) {
-                    countNode.getAndIncrement();
+        final Map<String, List<String>> keysByNodes = new HashMap<>();
+        for (String key : keys) {
+            String[] nodes = topology.getNodesByKey(key, 1);
+            for (String node : nodes) {
+                if (keysByNodes.containsKey(node)) {
+                    keysByNodes.get(node).add(key);
+                } else {
+                    final List<String> list = new ArrayList<>();
+                    list.add(key);
+                    keysByNodes.put(node, list);
                 }
             }
-        });
-        return countNode.get();
+        }
+        topologySet.add(endpoint(randomPort()));
+        topology = new RendezvousTopology(topologySet, me);
+
+        // Number of keys to move
+        int count = 0;
+        for (String key : keys) {
+            String[] nodes = topology.getNodesByKey(key, 1);
+            for (String node : nodes) {
+                if (!keysByNodes.containsKey(node) || !keysByNodes.get(node).contains(key)) {
+                    count++;
+                }
+            }
+        }
+        // Allowed number of keys that move when adding a new node = 20%
+        Assertions.assertTrue(count < KEYS_COUNT / 5,
+            "Number of keys transferred to another node: " + count);
+    }
+
+    void checkDistribution(int replicationFactor, final Collection<String> keysList) {
+        final Map<String, Integer> keyCount = new HashMap<>();
+        final RendezvousTopology topology = createTopology(getClusterSize());
+        for (String key : keysList) {
+            String[] nodes = topology.getNodesByKey(key, replicationFactor);
+            for (String node : nodes) {
+                if (keyCount.containsKey(node)) {
+                    keyCount.put(node, keyCount.get(node) + 1);
+                } else {
+                    keyCount.put(node, 1);
+                }
+            }
+        }
+        final int min = keyCount.entrySet().stream().min(Map.Entry.comparingByValue()).get().getValue();
+        final int max = keyCount.entrySet().stream().max(Map.Entry.comparingByValue()).get().getValue();
+        final int diff = max - min;
+        // Allowable difference in the number of keys on nodes = 10%
+        Assertions.assertTrue(diff < KEYS_COUNT / 10,
+            "Difference between keys count: " + diff);
+    }
+
+    private RendezvousTopology createTopology(int size) {
+        final Set<String> topology = new HashSet<>();
+        String me = "";
+        for (int i = 0; i < size; i++) {
+            String node = endpoint(randomPort());
+            topology.add(node);
+            me = node;
+        }
+        return new RendezvousTopology(topology, me);
     }
 }
 
