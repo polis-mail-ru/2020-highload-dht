@@ -32,7 +32,7 @@ public final class Value implements Comparable<Value> {
     }
 
     public boolean isTombstone() {
-        return data == null;
+        return data == null || isExpired();
     }
 
     public boolean isExpired() {
