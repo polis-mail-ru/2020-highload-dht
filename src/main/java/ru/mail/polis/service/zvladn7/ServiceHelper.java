@@ -145,7 +145,7 @@ class ServiceHelper {
 
     private CompletableFuture<Response> resolveGet(final int ack,
                                                    @NotNull final List<CompletableFuture<ResponseValue>> futures) {
-        return ConflictResolver.atLeastAsync(futures, ack, es)
+        return ConflictResolver.atLeastAsync(futures, ack)
                 .thenApply(collection -> ResponseValue.toResponse(ConflictResolver.resolveGet(collection)));
     }
 
@@ -198,7 +198,7 @@ class ServiceHelper {
 
     private CompletableFuture<Response> resolveChange(final int ack,
                                                       @NotNull final List<CompletableFuture<String>> futures) {
-        return ConflictResolver.atLeastAsync(futures, ack, es)
+        return ConflictResolver.atLeastAsync(futures, ack)
                 .thenApply(v -> new Response(v.iterator().next(), Response.EMPTY));
     }
 

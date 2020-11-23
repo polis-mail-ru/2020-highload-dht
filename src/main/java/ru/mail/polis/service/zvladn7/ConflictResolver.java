@@ -25,14 +25,13 @@ final class ConflictResolver {
 
     @NotNull
     static <T> CompletableFuture<Collection<T>> atLeastAsync(@NotNull final Collection<CompletableFuture<T>> futures,
-                                                             final int ack,
-                                                             @NotNull final ExecutorService es) {
+                                                             final int ack) {
         final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> resultFuture = new CompletableFuture<>();
         final AtomicInteger successesLeft = new AtomicInteger(ack);
         final AtomicInteger failuresLeft = new AtomicInteger(futures.size() - ack + 1);
         futures.forEach(nextFuture -> {
-            if (nextFuture.whenCompleteAsync((v, t) -> {
+            if (nextFuture.whenComplete((v, t) -> {
                 if (t == null) {
                     results.add(v);
                     if (successesLeft.decrementAndGet() == 0) {
@@ -43,7 +42,7 @@ final class ConflictResolver {
                         resultFuture.completeExceptionally(new IllegalStateException("Not enough replicas to respond"));
                     }
                 }
-            }, es).isCancelled()) {
+            }).isCancelled()) {
                 log.error("Cannot resolve success or failure");
             }
         });
