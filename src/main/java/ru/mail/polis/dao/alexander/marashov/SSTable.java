@@ -60,13 +60,11 @@ public class SSTable implements Table {
                 indexesList.add(position.get());
 
                 long timestamp = it.getValue().getTimestamp();
-                long expiresTimestamp = it.getValue().getExpiresTimestamp();
                 final boolean isTombstone = it.getValue().isTombstone();
-
                 if (isTombstone) {
                     timestamp *= -1;
                 }
-
+                final long expiresTimestamp = it.getValue().getExpiresTimestamp();
                 intBuffer.rewind().putInt(it.getKey().capacity()).rewind();
                 longBuffer1.rewind().putLong(timestamp).rewind();
                 longBuffer2.rewind().putLong(expiresTimestamp).rewind();

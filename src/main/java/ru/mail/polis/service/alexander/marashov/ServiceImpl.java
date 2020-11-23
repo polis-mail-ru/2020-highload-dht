@@ -289,7 +289,5 @@ public class ServiceImpl extends HttpServer implements Service {
             log.error("Waiting for a stop is interrupted");
             Thread.currentThread().interrupt();
         }
-        // We shouldn't do it
-//         responseManager.clear();
     }
 }

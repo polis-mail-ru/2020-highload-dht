@@ -147,7 +147,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull ByteBuffer key, @NotNull ByteBuffer value) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         upsert(key, value, Value.NEVER_EXPIRES);
     }
 

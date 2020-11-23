@@ -13,7 +13,7 @@ public final class Value implements Comparable<Value> {
     private final ByteBuffer data;
 
     /**
-     * Creates the Value instance.
+     * Creates the Value instance with expiresTimestamp.
      * Creates the tombstone if data is null
      */
     public Value(final long timestamp, final long expiresTimestamp, final ByteBuffer data) {
@@ -24,6 +24,10 @@ public final class Value implements Comparable<Value> {
         this.data = data;
     }
 
+    /**
+     * Creates the Value instance, that will never expire.
+     * Creates the tombstone if data is null
+     */
     public Value(final long timestamp, final ByteBuffer data) {
         assert timestamp >= 0L;
         this.timestamp = timestamp;

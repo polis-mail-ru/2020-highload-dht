@@ -1,5 +1,6 @@
 package ru.mail.polis.dao.alexander.marashov;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +35,11 @@ public class Compactor extends Thread {
     private final File storage;
     private final Function<NavigableMap<Integer, Table>, Function<Integer, Consumer<File>>> tablesCompactedCallback;
     final Supplier<NavigableMap<Integer, Table>> tablesToCompactSupplier;
+
     /**
      * Compactor constructor.
-     * @param storage - root of the DAO storage.
+     *
+     * @param storage                 - root of the DAO storage.
      * @param tablesCompactedCallback - callback function which called after tables compacted.
      */
     public Compactor(
@@ -86,20 +90,25 @@ public class Compactor extends Thread {
                         .apply(maxGeneration)
                         .accept(dst);
 
-                for (final Table table : tablesToCompact.values()) {
-                    final Path path = table.getFile().toPath();
-                    try {
-                        Files.delete(path);
-                    } catch (final IOException e) {
-                        throw new IOException("Compactor: can't delete file " + path, e);
-                    }
-                }
+                deleteFiles(tablesToCompact.values());
             }
         } catch (final InterruptedException e) {
             log.error("Compactor interrupted.", e);
             Thread.currentThread().interrupt();
         } catch (final IOException e) {
             log.error("Compactor met an unexpected IOException.", e);
+            System.exit(-1);
+        }
+    }
+
+    private static void deleteFiles(@NotNull final Collection<Table> tablesToRemove) throws IOException {
+        for (final Table table : tablesToRemove) {
+            final Path path = table.getFile().toPath();
+            try {
+                Files.delete(path);
+            } catch (final IOException e) {
+                throw new IOException("Compactor: can't delete file " + path, e);
+            }
         }
     }
 }
