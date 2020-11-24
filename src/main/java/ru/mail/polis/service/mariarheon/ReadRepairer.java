@@ -1,0 +1,99 @@
+package ru.mail.polis.service.mariarheon;
+
+import one.nio.http.HttpSession;
+import one.nio.http.Request;
+import one.nio.util.URLEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.DAO;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutionException;
+
+public class ReadRepairer {
+    private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
+
+    private final ReadRepairInfo repairInfo;
+    private final RendezvousSharding sharding;
+    private final DAO dao;
+
+    /**
+     * Create repairer for read-repair functionality.
+     *
+     * @param sharding - information about other nodes.
+     * @param dao - dao implementation.
+     * @param repairInfo - all information, required for repairing nodes.
+     */
+    public ReadRepairer(final RendezvousSharding sharding,
+                        final DAO dao,
+                        final ReadRepairInfo repairInfo) {
+        this.repairInfo = repairInfo;
+        this.sharding = sharding;
+        this.dao = dao;
+    }
+
+    private void passOn(String node, Record record) {
+        final var uri = "/?" + AsyncServiceImpl.MYSELF_PARAMETER + "=" +
+                "&key=" + URLEncoder.encode(record.getKey()) +
+                "&timestamp=" + record.getTimestamp().getTime();
+
+        int method;
+        if (record.isRemoved()) {
+            method = Request.METHOD_DELETE;
+        } else {
+            method = Request.METHOD_PUT;
+        }
+        final var request = new Request(method, uri, true);
+        try {
+            request.addHeader("Host: " + new URI(uri).getHost());
+        } catch (URISyntaxException e) {
+            logger.error("Failed to parse uri", e);
+            return;
+        }
+        request.addHeader("Connection: Keep-Alive");
+        final var val = record.getValue();
+        request.addHeader("Content-Length: " + val.length);
+        request.setBody(val);
+        //logger.info("rr: passing on to " + node + " timestamp=" + record.getTimestamp().getTime() +
+        //        " " + new String(val, StandardCharsets.UTF_8));
+        try {
+            sharding.passOn(node, request)
+                .get();
+            // logger.info("done rr for node = " + node);
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Failed to read-repair", e);
+        }
+    }
+
+    /**
+     * Repair nodes with old value.
+     */
+    public void repair() {
+        if (repairInfo == null) {
+            return;
+        }
+        logger.info("\n#start repairing");
+        final var rightRecord = repairInfo.getRightRecord();
+        final var nodes = repairInfo.getNodes();
+        for (var node : nodes) {
+            if (sharding.isMe(node)) {
+                logger.info("\n#repair myself (" + node + "):"
+                        + Util.loggingValue(rightRecord.getValue()) + " timestamp=("
+                        + rightRecord.getTimestamp().getTime() + ")");
+                try {
+                    rightRecord.save(dao);
+                } catch (IOException e) {
+                    logger.warn("Failed to read repair local record");
+                }
+            } else {
+                logger.info("\n#repair node " + node + ":" +
+                        Util.loggingValue(rightRecord.getValue()) + " timestamp=(" +
+                        rightRecord.getTimestamp().getTime() + ")");
+                passOn(node, rightRecord);
+            }
+        }
+    }
+}

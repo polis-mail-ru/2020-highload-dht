@@ -40,4 +40,9 @@ public final class Util {
         }
         return left.length - right.length;
     }
+
+    public static String loggingValue(final byte[] value) {
+        // return new String(value, StandardCharsets.UTF_8);
+        return "";
+    }
 }

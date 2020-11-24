@@ -1,18 +1,30 @@
 package ru.mail.polis.service.mariarheon;
 
 import one.nio.http.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * This class is used for composing response to client
  * by responses retrieved from replicas.
  */
 public class ReplicasResponseComposer {
+    private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
+
     private final Replicas replicas;
     private int ackReceived;
     private int totalReceived;
     private int status;
     private Record record;
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+    private final Map<String, Record> goodAnswers;
+    private Response preparedResponse;
 
     /**
      * Create composer for generating response for client from replicas answers.
@@ -21,6 +33,7 @@ public class ReplicasResponseComposer {
      */
     public ReplicasResponseComposer(final Replicas replicas) {
         this.replicas = replicas;
+        this.goodAnswers = new HashMap<>();
     }
 
     /**
@@ -28,7 +41,8 @@ public class ReplicasResponseComposer {
      *
      * @param response - response from replica.
      */
-    public void addResponse(final Response response) {
+    public void addResponse(final String fromNode, final Response response) {
+        preparedResponse = null;
         totalReceived++;
         final var responseStatus = response.getStatus();
         if (responseStatus < 200 || responseStatus > 202) {
@@ -38,6 +52,7 @@ public class ReplicasResponseComposer {
         this.status = responseStatus;
         if (responseStatus == 200) {
             final var responseRecord = Record.newFromRawValue(response.getBody());
+            this.goodAnswers.put(fromNode, responseRecord);
             if (this.record == null
                     || (!responseRecord.wasNotFound()
                     && responseRecord.getTimestamp().after(this.record.getTimestamp()))) {
@@ -55,12 +70,7 @@ public class ReplicasResponseComposer {
         return ackReceived >= replicas.getAckCount() || totalReceived >= replicas.getTotalNodes();
     }
 
-    /**
-     * Get response for client, combined from responses from replicas.
-     *
-     * @return - response for client.
-     */
-    public Response getComposedResponse() {
+    private Response getPreparedResponse() {
         if (ackReceived < replicas.getAckCount()) {
             return new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY);
         }
@@ -74,5 +84,51 @@ public class ReplicasResponseComposer {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
         return Response.ok(record.getValue());
+    }
+
+    private void prepareResponse() {
+        if (preparedResponse != null) {
+            return;
+        }
+        preparedResponse = getPreparedResponse();
+    }
+
+    /**
+     * Get response for client, combined from responses from replicas.
+     *
+     * @return - response for client.
+     */
+    public Response getComposedResponse() {
+        prepareResponse();
+        return preparedResponse;
+    }
+
+    /**
+     * Retrieve the data necessary for repairing nodes.
+     *
+     * @param key - key of the record which should be repaired on nodes.
+     * @return - data necessary for repairing nodes.
+     */
+    public ReadRepairInfo getReadRepairInfo(String key) {
+        prepareResponse();
+        if (preparedResponse.getStatus() != 200) {
+            return null;
+        }
+        final var recordWithKey = Record.newFromRawValue(key, record.getRawValue());
+        final var res = new ReadRepairInfo(recordWithKey);
+        logger.info("\n#answer ="
+                + Util.loggingValue(record.getValue())
+                + " timestamp=(" + record.getTimestamp().getTime() + ")");
+        for (var recordByNode : goodAnswers.entrySet()) {
+            final var node = recordByNode.getKey();
+            final var answerFromNode = recordByNode.getValue();
+            logger.info("\n#answer from " + node + " ="
+                    + Util.loggingValue(answerFromNode.getValue())
+                    + " timestamp=(" + answerFromNode.getTimestamp().getTime() + ")");
+            if (answerFromNode.getTimestamp().before(record.getTimestamp())) {
+                res.addNode(node);
+            }
+        }
+        return res;
     }
 }
