@@ -1,6 +1,5 @@
 package ru.mail.polis.service.basta123;
 
-import com.google.common.base.Ascii;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
@@ -80,8 +79,10 @@ public class StreamingSessionChunks extends HttpSession {
         final byte[] key = Utils.getByteArrayFromByteBuffer(record.getKey());
         final byte[] value = Utils.getByteArrayFromByteBuffer(record.getValue());
 
-        final byte[] length = Integer.toHexString(key.length + LF.length + value.length).getBytes(Charset.defaultCharset());
-        final byte[] chunk = new byte[length.length + CRLF.length + key.length + LF.length + value.length + CRLF.length];
+        final byte[] length = Integer.toHexString(key.length + LF.length + value.length)
+                .getBytes(Charset.defaultCharset());
+        final byte[] chunk = new byte[length.length + CRLF.length + key.length
+                + LF.length + value.length + CRLF.length];
         final ByteBuffer buffer = ByteBuffer.wrap(chunk);
         buffer.put(length);
         buffer.put(CRLF);
