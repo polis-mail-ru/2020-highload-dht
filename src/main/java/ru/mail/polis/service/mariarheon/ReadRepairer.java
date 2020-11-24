@@ -34,7 +34,7 @@ public class ReadRepairer {
     }
 
     private void passOn(final String node, final Record record) {
-        final var uri = "/?" + AsyncServiceImpl.MYSELF_PARAMETER + "="
+        final var uri = "/?" + Util.MYSELF_PARAMETER + "="
                 + "&key=" + URLEncoder.encode(record.getKey())
                 + "&timestamp=" + record.getTimestamp().getTime();
 

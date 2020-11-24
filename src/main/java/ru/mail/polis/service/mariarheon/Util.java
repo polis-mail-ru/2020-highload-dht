@@ -9,7 +9,7 @@ import java.util.Date;
 import java.util.List;
 
 public final class Util {
-    private static final String MYSELF_PARAMETER = "myself";
+    public static final String MYSELF_PARAMETER = "myself";
 
     private Util() {
         /* nothing */
