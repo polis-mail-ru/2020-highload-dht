@@ -283,16 +283,13 @@ public class ReplicasNettyRequests {
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
 
         if (mergedResp.isValue()) {
-            if (!isForwardedRequest && replicaNodes.size() >= 1) {
+            if (!isForwardedRequest && !replicaNodes.isEmpty()) {
                 sendNettyResponse(HttpResponseStatus.OK, mergedResp.getValueAsBytes(), ctx);
                 return;
             } else if (isForwardedRequest && replicaNodes.size() == 1) {
                 sendNettyResponse(HttpResponseStatus.OK, mergedResp.toBytes(), ctx);
                 return;
             }
-        } else if (mergedResp.isDeleted()) {
-            sendNettyResponse(HttpResponseStatus.NOT_FOUND, new byte[0], ctx);
-            return;
         } else {
             sendNettyResponse(HttpResponseStatus.NOT_FOUND, new byte[0], ctx);
             return;
