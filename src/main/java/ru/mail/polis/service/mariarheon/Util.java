@@ -48,7 +48,8 @@ public final class Util {
     }
 
     private static boolean preventLoggingValue() {
-        final Object fakeObject = "";
+        Object fakeObject = "";
+        fakeObject = fakeObject + "dummy";
         return fakeObject instanceof String;
     }
 
@@ -71,7 +72,7 @@ public final class Util {
      * @param timestampAsStr - timestamp as string.
      * @return - timestamp as long value or -1 if timestampAsStr is null.
      */
-    public static long parseTimestamp(String timestampAsStr) {
+    public static long parseTimestamp(final String timestampAsStr) {
         if (timestampAsStr == null) {
             return -1;
         }
