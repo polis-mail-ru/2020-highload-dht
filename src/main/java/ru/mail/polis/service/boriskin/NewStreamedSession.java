@@ -14,13 +14,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 
-final class NewSession extends HttpSession {
-    private static final Logger logger = LoggerFactory.getLogger(NewSession.class);
+final class NewStreamedSession extends HttpSession {
+    private static final Logger logger = LoggerFactory.getLogger(NewStreamedSession.class);
 
     private static final String CHUNK_HEADER =
             "Transfer-Encoding: chunked";
-    private static final byte END_OF_LINE =
-            '\n';
+    private static final byte[] END_OF_LINE =
+            "\n".getBytes(Charsets.UTF_8);
     private static final byte[] CARRIAGE_RETURN_LINE_FEED =
             "\r\n".getBytes(Charsets.UTF_8);
     private static final byte[] END_OF_FILE =
@@ -34,7 +34,7 @@ final class NewSession extends HttpSession {
         next();
     }
 
-    NewSession(
+    NewStreamedSession(
             @NotNull final Socket socket,
             @NotNull final HttpServer httpServer) {
         super(socket, httpServer);
@@ -54,9 +54,13 @@ final class NewSession extends HttpSession {
             final Record record = recordIterator.next();
             final byte[] key = toByteArray(record.getKey());
             final byte[] val = toByteArray(record.getValue());
-            final int payloadLength = key.length + 1 + val.length;
+            final int payloadLength = key.length + END_OF_LINE.length + val.length;
             final String length = Integer.toHexString(payloadLength);
-            final int chunkLength = length.length() + 2 + payloadLength + 2;
+            final int chunkLength =
+                    length.length()
+                            + CARRIAGE_RETURN_LINE_FEED.length
+                            + payloadLength
+                            + CARRIAGE_RETURN_LINE_FEED.length;
             final byte[] chunk = new byte[chunkLength];
             final ByteBuffer byteBuffer = ByteBuffer.wrap(chunk);
 

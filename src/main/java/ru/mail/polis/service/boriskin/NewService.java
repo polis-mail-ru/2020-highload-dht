@@ -127,7 +127,7 @@ public class NewService extends HttpServer implements Service {
             @Param("replicas") final String replicas,
             final HttpSession httpSession,
             final Request request) {
-        if (inputNotValid(id, httpSession)) {
+        if (isBadRequestSendResponse(id, httpSession)) {
             return;
         }
         final ReplicaFactor replicationFactor;
@@ -172,7 +172,7 @@ public class NewService extends HttpServer implements Service {
             @Param("end") final String end,
             final HttpSession httpSession,
             final Request request) {
-        if (inputNotValid(start, httpSession)) {
+        if (isBadRequestSendResponse(start, httpSession)) {
             return;
         }
         if (request.getMethod() != Request.METHOD_GET) {
@@ -186,7 +186,7 @@ public class NewService extends HttpServer implements Service {
                             ByteBuffer.wrap(start.getBytes(Charsets.UTF_8)),
                             end == null || end.isEmpty()
                                     ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8)));
-            ((NewSession) httpSession).stream(records);
+            ((NewStreamedSession) httpSession).stream(records);
         } catch (IOException ioException) {
             logger.error("Внутренняя ошибка сервера");
             resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -196,10 +196,10 @@ public class NewService extends HttpServer implements Service {
     @Override
     public HttpSession createSession(
             final Socket socket) {
-        return new NewSession(socket, this);
+        return new NewStreamedSession(socket, this);
     }
 
-    private boolean inputNotValid(
+    private boolean isBadRequestSendResponse(
             @Param(value = "id", required = true) final String id,
             @NotNull final HttpSession httpSession) {
         if (id == null || id.isEmpty()) {
