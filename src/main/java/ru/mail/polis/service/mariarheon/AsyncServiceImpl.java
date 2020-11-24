@@ -114,7 +114,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void handleEntityRequest(final @Param(value = "id", required = true) String key,
                     final @Param(value = "replicas") String replicasParameter,
-                    final @Param(value = "myself") String myself,
+                    final @Param(value = Util.MYSELF_PARAMETER) String myself,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
         final String timestampStr = request.getParameter("timestamp");
