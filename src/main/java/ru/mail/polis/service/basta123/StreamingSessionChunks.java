@@ -1,5 +1,6 @@
 package ru.mail.polis.service.basta123;
 
+import com.google.common.base.Ascii;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
@@ -19,9 +20,9 @@ import java.util.Iterator;
  */
 public class StreamingSessionChunks extends HttpSession {
 
-    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] NO_CONTENT = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] LF = "\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] NO_CONTENT = "0\r\n\r\n".getBytes(StandardCharsets.US_ASCII);
 
     Iterator<Record> iterator;
 
@@ -78,18 +79,17 @@ public class StreamingSessionChunks extends HttpSession {
     private byte[] getChunk(final Record record) {
         final byte[] key = Utils.getByteArrayFromByteBuffer(record.getKey());
         final byte[] value = Utils.getByteArrayFromByteBuffer(record.getValue());
-        final byte[] data = new byte[key.length + LF.length + value.length];
-        System.arraycopy(key, 0, data, 0, key.length);
-        System.arraycopy(LF, 0, data, key.length, LF.length);
-        System.arraycopy(value, 0, data, key.length + LF.length, value.length);
 
-        final byte[] length = Integer.toHexString(data.length).getBytes(Charset.defaultCharset());
-        final byte[] chunk = new byte[length.length + CRLF.length + data.length + CRLF.length];
+        final byte[] length = Integer.toHexString(key.length + LF.length + value.length).getBytes(Charset.defaultCharset());
+        final byte[] chunk = new byte[length.length + CRLF.length + key.length + LF.length + value.length + CRLF.length];
         final ByteBuffer buffer = ByteBuffer.wrap(chunk);
         buffer.put(length);
         buffer.put(CRLF);
-        buffer.put(data);
+        buffer.put(key);
+        buffer.put(LF);
+        buffer.put(value);
         buffer.put(CRLF);
         return chunk;
+
     }
 }

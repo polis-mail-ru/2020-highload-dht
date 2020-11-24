@@ -166,9 +166,9 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_PUT)
-    public void putVal(@Param(value = "id", required = true) final String id,
-                       final Request request,
-                       @NotNull final HttpSession httpSession) throws IOException {
+    public void putValue(@Param(value = "id", required = true) final String id,
+                         final Request request,
+                         @NotNull final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
             log.error("error id: ");
             return;
@@ -194,9 +194,9 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     @RequestMethod(Request.METHOD_DELETE)
-    public void deleteValueKey(@Param(value = "id", required = true) final String id,
-                               final Request request,
-                               @NotNull final HttpSession httpSession) throws IOException {
+    public void deleteValue(@Param(value = "id", required = true) final String id,
+                            final Request request,
+                            @NotNull final HttpSession httpSession) throws IOException {
         if (!isIdValid(id, httpSession)) {
             log.error("error id");
             return;
