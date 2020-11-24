@@ -18,6 +18,9 @@
 !profiling_results_stage5/*
 !profiling_results_stage6/*
 !wrk/*
+!myGatlingTest/*
+!myGatlingTest/src/test/resources/*
+!*.scala
 
 # ...even if they are in subdirectories
 !*/
