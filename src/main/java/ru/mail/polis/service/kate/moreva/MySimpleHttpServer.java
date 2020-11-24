@@ -2,14 +2,9 @@ package ru.mail.polis.service.kate.moreva;
 
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpServer;
-import one.nio.http.HttpServerConfig;
-import one.nio.http.HttpSession;
-import one.nio.http.Param;
-import one.nio.http.Path;
-import one.nio.http.Request;
-import one.nio.http.Response;
+import one.nio.http.*;
 import one.nio.net.Socket;
+import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -25,9 +20,7 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -36,6 +29,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static ru.mail.polis.service.kate.moreva.MyRequestHelper.PROXY_HEADER;
 
 /**
  * Simple Http Server Service implementation.
@@ -52,6 +48,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     private final MyRequestHelper requestHelper;
     private final Replicas quorum;
     private final HttpClient client;
+
 
     /**
      * Http Server constructor.
@@ -140,9 +137,9 @@ public class MySimpleHttpServer extends HttpServer implements Service {
      * Method for returning set of values in the requested range.
      */
     @Path("/v0/entities")
-    public void entities(@NotNull final HttpSession session,
+    public void entities(@NotNull final HttpSession session, final Request request,
                          @Param("start") final String start,
-                         @Param("end") final String end) {
+                         @Param("end") final String end, @Param("replicas") final String replicas) {
         if (start == null || start.isEmpty() || (end != null && end.isEmpty())) {
             log.error("Request with incorrect parameters start {}, end {} on /v0/entities", start, end);
             requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -150,7 +147,24 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final ByteBuffer startRange = ByteBuffer.wrap(start.getBytes(Charsets.UTF_8));
         final ByteBuffer endRange = end == null ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8));
-        requestHelper.workRangeRequest(session, startRange, endRange, clientExecutor);
+        parseRangeRequest(startRange, endRange, request, session, replicas);
+    }
+    private void parseRangeRequest(final ByteBuffer start, final ByteBuffer end, final Request request,
+                               final HttpSession session, final String replicas) {
+        final boolean isProxy = requestHelper.isProxied(request);
+        try {
+            final Replicas replicasFactor = isProxy
+                    || replicas == null ? this.quorum : Replicas.parser(replicas);
+            if (replicasFactor.getFrom() > this.topology.size()
+                    || replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
+                requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+            final Context context = new Context(session, isProxy, request, replicasFactor);
+            requestHelper.workRangeRequest(context.getSession(), start, end, clientExecutor);
+        } catch (IllegalArgumentException e) {
+            requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+        }
     }
 
     private void parseRequest(final String id, final Request request,
