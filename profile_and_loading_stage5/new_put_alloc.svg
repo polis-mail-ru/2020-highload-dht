@@ -511,7 +511,7 @@
 <text x="102.2" y="174.0">b..</text>
 </g>
 <g>
-<title>ru.mail.polis.service.gogun.ResponseMerger (37 samples, 0.03%)</title><rect x="121.5" y="227.0" width="0.3" height="15" fill="#52c0c0" rx="2" ry="2"/>
+<title>ru.mail.polis.service.gogun.EntryMerger (37 samples, 0.03%)</title><rect x="121.5" y="227.0" width="0.3" height="15" fill="#52c0c0" rx="2" ry="2"/>
 <text x="124.5" y="238.0"></text>
 </g>
 <g>

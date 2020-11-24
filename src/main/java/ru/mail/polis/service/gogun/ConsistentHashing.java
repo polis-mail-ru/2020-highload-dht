@@ -7,6 +7,7 @@ import java.security.InvalidParameterException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.Set;
@@ -60,7 +61,7 @@ public class ConsistentHashing implements Hashing<String> {
         final int hash = key.hashCode();
         final Set<String> result = new HashSet<>();
         final Collection<String> values = circle.tailMap(hash).values();
-        var iterator = values.iterator();
+        Iterator<String> iterator = values.iterator();
         while (result.size() < count) {
             if (!iterator.hasNext()) {
                 iterator = circle.values().iterator();

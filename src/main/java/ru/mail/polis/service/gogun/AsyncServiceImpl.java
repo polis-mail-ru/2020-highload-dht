@@ -16,12 +16,12 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -32,24 +32,28 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static ru.mail.polis.service.gogun.Entry.toProxyResponse;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
-    public static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    public static final String ABSENT = "-1";
+    static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final Duration TIMEOUT = Duration.ofSeconds(1);
     public static final String PROXY_HEADER = "X-Proxy-For: ";
-    public static final String ABSENT = "-1";
+    public static final String TIMESTAMP_HEADER = "timestamp: ";
     public static final String REPLICA_FACTOR_PARAM = "replicas=";
 
     @NotNull
     private final DAO dao;
     private final Hashing<String> topology;
-    private final ExecutorService executorService;
-    private final ServiceHelper serviceHelper;
     @NotNull
-    private final java.net.http.HttpClient client;
+    private final ReplicasFactor replicasFactor;
+    private final ExecutorService executorService;
+    @NotNull
+    private final HttpClient client;
 
     /**
      * class that provides requests to lsm dao via http.
@@ -83,13 +87,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .setNameFormat("Client_%d")
                         .build());
         this.client =
-                java.net.http.HttpClient.newBuilder()
+                HttpClient.newBuilder()
                         .executor(clientExecutor)
                         .connectTimeout(TIMEOUT)
-                        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                        .version(HttpClient.Version.HTTP_1_1)
                         .build();
 
-        this.serviceHelper = new ServiceHelper(dao);
+        this.replicasFactor = ReplicasFactor.quorum(topology.all().size());
     }
 
     @Override
@@ -131,21 +135,30 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader(PROXY_HEADER) != null) {
-            ServiceUtils.selector(() -> serviceHelper.handlePut(key, request),
-                    () -> serviceHelper.handleGet(key),
-                    () -> serviceHelper.handleDel(key),
-                    request.getMethod(),
-                    session);
+            switch (request.getMethod()) {
+                case Request.METHOD_PUT:
+                    session.sendResponse(ServiceUtils.handlePut(key, request, dao));
+                    break;
+                case Request.METHOD_DELETE:
+                    session.sendResponse(ServiceUtils.handleDel(key, dao));
+                    break;
+                case Request.METHOD_GET:
+                    session.sendResponse(toProxyResponse(ServiceUtils.handleGet(key, dao)));
+                    break;
+                default:
+                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+                    break;
+            }
             return;
         }
 
-        final ReplicasFactor replicasFactor;
-        final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
+        final String replicaFactorParameter = request.getParameter(REPLICA_FACTOR_PARAM);
+        final ReplicasFactor localReplicasFactor;
         try {
-            if (replicaFactor == null) {
-                replicasFactor = ReplicasFactor.quorum(topology.all().size());
+            if (replicaFactorParameter == null) {
+                localReplicasFactor = this.replicasFactor;
             } else {
-                replicasFactor = ReplicasFactor.quorum(replicaFactor);
+                localReplicasFactor = ReplicasFactor.parseReplicaFactor(replicaFactorParameter);
             }
         } catch (IllegalArgumentException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -153,7 +166,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         final Set<String> replNodes;
         try {
-            replNodes = topology.primaryFor(key, replicasFactor.getFrom());
+            replNodes = topology.primaryFor(key, localReplicasFactor.getFrom());
         } catch (InvalidParameterException e) {
             log.error("Wrong replica factor", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -164,39 +177,52 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             return;
         }
+        if (request.getMethod() == Request.METHOD_GET) {
+            final List<CompletableFuture<Entry>> responsesFutureGet = replNodes.stream()
+                    .map(node -> proxyGet(node, request))
+                    .collect(Collectors.toList());
+            ServiceUtils.getCompletableFutureGetResponses(
+                    responsesFutureGet,
+                    localReplicasFactor,
+                    session,
+                    executorService);
+        } else {
+            final List<CompletableFuture<Response>> responsesFuture = replNodes.stream()
+                    .map(node -> proxyDeletePut(node, request))
+                    .collect(Collectors.toList());
+            ServiceUtils.getCompletableFuturePutDeleteResponses(
+                    request,
+                    responsesFuture,
+                    localReplicasFactor,
+                    session,
+                    executorService);
+        }
 
-        final List<CompletableFuture<Response>> responsesFuture = new ArrayList<>(replicasFactor.getFrom());
-        replNodes.forEach((node) -> responsesFuture.add(proxy(node, request)));
-        Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
-            try {
-                if (v == null) {
-                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                    return;
-                }
-
-                final ResponseMerger responseMerger = new ResponseMerger(v, replicasFactor.getAck());
-
-                ServiceUtils.selector(responseMerger::mergePutResponses,
-                        responseMerger::mergeGetResponses,
-                        responseMerger::mergeDeleteResponses,
-                        request.getMethod(), session);
-            } catch (IOException e) {
-                log.error("error sending response", e);
-            }
-        }, executorService).isCancelled();
     }
 
-    private CompletableFuture<Response> proxy(final String node, final Request request) {
+    private CompletableFuture<Entry> proxyGet(final String node, final Request request) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (topology.isMe(node)) {
-            return ServiceUtils.selector(
-                    () -> serviceHelper.handlePut(key, request),
-                    () -> serviceHelper.handleGet(key),
-                    () -> serviceHelper.handleDel(key),
-                    request.getMethod(),
-                    executorService);
+            return CompletableFuture.supplyAsync(() -> ServiceUtils.handleGet(key, dao), executorService);
+        }
+
+        final HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
+        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                .thenApplyAsync(HttpResponse::body, executorService);
+    }
+
+    private CompletableFuture<Response> proxyDeletePut(final String node, final Request request) {
+        final String id = request.getParameter("id=");
+        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
+
+        if (topology.isMe(node)) {
+            if (request.getMethod() == Request.METHOD_PUT) {
+                return CompletableFuture.supplyAsync(() -> ServiceUtils.handlePut(key, request, dao), executorService);
+            } else {
+                return CompletableFuture.supplyAsync(() -> ServiceUtils.handleDel(key, dao), executorService);
+            }
         }
 
         HttpRequest requestForReplica;
@@ -206,19 +232,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
                         .build();
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executorService);
-            case Request.METHOD_GET:
-                requestForReplica = requestForRepl(node, id).GET()
-                        .build();
-                return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executorService);
+                        .thenApplyAsync((s) -> new Response(Response.CREATED, Response.EMPTY), executorService);
             case Request.METHOD_DELETE:
-                requestForReplica = requestForRepl(node, id).DELETE()
+                requestForReplica = requestForRepl(node, id)
+                        .DELETE()
                         .build();
                 return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
-                        .thenApplyAsync(HttpResponse::body, executorService);
+                        .thenApplyAsync(s -> new Response(Response.ACCEPTED, Response.EMPTY), executorService);
             default:
-                log.error("Wrong request method");
                 throw new IllegalStateException("Wrong request method");
         }
     }
