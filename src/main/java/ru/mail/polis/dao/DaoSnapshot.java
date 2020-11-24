@@ -1,12 +1,19 @@
 package ru.mail.polis.dao;
 
 import ru.mail.polis.dao.s3ponia.ICell;
+import ru.mail.polis.util.merkletree.MerkleTree;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Iterator;
 
 public interface DaoSnapshot {
+    /**
+     * Constructs MerkleTree with given leaves' count.
+     * @param blocksCount ranges' count. Must be > 3
+     * @return a {@code MerkleTree}
+     */
+    MerkleTree merkleTree(final long blocksCount);
 
     /**
      * Provides iterator over records that fits in hash range from start to end.

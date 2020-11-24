@@ -7,6 +7,7 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
@@ -20,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import static ru.mail.polis.util.Utility.sendResponse;
 
-public final class AsyncService implements HttpEntityEntitiesHandler {
+public final class AsyncService implements HttpEntityHandler, HttpEntitiesHandler {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private final ExecutorService es;
     private final DaoService daoService;

@@ -167,7 +167,7 @@ public class DiskTable implements Closeable, Table {
         generation = 0;
     }
 
-    DiskTable(final Path path) throws IOException {
+    public DiskTable(final Path path) throws IOException {
         fileChannel = FileChannel.open(path, StandardOpenOption.READ);
         filePath = path;
         final var fileName = path.getFileName().toString();
@@ -232,7 +232,7 @@ public class DiskTable implements Closeable, Table {
         throw new UnsupportedOperationException();
     }
 
-    static DiskTable of(final Path path) {
+    public static DiskTable of(final Path path) {
         try {
             return new DiskTable(path);
         } catch (IOException e) {

@@ -11,9 +11,12 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.session.ResponseFileSession;
 import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class HttpBasicService extends HttpServer implements Service {
     private static final Logger logger = LoggerFactory.getLogger(HttpBasicService.class);
@@ -41,7 +44,15 @@ public class HttpBasicService extends HttpServer implements Service {
 
     @Override
     public HttpSession createSession(@NotNull final Socket socket) {
-        return new FileExchangeSession(socket, this);
+        final var dir = Paths.get("saveDir");
+        if (!Files.exists(dir)) {
+            try {
+                Files.createDirectory(dir);
+            } catch (IOException exception) {
+                logger.error("Error in creating directory.");
+            }
+        }
+        return new ResponseFileSession(socket, this);
     }
 
     @Override

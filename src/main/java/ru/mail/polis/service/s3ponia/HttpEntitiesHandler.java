@@ -1,6 +1,6 @@
 package ru.mail.polis.service.s3ponia;
 
-import one.nio.http.HttpSession;
+import ru.mail.polis.session.StreamingSession;
 
 import java.io.IOException;
 

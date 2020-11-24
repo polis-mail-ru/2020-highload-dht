@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.s3ponia.Value;
+import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.Proxy;
 import ru.mail.polis.util.Utility;
 
@@ -180,7 +181,7 @@ public class ReplicatedService implements HttpEntityEntitiesHandler {
             asyncService.entity(id, replicas, request, session);
             return;
         }
-        
+
         final var time = System.currentTimeMillis();
         request.addHeader(Utility.TIME_HEADER + ": " + time);
 

@@ -205,6 +205,14 @@ public final class PersistenceDAO implements DAO {
 
     @Override
     public DaoSnapshot snapshot() {
-        return new PersistentDaoSnapshot(tableSet, new TigerHash());
+        final TableSet snapshot;
+        readWriteLock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+
+        return new PersistentDaoSnapshot(snapshot, new TigerHash());
     }
 }

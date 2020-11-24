@@ -4,7 +4,9 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.DaoSnapshot;
 import ru.mail.polis.dao.s3ponia.Value;
+import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.MapIterator;
 import ru.mail.polis.util.RangeIterator;
 import ru.mail.polis.util.Utility;
@@ -95,6 +97,10 @@ public class DaoService implements Closeable, HttpEntitiesHandler {
 
     private Iterator<Record> from(@NotNull final ByteBuffer from) throws IOException {
         return dao.iterator(from);
+    }
+
+    public DaoSnapshot snapshot() {
+        return dao.snapshot();
     }
 
     @Override

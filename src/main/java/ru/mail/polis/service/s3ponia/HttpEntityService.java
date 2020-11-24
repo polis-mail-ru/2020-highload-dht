@@ -10,6 +10,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.Utility;
 
 import java.io.IOException;
