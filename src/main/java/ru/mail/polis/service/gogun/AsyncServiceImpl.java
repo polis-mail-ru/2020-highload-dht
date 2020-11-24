@@ -39,7 +39,7 @@ import static ru.mail.polis.service.gogun.Entry.toProxyResponse;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
-    private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final Duration TIMEOUT = Duration.ofSeconds(1);
     public static final String PROXY_HEADER = "X-Proxy-For: ";
     public static final String TIMESTAMP_HEADER = "timestamp: ";
@@ -179,39 +179,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final List<CompletableFuture<Entry>> responsesFutureGet = replNodes.stream()
                     .map(node -> proxyGet(node, request))
                     .collect(Collectors.toList());
-            Futures.atLeastAsync(localReplicasFactor.getAck(), responsesFutureGet).whenCompleteAsync((v, t) -> {
-                try {
-                    if (v == null) {
-                        session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                        return;
-                    }
-
-                    final EntryMerger<Entry> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
-
-                    session.sendResponse(entryMerger.mergeGetResponses());
-                } catch (IOException e) {
-                    log.error("error sending response", e);
-                }
-            }, executorService).isCancelled();
+            ServiceUtils.getCompletableFutureGetResponses(
+                    responsesFutureGet,
+                    localReplicasFactor,
+                    session,
+                    executorService);
         } else {
             final List<CompletableFuture<Response>> responsesFuture = replNodes.stream()
                     .map(node -> proxyDeletePut(node, request))
                     .collect(Collectors.toList());
-            Futures.atLeastAsync(localReplicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
-                try {
-                    if (v == null) {
-                        session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                        return;
-                    }
-
-                    final EntryMerger<Response> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
-
-                    session.sendResponse(entryMerger.mergePutDeleteResponses(request));
-
-                } catch (IOException e) {
-                    log.error("error sending response", e);
-                }
-            }, executorService).isCancelled();
+            ServiceUtils.getCompletableFuturePutDeleteResponses(
+                    request,
+                    responsesFuture,
+                    localReplicasFactor,
+                    session,
+                    executorService);
         }
 
     }

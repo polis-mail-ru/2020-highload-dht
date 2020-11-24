@@ -2,6 +2,7 @@ package ru.mail.polis.service.gogun;
 
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
+import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +13,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+
+import static ru.mail.polis.service.gogun.AsyncServiceImpl.log;
 
 final class ServiceUtils {
 
@@ -35,6 +41,53 @@ final class ServiceUtils {
         }
 
         return body;
+    }
+
+
+    static void getCompletableFutureGetResponses(
+            final List<CompletableFuture<Entry>> responsesFutureGet,
+            final ReplicasFactor localReplicasFactor,
+            final HttpSession session,
+            final ExecutorService executorService
+    ) {
+        Futures.atLeastAsync(localReplicasFactor.getAck(), responsesFutureGet).whenCompleteAsync((v, t) -> {
+            try {
+                if (v == null) {
+                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                    return;
+                }
+
+                final EntryMerger<Entry> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
+
+                session.sendResponse(entryMerger.mergeGetResponses());
+            } catch (IOException e) {
+                log.error("error sending response", e);
+            }
+        }, executorService).isCancelled();
+    }
+
+    static void getCompletableFuturePutDeleteResponses(
+            final Request request,
+            final List<CompletableFuture<Response>> responsesFuture,
+            final ReplicasFactor localReplicasFactor,
+            final HttpSession session,
+            final ExecutorService executorService
+    ) {
+        Futures.atLeastAsync(localReplicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
+            try {
+                if (v == null) {
+                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                    return;
+                }
+
+                final EntryMerger<Response> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
+
+                session.sendResponse(entryMerger.mergePutDeleteResponses(request));
+
+            } catch (IOException e) {
+                log.error("error sending response", e);
+            }
+        }, executorService).isCancelled();
     }
 
     /**
