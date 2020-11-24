@@ -1,11 +1,16 @@
 package ru.mail.polis.service.mariarheon;
 
+import one.nio.http.Request;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 
 public final class Util {
+    private static final String MYSELF_PARAMETER = "myself";
+
     private Util() {
         /* nothing */
     }
@@ -43,13 +48,68 @@ public final class Util {
     }
 
     private static boolean preventLoggingValue() {
-        return true;
+        final Object fakeObject = "";
+        return fakeObject instanceof String;
     }
 
+    /**
+     * Returns value as string for logging if logging values required.
+     *
+     * @param value - value of record or other byte array.
+     * @return - string representation of the value.
+     */
     public static String loggingValue(final byte[] value) {
         if (preventLoggingValue()) {
             return "";
         }
         return " \"" + new String(value, StandardCharsets.UTF_8) + "\"";
+    }
+
+    /**
+     * Returns timestamp as long value.
+     *
+     * @param timestampAsStr - timestamp as string.
+     * @return - timestamp as long value or -1 if timestampAsStr is null.
+     */
+    public static long parseTimestamp(String timestampAsStr) {
+        if (timestampAsStr == null) {
+            return -1;
+        }
+        return Long.parseLong(timestampAsStr);
+    }
+
+    /**
+     * Returns whether the record is older than timestamp.
+     *
+     * @param record - record.
+     * @param timestamp - timestamp.
+     * @return - true if the record is older than timestamp.
+     */
+    public static boolean isOldRecord(final Record record, final long timestamp) {
+        return !record.wasNotFound()
+                && timestamp != -1
+                && record.getTimestamp().after(new Date(timestamp));
+    }
+
+    /**
+     * Create new request by cloning and then adding myself parameter
+     * and timestamp parameter.
+     *
+     * @param request - request which should be used for creating the new one.
+     * @param timestamp - required timestamp parameter value.
+     * @return - cloned request (prepared for passing on).
+     */
+    public static Request prepareRequestForPassingOn(final Request request,
+                                                      final long timestamp) {
+        if (request.getParameter(MYSELF_PARAMETER) != null) {
+            return request;
+        }
+        final var newURI = request.getURI() + "&" + MYSELF_PARAMETER + "=&timestamp=" + timestamp;
+        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
+        for (int i = 0; i < request.getHeaderCount(); i++) {
+            res.addHeader(request.getHeaders()[i]);
+        }
+        res.setBody(request.getBody());
+        return res;
     }
 }

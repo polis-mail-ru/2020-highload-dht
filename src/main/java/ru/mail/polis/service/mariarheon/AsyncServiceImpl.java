@@ -40,9 +40,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final String RESP_ERR = "Response can't be sent: ";
     private static final String SERV_UN = "Service unavailable: ";
     private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
-    public static final String MYSELF_PARAMETER = "myself";
     private static final String TIMESTAMP_STR = " timestamp=";
-    private final static Random rnd = new Random();
+    private static final Random rnd = new Random();
 
     /**
      * Asynchronous Service Implementation.
@@ -115,16 +114,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void handleEntityRequest(final @Param(value = "id", required = true) String key,
                     final @Param(value = "replicas") String replicasParameter,
-                    final @Param(value = MYSELF_PARAMETER) String myself,
+                    final @Param(value = "myself") String myself,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
         final String timestampStr = request.getParameter("timestamp");
-        long timestamp;
-        if (timestampStr == null) {
-            timestamp = -1;
-        } else {
-            timestamp = Long.parseLong(timestampStr);
-        }
+        final long timestamp = Util.parseTimestamp(timestampStr);
         logger.info("\n" + sharding.getMe() + ": Start " + request.getMethodName()
                 + (replicasParameter == null ? "" : " " + replicasParameter)
                 + (myself == null ? "" : " myself")
@@ -168,7 +162,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 answer = processLocalRequest(key, request, timestamp);
             } else {
                 logger.info("\n" + sharding.getMe() + ": pass on to " + node + " (id=" + id + ")");
-                final var changedRequest = prepareRequestForPassingOn(request, timestamp);
+                final var changedRequest = Util.prepareRequestForPassingOn(request, timestamp);
                 answer = sharding.passOn(node, changedRequest);
             }
             answer.exceptionally(ex -> {
@@ -228,12 +222,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private boolean isOldRecord(final Record record, final long timestamp) {
-        return !record.wasNotFound()
-                && timestamp != -1
-                && record.getTimestamp().after(new Date(timestamp));
-    }
-
     private Response put(final String key,
                          final Request request,
                          final long timestamp) {
@@ -241,7 +229,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 + TIMESTAMP_STR + timestamp);
         try {
             final var existedRecord = Record.newFromDAO(dao, key);
-            if (isOldRecord(existedRecord, timestamp)) {
+            if (Util.isOldRecord(existedRecord, timestamp)) {
                 logger.info("\n" + sharding.getMe() + ": DAO-put skipped");
                 return new Response(Response.CREATED, Response.EMPTY);
             }
@@ -259,7 +247,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 + TIMESTAMP_STR + timestamp);
         try {
             final var existedRecord = Record.newFromDAO(dao, key);
-            if (isOldRecord(existedRecord, timestamp)) {
+            if (Util.isOldRecord(existedRecord, timestamp)) {
                 logger.info("\n" + sharding.getMe() + ": DAO-delete skipped");
                 return new Response(Response.ACCEPTED, Response.EMPTY);
             }
@@ -295,19 +283,5 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
         trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    private static Request prepareRequestForPassingOn(final Request request,
-                                                      final long timestamp) {
-        if (request.getParameter(MYSELF_PARAMETER) != null) {
-            return request;
-        }
-        final var newURI = request.getURI() + "&" + MYSELF_PARAMETER + "=&timestamp=" + timestamp;
-        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
-        for (int i = 0; i < request.getHeaderCount(); i++) {
-            res.addHeader(request.getHeaders()[i]);
-        }
-        res.setBody(request.getBody());
-        return res;
     }
 }
