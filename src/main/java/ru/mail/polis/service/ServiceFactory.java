@@ -18,8 +18,7 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-// import ru.mail.polis.service.manikhin.AsyncServiceImpl;
-import ru.mail.polis.service.manikhin.AsyncServiceImpl;
+
 import ru.mail.polis.service.manikhin.NettyAsyncServiceImpl;
 import ru.mail.polis.service.manikhin.Topology;
 
@@ -63,6 +62,5 @@ public final class ServiceFactory {
         final Topology nodes = new Topology(topology, "http://localhost:" + port);
 
         return new NettyAsyncServiceImpl(port, dao, nodes, countWorkers, 1024,100);
-        // return new AsyncServiceImpl(port, dao, nodes, countWorkers, 1024, 50);
     }
 }

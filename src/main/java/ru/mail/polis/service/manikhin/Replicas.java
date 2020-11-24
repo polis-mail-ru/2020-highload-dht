@@ -22,7 +22,7 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 public class Replicas {
     private final int ack;
     private final int from;
-    private final static Logger log = LoggerFactory.getLogger(Replicas.class);
+    private static final Logger log = LoggerFactory.getLogger(Replicas.class);
 
     public Replicas(final int ack, final int from) {
         this.ack = ack;
@@ -110,7 +110,6 @@ public class Replicas {
                 log.error("Something wrong with written some data.");
             }
         });
-        return;
     }
 
     public int getAck() {

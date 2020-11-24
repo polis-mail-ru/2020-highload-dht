@@ -1,21 +1,21 @@
 package ru.mail.polis.service.manikhin;
 
-import io.netty.channel.*;
 
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.Future;
 
-import org.apache.http.client.fluent.Request;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
 import ru.mail.polis.service.Service;
 
 
-import java.util.concurrent.*;
 
 public class NettyAsyncServiceImpl implements Service {
     private final DAO dao;
@@ -59,7 +59,6 @@ public class NettyAsyncServiceImpl implements Service {
         }
     }
 
-
     @Override
     public synchronized void stop() {
         try {
@@ -80,5 +79,4 @@ public class NettyAsyncServiceImpl implements Service {
             Thread.currentThread().interrupt();
         }
     }
-
 }

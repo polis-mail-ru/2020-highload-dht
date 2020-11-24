@@ -3,11 +3,16 @@ package ru.mail.polis.service.manikhin;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.QueryStringDecoder;
 
 import org.apache.http.client.fluent.Request;
 import org.apache.http.client.fluent.Response;
-
 import org.apache.http.util.EntityUtils;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -20,7 +25,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
+
 
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -29,6 +38,8 @@ public class ReplicasNettyRequests {
     private final Topology nodes;
     private final int timeout;
     private final Logger log = LoggerFactory.getLogger(ReplicasNettyRequests.class);
+    private static final String PROXY_HEADER = "X-OK-Proxy";
+    private static final String ENTITY_PATH = "/v0/entity?id=";
 
     ReplicasNettyRequests(final DAO dao, final Topology nodes, final int timeout) {
         this.dao = dao;
@@ -93,7 +104,8 @@ public class ReplicasNettyRequests {
                                    final int replicateAcks,
                                    @NotNull final ChannelHandlerContext ctx) {
         try {
-            HttpMethod method = request.method();
+            final HttpMethod method = request.method();
+
             if (HttpMethod.GET.equals(method)) {
                 multiGet(ctx, replicaClusters, request, replicateAcks);
                 return;
@@ -126,26 +138,26 @@ public class ReplicasNettyRequests {
                          @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request,
                          final int replicateAcks) throws IOException {
-        QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-        String id = decoder.parameters().get("id").get(0);
+        final QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
+        final String id = decoder.parameters().get("id").get(0);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         int asks = 0;
         final List<TimestampRecord> responses = new ArrayList<>();
-        final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
+        final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
 
         for (final String node : replicaNodes) {
             try {
                 FullHttpResponse respGet;
-                URI requestUri = new URI(node + "/v0/entity?id=" + id);
+                final URI requestUri = new URI(node + ENTITY_PATH + id);
 
                 if (node.equals(nodes.getId())) {
                     respGet = getTimestamp(key);
                 } else {
-                    Response response = Request.Get(requestUri).addHeader("X-OK-Proxy", "True")
+                    final Response response = Request.Get(requestUri).addHeader(PROXY_HEADER, "True")
                             .socketTimeout(timeout).execute();
 
-                    org.apache.http.HttpResponse r = response.returnResponse();
+                    final org.apache.http.HttpResponse r = response.returnResponse();
                     int codeStatus = r.getStatusLine().getStatusCode();
 
                     respGet = responseBuilder(codeStatus == 200 ? HttpResponseStatus.OK : HttpResponseStatus.NOT_FOUND,
@@ -186,12 +198,12 @@ public class ReplicasNettyRequests {
                          @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request,
                          final int replicateAcks) {
-        QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-        String id = decoder.parameters().get("id").get(0);
+        final QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
+        final String id = decoder.parameters().get("id").get(0);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         int asks = 0;
-        final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
+        final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
 
         for (final String node : replicaNodes) {
             try {
@@ -199,8 +211,8 @@ public class ReplicasNettyRequests {
                     putTimestamp(key, request);
                     asks++;
                 } else {
-                    URI requestUri = new URI(node + "/v0/entity?id=" + id);
-                    Response response = Request.Put(requestUri).addHeader("X-OK-Proxy", "True")
+                    final URI requestUri = new URI(node + ENTITY_PATH + id);
+                    final Response response = Request.Put(requestUri).addHeader(PROXY_HEADER, "True")
                             .socketTimeout(timeout).bodyByteArray(getRequestBody(request.content())).execute();
 
                     asks += response.returnResponse().getStatusLine().getStatusCode() == 201 ? 1 : 0;
@@ -230,11 +242,11 @@ public class ReplicasNettyRequests {
                             @NotNull final Set<String> replicaNodes,
                             @NotNull final FullHttpRequest request,
                             final int replicateAcks) {
-        QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-        String id = decoder.parameters().get("id").get(0);
+        final QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
+        final String id = decoder.parameters().get("id").get(0);
 
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
+        final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
         int asks = 0;
 
         for (final String node : replicaNodes) {
@@ -243,8 +255,8 @@ public class ReplicasNettyRequests {
                     deleteTimestamp(key);
                     asks++;
                 } else {
-                    URI requestUri = new URI(node + "/v0/entity?id=" + id);
-                    Response response = Request.Delete(requestUri).addHeader("X-OK-Proxy", "True")
+                    final URI requestUri = new URI(node + ENTITY_PATH + id);
+                    Response response = Request.Delete(requestUri).addHeader(PROXY_HEADER, "True")
                             .socketTimeout(timeout).execute();
                     asks += response.returnResponse().getStatusLine().getStatusCode() == 202 ? 1 : 0;
                 }
@@ -258,7 +270,6 @@ public class ReplicasNettyRequests {
         } else {
             sendNettyResponse(HttpResponseStatus.GATEWAY_TIMEOUT, new byte[0], ctx);
         }
-        return;
     }
 
     /**
@@ -299,7 +310,7 @@ public class ReplicasNettyRequests {
                                    final @NotNull byte[] bytes,
                                    final @NotNull ChannelHandlerContext ctx) {
 
-        FullHttpResponse response = new DefaultFullHttpResponse(
+        final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
                 Unpooled.copiedBuffer(bytes)
         );
@@ -313,10 +324,10 @@ public class ReplicasNettyRequests {
         });
     }
 
-    private FullHttpResponse responseBuilder (final @NotNull HttpResponseStatus status,
-                                              final @NotNull byte[] bytes) {
+    private FullHttpResponse responseBuilder(final @NotNull HttpResponseStatus status,
+                                             final @NotNull byte[] bytes) {
 
-        FullHttpResponse response = new DefaultFullHttpResponse(
+        final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
                 Unpooled.copiedBuffer(bytes)
         );

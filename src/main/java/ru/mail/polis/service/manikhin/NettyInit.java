@@ -15,7 +15,6 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
     private final int timeout;
     private final int queueSize;
 
-
     NettyInit(@NotNull final DAO dao, @NotNull final Topology nodes, final int queueSize, final int timeout) {
         this.nodes = nodes;
         this.timeout = timeout;
@@ -25,11 +24,11 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
 
     @Override
     protected void initChannel(SocketChannel ch) {
-        ChannelPipeline pipeline = ch.pipeline();
+        final ChannelPipeline pipeline = ch.pipeline();
 
         pipeline.addLast(new HttpRequestDecoder());
         pipeline.addLast(new HttpServerCodec());
-        pipeline.addLast(new HttpObjectAggregator(1024*512));
+        pipeline.addLast(new HttpObjectAggregator(1024 * 512));
         pipeline.addLast(new NettyRequests(dao, nodes, queueSize, timeout));
     }
 }

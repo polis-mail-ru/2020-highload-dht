@@ -4,7 +4,16 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.*;
+
+
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponseStatus;
+
+import io.netty.handler.codec.http.QueryStringDecoder;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -15,8 +24,12 @@ import ru.mail.polis.dao.manikhin.ByteConvertor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
+
 
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -36,7 +49,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final Topology nodes;
     private final ReplicasNettyRequests replHelper;
 
-    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int queueSize, final int timeout) {
+    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes,
+                         final int queueSize, final int timeout) {
         this.dao = dao;
         this.nodes = nodes;
 
@@ -46,13 +60,13 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
+    public void channelReadComplete(final ChannelHandlerContext ctx) {
         ctx.flush();
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) throws IOException {
-        String uri = msg.uri();
+    protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) throws IOException {
+        final String uri = msg.uri();
 
         if (uri.equals(STATUS_PATH)) {
             sendResponse(HttpResponseStatus.OK,
@@ -62,9 +76,9 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
         if (uri.contains(ENTITY_PATH)) {
             try {
-                QueryStringDecoder decoder = new QueryStringDecoder(uri);
-                List<String> id = decoder.parameters().get("id");
-                List<String> replicas = decoder.parameters().get("replicas");
+                final QueryStringDecoder decoder = new QueryStringDecoder(uri);
+                final List<String> id = decoder.parameters().get("id");
+                final List<String> replicas = decoder.parameters().get("replicas");
 
                 if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                     sendResponse(HttpResponseStatus.BAD_REQUEST,
@@ -91,7 +105,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                     replHelper.handleMultiRequest(replicaClusters, msg, replicaFactor.getAck(), ctx);
                     return;
                 } else {
-                    HttpMethod method = msg.method();
+                    final HttpMethod method = msg.method();
 
                     if (HttpMethod.GET.equals(method)) {
                         get(key, ctx);
@@ -119,8 +133,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
     }
 
-
-    private void get(@NotNull final ByteBuffer key, ChannelHandlerContext ctx) {
+    private void get(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx) {
         try {
             final ByteBuffer value = dao.get(key).duplicate();
             final byte[] valueArray = ByteConvertor.toArray(value);
@@ -139,7 +152,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     private void put(final ByteBuffer key, @NotNull FullHttpRequest request,
-                     ChannelHandlerContext ctx) {
+                     @NotNull final ChannelHandlerContext ctx) {
         try {
             dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content().retain())));
             sendResponse(HttpResponseStatus.CREATED, new byte[0], ctx);
@@ -151,7 +164,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     private void delete(@NotNull final ByteBuffer key,
-                        @NotNull ChannelHandlerContext ctx) {
+                        @NotNull final ChannelHandlerContext ctx) {
         try {
             dao.remove(key);
             sendResponse(HttpResponseStatus.ACCEPTED,
@@ -171,12 +184,11 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         return array;
     }
 
-
     private void sendResponse(final @NotNull HttpResponseStatus status,
-                               final @NotNull byte[] bytes,
-                               final @NotNull ChannelHandlerContext ctx) {
+                              final @NotNull byte[] bytes,
+                              final @NotNull ChannelHandlerContext ctx) {
 
-        FullHttpResponse response = new DefaultFullHttpResponse(
+        final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
                 Unpooled.copiedBuffer(bytes)
         );
