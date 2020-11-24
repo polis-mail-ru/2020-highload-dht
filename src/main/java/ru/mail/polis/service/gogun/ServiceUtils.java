@@ -7,6 +7,8 @@ import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
+import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.gogun.Value;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,6 +16,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -42,7 +45,6 @@ final class ServiceUtils {
 
         return body;
     }
-
 
     static void getCompletableFutureGetResponses(
             final List<CompletableFuture<Entry>> responsesFutureGet,
@@ -131,5 +133,48 @@ final class ServiceUtils {
         } catch (IOException e) {
             log.error("Error sending response in method get", e);
         }
+    }
+
+    static Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request, final DAO dao) {
+        try {
+            dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
+        } catch (IOException e) {
+            log.error("Internal server error put", e);
+            return new Response(Response.INTERNAL_ERROR);
+        }
+        return new Response(Response.CREATED, Response.EMPTY);
+    }
+
+    static Entry handleGet(@NotNull final ByteBuffer key, final DAO dao) {
+        final Value value;
+        Entry entry;
+        try {
+            value = dao.getValue(key);
+        } catch (IOException e) {
+            log.error("Internal server error get", e);
+            throw new IllegalStateException(e);
+        } catch (NoSuchElementException e) {
+            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
+            return entry;
+        }
+
+        if (value.isTombstone()) {
+            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.REMOVED);
+        } else {
+            entry = new Entry(Entry.ABSENT, ServiceUtils.getArray(value.getData()), Status.PRESENT);
+        }
+        entry.setTimestamp(value.getTimestamp());
+
+        return entry;
+    }
+
+    static Response handleDel(@NotNull final ByteBuffer key, final DAO dao) {
+        try {
+            dao.remove(key);
+        } catch (IOException e) {
+            log.error("Internal server error del", e);
+            return new Response(Response.INTERNAL_ERROR);
+        }
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 }

@@ -135,13 +135,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         if (request.getHeader(PROXY_HEADER) != null) {
             switch (request.getMethod()) {
                 case Request.METHOD_PUT:
-                    session.sendResponse(handlePut(key, request));
+                    session.sendResponse(ServiceUtils.handlePut(key, request, dao));
                     break;
                 case Request.METHOD_DELETE:
-                    session.sendResponse(handleDel(key));
+                    session.sendResponse(ServiceUtils.handleDel(key, dao));
                     break;
                 case Request.METHOD_GET:
-                    session.sendResponse(toProxyResponse(handleGet(key)));
+                    session.sendResponse(toProxyResponse(ServiceUtils.handleGet(key, dao)));
                     break;
                 default:
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -198,55 +198,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
     }
 
-    private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
-        try {
-            dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
-        } catch (IOException e) {
-            log.error("Internal server error put", e);
-            return new Response(Response.INTERNAL_ERROR);
-        }
-        return new Response(Response.CREATED, Response.EMPTY);
-    }
 
-    private Entry handleGet(@NotNull final ByteBuffer key) {
-        final Value value;
-        Entry entry;
-        try {
-            value = dao.getValue(key);
-        } catch (IOException e) {
-            log.error("Internal server error get", e);
-            throw new IllegalStateException(e);
-        } catch (NoSuchElementException e) {
-            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
-            return entry;
-        }
-
-        if (value.isTombstone()) {
-            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.REMOVED);
-        } else {
-            entry = new Entry(Entry.ABSENT, ServiceUtils.getArray(value.getData()), Status.PRESENT);
-        }
-        entry.setTimestamp(value.getTimestamp());
-
-        return entry;
-    }
-
-    private Response handleDel(@NotNull final ByteBuffer key) {
-        try {
-            dao.remove(key);
-        } catch (IOException e) {
-            log.error("Internal server error del", e);
-            return new Response(Response.INTERNAL_ERROR);
-        }
-        return new Response(Response.ACCEPTED, Response.EMPTY);
-    }
 
     private CompletableFuture<Entry> proxyGet(final String node, final Request request) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (topology.isMe(node)) {
-            return CompletableFuture.supplyAsync(() -> handleGet(key), executorService);
+            return CompletableFuture.supplyAsync(() -> ServiceUtils.handleGet(key, dao), executorService);
         }
 
         final HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
@@ -260,9 +219,9 @@ public class AsyncServiceImpl extends HttpServer implements Service {
 
         if (topology.isMe(node)) {
             if (request.getMethod() == Request.METHOD_PUT) {
-                return CompletableFuture.supplyAsync(() -> handlePut(key, request), executorService);
+                return CompletableFuture.supplyAsync(() -> ServiceUtils.handlePut(key, request, dao), executorService);
             } else {
-                return CompletableFuture.supplyAsync(() -> handleDel(key), executorService);
+                return CompletableFuture.supplyAsync(() -> ServiceUtils.handleDel(key, dao), executorService);
             }
         }
 
