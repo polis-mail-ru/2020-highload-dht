@@ -1,8 +1,6 @@
 package ru.mail.polis.service;
 
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import ru.mail.polis.service.ClusterTestBase;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -23,7 +21,7 @@ public class ReadRepairTest extends ClusterTestBase {
      * Checks whether ack nodes repairs the value if
      * the value is old.
      */
-    @RepeatedTest(10)
+    @Test
     public void threeNodeTest() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             int ackCount = 0;
