@@ -22,11 +22,14 @@ final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
                 }
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
-                        bytes -> new Entry(Long.parseLong(timestamp.get()), bytes, Entry.OK)
+                        bytes -> new Entry(Long.parseLong(timestamp.get()), bytes, Status.PRESENT)
                 );
             case 404:
-                final Entry entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Entry.NOT_FOUND);
-                timestamp.ifPresent(time -> entry.setTimestamp(Long.parseLong(time)));
+                final Entry entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
+                timestamp.ifPresent(time -> {
+                    entry.setTimestamp(Long.parseLong(time));
+                    entry.setStatus(Status.REMOVED);
+                });
                 return HttpResponse.BodySubscribers.replacing(entry);
             default:
                 throw new RejectedExecutionException("Incorrect status code");

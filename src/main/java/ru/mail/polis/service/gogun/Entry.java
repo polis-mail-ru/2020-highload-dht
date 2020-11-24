@@ -1,55 +1,35 @@
 package ru.mail.polis.service.gogun;
 
 import one.nio.http.Response;
+import org.jetbrains.annotations.NotNull;
 
 final class Entry {
     public static final long ABSENT = -1;
     public static final byte[] EMPTY_DATA = new byte[0];
-    public static final int CREATED = 201;
-    public static final int OK = 200;
-    public static final int ACCEPTED = 202;
-    public static final int NOT_FOUND = 404;
-    public static final int INTERNAL_ERROR = 500;
 
     private final byte[] body;
 
-    private final int status;
+    public Status getStatus() {
+        return status;
+    }
 
+    private Status status;
     private long timestamp;
 
     public Entry(final long timestamp,
                  final byte[] body,
-                 final int status) {
+                 final Status status) {
         this.timestamp = timestamp;
         this.body = body.clone();
         this.status = status;
-    }
-
-    public Entry() {
-        this.timestamp = ABSENT;
-        this.body = EMPTY_DATA;
-        this.status = 0;
-    }
-
-    public Entry(final byte[] body,
-                 final int status) {
-        this.timestamp = Entry.ABSENT;
-        this.body = body.clone();
-        this.status = status;
-    }
-
-    public Entry(final int status) {
-        this.timestamp = Entry.ABSENT;
-        this.body = EMPTY_DATA;
-        this.status = status;
-    }
-
-    public int getStatus() {
-        return status;
     }
 
     public void setTimestamp(final long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public void setStatus(final Status status) {
+        this.status = status;
     }
 
     public byte[] getBody() {
@@ -60,30 +40,21 @@ final class Entry {
         return timestamp;
     }
 
-    public Response getResponse() {
-        final Response response = new Response(getResponseCode(status), body);
-        if (timestamp != Entry.ABSENT) {
-            response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + timestamp);
-        }
-
-        return response;
-    }
-
-    private String getResponseCode(final int status) {
-        switch (status) {
-            case Entry.OK:
-                return Response.OK;
-            case Entry.CREATED:
-                return Response.CREATED;
-            case Entry.NOT_FOUND:
-                return Response.NOT_FOUND;
-            case Entry.INTERNAL_ERROR:
-                return Response.INTERNAL_ERROR;
-            case Entry.ACCEPTED:
-                return Response.ACCEPTED;
+    static Response toProxyResponse(@NotNull final Entry value) {
+        Response response;
+        switch (value.status) {
+            case PRESENT:
+                response = Response.ok(value.body);
+                response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + value.timestamp);
+                return response;
+            case REMOVED:
+                response = new Response(Response.NOT_FOUND, Response.EMPTY);
+                response.addHeader(AsyncServiceImpl.TIMESTAMP_HEADER + value.timestamp);
+                return response;
+            case ABSENT:
+                return new Response(Response.NOT_FOUND, Response.EMPTY);
             default:
-                return null;
+                throw new IllegalStateException("Unknown value response value state");
         }
     }
-
 }

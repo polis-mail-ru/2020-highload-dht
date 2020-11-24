@@ -16,10 +16,11 @@ import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.security.InvalidParameterException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -34,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static ru.mail.polis.service.gogun.Entry.toProxyResponse;
+import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
@@ -46,7 +49,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private final DAO dao;
     private final Hashing<String> topology;
     @NotNull
-    private ReplicasFactor replicasFactor;
+    private final ReplicasFactor replicasFactor;
     private final ExecutorService executorService;
     @NotNull
     private final HttpClient client;
@@ -132,13 +135,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         if (request.getHeader(PROXY_HEADER) != null) {
             switch (request.getMethod()) {
                 case Request.METHOD_PUT:
-                    session.sendResponse(handlePut(key, request).getResponse());
-                    break;
-                case Request.METHOD_GET:
-                    session.sendResponse(handleGet(key).getResponse());
+                    session.sendResponse(handlePut(key, request));
                     break;
                 case Request.METHOD_DELETE:
-                    session.sendResponse(handleDel(key).getResponse());
+                    session.sendResponse(handleDel(key));
+                    break;
+                case Request.METHOD_GET:
+                    session.sendResponse(toProxyResponse(handleGet(key)));
                     break;
                 default:
                     session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -147,10 +150,13 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return;
         }
 
-        final String replicaFactor = request.getParameter(REPLICA_FACTOR_PARAM);
+        final String replicaFactorParameter = request.getParameter(REPLICA_FACTOR_PARAM);
+        final ReplicasFactor replicasFactor;
         try {
-            if (replicaFactor != null) {
-                replicasFactor = ReplicasFactor.parseReplicaFactor(replicaFactor);
+            if (replicaFactorParameter != null) {
+                replicasFactor = ReplicasFactor.parseReplicaFactor(replicaFactorParameter);
+            } else {
+                replicasFactor = this.replicasFactor;
             }
         } catch (IllegalArgumentException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -169,39 +175,55 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             return;
         }
+        if (request.getMethod() == Request.METHOD_GET) {
+            final List<CompletableFuture<Entry>> responsesFutureGet = replNodes.stream()
+                    .map(node -> proxyGet(node, request))
+                    .collect(Collectors.toList());
+            Futures.atLeastAsync(replicasFactor.getAck(), responsesFutureGet).whenCompleteAsync((v, t) -> {
+                try {
+                    if (v == null) {
+                        session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                        return;
+                    }
 
-        final List<CompletableFuture<Entry>> responsesFuture = replNodes.stream()
-                .map(node -> proxy(node, request))
-                .collect(Collectors.toCollection(ArrayList::new));
+                    final EntryMerger<Entry> entryMerger = new EntryMerger<>(v, replicasFactor.getAck());
 
-        Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
-            try {
-                if (v == null) {
-                    session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
-                    return;
+                    session.sendResponse(entryMerger.mergeGetResponses());
+                } catch (IOException e) {
+                    log.error("error sending response", e);
                 }
+            }, executorService).isCancelled();
+        } else {
+            List<CompletableFuture<Response>> responsesFuture = replNodes.stream()
+                    .map(node -> proxyDeletePut(node, request))
+                    .collect(Collectors.toList());
+            Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
+                try {
+                    if (v == null) {
+                        session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
+                        return;
+                    }
 
-                final EntryMerger entryMerger = new EntryMerger(v, replicasFactor.getAck());
+                    final EntryMerger<Response> entryMerger = new EntryMerger<>(v, replicasFactor.getAck());
 
-                ServiceUtils.getCompletableFutureOnResponse(entryMerger::mergePutResponses,
-                        entryMerger::mergeGetResponses,
-                        entryMerger::mergeDeleteResponses,
-                        request.getMethod(), session);
-            } catch (IOException e) {
-                log.error("error sending response", e);
-            }
-        }, executorService).isCancelled();
+                    session.sendResponse(entryMerger.mergePutDeleteResponses(request));
+
+                } catch (IOException e) {
+                    log.error("error sending response", e);
+                }
+            }, executorService).isCancelled();
+        }
+
     }
 
-    private Entry handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
+    private Response handlePut(@NotNull final ByteBuffer key, @NotNull final Request request) {
         try {
             dao.upsert(key, ServiceUtils.getBuffer(request.getBody()));
         } catch (IOException e) {
             log.error("Internal server error put", e);
-            return new Entry(Entry.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR);
         }
-
-        return new Entry(Entry.CREATED);
+        return new Response(Response.CREATED, Response.EMPTY);
     }
 
     private Entry handleGet(@NotNull final ByteBuffer key) {
@@ -211,52 +233,75 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
-            return new Entry(Entry.INTERNAL_ERROR);
+            throw new IllegalStateException("internal");
         } catch (NoSuchElementException e) {
-            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Entry.NOT_FOUND);
+            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
             return entry;
         }
 
         if (value.isTombstone()) {
-            entry = new Entry(Entry.EMPTY_DATA, Entry.NOT_FOUND);
+            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.REMOVED);
         } else {
-            entry = new Entry(ServiceUtils.getArray(value.getData()), Entry.OK);
+            entry = new Entry(Entry.ABSENT, ServiceUtils.getArray(value.getData()), Status.PRESENT);
         }
         entry.setTimestamp(value.getTimestamp());
 
         return entry;
     }
 
-    private Entry handleDel(@NotNull final ByteBuffer key) {
+    private Response handleDel(@NotNull final ByteBuffer key) {
         try {
             dao.remove(key);
         } catch (IOException e) {
             log.error("Internal server error del", e);
-            return new Entry(Entry.INTERNAL_ERROR);
+            return new Response(Response.INTERNAL_ERROR);
         }
-
-        return new Entry(Entry.ACCEPTED);
+        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
-    private CompletableFuture<Entry> proxy(final String node, final Request request) {
+    private CompletableFuture<Entry> proxyGet(final String node, final Request request) {
         final String id = request.getParameter("id=");
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (topology.isMe(node)) {
-            return ServiceUtils.getCompletableFutureOnResponse(
-                    () -> handlePut(key, request),
-                    () -> handleGet(key),
-                    () -> handleDel(key),
-                    request.getMethod(),
-                    executorService);
+            return CompletableFuture.supplyAsync(() -> handleGet(key), executorService);
         }
 
-        return ServiceUtils.getCompletableFutureOnResponse(
-                node,
-                id,
-                request,
-                client,
-                executorService);
+        HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
+        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                .thenApplyAsync(HttpResponse::body, executorService);
+    }
+
+    private CompletableFuture<Response> proxyDeletePut(final String node, final Request request) {
+        final String id = request.getParameter("id=");
+        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
+
+        if (topology.isMe(node)) {
+            switch (request.getMethod()) {
+                case Request.METHOD_PUT:
+                    return CompletableFuture.supplyAsync(() -> handlePut(key, request), executorService);
+                case Request.METHOD_DELETE:
+                    return CompletableFuture.supplyAsync(() -> handleDel(key), executorService);
+            }
+        }
+
+        HttpRequest requestForReplica;
+        switch (request.getMethod()) {
+            case Request.METHOD_PUT:
+                requestForReplica = requestForRepl(node, id)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(request.getBody()))
+                        .build();
+                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync((s) -> new Response(Response.CREATED, Response.EMPTY), executorService);
+            case Request.METHOD_DELETE:
+                requestForReplica = requestForRepl(node, id)
+                        .DELETE()
+                        .build();
+                return client.sendAsync(requestForReplica, PutDeleteBodyHandler.INSTANCE)
+                        .thenApplyAsync(s -> new Response(Response.ACCEPTED, Response.EMPTY), executorService);
+            default:
+                throw new IllegalStateException("Wrong request method");
+        }
     }
 
     /**

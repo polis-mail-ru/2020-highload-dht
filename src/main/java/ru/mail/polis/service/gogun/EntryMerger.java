@@ -1,15 +1,16 @@
 package ru.mail.polis.service.gogun;
 
+import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 
-public class EntryMerger {
+public class EntryMerger<T> {
 
     private final int ack;
     @NotNull
-    private final Collection<Entry> entries;
+    private final Collection<T> entries;
 
     /**
      * This class provides merging all responses from nodes to one, that client will get.
@@ -17,10 +18,9 @@ public class EntryMerger {
      * @param entries list of responses
      * @param ack     number of responses to say, that answer is correct
      */
-    public EntryMerger(@NotNull final Collection<Entry> entries, final int ack) {
+    public EntryMerger(@NotNull final Collection<T> entries, final int ack) {
         this.entries = entries;
         this.ack = ack;
-        this.entries.removeIf((e) -> e.getStatus() == 500);
     }
 
     @NotNull
@@ -40,47 +40,37 @@ public class EntryMerger {
         }
 
         int notFoundResponsesCount = 0;
-        Entry latestResponse = new Entry();
+        Entry latestResponse = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
         latestResponse.setTimestamp(Long.MIN_VALUE);
-        for (final Entry entry : entries) {
-            final long timestamp = entry.getTimestamp();
-            switch (entry.getStatus()) {
-                case 404:
-                    if (timestamp == Entry.ABSENT) {
-                        notFoundResponsesCount++;
-                    } else {
-                        latestResponse = getLatest(entry, latestResponse, timestamp);
-                    }
-                    break;
-                case 200:
-                    latestResponse = getLatest(entry, latestResponse, timestamp);
-                    break;
-                default:
-                    break;
+        for (final T entry : entries) {
+            final long timestamp = ((Entry) entry).getTimestamp();
+            if (timestamp == Entry.ABSENT) {
+                notFoundResponsesCount++;
+            } else {
+                latestResponse = getLatest(((Entry) entry), latestResponse, timestamp);
             }
         }
 
         if (entries.size() == notFoundResponsesCount
-                || latestResponse.getStatus() == 404) {
+                || latestResponse.getStatus() == Status.REMOVED) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
         return Response.ok(latestResponse.getBody());
     }
 
-    Response mergePutResponses() {
+    Response mergePutDeleteResponses(@NotNull final Request request) {
         if (entries.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
-
-        return new Response(Response.CREATED, Response.EMPTY);
-    }
-
-    Response mergeDeleteResponses() {
-        if (entries.size() < ack) {
-            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        switch (request.getMethod()) {
+            case Request.METHOD_PUT:
+                return new Response(Response.CREATED, Response.EMPTY);
+            case Request.METHOD_DELETE:
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            default:
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
 
-        return new Response(Response.ACCEPTED, Response.EMPTY);
     }
 }
