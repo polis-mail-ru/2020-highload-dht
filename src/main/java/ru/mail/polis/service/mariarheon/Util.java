@@ -76,7 +76,7 @@ public final class Util {
         if (timestampAsStr == null) {
             return -1;
         }
-        return Long.parseLong(timestampAsStr);
+        return Long.parseLong(timestampAsStr.substring(1));
     }
 
     /**
