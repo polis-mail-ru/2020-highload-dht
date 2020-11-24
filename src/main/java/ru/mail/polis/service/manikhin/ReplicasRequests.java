@@ -185,10 +185,7 @@ public class ReplicasRequests {
                     asks++;
                 } else {
                     final Response resp = clusterClients.get(node).invoke(request);
-
-                    if (resp.getStatus() == 201) {
-                        asks++;
-                    }
+                    asks += resp.getStatus() == 201 ? 1 : 0;
                 }
             } catch (IOException | HttpException | PoolException | InterruptedException error) {
                 log.error("multiPut error", error);
@@ -226,15 +223,13 @@ public class ReplicasRequests {
                     asks++;
                 } else {
                     final Response resp = clusterClients.get(node).invoke(request);
-
-                    if (resp.getStatus() == 202) {
-                        asks++;
-                    }
+                    asks += resp.getStatus() == 202 ? 1 : 0;
                 }
             } catch (IOException | HttpException | InterruptedException | PoolException error) {
                 log.warn("multiDelete error: ", error);
             }
         }
+
         if (asks >= replicateAcks || isForwardedRequest) {
             sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
         } else {
