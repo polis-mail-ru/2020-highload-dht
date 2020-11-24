@@ -12,7 +12,7 @@ final class PutDeleteBodyHandler implements HttpResponse.BodyHandler<Void> {
 
     @Override
     public HttpResponse.BodySubscriber<Void> apply(final HttpResponse.ResponseInfo responseInfo) {
-        int status = responseInfo.statusCode();
+        final int status = responseInfo.statusCode();
         if (status != 201 && status != 202) {
             throw new RejectedExecutionException("cant");
         }

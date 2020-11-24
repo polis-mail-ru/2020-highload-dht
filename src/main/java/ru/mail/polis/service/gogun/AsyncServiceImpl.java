@@ -151,12 +151,12 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
 
         final String replicaFactorParameter = request.getParameter(REPLICA_FACTOR_PARAM);
-        final ReplicasFactor replicasFactor;
+        final ReplicasFactor localReplicasFactor;
         try {
-            if (replicaFactorParameter != null) {
-                replicasFactor = ReplicasFactor.parseReplicaFactor(replicaFactorParameter);
+            if (replicaFactorParameter == null) {
+                localReplicasFactor = this.replicasFactor;
             } else {
-                replicasFactor = this.replicasFactor;
+                localReplicasFactor = ReplicasFactor.parseReplicaFactor(replicaFactorParameter);
             }
         } catch (IllegalArgumentException e) {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -164,7 +164,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         final Set<String> replNodes;
         try {
-            replNodes = topology.primaryFor(key, replicasFactor.getFrom());
+            replNodes = topology.primaryFor(key, localReplicasFactor.getFrom());
         } catch (InvalidParameterException e) {
             log.error("Wrong replica factor", e);
             session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
@@ -179,14 +179,14 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             final List<CompletableFuture<Entry>> responsesFutureGet = replNodes.stream()
                     .map(node -> proxyGet(node, request))
                     .collect(Collectors.toList());
-            Futures.atLeastAsync(replicasFactor.getAck(), responsesFutureGet).whenCompleteAsync((v, t) -> {
+            Futures.atLeastAsync(localReplicasFactor.getAck(), responsesFutureGet).whenCompleteAsync((v, t) -> {
                 try {
                     if (v == null) {
                         session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
                         return;
                     }
 
-                    final EntryMerger<Entry> entryMerger = new EntryMerger<>(v, replicasFactor.getAck());
+                    final EntryMerger<Entry> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
 
                     session.sendResponse(entryMerger.mergeGetResponses());
                 } catch (IOException e) {
@@ -194,17 +194,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 }
             }, executorService).isCancelled();
         } else {
-            List<CompletableFuture<Response>> responsesFuture = replNodes.stream()
+            final List<CompletableFuture<Response>> responsesFuture = replNodes.stream()
                     .map(node -> proxyDeletePut(node, request))
                     .collect(Collectors.toList());
-            Futures.atLeastAsync(replicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
+            Futures.atLeastAsync(localReplicasFactor.getAck(), responsesFuture).whenCompleteAsync((v, t) -> {
                 try {
                     if (v == null) {
                         session.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
                         return;
                     }
 
-                    final EntryMerger<Response> entryMerger = new EntryMerger<>(v, replicasFactor.getAck());
+                    final EntryMerger<Response> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
 
                     session.sendResponse(entryMerger.mergePutDeleteResponses(request));
 
@@ -233,7 +233,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             value = dao.getValue(key);
         } catch (IOException e) {
             log.error("Internal server error get", e);
-            throw new IllegalStateException("internal");
+            throw new IllegalStateException(e);
         } catch (NoSuchElementException e) {
             entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
             return entry;
@@ -267,7 +267,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             return CompletableFuture.supplyAsync(() -> handleGet(key), executorService);
         }
 
-        HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
+        final HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
         return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
                 .thenApplyAsync(HttpResponse::body, executorService);
     }
@@ -277,11 +277,10 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (topology.isMe(node)) {
-            switch (request.getMethod()) {
-                case Request.METHOD_PUT:
-                    return CompletableFuture.supplyAsync(() -> handlePut(key, request), executorService);
-                case Request.METHOD_DELETE:
-                    return CompletableFuture.supplyAsync(() -> handleDel(key), executorService);
+            if (request.getMethod() == Request.METHOD_PUT) {
+                return CompletableFuture.supplyAsync(() -> handlePut(key, request), executorService);
+            } else {
+                return CompletableFuture.supplyAsync(() -> handleDel(key), executorService);
             }
         }
 

@@ -6,13 +6,7 @@ import org.jetbrains.annotations.NotNull;
 final class Entry {
     public static final long ABSENT = -1;
     public static final byte[] EMPTY_DATA = new byte[0];
-
     private final byte[] body;
-
-    public Status getStatus() {
-        return status;
-    }
-
     private Status status;
     private long timestamp;
 
@@ -22,6 +16,10 @@ final class Entry {
         this.timestamp = timestamp;
         this.body = body.clone();
         this.status = status;
+    }
+
+    public Status getStatus() {
+        return status;
     }
 
     public void setTimestamp(final long timestamp) {
