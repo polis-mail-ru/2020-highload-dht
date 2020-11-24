@@ -10,7 +10,6 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
-
 import org.apache.http.client.fluent.Request;
 import org.apache.http.client.fluent.Response;
 import org.apache.http.util.EntityUtils;
@@ -157,7 +156,7 @@ public class ReplicasNettyRequests {
                             .socketTimeout(timeout).execute();
 
                     final org.apache.http.HttpResponse r = response.returnResponse();
-                    int codeStatus = r.getStatusLine().getStatusCode();
+                    final int codeStatus = r.getStatusLine().getStatusCode();
 
                     respGet = responseBuilder(codeStatus == 200 ? HttpResponseStatus.OK : HttpResponseStatus.NOT_FOUND,
                               EntityUtils.toByteArray(r.getEntity()));
@@ -182,7 +181,6 @@ public class ReplicasNettyRequests {
         } else {
             sendNettyResponse(HttpResponseStatus.GATEWAY_TIMEOUT, new byte[0], ctx);
         }
-        return;
     }
 
     /**
@@ -226,7 +224,6 @@ public class ReplicasNettyRequests {
         } else {
             sendNettyResponse(HttpResponseStatus.GATEWAY_TIMEOUT, new byte[0], ctx);
         }
-        return;
     }
 
     /**
@@ -255,7 +252,7 @@ public class ReplicasNettyRequests {
                     asks++;
                 } else {
                     final URI requestUri = new URI(node + ENTITY_PATH + id);
-                    Response response = Request.Delete(requestUri).addHeader(PROXY_HEADER, "True")
+                    final Response response = Request.Delete(requestUri).addHeader(PROXY_HEADER, "True")
                             .socketTimeout(timeout).execute();
                     asks += response.returnResponse().getStatusLine().getStatusCode() == 202 ? 1 : 0;
                 }
@@ -286,14 +283,11 @@ public class ReplicasNettyRequests {
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
 
         if (mergedResp.isValue()) {
-            if (!isForwardedRequest && replicaNodes.size() == 1) {
+            if (!isForwardedRequest && replicaNodes.size() >= 1) {
                 sendNettyResponse(HttpResponseStatus.OK, mergedResp.getValueAsBytes(), ctx);
                 return;
             } else if (isForwardedRequest && replicaNodes.size() == 1) {
                 sendNettyResponse(HttpResponseStatus.OK, mergedResp.toBytes(), ctx);
-                return;
-            } else {
-                sendNettyResponse(HttpResponseStatus.OK, mergedResp.getValueAsBytes(), ctx);
                 return;
             }
         } else if (mergedResp.isDeleted()) {

@@ -98,7 +98,7 @@ public class Replicas {
     private static void sendResponse(final @NotNull byte[] bytes,
                                      final @NotNull ChannelHandlerContext ctx) {
 
-        FullHttpResponse response = new DefaultFullHttpResponse(
+        final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, HttpResponseStatus.BAD_REQUEST,
                 Unpooled.copiedBuffer(bytes)
         );

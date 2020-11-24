@@ -2,12 +2,11 @@ package ru.mail.polis.service.manikhin;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.concurrent.Future;
-
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +50,8 @@ public class NettyAsyncServiceImpl implements Service {
 
             cf = serverBootstrap.bind(port).sync();
 
-        } catch (InterruptedException e) {
-            log.warn("Interrupted.");
+        } catch (InterruptedException error) {
+            log.error("Interrupted error: ", error);
         }
     }
 
