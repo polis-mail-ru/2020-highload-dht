@@ -4,10 +4,7 @@ import one.nio.http.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -109,7 +106,7 @@ public class ReplicasResponseComposer {
      * @param key - key of the record which should be repaired on nodes.
      * @return - data necessary for repairing nodes.
      */
-    public ReadRepairInfo getReadRepairInfo(String key) {
+    public ReadRepairInfo getReadRepairInfo(final String key) {
         prepareResponse();
         if (preparedResponse.getStatus() != 200) {
             return null;
@@ -119,7 +116,7 @@ public class ReplicasResponseComposer {
         logger.info("\n#answer ="
                 + Util.loggingValue(record.getValue())
                 + " timestamp=(" + record.getTimestamp().getTime() + ")");
-        for (var recordByNode : goodAnswers.entrySet()) {
+        for (final var recordByNode : goodAnswers.entrySet()) {
             final var node = recordByNode.getKey();
             final var answerFromNode = recordByNode.getValue();
             logger.info("\n#answer from " + node + " ="

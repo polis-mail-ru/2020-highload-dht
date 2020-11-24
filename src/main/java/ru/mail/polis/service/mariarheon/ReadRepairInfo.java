@@ -12,7 +12,7 @@ public class ReadRepairInfo {
      *
      * @param rightRecord - record with the newest value, which should be used for repairing.
      */
-    public ReadRepairInfo(Record rightRecord) {
+    public ReadRepairInfo(final Record rightRecord) {
         this.rightRecord = rightRecord;
         this.nodes = new HashSet<>();
     }
@@ -22,7 +22,7 @@ public class ReadRepairInfo {
      *
      * @param node - node.
      */
-    public void addNode(String node) {
+    public void addNode(final String node) {
         nodes.add(node);
     }
 

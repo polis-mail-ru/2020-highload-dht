@@ -1,5 +1,6 @@
 package ru.mail.polis.service.mariarheon;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -41,8 +42,14 @@ public final class Util {
         return left.length - right.length;
     }
 
+    private static boolean preventLoggingValue() {
+        return true;
+    }
+
     public static String loggingValue(final byte[] value) {
-        // return new String(value, StandardCharsets.UTF_8);
-        return "";
+        if (preventLoggingValue()) {
+            return "";
+        }
+        return " \"" + new String(value, StandardCharsets.UTF_8) + "\"";
     }
 }

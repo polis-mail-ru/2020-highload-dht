@@ -50,7 +50,7 @@ public final class Record {
      * @param timestamp - value of time of creation.
      * @return - generated record.
      */
-    public static Record newRecord(final String key, final byte[] value, long timestamp) {
+    public static Record newRecord(final String key, final byte[] value, final long timestamp) {
         final var argKey = key.getBytes(StandardCharsets.UTF_8);
         final var argValue = Arrays.copyOf(value, value.length);
         final var argState = RecordState.UNDEFINED;
