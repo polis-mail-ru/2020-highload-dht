@@ -4,15 +4,12 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-
-
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-
 import io.netty.handler.codec.http.QueryStringDecoder;
 
 import org.jetbrains.annotations.NotNull;
@@ -30,9 +27,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 
-
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
-
 
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
     private final DAO dao;
@@ -78,7 +73,6 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             try {
                 final QueryStringDecoder decoder = new QueryStringDecoder(uri);
                 final List<String> id = decoder.parameters().get("id");
-                final List<String> replicas = decoder.parameters().get("replicas");
 
                 if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                     sendResponse(HttpResponseStatus.BAD_REQUEST,
@@ -90,6 +84,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 final boolean isForwardedRequest = msg.headers().contains("X-OK-Proxy");
 
                 if (isForwardedRequest || clusterSize > 1) {
+                    final List<String> replicas = decoder.parameters().get("replicas");
                     final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica,
                             clusterSize);
 
@@ -151,7 +146,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
     }
 
-    private void put(final ByteBuffer key, @NotNull FullHttpRequest request,
+    private void put(final ByteBuffer key, @NotNull final FullHttpRequest request,
                      @NotNull final ChannelHandlerContext ctx) {
         try {
             dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content().retain())));
