@@ -26,17 +26,18 @@ public class ChunkIterator implements Iterator<byte[]> {
     @Override
     public byte[] next() {
         final Record record = records.next();
-        final ByteBuffer key = record.getKey();
-        final ByteBuffer value = record.getValue();
-        final int dataLength = key.remaining() + value.remaining() + SEP.length;
-        final byte[] data = toByteArray(ByteBuffer.allocate(dataLength).put(key).put(SEP).put(value).position(0));
+        final byte[] key = toByteArray(record.getKey());
+        final byte[] value = toByteArray(record.getValue());
+        final int dataLength = key.length + value.length + SEP.length;
         final byte[] chunkLength = Integer.toHexString(dataLength).getBytes(StandardCharsets.UTF_8);
 
         return toByteArray(
-                ByteBuffer.allocate(data.length + 2 * CRLF.length + chunkLength.length)
+                ByteBuffer.allocate(dataLength + 2 * CRLF.length + chunkLength.length)
                         .put(chunkLength)
                         .put(CRLF)
-                        .put(data)
+                        .put(key)
+                        .put(SEP)
+                        .put(value)
                         .put(CRLF)
                         .position(0)
         );
