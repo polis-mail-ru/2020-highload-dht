@@ -81,10 +81,9 @@ abstract public class TestBase {
 
     @NotNull
     protected static Instant randomExpire() {
-        long startSeconds = Instant.now().minus(Duration.ofHours(1)).getEpochSecond();
-        long endSeconds = Instant.now().plus(Duration.ofHours(1)).getEpochSecond();
-        long random = ThreadLocalRandom
-                .current()
+        final long startSeconds = Instant.now().minus(Duration.ofHours(1)).getEpochSecond();
+        final long endSeconds = Instant.now().plus(Duration.ofHours(1)).getEpochSecond();
+        final long random = ThreadLocalRandom.current()
                 .nextLong(startSeconds, endSeconds);
         return Instant.ofEpochSecond(random);
     }

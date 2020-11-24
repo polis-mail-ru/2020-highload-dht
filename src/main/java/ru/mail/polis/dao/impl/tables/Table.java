@@ -5,9 +5,6 @@ import ru.mail.polis.dao.impl.models.Cell;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 import java.util.Iterator;
 
 public interface Table {
@@ -19,7 +16,8 @@ public interface Table {
 
     void upsert(@NotNull final ByteBuffer key,
                 @NotNull final ByteBuffer value,
-                @NotNull final Instant expire) throws IOException;
+                final long seconds,
+                final int nanos) throws IOException;
 
     void remove(@NotNull final ByteBuffer key) throws IOException;
 

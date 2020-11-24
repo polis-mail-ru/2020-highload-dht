@@ -17,6 +17,7 @@ public final class Cell implements Comparable<Cell> {
         this.value = value;
     }
 
+    @NotNull
     public ByteBuffer getKey() {
         return key.duplicate().asReadOnlyBuffer();
     }

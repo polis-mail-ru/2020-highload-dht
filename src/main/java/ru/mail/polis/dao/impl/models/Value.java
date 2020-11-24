@@ -22,10 +22,11 @@ public final class Value {
      */
     public Value(final long timestamp,
                  @Nullable final ByteBuffer data,
-                 final Instant expire) {
+                 final long seconds,
+                 final int nanos) {
         this.timestamp = timestamp;
         this.data = data;
-        this.expire = expire;
+        this.expire = Instant.ofEpochSecond(seconds, nanos);
     }
 
     /**
@@ -40,10 +41,12 @@ public final class Value {
     }
 
     public static Value of(@NotNull final ByteBuffer data,
-                           final Instant expire) {
+                           final long seconds,
+                           final int nanos) {
         return new Value(System.currentTimeMillis(),
                 data.duplicate().asReadOnlyBuffer(),
-                expire);
+                seconds,
+                nanos);
     }
 
     public boolean isTombstone() {

@@ -13,7 +13,6 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -126,7 +125,7 @@ public final class SSTable implements Table {
                 return new Cell(keyBuffer.duplicate().rewind(),
                         new Value(timestamp,
                                 data.duplicate().rewind(),
-                                Instant.ofEpochSecond(expireSeconds, expireNanos)));
+                                expireSeconds, expireNanos));
             }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
@@ -194,7 +193,8 @@ public final class SSTable implements Table {
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value,
-                       @NotNull final Instant expire) {
+                       final long seconds,
+                       final int nanos) {
         throw new UnsupportedOperationException();
     }
 
