@@ -10,7 +10,7 @@ final class Entry {
     private Status status;
     private long timestamp;
 
-    public Entry(final long timestamp,
+    private Entry(final long timestamp,
                  final byte[] body,
                  final Status status) {
         this.timestamp = timestamp;
@@ -18,12 +18,20 @@ final class Entry {
         this.status = status;
     }
 
-    public Status getStatus() {
-        return status;
+    public static Entry absent() {
+        return new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
     }
 
-    public void setTimestamp(final long timestamp) {
-        this.timestamp = timestamp;
+    public static Entry removed(final long timestamp) {
+        return new Entry(timestamp, Entry.EMPTY_DATA, Status.REMOVED);
+    }
+
+    public static Entry present(final long timestamp, final byte[] data) {
+        return new Entry(timestamp, data, Status.PRESENT);
+    }
+
+    public Status getStatus() {
+        return status;
     }
 
     public void setStatus(final Status status) {
@@ -54,5 +62,11 @@ final class Entry {
             default:
                 throw new IllegalStateException("Unknown value response value state");
         }
+    }
+
+    public enum Status {
+        PRESENT,
+        ABSENT,
+        REMOVED
     }
 }

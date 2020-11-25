@@ -14,7 +14,7 @@ final class PutDeleteBodyHandler implements HttpResponse.BodyHandler<Void> {
     public HttpResponse.BodySubscriber<Void> apply(final HttpResponse.ResponseInfo responseInfo) {
         final int status = responseInfo.statusCode();
         if (status != 201 && status != 202) {
-            throw new RejectedExecutionException("cant");
+            throw new RejectedExecutionException("can`t handle request");
         }
         return HttpResponse.BodySubscribers.discarding();
     }
