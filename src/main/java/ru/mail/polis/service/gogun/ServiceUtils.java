@@ -193,7 +193,7 @@ final class ServiceUtils {
         }
 
         if (entries.size() == notFoundResponsesCount
-                || Entry.isRemoved(latestResponse)) {
+                || latestResponse.isRemoved()) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 

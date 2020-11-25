@@ -32,12 +32,8 @@ final class Entry {
         return new Entry(timestamp, data, Status.PRESENT);
     }
 
-    public static boolean isRemoved(final Entry latestResponse) {
-        return latestResponse.getStatus() == Entry.Status.REMOVED;
-    }
-
-    public Status getStatus() {
-        return status;
+    public boolean isRemoved() {
+        return this.status == Entry.Status.REMOVED;
     }
 
     public byte[] getBody() {
