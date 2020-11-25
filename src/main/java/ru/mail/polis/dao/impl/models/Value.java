@@ -12,6 +12,7 @@ public final class Value {
     private final long timestamp;
     @Nullable
     private final ByteBuffer data;
+    @Nullable
     private final Instant expire;
 
     /**
@@ -26,7 +27,10 @@ public final class Value {
                  final int nanos) {
         this.timestamp = timestamp;
         this.data = data;
-        this.expire = Instant.ofEpochSecond(seconds, nanos);
+        this.expire = (seconds > Instant.MAX.getEpochSecond() || nanos > Instant.MAX.getNano())
+                 || (seconds < 0 || nanos < 0)
+                ? null
+                : Instant.ofEpochSecond(seconds, nanos);
     }
 
     /**
@@ -44,7 +48,7 @@ public final class Value {
                            final long seconds,
                            final int nanos) {
         return new Value(System.currentTimeMillis(),
-                data.duplicate().asReadOnlyBuffer(),
+                data.duplicate(),
                 seconds,
                 nanos);
     }
@@ -58,13 +62,14 @@ public final class Value {
     }
 
     public ByteBuffer getData() {
-        return data == null ? null : data.duplicate().asReadOnlyBuffer();
+        return data == null ? null : data.duplicate();
     }
 
     public long getTimestamp() {
         return timestamp;
     }
 
+    @Nullable
     public Instant getExpire() {
         return expire;
     }

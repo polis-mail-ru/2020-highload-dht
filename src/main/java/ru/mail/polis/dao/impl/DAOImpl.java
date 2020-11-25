@@ -99,8 +99,8 @@ public class DAOImpl implements DAO {
         final boolean isToFlush;
         lock.readLock().lock();
         try {
-            tableSet.memTable.upsert(key.duplicate().asReadOnlyBuffer(),
-                    value.duplicate().asReadOnlyBuffer(),
+            tableSet.memTable.upsert(key.duplicate(),
+                    value.duplicate(),
                     expire.getEpochSecond(), expire.getNano());
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
         } finally {
@@ -116,7 +116,7 @@ public class DAOImpl implements DAO {
         final boolean isToFlush;
         lock.readLock().lock();
         try {
-            tableSet.memTable.remove(key.duplicate().asReadOnlyBuffer());
+            tableSet.memTable.remove(key.duplicate());
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
         } finally {
             lock.readLock().unlock();

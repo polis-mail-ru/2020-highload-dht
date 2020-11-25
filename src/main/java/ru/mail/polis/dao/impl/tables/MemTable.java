@@ -28,7 +28,7 @@ public class MemTable implements Table {
     public Iterator<Cell> iterator(@NotNull final ByteBuffer from) {
         return Iterators.transform(
                 map.tailMap(from).entrySet().iterator(),
-                e -> new Cell(Objects.requireNonNull(e).getKey().duplicate().asReadOnlyBuffer(),
+                e -> new Cell(Objects.requireNonNull(e).getKey().duplicate(),
                         e.getValue()));
     }
 
@@ -37,9 +37,9 @@ public class MemTable implements Table {
                        @NotNull final ByteBuffer value,
                        final long seconds,
                        final int nanos) {
-        map.put(key.duplicate().asReadOnlyBuffer(),
+        map.put(key.duplicate(),
                 new Value(System.currentTimeMillis(),
-                        value.duplicate().asReadOnlyBuffer(),
+                        value.duplicate(),
                         seconds, nanos));
         sizeInBytes.addAndGet(key.remaining() + value.remaining() + 2 * Long.BYTES + Integer.BYTES);
     }
@@ -53,7 +53,7 @@ public class MemTable implements Table {
         } else {
             sizeInBytes.addAndGet(key.remaining() + Long.BYTES);
         }
-        map.put(key.duplicate().asReadOnlyBuffer(),
+        map.put(key.duplicate(),
                 new Value(System.currentTimeMillis()));
     }
 
