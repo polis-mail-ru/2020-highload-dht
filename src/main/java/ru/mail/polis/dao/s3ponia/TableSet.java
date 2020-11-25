@@ -1,9 +1,14 @@
 package ru.mail.polis.dao.s3ponia;
 
+import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.dao.Iters;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
@@ -23,10 +28,10 @@ public final class TableSet {
     /**
      * Constructor {link TableSet}.
      *
-     * @param currMemTable       current MemTable
-     * @param tablesReadyToFlush flushing tables
-     * @param diskTableCollection  flushed tables
-     * @param generation                generation
+     * @param currMemTable        current MemTable
+     * @param tablesReadyToFlush  flushing tables
+     * @param diskTableCollection flushed tables
+     * @param generation          generation
      */
     public TableSet(
             @NotNull final Table currMemTable,
@@ -39,6 +44,19 @@ public final class TableSet {
         this.diskTables =
                 Collections.unmodifiableNavigableMap(diskTableCollection);
         this.generation = generation;
+    }
+
+    /**
+     * Provides iterator (possibly empty) over {@link ICell}s starting at "from" key (inclusive)
+     * in <b>ascending</b> order according to {@link ICell#compareTo(ICell)}.
+     */
+    public Iterator<ICell> cellsIterator(@NotNull final ByteBuffer from) {
+        final var diskIterators = new ArrayList<Iterator<ICell>>();
+        diskIterators.add(memTable.iterator(from));
+        diskTables.forEach((a, table) -> diskIterators.add(table.iterator(from)));
+        flushingTables.forEach(table -> diskIterators.add(table.iterator(from)));
+        final var merge = Iterators.mergeSorted(diskIterators, ICell::compareTo);
+        return Iters.collapseEquals(merge, ICell::getKey);
     }
 
     /**

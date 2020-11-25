@@ -4,7 +4,9 @@ import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.DaoSnapshot;
 import ru.mail.polis.dao.Iters;
+import ru.mail.polis.util.hash.TigerHash;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
@@ -103,13 +105,7 @@ public final class PersistenceDAO implements DAO {
             readWriteLock.readLock().unlock();
         }
     
-        final var diskIterators = new ArrayList<Iterator<ICell>>();
-        diskIterators.add(snapshot.memTable.iterator(from));
-        snapshot.diskTables.forEach((a, table) -> diskIterators.add(table.iterator(from)));
-        snapshot.flushingTables.forEach(table -> diskIterators.add(table.iterator(from)));
-        final var merge = Iterators.mergeSorted(diskIterators, ICell::compareTo);
-    
-        return Iters.collapseEquals(merge, ICell::getKey);
+        return snapshot.cellsIterator(from);
     }
     
     @Override
@@ -205,5 +201,18 @@ public final class PersistenceDAO implements DAO {
             diskTable.close();
             Files.delete(((DiskTable) diskTable).getFilePath());
         }
+    }
+
+    @Override
+    public DaoSnapshot snapshot() {
+        final TableSet snapshot;
+        readWriteLock.readLock().lock();
+        try {
+            snapshot = this.tableSet;
+        } finally {
+            readWriteLock.readLock().unlock();
+        }
+
+        return new PersistentDaoSnapshot(snapshot, new TigerHash());
     }
 }

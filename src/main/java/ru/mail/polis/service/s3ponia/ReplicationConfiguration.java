@@ -22,6 +22,10 @@ public class ReplicationConfiguration {
         this.replicas = from;
     }
 
+    public static ReplicationConfiguration defaultConfiguration(final int sz) {
+        return new ReplicationConfiguration(sz / 2 + 1, sz);
+    }
+
     /**
      * Parses ReplicationConfiguration from String.
      *
@@ -45,13 +49,14 @@ public class ReplicationConfiguration {
 
     /**
      * Returning default configuration for passed nodes' count if null passed or parse string.
-     * @param s replica's string config
+     *
+     * @param s  replica's string config
      * @param sz node's count
      * @return ReplicationConfiguration
      */
     public static ReplicationConfiguration parseOrDefault(final String s, final int sz) {
         if (s == null) {
-            return DEFAULT_CONFIGURATIONS.get(sz - 1);
+            return defaultConfiguration(sz);
         } else {
             return parse(s);
         }

@@ -20,7 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.s3ponia.AsyncService;
 import ru.mail.polis.service.s3ponia.DaoService;
-import ru.mail.polis.service.s3ponia.HttpService;
+import ru.mail.polis.service.s3ponia.HttpSyncableService;
 import ru.mail.polis.service.s3ponia.ModularPolicy;
 import ru.mail.polis.service.s3ponia.ReplicatedService;
 
@@ -63,7 +63,7 @@ public final class ServiceFactory {
 
         final var daoService = new DaoService(dao);
 
-        return new HttpService(port,
+        return new HttpSyncableService(port,
                 new ReplicatedService(
                         new AsyncService(
                                 daoService,
@@ -71,7 +71,6 @@ public final class ServiceFactory {
                                 150),
                         new ModularPolicy(topology, ByteBuffer::hashCode, "http://localhost:" + port)
                 ),
-                daoService
-        );
+                daoService, topology);
     }
 }

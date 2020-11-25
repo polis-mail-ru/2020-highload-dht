@@ -1,4 +1,4 @@
-package ru.mail.polis.service.s3ponia;
+package ru.mail.polis.session;
 
 import com.google.common.base.Charsets;
 import one.nio.http.HttpServer;
@@ -8,6 +8,7 @@ import one.nio.net.Socket;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.service.s3ponia.StreamingValue;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -33,6 +34,23 @@ public class StreamingSession extends HttpSession {
     protected void processWrite() throws Exception {
         super.processWrite();
         next();
+    }
+
+    protected void endStream() throws IOException {
+        write(END_OF_FILE, 0, END_OF_FILE.length);
+        server.incRequestsProcessed();
+
+        if ((handling = pipeline.pollFirst()) != null) {
+            if (handling == FIN) {
+                scheduleClose();
+            } else {
+                try {
+                    server.handleRequest(handling, this);
+                } catch (IOException exception) {
+                    logger.error("Error in handling next request", exception);
+                }
+            }
+        }
     }
 
     /**
@@ -70,20 +88,7 @@ public class StreamingSession extends HttpSession {
         }
 
         if (!valueIterator.hasNext()) {
-            write(END_OF_FILE, 0, END_OF_FILE.length);
-            server.incRequestsProcessed();
-
-            if ((handling = pipeline.pollFirst()) != null) {
-                if (handling == FIN) {
-                    scheduleClose();
-                } else {
-                    try {
-                        server.handleRequest(handling, this);
-                    } catch (IOException exception) {
-                        logger.error("Error in handling next request", exception);
-                    }
-                }
-            }
+            endStream();
         }
     }
 

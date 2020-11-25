@@ -7,11 +7,10 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.Utility;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -22,15 +21,16 @@ import java.util.concurrent.TimeUnit;
 
 import static ru.mail.polis.util.Utility.sendResponse;
 
-public final class AsyncService implements HttpEntityHandler {
+public final class AsyncService implements HttpEntityHandler, HttpEntitiesHandler {
     private static final Logger logger = LoggerFactory.getLogger(AsyncService.class);
     private final ExecutorService es;
     private final DaoService daoService;
 
     /**
      * Creates a new {@link AsyncService} with given dao, workers and queueSize.
-     * @param dao database
-     * @param workers count of threads
+     *
+     * @param dao       database
+     * @param workers   count of threads
      * @param queueSize max tasks' count at time
      */
     public AsyncService(@NotNull final DaoService dao,
@@ -98,6 +98,7 @@ public final class AsyncService implements HttpEntityHandler {
 
     /**
      * Asynchronous version of delete.
+     *
      * @param key Record's key
      * @return {@link CompletableFuture} future result of deleting
      */
@@ -115,9 +116,10 @@ public final class AsyncService implements HttpEntityHandler {
 
     /**
      * Asynchronous version of put.
-     * @param key Record's key
+     *
+     * @param key   Record's key
      * @param value Record's value
-     * @param time time of putting in dao
+     * @param time  time of putting in dao
      * @return {@link CompletableFuture} future result of putting
      */
     public CompletableFuture<Response> putAsync(@NotNull final ByteBuffer key,
@@ -135,6 +137,7 @@ public final class AsyncService implements HttpEntityHandler {
 
     /**
      * Asynchronous version of get.
+     *
      * @param key Record's key
      * @return {@link CompletableFuture} future result of getting
      */
@@ -157,5 +160,10 @@ public final class AsyncService implements HttpEntityHandler {
             logger.error("Error in waiting es", e);
             Thread.currentThread().interrupt();
         }
+    }
+
+    @Override
+    public void entities(final String start, final String end, final StreamingSession session) throws IOException {
+        daoService.entities(start, end, session);
     }
 }

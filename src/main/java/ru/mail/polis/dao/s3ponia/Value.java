@@ -3,13 +3,14 @@ package ru.mail.polis.dao.s3ponia;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.service.s3ponia.Header;
+import ru.mail.polis.util.Utility;
 
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 
 public class Value implements Comparable<Value> {
-    public static final String DEADFLAG_TIMESTAMP_HEADER = "XDeadFlagTimestamp";
-    public static final Value ABSENT = Value.dead(-1, Integer.MAX_VALUE);
+    public static final String DEADFLAG_TIMESTAMP_HEADER = Utility.DEADFLAG_TIMESTAMP_HEADER;
+    public static final Value ABSENT = Value.dead(-1, 0);
     private final ByteBuffer byteBuffer;
     private static final long DEAD_FLAG = 1L << 63;
     private final long deadFlagTimeStamp;
