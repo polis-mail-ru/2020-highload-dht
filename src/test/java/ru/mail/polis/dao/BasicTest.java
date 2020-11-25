@@ -25,7 +25,6 @@ import ru.mail.polis.TestBase;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Instant;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -51,9 +50,8 @@ class BasicTest extends TestBase {
     void insert(@TempDir File data) throws IOException {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
             assertEquals(value, dao.get(key));
             assertEquals(value, dao.get(key.duplicate()));
         }
@@ -68,8 +66,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                final Instant expire = randomExpire();
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertNull(map.put(key, value));
             }
 
@@ -97,8 +94,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                final Instant expire = randomExpire();
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertNull(map.put(key, value));
             }
 
@@ -126,8 +122,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                final Instant expire = randomExpire();
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertNull(map.put(key, value));
             }
 
@@ -157,8 +152,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                final Instant expire = randomExpire();
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertNull(map.put(key, value));
             }
 
@@ -173,9 +167,8 @@ class BasicTest extends TestBase {
     void emptyValue(@TempDir File data) throws IOException {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = ByteBuffer.allocate(0);
-        final Instant expire = randomExpire();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
             assertEquals(value, dao.get(key));
             assertEquals(value, dao.get(key.duplicate()));
         }
@@ -186,13 +179,11 @@ class BasicTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value1 = randomValueBuffer();
         final ByteBuffer value2 = randomValueBuffer();
-        final Instant expire1 = randomExpire();
-        final Instant expire2 = randomExpire();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value1, expire1);
+            dao.upsert(key, value1, null);
             assertEquals(value1, dao.get(key));
             assertEquals(value1, dao.get(key.duplicate()));
-            dao.upsert(key, value2, expire2);
+            dao.upsert(key, value2, null);
             assertEquals(value2, dao.get(key));
             assertEquals(value2, dao.get(key.duplicate()));
         }
@@ -202,9 +193,8 @@ class BasicTest extends TestBase {
     void remove(@TempDir File data) throws IOException {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
             assertEquals(value, dao.get(key));
             assertEquals(value, dao.get(key.duplicate()));
             dao.remove(key);

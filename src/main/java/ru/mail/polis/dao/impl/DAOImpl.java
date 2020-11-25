@@ -95,13 +95,18 @@ public class DAOImpl implements DAO {
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value,
-                       @NotNull final Instant expire) throws IOException {
+                       final Instant expire) throws IOException {
         final boolean isToFlush;
         lock.readLock().lock();
         try {
-            tableSet.memTable.upsert(key.duplicate(),
-                    value.duplicate(),
-                    expire.getEpochSecond(), expire.getNano());
+            if (expire == null) {
+                tableSet.memTable.upsert(key.duplicate(),
+                        value.duplicate());
+            } else {
+                tableSet.memTable.upsert(key.duplicate(),
+                        value.duplicate(),
+                        expire.getEpochSecond(), expire.getNano());
+            }
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
         } finally {
             lock.readLock().unlock();

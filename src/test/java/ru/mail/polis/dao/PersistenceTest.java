@@ -25,7 +25,6 @@ import ru.mail.polis.TestBase;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -53,8 +52,7 @@ class PersistenceTest extends TestBase {
         try {
             try (DAO dao = DAOFactory.create(data)) {
                 final ByteBuffer value = randomValueBuffer();
-                final Instant expire = randomExpire();
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertEquals(value, dao.get(key));
             }
         } finally {
@@ -74,11 +72,10 @@ class PersistenceTest extends TestBase {
         // Reference value
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
 
         // Create, fill and close storage
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
             assertEquals(value, dao.get(key));
         }
 
@@ -93,11 +90,10 @@ class PersistenceTest extends TestBase {
         // Reference value
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
             assertEquals(value, dao.get(key));
         }
 
@@ -120,11 +116,10 @@ class PersistenceTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final ByteBuffer value2 = randomValueBuffer();
-        final Instant expire = randomExpire();
 
         // Initial insert
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
             assertEquals(value, dao.get(key));
         }
 
@@ -132,7 +127,7 @@ class PersistenceTest extends TestBase {
         try (DAO dao = DAOFactory.create(data)) {
             // Check and replace
             assertEquals(value, dao.get(key));
-            dao.upsert(key, value2, expire);
+            dao.upsert(key, value2, null);
             assertEquals(value2, dao.get(key));
         }
 
@@ -158,8 +153,7 @@ class PersistenceTest extends TestBase {
                 final ByteBuffer key = randomKeyBuffer();
                 keys.add(key);
                 final ByteBuffer suffixed = join(key, suffix);
-                final Instant expire = randomExpire();
-                dao.upsert(suffixed, value, expire);
+                dao.upsert(suffixed, value, null);
                 assertEquals(value, dao.get(suffixed));
             }
         }
@@ -185,9 +179,8 @@ class PersistenceTest extends TestBase {
             for (int i = 0; i < records; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = join(key, suffix);
-                final Instant expire = randomExpire();
                 keys.add(key);
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertEquals(value, dao.get(key));
             }
         }
@@ -226,9 +219,7 @@ class PersistenceTest extends TestBase {
                 value.put(valuePayload);
                 value.rewind();
 
-                final Instant expire = randomExpire();
-
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
 
                 // store the latest value by key or update previously stored one
                 if (i % sampleCount == 0 ||
@@ -263,9 +254,8 @@ class PersistenceTest extends TestBase {
         for (int i = 0; i < overwrites; i++) {
             // Overwrite
             final ByteBuffer value = randomValueBuffer();
-            final Instant expire = randomExpire();
             try (DAO dao = DAOFactory.create(data)) {
-                dao.upsert(key, value, expire);
+                dao.upsert(key, value, null);
                 assertEquals(value, dao.get(key));
             }
 

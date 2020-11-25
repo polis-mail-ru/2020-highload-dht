@@ -92,7 +92,7 @@ public interface DAO extends Closeable {
     void upsert(
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value,
-            @NotNull final Instant expire) throws IOException;
+            final Instant expire) throws IOException;
 
     /**
      * Removes value by given key.

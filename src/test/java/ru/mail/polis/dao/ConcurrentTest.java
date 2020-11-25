@@ -19,7 +19,6 @@ package ru.mail.polis.dao;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -95,10 +94,9 @@ class ConcurrentTest extends TestBase {
                     });
             while (records.hasNext()) {
                 final Record record = records.next();
-                final Instant expire = randomExpire();
                 executor.submit(() -> {
                     try {
-                        dao.upsert(record.getKey(), record.getValue(), expire);
+                        dao.upsert(record.getKey(), record.getValue(), null);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -144,10 +142,9 @@ class ConcurrentTest extends TestBase {
             final AtomicInteger matches = new AtomicInteger(); 
             while (records.hasNext()) {
                 final Record record = records.next();
-                final Instant expire = randomExpire();
                 executor.submit(() -> {
                     try {
-                        dao.upsert(record.getKey(), record.getValue(), expire);
+                        dao.upsert(record.getKey(), record.getValue(), null);
                         ByteBuffer value = dao.get(record.getKey());
                         if (value.equals(record.getValue().duplicate().rewind())) {
                             matches.incrementAndGet();

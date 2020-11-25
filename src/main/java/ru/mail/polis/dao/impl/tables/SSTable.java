@@ -58,7 +58,6 @@ public final class SSTable implements Table {
                 offset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
                 fc.write(ByteUtils.fromInt(key.duplicate().remaining()));
                 fc.write(key);
-
                 final Value value = cell.getValue();
                 if (value.isTombstone()) {
                     fc.write(ByteUtils.fromLong(-cell.getValue().getTimestamp()));
@@ -67,6 +66,7 @@ public final class SSTable implements Table {
                     final ByteBuffer data = Objects.requireNonNull(cell.getValue().getData()).duplicate();
                     offset += data.remaining();
                     fc.write(data);
+                    offset += (Long.BYTES + Integer.BYTES);
                     fc.write(ByteUtils.fromInstant(cell.getValue().getExpire()));
                 }
             }
@@ -195,6 +195,12 @@ public final class SSTable implements Table {
                        @NotNull final ByteBuffer value,
                        final long seconds,
                        final int nanos) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void upsert(@NotNull final ByteBuffer key,
+                       @NotNull final ByteBuffer value) {
         throw new UnsupportedOperationException();
     }
 

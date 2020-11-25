@@ -24,7 +24,6 @@ import ru.mail.polis.TestBase;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.NoSuchElementException;
@@ -45,7 +44,6 @@ class CompactionTest extends TestBase {
         final int overwrites = 10;
 
         final ByteBuffer value = randomBuffer(valueSize);
-        final Instant expire = randomExpire();
         final Collection<ByteBuffer> keys = new ArrayList<>(keyCount);
         for (int i = 0; i < keyCount; i++) {
             keys.add(randomKeyBuffer());
@@ -55,7 +53,7 @@ class CompactionTest extends TestBase {
         for (int round = 0; round < overwrites; round++) {
             try (DAO dao = DAOFactory.create(data)) {
                 for (final ByteBuffer key : keys) {
-                    dao.upsert(key, join(key, value), expire);
+                    dao.upsert(key, join(key, value), null);
                 }
             }
         }
@@ -101,10 +99,9 @@ class CompactionTest extends TestBase {
             for (int round = 0; round < overwrites; round++) {
                 // New version
                 final ByteBuffer value = randomBuffer(valueSize);
-                final Instant expire = randomExpire();
                 // Overwrite
                 for (final ByteBuffer key : keys) {
-                    dao.upsert(key, join(key, value), expire);
+                    dao.upsert(key, join(key, value), null);
                 }
 
                 // Compact
@@ -138,7 +135,6 @@ class CompactionTest extends TestBase {
         final int keyCount = 10;
 
         final ByteBuffer value = randomBuffer(valueSize);
-        final Instant expire = randomExpire();
         final Collection<ByteBuffer> keys = new ArrayList<>(keyCount);
         for (int i = 0; i < keyCount; i++) {
             keys.add(randomKeyBuffer());
@@ -147,7 +143,7 @@ class CompactionTest extends TestBase {
         // Insert keys
         try (DAO dao = DAOFactory.create(data)) {
             for (final ByteBuffer key : keys) {
-                dao.upsert(key, join(key, value), expire);
+                dao.upsert(key, join(key, value), null);
             }
         }
 

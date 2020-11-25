@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,11 +41,10 @@ class TrashTest extends TestBase {
         // Reference value
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
         }
 
         createTrashFile(data, "trash.txt");
@@ -68,11 +66,10 @@ class TrashTest extends TestBase {
         // Reference value
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
         }
 
         createTrashDirectory(data, "trash.txt");
@@ -92,11 +89,10 @@ class TrashTest extends TestBase {
         // Reference value
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
-        final Instant expire = randomExpire();
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, null);
         }
 
         createTrashFile(data, "trash.txt", randomValueBuffer());

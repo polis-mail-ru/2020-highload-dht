@@ -45,6 +45,15 @@ public class MemTable implements Table {
     }
 
     @Override
+    public void upsert(@NotNull final ByteBuffer key,
+                       @NotNull final ByteBuffer value) {
+        map.put(key.duplicate(),
+                new Value(System.currentTimeMillis(),
+                        value.duplicate()));
+        sizeInBytes.addAndGet(key.remaining() + value.remaining() + 2 * Long.BYTES + Integer.BYTES);
+    }
+
+    @Override
     public void remove(@NotNull final ByteBuffer key) {
         if (map.containsKey(key)) {
             if (!map.get(key).isTombstone()) {
