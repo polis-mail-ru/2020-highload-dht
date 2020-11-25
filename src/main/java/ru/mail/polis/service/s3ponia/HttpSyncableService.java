@@ -39,7 +39,7 @@ public class HttpSyncableService extends HttpBasicService {
     private final Set<String> nodes;
     private final AtomicInteger counter = new AtomicInteger();
     private final HttpClient httpClient;
-
+    
     /**
      * Creates a new {@link HttpSyncableService} with given port and {@link HttpEntityHandler}.
      *
@@ -64,12 +64,12 @@ public class HttpSyncableService extends HttpBasicService {
                         .build()
         );
         this.httpClient = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(1))
-                .executor(executor)
-                .build();
+                                  .version(HttpClient.Version.HTTP_1_1)
+                                  .connectTimeout(Duration.ofSeconds(1))
+                                  .executor(executor)
+                                  .build();
     }
-
+    
     @Path("/v0/merkleTree")
     public void merkleTree(@NotNull final HttpSession session) throws IOException {
         final MerkleTree tree = daoService.snapshot().merkleTree(RANGES_COUNT);
@@ -79,7 +79,7 @@ public class HttpSyncableService extends HttpBasicService {
         response.setBody(body);
         session.sendResponse(response);
     }
-
+    
     @Path("/v0/syncRange")
     public void sync(@Param(value = "start", required = true) final String start,
                      @Param(value = "end", required = true) final String end,
@@ -87,7 +87,7 @@ public class HttpSyncableService extends HttpBasicService {
         final var snapshot = daoService.snapshot();
         final var pathSave = Paths.get(counter.incrementAndGet() + ".back");
         Files.createFile(pathSave);
-
+        
         try {
             snapshot.saveTo(pathSave, Long.parseLong(start), Long.parseLong(end));
         } catch (NumberFormatException e) {
@@ -98,100 +98,102 @@ public class HttpSyncableService extends HttpBasicService {
         final var sendSession = (ResponseFileSession) session;
         sendSession.responseFile(pathSave);
     }
-
+    
     private HttpRequest merkleRequest(@NotNull final String node) {
         try {
             return HttpRequest.newBuilder()
-                    .GET()
-                    .uri(new URI(node + "/v0/merkleTree"))
-                    .timeout(Duration.ofSeconds(1))
-                    .build();
+                           .GET()
+                           .uri(new URI(node + "/v0/merkleTree"))
+                           .timeout(Duration.ofSeconds(1))
+                           .build();
         } catch (URISyntaxException e) {
             logger.error("Error in uri parsing", e);
             throw new RuntimeException("Error in URI parsing", e);
         }
     }
-
+    
     private HttpRequest syncRangeRequest(@NotNull final String node,
                                          final long start,
                                          final long end) {
         try {
             return HttpRequest.newBuilder()
-                    .GET()
-                    .uri(new URI(node + "/v0/syncRange?start=" + start + "&end=" + end))
-                    .timeout(Duration.ofSeconds(1))
-                    .build();
+                           .GET()
+                           .uri(new URI(node + "/v0/syncRange?start=" + start + "&end=" + end))
+                           .timeout(Duration.ofSeconds(1))
+                           .build();
         } catch (URISyntaxException e) {
             logger.error("Error in uri parsing", e);
             throw new RuntimeException("Error in URI parsing", e);
         }
     }
-
+    
     private static class Range {
         private final int start;
         private final int end;
-
+        
         private Range(int start, int end) {
             this.start = start;
             this.end = end;
         }
-
+        
         public static Range fromNode(@NotNull final MerkleTree.Node node) {
             return new Range(
                     node.minValueIndex() * RANGES_COUNT,
                     node.maxValueIndex() * RANGES_COUNT
             );
         }
-
+        
         public int start() {
             return start;
         }
-
+        
         public int end() {
             return end;
         }
     }
-
+    
     private void repair(@NotNull final String node,
                         @NotNull final Range range) throws IOException {
         final var request = syncRangeRequest(node, range.start(), range.end());
         final var pathSave = Paths.get(counter.incrementAndGet() + ".daoRange");
         Files.createFile(pathSave);
-
-        httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofFile(pathSave))
-                .thenApply(HttpResponse::body)
-                .whenComplete((c, t) -> {
-                    if (t == null) {
-                        final var diskTable = DiskTable.of(c);
-                        final var it = diskTable.iterator();
-                        while (it.hasNext()) {
-                            final var cell = it.next();
-                            try {
-                                if (cell.getValue().isDead()) {
-                                    daoService.delete(cell.getKey(),
-                                            cell.getValue().getTimeStamp());
-                                } else {
-                                    daoService.put(cell.getKey(),
-                                            cell.getValue().getValue(),
-                                            cell.getValue().getTimeStamp());
+        
+        if (httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofFile(pathSave))
+                    .thenApply(HttpResponse::body)
+                    .whenComplete((c, t) -> {
+                        if (t == null) {
+                            final var diskTable = DiskTable.of(c);
+                            final var it = diskTable.iterator();
+                            while (it.hasNext()) {
+                                final var cell = it.next();
+                                try {
+                                    if (cell.getValue().isDead()) {
+                                        daoService.delete(cell.getKey(),
+                                                cell.getValue().getTimeStamp());
+                                    } else {
+                                        daoService.put(cell.getKey(),
+                                                cell.getValue().getValue(),
+                                                cell.getValue().getTimeStamp());
+                                    }
+                                } catch (DaoOperationException e) {
+                                    logger.error("Error in dao operation", e);
                                 }
-                            } catch (DaoOperationException e) {
-                                logger.error("Error in dao operation", e);
                             }
+                        } else {
+                            logger.error("Error in repairing range = ({}; {})", range.start(), range.end(), t);
                         }
-                    } else {
-                        logger.error("Error in repairing range = ({}; {})", range.start(), range.end(), t);
-                    }
-                });
+                    }).isCancelled()) {
+            logger.error("Canceled task");
+        }
     }
-
+    
     @Path("/v0/repair")
     public void repair(@NotNull final HttpSession session) throws IOException {
         final var snapshot = daoService.snapshot();
-
+        
         final var tree = snapshot.merkleTree(RANGES_COUNT);
         final var mismatchedNodes = new MismatchedNodes(tree.root());
-
+        
         for (final var node :
                 nodes) {
             final var request = merkleRequest(node);
@@ -209,7 +211,7 @@ public class HttpSyncableService extends HttpBasicService {
                                 );
                                 return ranges;
                             });
-            nodeRangesMismatch.whenComplete((a, t) -> {
+            if (nodeRangesMismatch.whenComplete((a, t) -> {
                 if (t == null) {
                     a.forEach(r -> {
                         try {
@@ -221,12 +223,16 @@ public class HttpSyncableService extends HttpBasicService {
                 } else {
                     logger.error("Error in comparing merkle trees", t);
                 }
-            });
+            }).isCancelled()) {
+                logger.error("Canceled task");
+                session.sendError(Response.INTERNAL_ERROR, "Canceled task");
+                return;
+            }
         }
-
+        
         session.sendResponse(Response.ok(Response.EMPTY));
     }
-
+    
     /**
      * Entity request handler.
      *
@@ -246,10 +252,10 @@ public class HttpSyncableService extends HttpBasicService {
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             throw new IllegalArgumentException("Empty key");
         }
-
+        
         httpSyncEntityEntitiesService.entity(id, replicas, request, session);
     }
-
+    
     /**
      * Entities request handler. Creates stream of records in
      * format(key '\n' value) that contains in range [start; end).
@@ -267,10 +273,10 @@ public class HttpSyncableService extends HttpBasicService {
             session.sendError(Response.BAD_REQUEST, "Invalid start");
             return;
         }
-
+        
         httpSyncEntityEntitiesService.entities(start, end, ((StreamingSession) session));
     }
-
+    
     @Override
     public synchronized void stop() {
         super.stop();
