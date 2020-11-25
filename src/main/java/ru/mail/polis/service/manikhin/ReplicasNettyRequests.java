@@ -291,7 +291,6 @@ public class ReplicasNettyRequests {
         } else {
             sendNettyResponse(HttpResponseStatus.NOT_FOUND, new byte[0], ctx);
         }
-        return;
     }
 
     private void sendNettyResponse(final @NotNull HttpResponseStatus status,
