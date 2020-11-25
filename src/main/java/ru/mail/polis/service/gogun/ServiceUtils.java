@@ -183,7 +183,7 @@ final class ServiceUtils {
         Entry latestResponse = Entry.removed(Long.MIN_VALUE);
         for (final Entry entry : entries) {
             final long timestamp = entry.getTimestamp();
-            if (timestamp == Entry.ABSENT) {
+            if (timestamp == Entry.EMPTY_TIMESTAMP) {
                 notFoundResponsesCount++;
             } else {
                 if (timestamp > latestResponse.getTimestamp()) {
@@ -200,7 +200,10 @@ final class ServiceUtils {
         return Response.ok(latestResponse.getBody());
     }
 
-    static Response mergePutDeleteResponses(final Collection<Response> responses, final int ack, @NotNull final Request request) {
+    static Response mergePutDeleteResponses(
+            final Collection<Response> responses,
+            final int ack,
+            @NotNull final Request request) {
         if (responses.size() < ack) {
             return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }

@@ -4,11 +4,11 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
 final class Entry {
-    public static final long ABSENT = -1;
+    public static final long EMPTY_TIMESTAMP = -1;
     public static final byte[] EMPTY_DATA = new byte[0];
     private final byte[] body;
     private Status status;
-    private long timestamp;
+    private final long timestamp;
 
     private Entry(final long timestamp,
                  final byte[] body,
@@ -19,7 +19,7 @@ final class Entry {
     }
 
     public static Entry absent() {
-        return new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
+        return new Entry(Entry.EMPTY_TIMESTAMP, Entry.EMPTY_DATA, Status.ABSENT);
     }
 
     public static Entry removed(final long timestamp) {
