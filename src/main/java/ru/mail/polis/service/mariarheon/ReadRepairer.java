@@ -34,8 +34,8 @@ public class ReadRepairer {
     }
 
     private void passOn(final String node, final Record record) {
-        final var uri = "/?" + Util.MYSELF_PARAMETER + "="
-                + "&key=" + URLEncoder.encode(record.getKey())
+        final var uri = "/v0/entity?" + Util.MYSELF_PARAMETER + "="
+                + "&id=" + URLEncoder.encode(record.getKey())
                 + "&timestamp=" + record.getTimestamp().getTime();
 
         int method;
@@ -52,12 +52,19 @@ public class ReadRepairer {
             return;
         }
         request.addHeader("Connection: Keep-Alive");
-        final var val = record.getValue();
-        request.addHeader("Content-Length: " + val.length);
-        request.setBody(val);
+        if (record.isRemoved()) {
+            request.addHeader("Content-Length: 0");
+            request.setBody(new byte[]{});
+        } else {
+            final var val = record.getValue();
+            request.addHeader("Content-Length: " + val.length);
+            request.setBody(val);
+        }
         try {
-            sharding.passOn(node, request)
+            var res = sharding.passOn(node, request)
                 .get();
+            logger.info("\n" + sharding.getMe() + ": Repair response status = "
+                    + res.getStatus() + " from " + node);
         } catch (InterruptedException | ExecutionException e) {
             logger.error("Failed to read-repair", e);
         }
