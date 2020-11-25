@@ -7,19 +7,21 @@ final class Entry {
     public static final long EMPTY_TIMESTAMP = -1;
     public static final byte[] EMPTY_DATA = new byte[0];
     private final byte[] body;
-    private Status status;
+    private final Status status;
     private final long timestamp;
+    private static final Entry ABSENT_ENTRY =
+            new Entry(Entry.EMPTY_TIMESTAMP, Entry.EMPTY_DATA, Status.ABSENT);
 
     private Entry(final long timestamp,
-                 final byte[] body,
-                 final Status status) {
+                  final byte[] body,
+                  final Status status) {
         this.timestamp = timestamp;
         this.body = body.clone();
         this.status = status;
     }
 
     public static Entry absent() {
-        return new Entry(Entry.EMPTY_TIMESTAMP, Entry.EMPTY_DATA, Status.ABSENT);
+        return ABSENT_ENTRY;
     }
 
     public static Entry removed(final long timestamp) {
@@ -30,12 +32,12 @@ final class Entry {
         return new Entry(timestamp, data, Status.PRESENT);
     }
 
-    public Status getStatus() {
-        return status;
+    public static boolean isRemoved(final Entry latestResponse) {
+        return latestResponse.getStatus() == Entry.Status.REMOVED;
     }
 
-    public void setStatus(final Status status) {
-        this.status = status;
+    public Status getStatus() {
+        return status;
     }
 
     public byte[] getBody() {
@@ -64,7 +66,7 @@ final class Entry {
         }
     }
 
-    public enum Status {
+    private enum Status {
         PRESENT,
         ABSENT,
         REMOVED

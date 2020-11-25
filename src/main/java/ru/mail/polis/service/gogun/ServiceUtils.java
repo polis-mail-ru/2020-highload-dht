@@ -193,7 +193,7 @@ final class ServiceUtils {
         }
 
         if (entries.size() == notFoundResponsesCount
-                || latestResponse.getStatus() == Entry.Status.REMOVED) {
+                || Entry.isRemoved(latestResponse)) {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
 
