@@ -61,7 +61,7 @@ public class ReadRepairer {
             request.setBody(val);
         }
         try {
-            var res = sharding.passOn(node, request)
+            final var res = sharding.passOn(node, request)
                 .get();
             logger.info("\n" + sharding.getMe() + ": Repair response status = "
                     + res.getStatus() + " from " + node);
