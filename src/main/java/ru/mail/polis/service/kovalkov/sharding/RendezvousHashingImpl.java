@@ -11,6 +11,9 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
@@ -58,21 +61,31 @@ public class RendezvousHashingImpl implements Topology<String> {
     @Override
     public String[] replicasFor(@NotNull final ByteBuffer key, final int replicas) {
         final String[] rep = new String[replicas];
-        final Map<Integer, String> owners = new TreeMap<>();
-        final byte[] bytesKey = BufferConverter.unfoldToBytes(key);
-        for (final String node : allNodes) {
-            owners.put(murmur3_32().newHasher().putString(node, StandardCharsets.UTF_8)
-                    .putBytes(bytesKey).hash().hashCode(), node);
-        }
-        int replicasCounter = 0;
-        for (final Map.Entry<Integer, String> entry : owners.entrySet()) {
-            if (replicas == replicasCounter) {
-                break;
+        final int[] owners = IntStream.generate(() -> Integer.MAX_VALUE).limit(replicas).toArray();
+        int firstMax = 0;
+        int currentHash;
+        for (int i = 0; i < allNodes.length; i++) {
+            currentHash = murmur3_32().newHasher()
+                    .putString(allNodes[i], StandardCharsets.UTF_8).putInt(key.hashCode()).hash().hashCode();
+            if (currentHash <= owners[firstMax]) {
+                owners[firstMax] = currentHash;
+                rep[firstMax] = allNodes[i];
+                firstMax = fistMax(owners);
             }
-            rep[replicasCounter] = entry.getValue();
-            replicasCounter++;
         }
         return rep;
+    }
+
+    private static int fistMax(@NotNull final int[] owners) {
+        int maxHash = owners[0];
+        int index = 0;
+        for (int i = 0; i < owners.length; i++) {
+            if (owners[i] > maxHash) {
+                maxHash = owners[i];
+                index = i;
+            }
+        }
+        return index;
     }
 
     @Override
