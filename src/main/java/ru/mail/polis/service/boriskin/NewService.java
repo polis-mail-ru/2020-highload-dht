@@ -88,6 +88,7 @@ public class NewService extends HttpServer implements Service {
                 Executors.newFixedThreadPool(
                         Runtime.getRuntime().availableProcessors(),
                         new ThreadFactoryBuilder().setNameFormat("proxy-worker-%d").build()),
+                executorService,
                 dao,
                 topology);
     }

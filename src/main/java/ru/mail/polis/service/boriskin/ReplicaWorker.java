@@ -36,9 +36,12 @@ final class ReplicaWorker {
     private final Topology<String> topology;
     @NotNull
     private final HttpClient javaNetHttpClient;
+    @NotNull
+    private final ExecutorService executor;
 
     ReplicaWorker(
             @NotNull final ExecutorService proxyWorkers,
+            @NotNull final ExecutorService executor,
             @NotNull final DAO dao,
             @NotNull final Topology<String> topology) {
         this.dao = (NewDAO) dao;
@@ -48,6 +51,7 @@ final class ReplicaWorker {
                         .executor(proxyWorkers)
                         .version(HttpClient.Version.HTTP_1_1)
                         .build();
+        this.executor = executor;
     }
 
     void getting(
@@ -70,8 +74,8 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в GET {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
-        ).whenCompleteAsync((responses, error) -> {
+        }).thenCompose(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        ).whenComplete((responses, error) -> {
             final Predicate<HttpResponse<byte[]>> success = r -> values.add(Value.from(r));
             final int acks = getNumberOfSuccessfulResponses(
                     getStartAcks(replicas), responses, success);
@@ -101,7 +105,7 @@ final class ReplicaWorker {
             } catch (IOException ioException) {
                 resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
-        }).exceptionally(exception -> {
+        }, executor).exceptionally(exception -> {
             logger.error("Ошибка при выполнении операции GET (DAO): ", exception);
             return null;
         });
@@ -125,8 +129,8 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в PUT {}, {} ",
                         topology.recogniseMyself(), mir.getId(), mir.getValue(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
-        ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
+        }).thenCompose(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        ).whenComplete((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 201)
         ).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в UPSERT: ", exception);
@@ -146,7 +150,7 @@ final class ReplicaWorker {
             } catch (IOException ioException) {
                 resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
-        }).exceptionally(exception -> {
+        }, executor).exceptionally(exception -> {
             logger.error("Ошибка при выполнении операции UPSERT (DAO): ", exception);
             return null;
         });
@@ -170,8 +174,8 @@ final class ReplicaWorker {
                 logger.error("Нода: {}. Ошибка в DELETE {}, {} ",
                         topology.recogniseMyself(), mir.getId(), ioException);
             }
-        }).thenComposeAsync(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
-        ).whenCompleteAsync((responses, error) -> getSuccessAndSendIfReachedExpected(
+        }).thenCompose(handled -> getResponses(replicas, mir, topology, javaNetHttpClient)
+        ).whenComplete((responses, error) -> getSuccessAndSendIfReachedExpected(
                 httpSession, mir, replicas, responses, 202)
         ).exceptionally(exception -> {
             logger.error("Ошибка при использовании Future в DELETE: ", exception);
@@ -191,7 +195,7 @@ final class ReplicaWorker {
             } catch (IOException ioException) {
                 resp(httpSession, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
-        }).exceptionally(exception -> {
+        }, executor).exceptionally(exception -> {
             logger.error("Ошибка при выполнении операции DELETE (DAO): ", exception);
             return null;
         });
@@ -206,7 +210,7 @@ final class ReplicaWorker {
                 return true;
             }
             return false;
-        });
+        }, executor);
     }
 
     private void getSuccessAndSendIfReachedExpected(

@@ -25,7 +25,11 @@ import java.util.TreeSet;
 public final class NewTopology implements ConsistentHashingTopology {
 
     private static final int PARTITIONS_COUNT = 32;
-    private static final int HASH_BITS = 64;
+    private static final int NUMERIC_OVERFLOW_IN_LONG_AVOIDER = 1;
+    // (Math.pow(2, HASH_BITS) / PARTITIONS_COUNT) when HASH_BITS == 64
+    private static final long HASH_BITS_POW_BY_PARTITIONS_COUNT = 576460752303423488L;
+    // Math.pow(2, HASH_BITS - 1) - 1 when HASH_BITS == 64
+    private static final long HASH_BITS_POW = Long.MAX_VALUE;
 
     @NotNull
     private final NavigableSet<String> nodeSet;
@@ -60,10 +64,8 @@ public final class NewTopology implements ConsistentHashingTopology {
             @NotNull final List<String> nodeSet) {
         for (int i = 0; i < PARTITIONS_COUNT; i++) {
             final long token =
-                    (long) (
-                            (Math.pow(2, HASH_BITS) / PARTITIONS_COUNT) * i
-                                    - Math.pow(2, HASH_BITS - 1)
-                    );
+                    HASH_BITS_POW_BY_PARTITIONS_COUNT * i
+                            - HASH_BITS_POW - NUMERIC_OVERFLOW_IN_LONG_AVOIDER;
             ring.put(token, new Node(token, nodeSet.get(i % nodeSet.size())));
         }
     }
