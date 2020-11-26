@@ -16,7 +16,9 @@
 !profiling_results_stage1/*
 !profiling_results_stage4/*
 !profiling_results_stage5/*
-!profiling_results_stage6/*
+!profiling_results_stage6/old/*
+!profiling_results_stage6/new/final/*
+!profiling_results_stage6/new/with_async_on_cur_executor/*
 !wrk/*
 
 # ...even if they are in subdirectories
