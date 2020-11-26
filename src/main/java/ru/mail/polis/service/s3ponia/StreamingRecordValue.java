@@ -3,7 +3,6 @@ package ru.mail.polis.service.s3ponia;
 import com.google.common.base.Charsets;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
-import ru.mail.polis.util.Utility;
 
 import java.nio.ByteBuffer;
 
