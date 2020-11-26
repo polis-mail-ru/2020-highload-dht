@@ -3,17 +3,12 @@ package ru.mail.polis.service.kovalkov.sharding;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.dao.kovalkov.utils.BufferConverter;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.hash.Hashing.murmur3_32;
 
@@ -64,19 +59,19 @@ public class RendezvousHashingImpl implements Topology<String> {
         final int[] owners = IntStream.generate(() -> Integer.MAX_VALUE).limit(replicas).toArray();
         int firstMax = 0;
         int currentHash;
-        for (int i = 0; i < allNodes.length; i++) {
+        for (final String allNode : allNodes) {
             currentHash = murmur3_32().newHasher()
-                    .putString(allNodes[i], StandardCharsets.UTF_8).putInt(key.hashCode()).hash().hashCode();
+                    .putString(allNode, StandardCharsets.UTF_8).putInt(key.hashCode()).hash().hashCode();
             if (currentHash <= owners[firstMax]) {
                 owners[firstMax] = currentHash;
-                rep[firstMax] = allNodes[i];
+                rep[firstMax] = allNode;
                 firstMax = fistMax(owners);
             }
         }
         return rep;
     }
 
-    private static int fistMax(@NotNull final int[] owners) {
+    private static int fistMax(@NotNull final int... owners) {
         int maxHash = owners[0];
         int index = 0;
         for (int i = 0; i < owners.length; i++) {
