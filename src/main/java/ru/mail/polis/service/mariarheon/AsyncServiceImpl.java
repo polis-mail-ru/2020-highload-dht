@@ -86,6 +86,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             try {
                 trySendResponse(session, resp.get());
             } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 logger.error(SERV_UN, e);
             } catch (ExecutionException e) {
                 logger.error(EXEC_EX, e);
