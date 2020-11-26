@@ -171,7 +171,13 @@ public class DiskTable implements Closeable, Table {
         fileChannel = FileChannel.open(path, StandardOpenOption.READ);
         filePath = path;
         final var fileName = path.getFileName().toString();
-        generation = Integer.parseInt(fileName.substring(0, fileName.length() - 3));
+        int gen;
+        try {
+            gen = Integer.parseInt(fileName.substring(0, fileName.length() - 3));
+        } catch (NumberFormatException e) {
+            gen = -1;
+        }
+        generation = gen;
         final long size = fileChannel.size();
         final var buffSize = ByteBuffer.allocate(Integer.BYTES);
         fileChannel.read(buffSize, size - Integer.BYTES);

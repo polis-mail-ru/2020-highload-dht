@@ -28,7 +28,7 @@ import java.io.IOException;
  * @author Vadim Tsesko
  */
 public final class DAOFactory {
-    static final long MAX_HEAP = 256 * 1024 * 1024;
+    public static final long MAX_HEAP = 256 * 1024 * 1024;
     
     private DAOFactory() {
         // Not instantiatable

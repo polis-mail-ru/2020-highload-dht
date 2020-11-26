@@ -31,7 +31,9 @@ public class DiskManager implements Closeable {
      * @throws IOException rethrow from {@link FileChannel#write}
      */
     public static void saveTo(final Iterator<ICell> it, final Path file) throws IOException {
-        Files.createFile(file);
+        if (!Files.exists(file)) {
+            Files.createFile(file);
+        }
         try (FileChannel writer = FileChannel.open(file, StandardOpenOption.WRITE)) {
             final var shifts = new ArrayList<Integer>();
             shifts.add(0);

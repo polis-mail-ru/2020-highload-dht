@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DaoSnapshot;
+import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.MapIterator;
@@ -84,7 +85,15 @@ public class DaoService implements Closeable, HttpEntitiesHandler {
         resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
         return resp;
     }
-
+    
+    /**
+     * Merges existing table to dao.
+     * @param table a {@link Table}
+     */
+    public void merge(@NotNull final Table table) {
+        dao.merge(table);
+    }
+    
     @Override
     public void close() throws IOException {
         dao.close();

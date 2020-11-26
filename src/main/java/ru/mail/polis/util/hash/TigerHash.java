@@ -6,8 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class TigerHash implements StreamHash, ConcatHash {
-    private static final int BLOCK_SIZE = 64;
     private final Tiger tiger = new Tiger();
+    private final int BLOCK_SIZE = tiger.hashSize();
 
     @Override
     public byte[] combine(final byte[] src, final int offset1, final int offset2) {

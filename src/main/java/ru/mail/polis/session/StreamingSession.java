@@ -68,6 +68,9 @@ public class StreamingSession extends HttpSession {
     }
 
     private void next() throws IOException {
+        if (valueIterator == null) {
+            return;
+        }
         while (valueIterator.hasNext() && queueHead == null) {
             final var value = valueIterator.next();
             final var sendSize = value.valueSize();

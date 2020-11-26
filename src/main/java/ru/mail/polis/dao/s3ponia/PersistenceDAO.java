@@ -202,6 +202,16 @@ public final class PersistenceDAO implements DAO {
             Files.delete(((DiskTable) diskTable).getFilePath());
         }
     }
+    
+    @Override
+    public void merge(@NotNull final Table table) {
+        readWriteLock.writeLock().lock();
+        try {
+            this.tableSet = this.tableSet.addTable(table);
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+    }
 
     @Override
     public DaoSnapshot snapshot() {
