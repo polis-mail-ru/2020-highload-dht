@@ -14,13 +14,22 @@ import java.util.NoSuchElementException;
  * Represents key-value pair for storing in RocksDB.
  */
 public final class Record {
-    private byte[] key;
-    private byte[] value;
-    private Date timestamp;
-    private RecordState state;
+    private final byte[] key;
+    private final byte[] value;
+    private final Date timestamp;
+    private final RecordState state;
+    private static final RecordState[] stateValues = RecordState.values();
 
-    private Record() {
-        /* nothing */
+    private Record(final byte[] key, final byte[] value, final Date timestamp,
+                   final RecordState state) {
+        if (key == null) {
+            this.key = null;
+        } else {
+            this.key = Arrays.copyOf(key, key.length);
+        }
+        this.value = Arrays.copyOf(value, value.length);
+        this.timestamp = timestamp;
+        this.state = state;
     }
 
     /**
@@ -31,12 +40,11 @@ public final class Record {
      * @return - generated record.
      */
     public static Record newRecord(final String key, final byte[] value) {
-        final var record = new Record();
-        record.key = key.getBytes(StandardCharsets.UTF_8);
-        record.value = Arrays.copyOf(value, value.length);
-        record.state = RecordState.UNDEFINED;
-        record.timestamp = new Date();
-        return record;
+        final var argKey = key.getBytes(StandardCharsets.UTF_8);
+        final var argValue = Arrays.copyOf(value, value.length);
+        final var argState = RecordState.UNDEFINED;
+        final var argTimestamp = new Date();
+        return new Record(argKey, argValue, argTimestamp, argState);
     }
 
     /**
@@ -46,12 +54,11 @@ public final class Record {
      * @return - generated record.
      */
     public static Record newRemoved(final String key) {
-        final var record = new Record();
-        record.key = key.getBytes(StandardCharsets.UTF_8);
-        record.value = new byte[]{};
-        record.state = RecordState.REMOVED;
-        record.timestamp = new Date();
-        return record;
+        final var argKey = key.getBytes(StandardCharsets.UTF_8);
+        final var argValue = new byte[]{};
+        final var argState = RecordState.REMOVED;
+        final var argTimestamp = new Date();
+        return new Record(argKey, argValue, argTimestamp, argState);
     }
 
     /**
@@ -64,26 +71,25 @@ public final class Record {
      * @throws IOException - if record cannot be read due to problems with DAO.
      */
     public static Record newFromDAO(final DAO dao, final String key) throws IOException {
-        final var record = new Record();
-        record.key = key.getBytes(StandardCharsets.UTF_8);
-        record.value = new byte[]{};
-        record.timestamp = new Date(0);
-        record.state = RecordState.PRESENTED;
-        final var keyAsByteBuffer = ByteBufferUtils.toByteBuffer(record.key);
+        final var argKey = key.getBytes(StandardCharsets.UTF_8);
+        var argValue = new byte[]{};
+        var argTimestamp = new Date(0);
+        var argState = RecordState.PRESENTED;
+        final var keyAsByteBuffer = ByteBufferUtils.toByteBuffer(argKey);
         final ByteBuffer response;
         try {
             response = dao.get(keyAsByteBuffer);
         } catch (NoSuchElementException ex) {
-            record.state = RecordState.NOT_FOUND;
-            return record;
+            argState = RecordState.NOT_FOUND;
+            return new Record(argKey, argValue, argTimestamp, argState);
         }
-        if (RecordState.values()[response.get()] == RecordState.REMOVED) {
-            record.state = RecordState.REMOVED;
+        if (response.get() == RecordState.REMOVED.ordinal()) {
+            argState = RecordState.REMOVED;
         }
-        record.timestamp = new Date(response.getLong());
-        record.value = new byte[response.remaining()];
-        response.get(record.value);
-        return record;
+        argTimestamp = new Date(response.getLong());
+        argValue = new byte[response.remaining()];
+        response.get(argValue);
+        return new Record(argKey, argValue, argTimestamp, argState);
     }
 
     /**
@@ -95,14 +101,13 @@ public final class Record {
      * @return - record with parsed value information.
      */
     public static Record newFromRawValue(final byte[] rawValue) {
-        final var record = new Record();
         final var bb = ByteBuffer.wrap(rawValue);
-        record.state = RecordState.values()[bb.get()];
-        record.key = null;
-        record.timestamp = new Date(bb.getLong());
-        record.value = new byte[bb.remaining()];
-        bb.get(record.value);
-        return record;
+        final var argState = stateValues[bb.get()];
+        final byte[] argKey = null;
+        final var argTimestamp = new Date(bb.getLong());
+        final var argValue = new byte[bb.remaining()];
+        bb.get(argValue);
+        return new Record(argKey, argValue, argTimestamp, argState);
     }
 
     /**
@@ -112,14 +117,12 @@ public final class Record {
      * @throws IOException - when record cannot be saved due to IO problems.
      */
     public void save(final DAO dao) throws IOException {
-        dao.upsert(ByteBuffer.wrap(key), combineValue());
+        dao.upsert(ByteBuffer.wrap(key), serialize());
     }
 
-    private ByteBuffer combineValue() {
-        final int byteSize = 1;
-        final int longSize = 8;
+    private ByteBuffer serialize() {
         final int valueSize = this.value.length;
-        final var rawValue = ByteBuffer.allocate(byteSize + longSize + valueSize);
+        final var rawValue = ByteBuffer.allocate(Byte.BYTES + Long.BYTES + valueSize);
         final byte stateAsByte = (byte) this.state.ordinal();
         rawValue.put(stateAsByte);
         rawValue.putLong(this.timestamp.getTime());
@@ -135,7 +138,7 @@ public final class Record {
      * @return - raw value of the record.
      */
     public byte[] getRawValue() {
-        final var rawValue = combineValue();
+        final var rawValue = serialize();
         final var res = new byte[rawValue.remaining()];
         rawValue.get(res);
         return res;

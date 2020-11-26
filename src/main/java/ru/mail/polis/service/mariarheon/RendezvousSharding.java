@@ -7,6 +7,8 @@ import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -16,8 +18,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public class RendezvousSharding {
+    private static final Logger logger = LoggerFactory.getLogger(RendezvousSharding.class);
+
     private final List<String> nodes;
     private final String currentNode;
     private final Map<String, HttpClient> clients;
@@ -95,11 +100,16 @@ public class RendezvousSharding {
      * @param request the request.
      * @return response from node. 
      */
-    public Response passOn(final String to, final Request request) throws InterruptedException,
-                                                              IOException,
-                                                              HttpException,
-                                                              PoolException {
-        return clients.get(to).invoke(request);
+    public CompletableFuture<Response> passOn(final String to, final Request request) {
+        final var httpClient = clients.get(to);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return httpClient.invoke(request);
+            } catch (InterruptedException | IOException | HttpException | PoolException ex) {
+                logger.error("Exception occured when passing on", ex);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }
+        });
     }
 
     /**
