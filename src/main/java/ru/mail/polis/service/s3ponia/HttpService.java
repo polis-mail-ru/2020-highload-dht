@@ -11,6 +11,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.service.Service;
 import ru.mail.polis.util.MapIterator;
 import ru.mail.polis.util.Utility;
@@ -65,10 +66,10 @@ public class HttpService extends HttpServer implements Service {
 
     /**
      * Entities request handler. Creates stream of records in
-     *  format(key '\n' value) that contains in range [start; end).
+     * format(key '\n' value) that contains in range [start; end).
      *
-     * @param start start of range
-     * @param end end of range
+     * @param start   start of range
+     * @param end     end of range
      * @param session session for streaming
      * @throws IOException rethrow from {@link HttpSession#sendError} and {@link StreamingSession#stream}
      */
@@ -81,18 +82,23 @@ public class HttpService extends HttpServer implements Service {
             return;
         }
 
-        Iterator<StreamingValue> streamIterator;
+        final Iterator<Record> recordIterator;
 
         if (end == null) {
-            streamIterator = new MapIterator<>(
-                    entitiesService.from(Utility.byteBufferFromString(start)),
-                    StreamingRecordValue::new);
+            recordIterator = entitiesService.from(
+                    Utility.byteBufferFromString(start)
+            );
         } else {
-            streamIterator = new MapIterator<>(
-                    entitiesService.range(Utility.byteBufferFromString(start),
-                            Utility.byteBufferFromString(end)),
-                    StreamingRecordValue::new);
+            recordIterator = entitiesService.range(
+                    Utility.byteBufferFromString(start),
+                    Utility.byteBufferFromString(end)
+            );
         }
+
+        final Iterator<StreamingValue> streamIterator = new MapIterator<>(
+                recordIterator,
+                StreamingRecordValue::new
+        );
 
         ((StreamingSession) session).stream(streamIterator);
     }
