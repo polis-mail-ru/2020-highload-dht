@@ -17,8 +17,6 @@ public class StreamingSession extends HttpSession {
     private static final Logger logger = LoggerFactory.getLogger(StreamingSession.class);
     private static final String CHUNK_HEADER =
             "Transfer-Encoding: chunked";
-    private static final byte[] CARRIAGE_RETURN_LINE_FEED =
-            "\r\n".getBytes(Charsets.UTF_8);
     private static final byte[] END_OF_FILE =
             "0\r\n\r\n".getBytes(Charsets.UTF_8);
 
@@ -51,19 +49,9 @@ public class StreamingSession extends HttpSession {
 
     private void next() throws IOException {
         while (valueIterator.hasNext() && queueHead == null) {
-            final var sendVal = valueIterator.next().value();
-            final var sendSize = sendVal.length;
-            final var stringSize = Integer.toHexString(sendSize);
-            final var chunkSize = stringSize.length() + CARRIAGE_RETURN_LINE_FEED.length
-                    + sendSize + CARRIAGE_RETURN_LINE_FEED.length;
-            final byte[] chunk = new byte[chunkSize];
-            ByteBuffer.wrap(chunk)
-                    .put(stringSize.getBytes(Charsets.UTF_8))
-                    .put(CARRIAGE_RETURN_LINE_FEED)
-                    .put(sendVal)
-                    .put(CARRIAGE_RETURN_LINE_FEED);
-
-            write(chunk, 0, chunkSize);
+            final var sendVal = valueIterator.next();
+            final var sendArray = sendVal.value();
+            write(sendArray, 0, sendArray.length);
         }
 
         if (!valueIterator.hasNext()) {
