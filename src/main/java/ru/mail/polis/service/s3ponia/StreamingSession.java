@@ -49,8 +49,8 @@ public class StreamingSession extends HttpSession {
     private void next() throws IOException {
         while (valueIterator.hasNext() && queueHead == null) {
             final var sendVal = valueIterator.next();
-            final var sendArray = sendVal.value();
-            write(sendArray, 0, sendArray.length);
+            final var sendItem = sendVal.value();
+            write(sendItem);
         }
 
         if (!valueIterator.hasNext()) {
