@@ -50,7 +50,7 @@ public class StreamingSession extends HttpSession {
         while (valueIterator.hasNext() && queueHead == null) {
             final var sendVal = valueIterator.next();
             final var sendItem = sendVal.value();
-            write(sendItem);
+            write(sendItem, 0, sendItem.length);
         }
 
         if (!valueIterator.hasNext()) {
