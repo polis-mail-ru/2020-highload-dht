@@ -24,10 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class RepliServiceImpl extends HttpServer implements Service {
 
@@ -218,6 +215,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 } catch (IOException e) {
                     LOGGER.error(IO_ERROR_LOG);
                 }
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendError(Response.SERVICE_UNAVAILABLE, ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
+                } catch (IOException e) {
+                    LOGGER.error(IO_ERROR_LOG);
+                }
             }
         });
     }
@@ -230,8 +234,8 @@ public class RepliServiceImpl extends HttpServer implements Service {
      * @param session - ongoing session instance
      */
     private void enforceChunkStreaming(@NotNull final HttpSession session,
-                                    final String start,
-                                    final String end) throws IOException {
+                                       final String start,
+                                       final String end) throws IOException {
         final ByteBuffer endBuf = end == null ? null : ByteBuffer.wrap(end.getBytes(Charset.defaultCharset()));
         final ByteBuffer startBuf = ByteBuffer.wrap(start.getBytes(Charset.defaultCharset()));
         final Iterator<Record> records = dao.range(startBuf, endBuf);
@@ -264,6 +268,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 LOGGER.error(COMMON_RESPONSE_ERROR_LOG);
                 try {
                     session.sendError(Response.INTERNAL_ERROR, COMMON_RESPONSE_ERROR_LOG);
+                } catch (IOException e) {
+                    LOGGER.error(IO_ERROR_LOG);
+                }
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendError(Response.SERVICE_UNAVAILABLE, ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
                 } catch (IOException e) {
                     LOGGER.error(IO_ERROR_LOG);
                 }

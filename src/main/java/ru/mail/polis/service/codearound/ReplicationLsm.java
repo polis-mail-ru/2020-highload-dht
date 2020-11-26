@@ -27,8 +27,9 @@ public class ReplicationLsm {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
     private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
-    private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
+    public static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
+
     @NotNull
     private final DAO dao;
     @NotNull

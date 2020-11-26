@@ -18,9 +18,9 @@ import java.util.Iterator;
  */
 public class ChunkStreamingSession extends HttpSession {
 
-    private static final byte[] bytesOfCRLF = "\r\n".getBytes(Charset.defaultCharset());
-    private static final byte[] bytesOfLF = "\n".getBytes(Charset.defaultCharset());
-    private static final byte[] nullContentBytes = "0\r\n\r\n".getBytes(Charset.defaultCharset());
+    private static final byte[] CRLF_BYTES = "\r\n".getBytes(Charset.defaultCharset());
+    private static final byte[] LF_BYTES = "\n".getBytes(Charset.defaultCharset());
+    private static final byte[] NULL_CONTENT_BYTES = "0\r\n\r\n".getBytes(Charset.defaultCharset());
     private static final String ENCODING_HEADER = "Transfer-Encoding: chunked";
     private Iterator<Record> it;
 
@@ -83,18 +83,18 @@ public class ChunkStreamingSession extends HttpSession {
 
         final byte[] key = DAOByteOnlyConverter.readByteArray(record.getKey());
         final byte[] value = DAOByteOnlyConverter.readByteArray(record.getValue());
-        final int recordSize = key.length + bytesOfLF.length + value.length;
+        final int recordSize = key.length + LF_BYTES.length + value.length;
         final String base16RecordSize = Integer.toHexString(recordSize);
-        final int chunkSize = base16RecordSize.length() + recordSize + 2 * bytesOfCRLF.length;
+        final int chunkSize = base16RecordSize.length() + recordSize + 2 * CRLF_BYTES.length;
         final byte[] recordBytes = base16RecordSize.getBytes(Charset.defaultCharset());
         final byte[] chunkArray = new byte[chunkSize];
         final ByteBuffer chunkBuf = ByteBuffer.wrap(chunkArray);
         chunkBuf.put(recordBytes)
-                .put(bytesOfCRLF)
+                .put(CRLF_BYTES)
                 .put(key)
-                .put(bytesOfLF)
+                .put(LF_BYTES)
                 .put(value)
-                .put(bytesOfCRLF);
+                .put(CRLF_BYTES);
 
         return chunkArray;
     }
@@ -103,7 +103,7 @@ public class ChunkStreamingSession extends HttpSession {
      * handles end of chunk consumed.
      */
     private void commitTailHandling() throws IOException {
-        write(nullContentBytes, 0, nullContentBytes.length);
+        write(NULL_CONTENT_BYTES, 0, NULL_CONTENT_BYTES.length);
         server.incRequestsProcessed();
 
         if ((handling = pipeline.pollFirst()) != null) {
