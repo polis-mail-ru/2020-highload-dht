@@ -1,7 +1,6 @@
 package ru.mail.polis.service.s3ponia;
 
 import com.google.common.base.Charsets;
-import one.nio.net.Session.QueueItem;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 
