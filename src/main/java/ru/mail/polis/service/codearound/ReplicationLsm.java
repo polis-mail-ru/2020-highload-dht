@@ -27,11 +27,11 @@ public class ReplicationLsm {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReplicationLsm.class);
     private static final String NORMAL_REQUEST_HEADER = "/v0/entity?id=";
     private static final String NOT_FOUND_ERROR_LOG = "Match key is missing, no value can be retrieved";
-    private static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
     private static final String CASE_FORWARDING_ERROR_LOG = "Error forwarding request via proxy";
     private static final String GET_REPL_ERROR_LOG = "Error running GET handler on cluster replica node";
     private static final String UPSERT_REPL_ERROR_LOG = "Error running PUT handler on cluster replica node";
     private static final String DELETE_REPL_ERROR_LOG = "Error running DELETE handler on cluster replica node";
+    public static final String QUEUE_LIMIT_ERROR_LOG = "Queue is full, lacks free capacity";
 
     @NotNull
     private final DAO dao;

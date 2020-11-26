@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -33,8 +34,9 @@ public class RepliServiceImpl extends HttpServer implements Service {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepliServiceImpl.class);
     private static final String COMMON_RESPONSE_ERROR_LOG = "Error sending response while async handler running";
+    private static final String STREAM_INIT_ERROR_LOG = "Error pushing stream of chunks";
     private static final String REJECT_METHOD_ERROR_LOG = "No match handler exists for request method. "
-                 + "Failed determining response";
+            + "Failed determining response";
     public static final String IO_ERROR_LOG = "IO exception raised";
     public static final String FORWARD_REQUEST_HEADER = "X-OK-Proxy: True";
     public static final String GATEWAY_TIMEOUT_ERROR_LOG = "Sending response takes too long. "
@@ -76,7 +78,7 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder()
                         .setNameFormat("worker-%d")
-                        //.setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
+                        .setUncaughtExceptionHandler((t, e) -> LOGGER.error("Worker {} fails running: {}", t, e))
                         .build(),
                 new ThreadPoolExecutor.AbortPolicy()
         );
@@ -186,34 +188,61 @@ public class RepliServiceImpl extends HttpServer implements Service {
     /**
      * handler executable for range requests only.
      *
+     * @param start - record specified to start range
+     * @param end - record either specified or set to null to close the range
      * @param req - client host request
      * @param session - ongoing session instance
      */
     @Path("/v0/entities")
-    public void handleRangeRequest(@NotNull final Request req,
+    public void handleRangeRequest(@Param(value = "start", required = true) final String start,
+                                   @Param(value = "end") final String end,
+                                   @NotNull final Request req,
                                    @NotNull final HttpSession session) throws IOException {
-
-        final String start = req.getParameter("start=");
 
         if (start == null || start.isEmpty()) {
             session.sendError(Response.BAD_REQUEST, "'start' parameter is missing or present without any data");
-            return;
         }
 
         if (req.getMethod() != Request.METHOD_GET) {
             session.sendError(
                     Response.METHOD_NOT_ALLOWED,
                     "Inconsistent method selection for sending range request (GET is only supported)");
-            return;
         }
 
-        final String end = req.getParameter("end=");
-        final ByteBuffer endBuf = end == null ? null : ByteBuffer.wrap(end.getBytes(Charset.defaultCharset()));
+        exec.execute(() -> {
+            try {
+                enforceChunkStreaming(session, start, end);
+            } catch (IOException exc) {
+                LOGGER.error(STREAM_INIT_ERROR_LOG);
+                try {
+                    session.sendError(Response.INTERNAL_ERROR, COMMON_RESPONSE_ERROR_LOG);
+                } catch (IOException e) {
+                    LOGGER.error(IO_ERROR_LOG);
+                }
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendError(Response.SERVICE_UNAVAILABLE, ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
+                } catch (IOException e) {
+                    LOGGER.error(IO_ERROR_LOG);
+                }
+            }
+        });
+    }
 
+    /**
+     * pushes stream of chunks to respond a range request since records pooled up accordingly.
+     *
+     * @param start - record specified to start range
+     * @param end - record either specified or set to null to close the range
+     * @param session - ongoing session instance
+     */
+    private void enforceChunkStreaming(@NotNull final HttpSession session,
+                                       final String start,
+                                       final String end) throws IOException {
+        final ByteBuffer endBuf = end == null ? null : ByteBuffer.wrap(end.getBytes(Charset.defaultCharset()));
         final ByteBuffer startBuf = ByteBuffer.wrap(start.getBytes(Charset.defaultCharset()));
-        final Iterator<Record> records = dao.range(
-                startBuf,
-                endBuf);
+        final Iterator<Record> records = dao.range(startBuf, endBuf);
         ((ChunkStreamingSession) session).initStreaming(records);
     }
 
@@ -243,6 +272,13 @@ public class RepliServiceImpl extends HttpServer implements Service {
                 LOGGER.error(COMMON_RESPONSE_ERROR_LOG);
                 try {
                     session.sendError(Response.INTERNAL_ERROR, COMMON_RESPONSE_ERROR_LOG);
+                } catch (IOException e) {
+                    LOGGER.error(IO_ERROR_LOG);
+                }
+            } catch (RejectedExecutionException exc) {
+                LOGGER.error(ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
+                try {
+                    session.sendError(Response.SERVICE_UNAVAILABLE, ReplicationLsm.QUEUE_LIMIT_ERROR_LOG);
                 } catch (IOException e) {
                     LOGGER.error(IO_ERROR_LOG);
                 }
