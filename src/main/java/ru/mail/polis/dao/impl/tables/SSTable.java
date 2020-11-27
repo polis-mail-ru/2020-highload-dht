@@ -61,24 +61,22 @@ public final class SSTable implements Table {
                 fc.write(key);
                 final Value value = cell.getValue();
                 if (value.isTombstone()) {
-                    fc.write(ByteUtils.fromLong(-cell.getValue().getTimestamp()));
+                    fc.write(ByteUtils.fromLong(-value.getTimestamp()));
                 } else {
-                    fc.write(ByteUtils.fromLong(cell.getValue().getTimestamp()));
-                    final ByteBuffer data = Objects.requireNonNull(cell.getValue().getData()).duplicate();
+                    fc.write(ByteUtils.fromLong(value.getTimestamp()));
+                    final ByteBuffer data = Objects.requireNonNull(value.getData()).duplicate();
                     offset += data.remaining();
                     fc.write(data);
-                    final Instant expire = cell.getValue().getExpire();
+                    final Instant expire = value.getExpire();
                     if (!Instant.MAX.equals(expire)) {
                         offset += (Long.BYTES + Integer.BYTES);
                         fc.write(ByteUtils.fromInstant(expire));
                     }
                 }
             }
-
             for (final Integer anOffset : offsets) {
                 fc.write(ByteUtils.fromInt(anOffset));
             }
-
             fc.write(ByteUtils.fromInt(offsets.size()));
         }
     }

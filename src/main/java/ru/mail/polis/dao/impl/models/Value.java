@@ -59,15 +59,6 @@ public final class Value {
         this.expire = Instant.MAX;
     }
 
-    public static Value of(@NotNull final ByteBuffer data,
-                           final long seconds,
-                           final int nanos) {
-        return new Value(System.currentTimeMillis(),
-                data.duplicate(),
-                seconds,
-                nanos);
-    }
-
     public boolean isTombstone() {
         return data == null;
     }
