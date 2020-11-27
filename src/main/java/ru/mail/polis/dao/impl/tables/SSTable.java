@@ -68,10 +68,11 @@ public final class SSTable implements Table {
                     offset += data.remaining();
                     fc.write(data);
                     final Instant expire = value.getExpire();
-                    if (!Instant.MAX.equals(expire)) {
-                        offset += (Long.BYTES + Integer.BYTES);
-                        fc.write(ByteUtils.fromInstant(expire));
+                    if (expire.equals(Instant.MAX)) {
+                        continue;
                     }
+                    offset += (Long.BYTES + Integer.BYTES);
+                    fc.write(ByteUtils.fromInstant(expire));
                 }
             }
             for (final Integer anOffset : offsets) {
