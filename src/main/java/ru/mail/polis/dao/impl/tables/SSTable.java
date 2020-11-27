@@ -13,6 +13,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -66,8 +67,11 @@ public final class SSTable implements Table {
                     final ByteBuffer data = Objects.requireNonNull(cell.getValue().getData()).duplicate();
                     offset += data.remaining();
                     fc.write(data);
-                    offset += (Long.BYTES + Integer.BYTES);
-                    fc.write(ByteUtils.fromInstant(cell.getValue().getExpire()));
+                    final Instant expire = cell.getValue().getExpire();
+                    if (!Instant.MAX.equals(expire)) {
+                        offset += (Long.BYTES + Integer.BYTES);
+                        fc.write(ByteUtils.fromInstant(expire));
+                    }
                 }
             }
 
