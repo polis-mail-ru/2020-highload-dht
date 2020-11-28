@@ -14,7 +14,7 @@ import static com.google.common.hash.Hashing.murmur3_32;
 
 public class RendezvousHashingImpl implements Topology<String> {
     private static final Logger log = LoggerFactory.getLogger(RendezvousHashingImpl.class);
-    private final String[] allNodes;
+    private String[] allNodes;
     private final String currentNode;
 
     /**
