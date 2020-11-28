@@ -18,7 +18,7 @@ public class ChunkedSession extends HttpSession {
      * @param socket - socket
      * @param server - http server
      */
-    public ChunkedSession(Socket socket, HttpServer server) {
+    public ChunkedSession(final Socket socket, final HttpServer server) {
         super(socket, server);
     }
 
@@ -44,10 +44,18 @@ public class ChunkedSession extends HttpSession {
     }
 
     private void next() throws IOException {
+        writeNext();
+        writePost();
+    }
+
+    private void writeNext() throws IOException {
         while (iterator.hasNext() && queueHead == null) {
             final var elem = iterator.next();
             ChunkedEncoder.write(this, elem);
         }
+    }
+
+    private void writePost() throws IOException {
         if (!iterator.hasNext()) {
             ChunkedEncoder.writeLastChunk(this);
 

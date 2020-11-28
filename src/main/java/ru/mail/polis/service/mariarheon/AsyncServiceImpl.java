@@ -70,7 +70,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     @Override
-    public HttpSession createSession(Socket socket) throws RejectedSessionException {
+    public HttpSession createSession(final Socket socket) throws RejectedSessionException {
         return new ChunkedSession(socket, this);
     }
 
@@ -176,7 +176,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     if (composer.answerIsReady()) {
                         return;
                     }
-                    composer.addResponse(node, resp);
+                    composer.addResponse(resp);
                     if (composer.answerIsReady()) {
                         logger.info("\n" + sharding.getMe() + ": answer is ready");
                         final var requiredResponse = composer.getComposedResponse();

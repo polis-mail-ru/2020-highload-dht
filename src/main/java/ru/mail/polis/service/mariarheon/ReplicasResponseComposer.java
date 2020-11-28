@@ -29,7 +29,7 @@ public class ReplicasResponseComposer {
      *
      * @param response - response from replica.
      */
-    public void addResponse(final String fromNode, final Response response) {
+    public void addResponse(final Response response) {
         preparedResponse = null;
         totalReceived++;
         final var responseStatus = response.getStatus();
