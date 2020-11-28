@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class RendezvousSharding {
-    private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(RendezvousSharding.class);
 
     private final List<String> nodes;
     private final String currentNode;

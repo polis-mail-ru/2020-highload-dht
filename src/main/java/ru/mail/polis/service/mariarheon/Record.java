@@ -18,6 +18,7 @@ public final class Record {
     private final byte[] value;
     private final Date timestamp;
     private final RecordState state;
+    private static final RecordState[] recordStateValues = RecordState.values();
 
     private Record(final byte[] key, final byte[] value, final Date timestamp,
                    final RecordState state) {
@@ -100,13 +101,25 @@ public final class Record {
      * @return - record with parsed value information.
      */
     public static Record newFromRawValue(final byte[] rawValue) {
-        final var bb = ByteBuffer.wrap(rawValue);
-        final var argState = RecordState.values()[bb.get()];
-        final byte[] argKey = null;
-        final var argTimestamp = new Date(bb.getLong());
-        final var argValue = new byte[bb.remaining()];
-        bb.get(argValue);
-        return new Record(argKey, argValue, argTimestamp, argState);
+        return newFromRawValue(ByteBuffer.wrap(rawValue));
+    }
+
+    /**
+     * Returns record with parsed information, including
+     * value of the record, state (usual, removed, not found) of the record
+     * and key = null.
+     *
+     * @param rawValue - raw (unparsed) value from record.
+     * @return - record with parsed value information.
+     */
+    public static Record newFromRawValue(final ByteBuffer rawValue) {
+        rawValue.mark();
+        final var argState = recordStateValues[rawValue.get()];
+        final var argTimestamp = new Date(rawValue.getLong());
+        final var argValue = new byte[rawValue.remaining()];
+        rawValue.get(argValue);
+        rawValue.reset();
+        return new Record(null, argValue, argTimestamp, argState);
     }
 
     /**

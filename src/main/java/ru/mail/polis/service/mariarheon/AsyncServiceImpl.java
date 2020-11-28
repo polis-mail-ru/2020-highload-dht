@@ -9,10 +9,13 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.Socket;
+import one.nio.server.RejectedSessionException;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
@@ -64,6 +67,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 );
     }
 
+    @Override
+    public HttpSession createSession(Socket socket) throws RejectedSessionException {
+        return new ChunkedSession(socket, this);
+    }
+
     /**
      * Get records for keys in range [start; end).
      *
@@ -76,28 +84,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod(METHOD_GET)
     public void handleRangeRequest(final @Param(value = "start", required = true) String start,
                                    final @Param(value = "end") String end,
-                                   @NotNull final HttpSession session) {
+                                   @NotNull final HttpSession session) throws IOException {
         if (start.isEmpty()) {
             trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
         Iterator<ru.mail.polis.Record> iterator;
         try {
-            iterator = new RecordIterator(dao, start, end);
+            iterator = dao.range(ByteBufferUtils.toByteBuffer(start),
+                    ByteBufferUtils.toByteBuffer(end));
         } catch (IOException e) {
             trySendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             logger.error(SERV_UN, e);
             return;
         }
-        try {
-            final var encoder = new ChunkedEncoder(session);
-            while (iterator.hasNext()) {
-                encoder.write(iterator.next());
-            }
-            encoder.close();
-        } catch (IOException ex) {
-            logger.error(SERV_UN, ex);
-        }
+        ((ChunkedSession) session).writeRangeResponse(iterator);
     }
 
     /** Get/set/delete key-value entity.

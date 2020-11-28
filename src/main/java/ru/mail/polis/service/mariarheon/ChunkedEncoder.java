@@ -7,31 +7,17 @@ import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 /**
  * Encoder for writing chunks to the session in Transfer-Chunked-Encoding format.
  */
-public class ChunkedEncoder {
+public final class ChunkedEncoder {
     private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
-    final HttpSession session;
 
-    /**
-     * Create encoder for writing chunks to the session.
-     *
-     * @param session - session.
-     * @throws IOException - raised when writing to session failed.
-     */
-    public ChunkedEncoder(final HttpSession session) throws IOException {
-        this.session = session;
-        final var builder = new StringBuilder();
-        builder.append("HTTP/1.1 200 OK\r\n");
-        builder.append("Connection: Keep-Alive\r\n");
-        builder.append("Content-Type: text/plain\r\n");
-        builder.append("Transfer-Encoding: chunked\r\n");
-        builder.append("\r\n");
-        final var head = builder.toString().getBytes(StandardCharsets.UTF_8);
-        session.write(head, 0, head.length);
+    private ChunkedEncoder() {
+        /* nothing */
     }
 
     /**
@@ -40,26 +26,26 @@ public class ChunkedEncoder {
      * @param record - key-value pair, which should be written as chunk to session.
      * @throws IOException - raised when writing to session failed.
      */
-    public void write(final ru.mail.polis.Record record) throws IOException {
-        final var key = record.getKey();
-        final var keyAsBytes = ByteBufferUtils.toArray(key);
+    public static void write(final HttpSession session, final ru.mail.polis.Record record) throws IOException {
         final var value = record.getValue();
-        final var parsedRecord = Record.newFromRawValue(ByteBufferUtils.toArray(value));
+        final var parsedRecord = Record.newFromRawValue(value);
         if (!parsedRecord.isRemoved() && !parsedRecord.wasNotFound()) {
             final var parsedValue = parsedRecord.getValue();
-            write(keyAsBytes, parsedValue);
+            write(session, record.getKey(), parsedValue);
         }
     }
 
-    private void write(final byte[] key, final byte[] value) throws IOException {
+    private static void write(final HttpSession session,
+                              final ByteBuffer key, final byte[] value) throws IOException {
         try (var byteStream = new ByteArrayOutputStream()) {
             final byte[] newLine = new byte[]{'\r', '\n'};
-            final int chunkLength = key.length + 1 + value.length;
+            final int chunkLength = key.remaining() + 1 + value.length;
             final byte[] lenInfo = Integer.toHexString(chunkLength).toUpperCase()
                     .getBytes(StandardCharsets.UTF_8);
             byteStream.write(lenInfo, 0, lenInfo.length);
             byteStream.write(newLine, 0, newLine.length);
-            byteStream.write(key, 0, key.length);
+            final byte[] keyBytes = ByteBufferUtils.toArray(key);
+            byteStream.write(keyBytes, 0, keyBytes.length);
             byteStream.write('\n');
             byteStream.write(value, 0, value.length);
             byteStream.write(newLine, 0, newLine.length);
@@ -74,10 +60,9 @@ public class ChunkedEncoder {
      *
      * @throws IOException - raised when writing to session failed.
      */
-    public void close() throws IOException {
+    public static void writeLastChunk(final HttpSession session) throws IOException {
         final byte[] res = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
         logger.info("Closed chunked response item: " + new String(res, StandardCharsets.UTF_8));
         session.write(res, 0, res.length);
-        session.close();
     }
 }

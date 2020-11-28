@@ -3,6 +3,7 @@ package ru.mail.polis.dao.mariarheon;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public final class ByteBufferUtils {
@@ -31,9 +32,24 @@ public final class ByteBufferUtils {
      * @param array - byte array.
      * @return buffer from byte[].
      */
-    @NotNull
     public static ByteBuffer toByteBuffer(final byte[] array) {
+        if (array == null) {
+            return null;
+        }
         return ByteBuffer.wrap(array);
+    }
+
+    /**
+     * Make ByteBuffer from String.
+     *
+     * @param source - source string.
+     * @return buffer from string.
+     */
+    public static ByteBuffer toByteBuffer(final String source) {
+        if (source == null) {
+            return null;
+        }
+        return toByteBuffer(source.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
