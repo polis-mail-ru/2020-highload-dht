@@ -96,7 +96,7 @@ class ConcurrentTest extends TestBase {
                 final Record record = records.next();
                 executor.submit(() -> {
                     try {
-                        dao.upsert(record.getKey(), record.getValue(), null);
+                        dao.upsert(record.getKey(), record.getValue());
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -144,7 +144,7 @@ class ConcurrentTest extends TestBase {
                 final Record record = records.next();
                 executor.submit(() -> {
                     try {
-                        dao.upsert(record.getKey(), record.getValue(), null);
+                        dao.upsert(record.getKey(), record.getValue());
                         ByteBuffer value = dao.get(record.getKey());
                         if (value.equals(record.getValue().duplicate().rewind())) {
                             matches.incrementAndGet();

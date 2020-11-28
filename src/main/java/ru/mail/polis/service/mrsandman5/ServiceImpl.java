@@ -227,7 +227,9 @@ public final class ServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value, expire.equals(Instant.MAX) ? null : expire));
             } else {
-                result.add(ResponseUtils.putResponse(httpClients, node, id, value, executor, expire.equals(Instant.MAX) ? null : expire));
+                result.add(ResponseUtils.putResponse(
+                        httpClients, node, id, value, executor,
+                        expire.equals(Instant.MAX) ? null : expire));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)

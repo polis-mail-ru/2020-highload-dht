@@ -52,7 +52,7 @@ class PersistenceTest extends TestBase {
         try {
             try (DAO dao = DAOFactory.create(data)) {
                 final ByteBuffer value = randomValueBuffer();
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertEquals(value, dao.get(key));
             }
         } finally {
@@ -75,7 +75,7 @@ class PersistenceTest extends TestBase {
 
         // Create, fill and close storage
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
             assertEquals(value, dao.get(key));
         }
 
@@ -93,7 +93,7 @@ class PersistenceTest extends TestBase {
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
             assertEquals(value, dao.get(key));
         }
 
@@ -119,7 +119,7 @@ class PersistenceTest extends TestBase {
 
         // Initial insert
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
             assertEquals(value, dao.get(key));
         }
 
@@ -127,7 +127,7 @@ class PersistenceTest extends TestBase {
         try (DAO dao = DAOFactory.create(data)) {
             // Check and replace
             assertEquals(value, dao.get(key));
-            dao.upsert(key, value2, null);
+            dao.upsert(key, value2);
             assertEquals(value2, dao.get(key));
         }
 
@@ -153,7 +153,7 @@ class PersistenceTest extends TestBase {
                 final ByteBuffer key = randomKeyBuffer();
                 keys.add(key);
                 final ByteBuffer suffixed = join(key, suffix);
-                dao.upsert(suffixed, value, null);
+                dao.upsert(suffixed, value);
                 assertEquals(value, dao.get(suffixed));
             }
         }
@@ -180,7 +180,7 @@ class PersistenceTest extends TestBase {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = join(key, suffix);
                 keys.add(key);
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertEquals(value, dao.get(key));
             }
         }
@@ -219,7 +219,7 @@ class PersistenceTest extends TestBase {
                 value.put(valuePayload);
                 value.rewind();
 
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
 
                 // store the latest value by key or update previously stored one
                 if (i % sampleCount == 0 ||
@@ -255,7 +255,7 @@ class PersistenceTest extends TestBase {
             // Overwrite
             final ByteBuffer value = randomValueBuffer();
             try (DAO dao = DAOFactory.create(data)) {
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertEquals(value, dao.get(key));
             }
 

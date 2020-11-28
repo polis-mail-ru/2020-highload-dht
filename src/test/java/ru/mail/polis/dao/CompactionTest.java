@@ -53,7 +53,7 @@ class CompactionTest extends TestBase {
         for (int round = 0; round < overwrites; round++) {
             try (DAO dao = DAOFactory.create(data)) {
                 for (final ByteBuffer key : keys) {
-                    dao.upsert(key, join(key, value), null);
+                    dao.upsert(key, join(key, value));
                 }
             }
         }
@@ -101,7 +101,7 @@ class CompactionTest extends TestBase {
                 final ByteBuffer value = randomBuffer(valueSize);
                 // Overwrite
                 for (final ByteBuffer key : keys) {
-                    dao.upsert(key, join(key, value), null);
+                    dao.upsert(key, join(key, value));
                 }
 
                 // Compact
@@ -143,7 +143,7 @@ class CompactionTest extends TestBase {
         // Insert keys
         try (DAO dao = DAOFactory.create(data)) {
             for (final ByteBuffer key : keys) {
-                dao.upsert(key, join(key, value), null);
+                dao.upsert(key, join(key, value));
             }
         }
 

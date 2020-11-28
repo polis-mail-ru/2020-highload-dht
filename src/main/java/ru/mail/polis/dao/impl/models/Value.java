@@ -46,19 +46,6 @@ public final class Value {
         this.expire = Instant.MAX;
     }
 
-    /**
-     * Creates value without expire.
-     *
-     * @param timestamp that represents time of creation
-     * @param data buffer to get data to value
-     */
-    public Value(final long timestamp,
-                 @Nullable final ByteBuffer data) {
-        this.timestamp = timestamp;
-        this.data = data;
-        this.expire = Instant.MAX;
-    }
-
     public boolean isTombstone() {
         return data == null;
     }

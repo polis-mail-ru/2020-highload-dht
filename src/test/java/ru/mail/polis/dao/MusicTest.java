@@ -123,13 +123,13 @@ class MusicTest extends TestBase {
     void database(@TempDir File data) throws IOException {
         // Fill music database
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(trackFrom("Ar1", "Al11", "T111"), randomValueBuffer(), null);
-            dao.upsert(trackFrom("Ar1", "Al11", "T112"), randomValueBuffer(), null);
-            dao.upsert(trackFrom("Ar1", "Al12", "T111"), randomValueBuffer(), null);
-            dao.upsert(trackFrom("Ar1", "Al12", "T112"), randomValueBuffer(), null);
-            dao.upsert(trackFrom("Ar1", "Al12", "T113"), randomValueBuffer(), null);
-            dao.upsert(trackFrom("Ar2", "Al21", "T211"), randomValueBuffer(), null);
-            dao.upsert(trackFrom("Ar2", "Al21", "T212"), randomValueBuffer(), null);
+            dao.upsert(trackFrom("Ar1", "Al11", "T111"), randomValueBuffer());
+            dao.upsert(trackFrom("Ar1", "Al11", "T112"), randomValueBuffer());
+            dao.upsert(trackFrom("Ar1", "Al12", "T111"), randomValueBuffer());
+            dao.upsert(trackFrom("Ar1", "Al12", "T112"), randomValueBuffer());
+            dao.upsert(trackFrom("Ar1", "Al12", "T113"), randomValueBuffer());
+            dao.upsert(trackFrom("Ar2", "Al21", "T211"), randomValueBuffer());
+            dao.upsert(trackFrom("Ar2", "Al21", "T212"), randomValueBuffer());
         }
 
         // Open music database

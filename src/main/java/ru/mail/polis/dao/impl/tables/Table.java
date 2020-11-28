@@ -19,9 +19,6 @@ public interface Table {
                 final long seconds,
                 final int nanos) throws IOException;
 
-    void upsert(@NotNull final ByteBuffer key,
-                @NotNull final ByteBuffer value) throws IOException;
-
     void remove(@NotNull final ByteBuffer key) throws IOException;
 
     void close();

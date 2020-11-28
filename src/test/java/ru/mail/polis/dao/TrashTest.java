@@ -44,7 +44,7 @@ class TrashTest extends TestBase {
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
         }
 
         createTrashFile(data, "trash.txt");
@@ -69,7 +69,7 @@ class TrashTest extends TestBase {
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
         }
 
         createTrashDirectory(data, "trash.txt");
@@ -92,7 +92,7 @@ class TrashTest extends TestBase {
 
         // Create dao and fill data
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
         }
 
         createTrashFile(data, "trash.txt", randomValueBuffer());

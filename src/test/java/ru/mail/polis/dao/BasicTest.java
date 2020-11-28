@@ -51,7 +51,7 @@ class BasicTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
             assertEquals(value, dao.get(key));
             assertEquals(value, dao.get(key.duplicate()));
         }
@@ -66,7 +66,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertNull(map.put(key, value));
             }
 
@@ -94,7 +94,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertNull(map.put(key, value));
             }
 
@@ -122,7 +122,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertNull(map.put(key, value));
             }
 
@@ -152,7 +152,7 @@ class BasicTest extends TestBase {
             for (int i = 0; i < count; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final ByteBuffer value = randomValueBuffer();
-                dao.upsert(key, value, null);
+                dao.upsert(key, value);
                 assertNull(map.put(key, value));
             }
 
@@ -168,7 +168,7 @@ class BasicTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = ByteBuffer.allocate(0);
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
             assertEquals(value, dao.get(key));
             assertEquals(value, dao.get(key.duplicate()));
         }
@@ -180,10 +180,10 @@ class BasicTest extends TestBase {
         final ByteBuffer value1 = randomValueBuffer();
         final ByteBuffer value2 = randomValueBuffer();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value1, null);
+            dao.upsert(key, value1);
             assertEquals(value1, dao.get(key));
             assertEquals(value1, dao.get(key.duplicate()));
-            dao.upsert(key, value2, null);
+            dao.upsert(key, value2);
             assertEquals(value2, dao.get(key));
             assertEquals(value2, dao.get(key.duplicate()));
         }
@@ -194,7 +194,7 @@ class BasicTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, null);
+            dao.upsert(key, value);
             assertEquals(value, dao.get(key));
             assertEquals(value, dao.get(key.duplicate()));
             dao.remove(key);
