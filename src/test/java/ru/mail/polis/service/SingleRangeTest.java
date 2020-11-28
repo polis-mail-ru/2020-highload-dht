@@ -86,6 +86,17 @@ class SingleRangeTest extends TestBase {
         Files.recursiveDelete(data);
     }
 
+    @NotNull
+    private String path(@NotNull final String id) {
+        return "/v0/entity?id=" + id;
+    }
+
+    @NotNull
+    private String path(@NotNull final String id,
+                        final String expire) {
+        return path(id) + "&expire=" + expire;
+    }
+
     private Response range(
             @NotNull final String start,
             @Nullable final String end) throws Exception {
@@ -95,14 +106,21 @@ class SingleRangeTest extends TestBase {
     private Response upsert(
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
-        return client.put("/v0/entity?id=" + key, data);
+        return client.put(path(key), data);
+    }
+
+    private Response upsert(
+            @NotNull final String key,
+            final String expire,
+            @NotNull final byte[] data) throws Exception {
+        return client.put(path(key, expire), data);
     }
 
     @Test
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertEquals(400, range("", "").getStatus());
-            assertEquals(400, upsert("", new byte[]{0}).getStatus());
+            assertEquals(400, upsert("", NO_EXPIRE, new byte[]{0}).getStatus());
         });
     }
 
@@ -131,7 +149,7 @@ class SingleRangeTest extends TestBase {
 
         assertTimeoutPreemptively(TIMEOUT, () -> {
             // Insert
-            assertEquals(201, upsert(key, value.getBytes()).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value.getBytes()).getStatus());
 
             // Check
             final Response response = range(key, prefix + 2);
@@ -163,9 +181,9 @@ class SingleRangeTest extends TestBase {
 
         // Insert reversed
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(201, upsert(prefix + 3, value3.getBytes()).getStatus());
-            assertEquals(201, upsert(prefix + 2, value2.getBytes()).getStatus());
-            assertEquals(201, upsert(prefix + 1, value1.getBytes()).getStatus());
+            assertEquals(201, upsert(prefix + 3, NO_EXPIRE, value3.getBytes()).getStatus());
+            assertEquals(201, upsert(prefix + 2, NO_EXPIRE, value2.getBytes()).getStatus());
+            assertEquals(201, upsert(prefix + 1, NO_EXPIRE, value1.getBytes()).getStatus());
         });
 
         // Check all

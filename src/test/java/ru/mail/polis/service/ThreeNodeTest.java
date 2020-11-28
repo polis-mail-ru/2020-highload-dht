@@ -39,18 +39,18 @@ class ThreeNodeTest extends ClusterTestBase {
     @Test
     void tooSmallRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(400, get(0, randomId(), 0, 3).getStatus());
-            assertEquals(400, upsert(0, randomId(), randomValue(), 0, 3).getStatus());
-            assertEquals(400, delete(0, randomId(), 0, 3).getStatus());
+            assertEquals(400, get(0, randomId(), NO_EXPIRE, 0, 3).getStatus());
+            assertEquals(400, upsert(0, randomId(), NO_EXPIRE, randomValue(), 0, 3).getStatus());
+            assertEquals(400, delete(0, randomId(), NO_EXPIRE, 0, 3).getStatus());
         });
     }
 
     @Test
     void tooBigRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(400, get(0, randomId(), 4, 3).getStatus());
-            assertEquals(400, upsert(0, randomId(), randomValue(), 4, 3).getStatus());
-            assertEquals(400, delete(0, randomId(), 4, 3).getStatus());
+            assertEquals(400, get(0, randomId(), NO_EXPIRE, 4, 3).getStatus());
+            assertEquals(400, upsert(0, randomId(), NO_EXPIRE, randomValue(), 4, 3).getStatus());
+            assertEquals(400, delete(0, randomId(), NO_EXPIRE, 4, 3).getStatus());
         });
     }
 
@@ -58,9 +58,9 @@ class ThreeNodeTest extends ClusterTestBase {
     void unreachableRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             stop(0);
-            assertEquals(504, get(1, randomId(), 3, 3).getStatus());
-            assertEquals(504, upsert(1, randomId(), randomValue(), 3, 3).getStatus());
-            assertEquals(504, delete(1, randomId(), 3, 3).getStatus());
+            assertEquals(504, get(1, randomId(), NO_EXPIRE, 3, 3).getStatus());
+            assertEquals(504, upsert(1, randomId(), NO_EXPIRE, randomValue(), 3, 3).getStatus());
+            assertEquals(504, delete(1, randomId(), NO_EXPIRE, 3, 3).getStatus());
         });
     }
 
@@ -72,11 +72,11 @@ class ThreeNodeTest extends ClusterTestBase {
             for (int node = 0; node < getClusterSize(); node++) {
                 // Insert
                 final byte[] value = randomValue();
-                assertEquals(201, upsert(node, key, value, 2, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, value, 2, 3).getStatus());
 
                 // Check
                 for (int i = 0; i < getClusterSize(); i++) {
-                    checkResponse(200, value, get(i, key, 2, 3));
+                    checkResponse(200, value, get(i, key, NO_EXPIRE, 2, 3));
                 }
             }
         });
@@ -90,11 +90,11 @@ class ThreeNodeTest extends ClusterTestBase {
             for (int node = 0; node < getClusterSize(); node++) {
                 // Insert
                 final byte[] value = randomValue();
-                assertEquals(201, upsert(node, key, value, 1, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, value, 1, 3).getStatus());
 
                 // Check
                 for (int i = 0; i < getClusterSize(); i++) {
-                    checkResponse(200, value, get(i, key, 3, 3));
+                    checkResponse(200, value, get(i, key, NO_EXPIRE, 3, 3));
                 }
             }
         });
@@ -107,13 +107,13 @@ class ThreeNodeTest extends ClusterTestBase {
 
             for (int node = 0; node < getClusterSize(); node++) {
                 // Insert & delete
-                assertEquals(201, upsert(node, key, randomValue(), 3, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, randomValue(), 3, 3).getStatus());
                 waitForVersionAdvancement();
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, 2, 3).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 2, 3).getStatus());
 
                 // Check
                 for (int i = 0; i < getClusterSize(); i++) {
-                    assertEquals(404, get(i, key, 2, 3).getStatus());
+                    assertEquals(404, get(i, key, NO_EXPIRE, 2, 3).getStatus());
                 }
             }
         });
@@ -126,13 +126,13 @@ class ThreeNodeTest extends ClusterTestBase {
 
             for (int node = 0; node < getClusterSize(); node++) {
                 // Insert & delete
-                assertEquals(201, upsert(node, key, randomValue(), 3, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, randomValue(), 3, 3).getStatus());
                 waitForVersionAdvancement();
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, 1, 3).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 1, 3).getStatus());
 
                 // Check
                 for (int i = 0; i < getClusterSize(); i++) {
-                    assertEquals(404, get(i, key, 3, 3).getStatus());
+                    assertEquals(404, get(i, key, NO_EXPIRE, 3, 3).getStatus());
                 }
             }
         });
@@ -152,13 +152,13 @@ class ThreeNodeTest extends ClusterTestBase {
 
                 // Insert value
                 final byte[] value = randomValue();
-                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value, 2, 3).getStatus());
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, NO_EXPIRE, value, 2, 3).getStatus());
 
                 // Start node
                 createAndStart(node);
 
                 // Check
-                checkResponse(200, value, get(node, key, 2, 3));
+                checkResponse(200, value, get(node, key, NO_EXPIRE, 2, 3));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -177,9 +177,9 @@ class ThreeNodeTest extends ClusterTestBase {
 
                 // Insert & delete value1
                 final byte[] value1 = randomValue();
-                assertEquals(201, upsert(node, key, value1, 3, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, value1, 3, 3).getStatus());
                 waitForVersionAdvancement();
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, 3, 3).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 3, 3).getStatus());
 
                 // Stop node
                 stop(node);
@@ -189,13 +189,13 @@ class ThreeNodeTest extends ClusterTestBase {
 
                 // Insert value2
                 final byte[] value2 = randomValue();
-                assertEquals(201, upsert((node + 2) % getClusterSize(), key, value2, 2, 3).getStatus());
+                assertEquals(201, upsert((node + 2) % getClusterSize(), key, NO_EXPIRE, value2, 2, 3).getStatus());
 
                 // Start node
                 createAndStart(node);
 
                 // Check value2
-                checkResponse(200, value2, get(node, key, 3, 3));
+                checkResponse(200, value2, get(node, key, NO_EXPIRE, 3, 3));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -213,7 +213,7 @@ class ThreeNodeTest extends ClusterTestBase {
                 restartAllNodes();
 
                 // Insert
-                assertEquals(201, upsert(node, key, randomValue(), 3, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, randomValue(), 3, 3).getStatus());
 
                 // Stop node
                 stop(node);
@@ -222,13 +222,13 @@ class ThreeNodeTest extends ClusterTestBase {
                 waitForVersionAdvancement();
 
                 // Delete
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, 2, 3).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 2, 3).getStatus());
 
                 // Start node
                 createAndStart(node);
 
                 // Check
-                assertEquals(404, get(node, key, 3, 3).getStatus());
+                assertEquals(404, get(node, key, NO_EXPIRE, 3, 3).getStatus());
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -247,24 +247,24 @@ class ThreeNodeTest extends ClusterTestBase {
 
                 // Insert into node
                 final byte[] value = randomValue();
-                assertEquals(201, upsert(node, key, value, 3, 3).getStatus());
+                assertEquals(201, upsert(node, key, NO_EXPIRE, value, 3, 3).getStatus());
 
                 // Stop node
                 stop(node);
 
                 // Check
-                checkResponse(200, value, get((node + 1) % getClusterSize(), key, 2, 3));
-                checkResponse(200, value, get((node + 2) % getClusterSize(), key, 2, 3));
+                checkResponse(200, value, get((node + 1) % getClusterSize(), key, NO_EXPIRE, 2, 3));
+                checkResponse(200, value, get((node + 2) % getClusterSize(), key, NO_EXPIRE, 2, 3));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
 
                 // Delete
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, 2, 3).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 2, 3).getStatus());
 
                 // Check
-                assertEquals(404, get((node + 1) % getClusterSize(), key, 2, 3).getStatus());
-                assertEquals(404, get((node + 2) % getClusterSize(), key, 2, 3).getStatus());
+                assertEquals(404, get((node + 1) % getClusterSize(), key, NO_EXPIRE, 2, 3).getStatus());
+                assertEquals(404, get((node + 2) % getClusterSize(), key, NO_EXPIRE, 2, 3).getStatus());
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -279,7 +279,7 @@ class ThreeNodeTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 1, 1).getStatus());
+            assertEquals(201, upsert(0, key, NO_EXPIRE, value, 1, 1).getStatus());
 
             // Stop all nodes
             for (int i = 0; i < getClusterSize(); i++) {
@@ -293,7 +293,7 @@ class ThreeNodeTest extends ClusterTestBase {
                 createAndStart(i);
 
                 // Check node
-                if (get(i, key, 1, 1).getStatus() == 200) {
+                if (get(i, key, NO_EXPIRE, 1, 1).getStatus() == 200) {
                     copies++;
                 }
 
@@ -311,7 +311,7 @@ class ThreeNodeTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 2).getStatus());
+            assertEquals(201, upsert(0, key, NO_EXPIRE, value, 2, 2).getStatus());
 
             // Stop all nodes
             for (int i = 0; i < getClusterSize(); i++) {
@@ -325,7 +325,7 @@ class ThreeNodeTest extends ClusterTestBase {
                 createAndStart(i);
 
                 // Check node
-                if (get(i, key, 1, 2).getStatus() == 200) {
+                if (get(i, key, NO_EXPIRE, 1, 2).getStatus() == 200) {
                     copies++;
                 }
 

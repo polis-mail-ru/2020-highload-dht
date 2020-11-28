@@ -112,12 +112,10 @@ public final class Entry implements Comparable<Entry> {
             case PRESENT:
                 result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
                 result.addHeader(ResponseUtils.getTimestamp(entry));
-                result.addHeader(ResponseUtils.getExpires(entry));
                 return result;
             case REMOVED:
                 result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
                 result.addHeader(ResponseUtils.getTimestamp(entry));
-                result.addHeader(ResponseUtils.getExpires(entry));
                 return result;
             case ABSENT:
                 return ResponseUtils.emptyResponse(Response.NOT_FOUND);
@@ -142,12 +140,15 @@ public final class Entry implements Comparable<Entry> {
             return Entry.absent();
         }
         if (cell.getValue().isTombstone()
-                || cell.getValue().isExpired()) {
+                || (!Instant.MAX.equals(cell.getValue().getExpire())
+                && cell.getValue().isExpired())) {
             return Entry.removed(cell.getValue().getTimestamp(), cell.getValue().getExpire());
         } else {
             final ByteBuffer value = cell.getValue().getData();
             final byte[] buf = ByteUtils.toByteArray(Objects.requireNonNull(value));
-            return Entry.present(cell.getValue().getTimestamp(), buf, cell.getValue().getExpire());
+            return Entry.present(cell.getValue().getTimestamp(),
+                    buf,
+                    Instant.MAX.equals(cell.getValue().getExpire()) ? null : cell.getValue().getExpire());
         }
     }
 }

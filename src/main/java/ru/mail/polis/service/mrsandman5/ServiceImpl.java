@@ -138,7 +138,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Instant expireTime = ResponseUtils.parseExpires(expire);
+        final Instant expireTime = "max".equals(expire) ? Instant.MAX : ResponseUtils.parseExpires(expire);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor));
@@ -225,9 +225,9 @@ public final class ServiceImpl extends HttpServer implements Service {
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
-                result.add(simpleRequests.put(key, value, expire));
+                result.add(simpleRequests.put(key, value, expire.equals(Instant.MAX) ? null : expire));
             } else {
-                result.add(ResponseUtils.putResponse(httpClients, node, id, value, executor));
+                result.add(ResponseUtils.putResponse(httpClients, node, id, value, executor, expire.equals(Instant.MAX) ? null : expire));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)

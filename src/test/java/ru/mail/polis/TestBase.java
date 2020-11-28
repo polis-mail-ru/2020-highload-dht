@@ -34,6 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 abstract public class TestBase {
     protected static final int KEY_LENGTH = 16;
+    protected static final String NO_EXPIRE = "max";
     private static final int VALUE_LENGTH = 1024;
 
     protected static int randomPort() {

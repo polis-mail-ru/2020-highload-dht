@@ -36,7 +36,7 @@ public final class ResponseUtils {
     public static final String PROXY = "X-Proxy-For";
     public static final String TIMESTAMP = "Timestamp";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
-    public static final String EXPIRES = "Expires";
+    public static final String EXPIRES = "&expires=";
 
     public static final DateTimeFormatter expirationFormat =
             DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH).withZone(ZoneId.of("GMT"));
@@ -76,6 +76,21 @@ public final class ResponseUtils {
                 .timeout(Duration.ofMillis(TIMEOUT_MILLIS));
     }
 
+    /** Create request builder for current client (with expire).
+     * @param node - current client.
+     * @param id - request id.
+     * */
+    @NotNull
+    public static HttpRequest.Builder requestForExpireReplica(@NotNull final String node,
+                                                              @NotNull final String id,
+                                                              @NotNull final Instant expire) {
+        final String uri = node + ENTITY + "?id=" + id + EXPIRES + expire;
+        return HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .header(PROXY, "True")
+                .timeout(Duration.ofMillis(TIMEOUT_MILLIS));
+    }
+
     public static void sendEmptyResponse(@NotNull final HttpSession session,
                                          @NotNull final String code) {
         sendResponse(session, emptyResponse(code));
@@ -102,10 +117,6 @@ public final class ResponseUtils {
         return TIMESTAMP + ": " + entry.getTimestamp();
     }
 
-    public static String getExpires(@NotNull final Entry entry) {
-        return EXPIRES + ": " + entry.getExpires();
-    }
-
     public static Instant parseExpires(@NotNull final String expires) {
         return LocalDateTime.parse(expires, ResponseUtils.expirationFormat)
                 .toInstant(ZoneOffset.ofTotalSeconds(0));
@@ -129,8 +140,13 @@ public final class ResponseUtils {
                                                           @NotNull final String node,
                                                           @NotNull final String id,
                                                           @NotNull final byte[] value,
-                                                          @NotNull final ExecutorService executor) {
-        final HttpRequest request = ResponseUtils.requestForReplica(node, id)
+                                                          @NotNull final ExecutorService executor,
+                                                          final Instant expire) {
+        final HttpRequest request = expire == null
+                ? ResponseUtils.requestForReplica(node, id)
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
+                .build()
+                : ResponseUtils.requestForExpireReplica(node, id, expire)
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                 .build();
         return httpClients.get(node)

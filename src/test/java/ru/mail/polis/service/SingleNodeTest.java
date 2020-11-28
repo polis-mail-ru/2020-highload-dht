@@ -85,12 +85,28 @@ class SingleNodeTest extends TestBase {
         return "/v0/entity?id=" + id;
     }
 
+    @NotNull
+    private String path(@NotNull final String id,
+                        @NotNull final String expire) {
+        return path(id) + "&expire=" + expire;
+    }
+
     private Response get(@NotNull final String key) throws Exception {
         return client.get(path(key));
     }
 
+    private Response get(@NotNull final String key,
+                         @NotNull final String expire) throws Exception {
+        return client.get(path(key, expire));
+    }
+
     private Response delete(@NotNull final String key) throws Exception {
         return client.delete(path(key));
+    }
+
+    private Response delete(@NotNull final String key,
+                            @NotNull final String expire) throws Exception {
+        return client.delete(path(key, expire));
     }
 
     private Response upsert(
@@ -99,12 +115,19 @@ class SingleNodeTest extends TestBase {
         return client.put(path(key), data);
     }
 
+    private Response upsert(
+            @NotNull final String key,
+            @NotNull final String expire,
+            @NotNull final byte[] data) throws Exception {
+        return client.put(path(key, expire), data);
+    }
+
     @Test
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(400, get("").getStatus());
-            assertEquals(400, delete("").getStatus());
-            assertEquals(400, upsert("", new byte[]{0}).getStatus());
+            assertEquals(400, get("", NO_EXPIRE).getStatus());
+            assertEquals(400, delete("", NO_EXPIRE).getStatus());
+            assertEquals(400, upsert("", NO_EXPIRE, new byte[]{0}).getStatus());
         });
     }
 
@@ -112,28 +135,28 @@ class SingleNodeTest extends TestBase {
     void absentParameterRequest() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
                 400,
-                client.get("/v0/entity").getStatus()));
+                client.get("/v0/entity", NO_EXPIRE).getStatus()));
     }
 
     @Test
     void badRequest() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
                 400,
-                client.get("/abracadabra").getStatus()));
+                client.get("/abracadabra", NO_EXPIRE).getStatus()));
     }
 
     @Test
     void getAbsent() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
                 404,
-                get("absent").getStatus()));
+                get("absent", NO_EXPIRE).getStatus()));
     }
 
     @Test
     void deleteAbsent() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
                 202,
-                delete("absent").getStatus()));
+                delete("absent", NO_EXPIRE).getStatus()));
     }
 
     @Test
@@ -143,10 +166,10 @@ class SingleNodeTest extends TestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(key, value).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value).getStatus());
 
             // Check
-            final Response response = get(key);
+            final Response response = get(key, NO_EXPIRE);
             assertEquals(200, response.getStatus());
             assertArrayEquals(value, response.getBody());
         });
@@ -159,10 +182,10 @@ class SingleNodeTest extends TestBase {
             final byte[] value = new byte[0];
 
             // Insert
-            assertEquals(201, upsert(key, value).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value).getStatus());
 
             // Check
-            final Response response = get(key);
+            final Response response = get(key, NO_EXPIRE);
             assertEquals(200, response.getStatus());
             assertArrayEquals(value, response.getBody());
         });
@@ -177,30 +200,30 @@ class SingleNodeTest extends TestBase {
             final byte[] value2 = randomValue();
 
             // Insert 1
-            assertEquals(201, upsert(key1, value1).getStatus());
+            assertEquals(201, upsert(key1, NO_EXPIRE, value1).getStatus());
 
             // Check
-            assertArrayEquals(value1, get(key1).getBody());
+            assertArrayEquals(value1, get(key1, NO_EXPIRE).getBody());
 
             // Insert 2
-            assertEquals(201, upsert(key2, value2).getStatus());
+            assertEquals(201, upsert(key2, NO_EXPIRE, value2).getStatus());
 
             // Check
-            assertArrayEquals(value1, get(key1).getBody());
-            assertArrayEquals(value2, get(key2).getBody());
+            assertArrayEquals(value1, get(key1, NO_EXPIRE).getBody());
+            assertArrayEquals(value2, get(key2, NO_EXPIRE).getBody());
 
             // Delete 1
-            assertEquals(202, delete(key1).getStatus());
+            assertEquals(202, delete(key1, NO_EXPIRE).getStatus());
 
             // Check
-            assertEquals(404, get(key1).getStatus());
-            assertArrayEquals(value2, get(key2).getBody());
+            assertEquals(404, get(key1, NO_EXPIRE).getStatus());
+            assertArrayEquals(value2, get(key2, NO_EXPIRE).getBody());
 
             // Delete 2
-            assertEquals(202, delete(key2).getStatus());
+            assertEquals(202, delete(key2, NO_EXPIRE).getStatus());
 
             // Check
-            assertEquals(404, get(key2).getStatus());
+            assertEquals(404, get(key2, NO_EXPIRE).getStatus());
         });
     }
 
@@ -212,13 +235,13 @@ class SingleNodeTest extends TestBase {
             final byte[] value2 = randomValue();
 
             // Insert value1
-            assertEquals(201, upsert(key, value1).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value1).getStatus());
 
             // Insert value2
-            assertEquals(201, upsert(key, value2).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value2).getStatus());
 
             // Check value 2
-            final Response response = get(key);
+            final Response response = get(key, NO_EXPIRE);
             assertEquals(200, response.getStatus());
             assertArrayEquals(value2, response.getBody());
         });
@@ -231,10 +254,10 @@ class SingleNodeTest extends TestBase {
             final byte[] value = randomValue();
 
             // Insert value
-            assertEquals(201, upsert(key, value).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value).getStatus());
 
             // Check value
-            final Response response = get(key);
+            final Response response = get(key, NO_EXPIRE);
             assertEquals(200, response.getStatus());
             assertArrayEquals(value, response.getBody());
 
@@ -252,7 +275,7 @@ class SingleNodeTest extends TestBase {
             reset();
 
             // Check absent data
-            assertEquals(404, get(key).getStatus());
+            assertEquals(404, get(key, NO_EXPIRE).getStatus());
         });
     }
 
@@ -264,13 +287,13 @@ class SingleNodeTest extends TestBase {
             final byte[] empty = new byte[0];
 
             // Insert value
-            assertEquals(201, upsert(key, value).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value).getStatus());
 
             // Insert empty
-            assertEquals(201, upsert(key, empty).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, empty).getStatus());
 
             // Check empty
-            final Response response = get(key);
+            final Response response = get(key, NO_EXPIRE);
             assertEquals(200, response.getStatus());
             assertArrayEquals(empty, response.getBody());
         });
@@ -283,13 +306,13 @@ class SingleNodeTest extends TestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(key, value).getStatus());
+            assertEquals(201, upsert(key, NO_EXPIRE, value).getStatus());
 
             // Delete
-            assertEquals(202, delete(key).getStatus());
+            assertEquals(202, delete(key, NO_EXPIRE).getStatus());
 
             // Check
-            assertEquals(404, get(key).getStatus());
+            assertEquals(404, get(key, NO_EXPIRE).getStatus());
         });
     }
 }
