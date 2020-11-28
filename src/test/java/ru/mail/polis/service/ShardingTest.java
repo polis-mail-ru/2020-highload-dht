@@ -43,11 +43,11 @@ class ShardingTest extends ClusterTestBase {
 
             for (int node = 0; node < getClusterSize(); node++) {
                 // Insert
-                assertEquals(201, upsert(node, key, NO_EXPIRE, value).getStatus());
+                assertEquals(201, upsert(node, key, value).getStatus());
 
                 // Check
                 for (int i = 0; i < getClusterSize(); i++) {
-                    checkResponse(200, value, get(i, key, NO_EXPIRE));
+                    checkResponse(200, value, get(i, key));
                 }
             }
         });
@@ -61,11 +61,11 @@ class ShardingTest extends ClusterTestBase {
 
             for (int node = 0; node < getClusterSize(); node++) {
                 // Insert
-                assertEquals(201, upsert(node, key, NO_EXPIRE, value).getStatus());
+                assertEquals(201, upsert(node, key, value).getStatus());
 
                 // Check
                 for (int i = 0; i < getClusterSize(); i++) {
-                    checkResponse(200, value, get(i, key, NO_EXPIRE));
+                    checkResponse(200, value, get(i, key));
                 }
             }
         });
@@ -80,38 +80,38 @@ class ShardingTest extends ClusterTestBase {
             final byte[] value2 = randomValue();
 
             // Insert 1
-            assertEquals(201, upsert(0, key1, NO_EXPIRE, value1).getStatus());
+            assertEquals(201, upsert(0, key1, value1).getStatus());
 
             // Check
-            assertArrayEquals(value1, get(0, key1, NO_EXPIRE).getBody());
-            assertArrayEquals(value1, get(1, key1, NO_EXPIRE).getBody());
+            assertArrayEquals(value1, get(0, key1).getBody());
+            assertArrayEquals(value1, get(1, key1).getBody());
 
             // Insert 2
-            assertEquals(201, upsert(1, key2, NO_EXPIRE, value2).getStatus());
+            assertEquals(201, upsert(1, key2, value2).getStatus());
 
             // Check
-            assertArrayEquals(value1, get(0, key1, NO_EXPIRE).getBody());
-            assertArrayEquals(value2, get(0, key2, NO_EXPIRE).getBody());
-            assertArrayEquals(value1, get(1, key1, NO_EXPIRE).getBody());
-            assertArrayEquals(value2, get(1, key2, NO_EXPIRE).getBody());
+            assertArrayEquals(value1, get(0, key1).getBody());
+            assertArrayEquals(value2, get(0, key2).getBody());
+            assertArrayEquals(value1, get(1, key1).getBody());
+            assertArrayEquals(value2, get(1, key2).getBody());
 
             // Delete 1
-            assertEquals(202, delete(0, key1, NO_EXPIRE).getStatus());
-            assertEquals(202, delete(1, key1, NO_EXPIRE).getStatus());
+            assertEquals(202, delete(0, key1).getStatus());
+            assertEquals(202, delete(1, key1).getStatus());
 
             // Check
-            assertEquals(404, get(0, key1, NO_EXPIRE).getStatus());
-            assertArrayEquals(value2, get(0, key2, NO_EXPIRE).getBody());
-            assertEquals(404, get(1, key1, NO_EXPIRE).getStatus());
-            assertArrayEquals(value2, get(1, key2, NO_EXPIRE).getBody());
+            assertEquals(404, get(0, key1).getStatus());
+            assertArrayEquals(value2, get(0, key2).getBody());
+            assertEquals(404, get(1, key1).getStatus());
+            assertArrayEquals(value2, get(1, key2).getBody());
 
             // Delete 2
-            assertEquals(202, delete(0, key2, NO_EXPIRE).getStatus());
-            assertEquals(202, delete(1, key2, NO_EXPIRE).getStatus());
+            assertEquals(202, delete(0, key2).getStatus());
+            assertEquals(202, delete(1, key2).getStatus());
 
             // Check
-            assertEquals(404, get(0, key2, NO_EXPIRE).getStatus());
-            assertEquals(404, get(1, key2, NO_EXPIRE).getStatus());
+            assertEquals(404, get(0, key2).getStatus());
+            assertEquals(404, get(1, key2).getStatus());
         });
     }
 
@@ -123,14 +123,14 @@ class ShardingTest extends ClusterTestBase {
             final byte[] value2 = randomValue();
 
             // Insert value1
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value1).getStatus());
+            assertEquals(201, upsert(0, key, value1).getStatus());
 
             // Insert value2
-            assertEquals(201, upsert(1, key, NO_EXPIRE, value2).getStatus());
+            assertEquals(201, upsert(1, key, value2).getStatus());
 
             // Check value 2
             for (int i = 0; i < getClusterSize(); i++) {
-                checkResponse(200, value2, get(i, key, NO_EXPIRE));
+                checkResponse(200, value2, get(i, key));
             }
         });
     }
@@ -143,14 +143,14 @@ class ShardingTest extends ClusterTestBase {
             final byte[] empty = new byte[0];
 
             // Insert value
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value).getStatus());
+            assertEquals(201, upsert(0, key, value).getStatus());
 
             // Insert empty
-            assertEquals(201, upsert(0, key, NO_EXPIRE, empty).getStatus());
+            assertEquals(201, upsert(0, key, empty).getStatus());
 
             // Check empty
             for (int i = 0; i < getClusterSize(); i++) {
-                checkResponse(200, empty, get(i, key, NO_EXPIRE));
+                checkResponse(200, empty, get(i, key));
             }
         });
     }
@@ -162,15 +162,15 @@ class ShardingTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value).getStatus());
-            assertEquals(201, upsert(1, key, NO_EXPIRE, value).getStatus());
+            assertEquals(201, upsert(0, key, value).getStatus());
+            assertEquals(201, upsert(1, key, value).getStatus());
 
             // Delete
-            assertEquals(202, delete(0, key, NO_EXPIRE).getStatus());
+            assertEquals(202, delete(0, key).getStatus());
 
             // Check
-            assertEquals(404, get(0, key, NO_EXPIRE).getStatus());
-            assertEquals(404, get(1, key, NO_EXPIRE).getStatus());
+            assertEquals(404, get(0, key).getStatus());
+            assertEquals(404, get(1, key).getStatus());
         });
     }
 
@@ -181,8 +181,8 @@ class ShardingTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value, 1, 1).getStatus());
-            assertEquals(201, upsert(1, key, NO_EXPIRE, value, 1, 1).getStatus());
+            assertEquals(201, upsert(0, key, value, 1, 1).getStatus());
+            assertEquals(201, upsert(1, key, value, 1, 1).getStatus());
 
             // Stop all
             for (int node = 0; node < getClusterSize(); node++) {
@@ -196,7 +196,7 @@ class ShardingTest extends ClusterTestBase {
                 createAndStart(node);
 
                 // Check
-                if (get(node, key, NO_EXPIRE, 1, 1).getStatus() == 200) {
+                if (get(node, key, 1, 1).getStatus() == 200) {
                     copies++;
                 }
 

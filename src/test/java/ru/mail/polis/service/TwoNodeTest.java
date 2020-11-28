@@ -39,18 +39,18 @@ class TwoNodeTest extends ClusterTestBase {
     @Test
     void tooSmallRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(400, get(0, randomId(), NO_EXPIRE, 0, 2).getStatus());
-            assertEquals(400, upsert(0, randomId(), NO_EXPIRE, randomValue(), 0, 2).getStatus());
-            assertEquals(400, delete(0, randomId(), NO_EXPIRE, 0, 2).getStatus());
+            assertEquals(400, get(0, randomId(), 0, 2).getStatus());
+            assertEquals(400, upsert(0, randomId(), randomValue(), 0, 2).getStatus());
+            assertEquals(400, delete(0, randomId(), 0, 2).getStatus());
         });
     }
 
     @Test
     void tooBigRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(400, get(0, randomId(), NO_EXPIRE, 3, 2).getStatus());
-            assertEquals(400, upsert(0, randomId(), NO_EXPIRE, randomValue(), 3, 2).getStatus());
-            assertEquals(400, delete(0, randomId(), NO_EXPIRE, 3, 2).getStatus());
+            assertEquals(400, get(0, randomId(), 3, 2).getStatus());
+            assertEquals(400, upsert(0, randomId(), randomValue(), 3, 2).getStatus());
+            assertEquals(400, delete(0, randomId(), 3, 2).getStatus());
         });
     }
 
@@ -58,9 +58,9 @@ class TwoNodeTest extends ClusterTestBase {
     void unreachableRF() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             stop(0);
-            assertEquals(504, get(1, randomId(), NO_EXPIRE, 2, 2).getStatus());
-            assertEquals(504, upsert(1, randomId(), NO_EXPIRE, randomValue(), 2, 2).getStatus());
-            assertEquals(504, delete(1, randomId(), NO_EXPIRE, 2, 2).getStatus());
+            assertEquals(504, get(1, randomId(), 2, 2).getStatus());
+            assertEquals(504, upsert(1, randomId(), randomValue(), 2, 2).getStatus());
+            assertEquals(504, delete(1, randomId(), 2, 2).getStatus());
         });
     }
 
@@ -71,22 +71,22 @@ class TwoNodeTest extends ClusterTestBase {
 
             // Insert value1
             final byte[] value1 = randomValue();
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value1, 1, 2).getStatus());
+            assertEquals(201, upsert(0, key, value1, 1, 2).getStatus());
 
             // Check
-            checkResponse(200, value1, get(0, key, NO_EXPIRE, 2, 2));
-            checkResponse(200, value1, get(1, key, NO_EXPIRE, 2, 2));
+            checkResponse(200, value1, get(0, key, 2, 2));
+            checkResponse(200, value1, get(1, key, 2, 2));
 
             // Help implementors with ms precision for conflict resolution
             waitForVersionAdvancement();
 
             // Insert value2
             final byte[] value2 = randomValue();
-            assertEquals(201, upsert(1, key, NO_EXPIRE, value2, 1, 2).getStatus());
+            assertEquals(201, upsert(1, key, value2, 1, 2).getStatus());
 
             // Check
-            checkResponse(200, value2, get(0, key, NO_EXPIRE, 2, 2));
-            checkResponse(200, value2, get(1, key, NO_EXPIRE, 2, 2));
+            checkResponse(200, value2, get(0, key, 2, 2));
+            checkResponse(200, value2, get(1, key, 2, 2));
         });
     }
 
@@ -97,22 +97,22 @@ class TwoNodeTest extends ClusterTestBase {
 
             // Insert value1
             final byte[] value1 = randomValue();
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value1, 2, 2).getStatus());
+            assertEquals(201, upsert(0, key, value1, 2, 2).getStatus());
 
             // Check
-            checkResponse(200, value1, get(0, key, NO_EXPIRE, 1, 2));
-            checkResponse(200, value1, get(1, key, NO_EXPIRE, 1, 2));
+            checkResponse(200, value1, get(0, key, 1, 2));
+            checkResponse(200, value1, get(1, key, 1, 2));
 
             // Help implementors with ms precision for conflict resolution
             waitForVersionAdvancement();
 
             // Insert value2
             final byte[] value2 = randomValue();
-            assertEquals(201, upsert(1, key, NO_EXPIRE, value2, 2, 2).getStatus());
+            assertEquals(201, upsert(1, key, value2, 2, 2).getStatus());
 
             // Check
-            checkResponse(200, value2, get(0, key, NO_EXPIRE, 1, 2));
-            checkResponse(200, value2, get(1, key, NO_EXPIRE, 1, 2));
+            checkResponse(200, value2, get(0, key, 1, 2));
+            checkResponse(200, value2, get(1, key, 1, 2));
         });
     }
 
@@ -123,22 +123,22 @@ class TwoNodeTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert & delete at 0
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value, 2, 2).getStatus());
+            assertEquals(201, upsert(0, key, value, 2, 2).getStatus());
             waitForVersionAdvancement();
-            assertEquals(202, delete(0, key, NO_EXPIRE, 2, 2).getStatus());
+            assertEquals(202, delete(0, key, 2, 2).getStatus());
 
             // Check
-            assertEquals(404, get(0, key, NO_EXPIRE, 1, 2).getStatus());
-            assertEquals(404, get(1, key, NO_EXPIRE, 1, 2).getStatus());
+            assertEquals(404, get(0, key, 1, 2).getStatus());
+            assertEquals(404, get(1, key, 1, 2).getStatus());
 
             // Insert & delete at 1
-            assertEquals(201, upsert(1, key, NO_EXPIRE, value, 2, 2).getStatus());
+            assertEquals(201, upsert(1, key, value, 2, 2).getStatus());
             waitForVersionAdvancement();
-            assertEquals(202, delete(1, key, NO_EXPIRE, 2, 2).getStatus());
+            assertEquals(202, delete(1, key, 2, 2).getStatus());
 
             // Check
-            assertEquals(404, get(0, key, NO_EXPIRE, 1, 2).getStatus());
-            assertEquals(404, get(1, key, NO_EXPIRE, 1, 2).getStatus());
+            assertEquals(404, get(0, key, 1, 2).getStatus());
+            assertEquals(404, get(1, key, 1, 2).getStatus());
         });
     }
 
@@ -156,13 +156,13 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert
                 final byte[] value = randomValue();
-                assertEquals(201, upsert((node + 1) % getClusterSize(), key, NO_EXPIRE, value, 1, 2).getStatus());
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value, 1, 2).getStatus());
 
                 // Start node 1
                 createAndStart(node);
 
                 // Check
-                checkResponse(200, value, get(node, key, NO_EXPIRE, 2, 2));
+                checkResponse(200, value, get(node, key, 2, 2));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -181,7 +181,7 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert
                 final byte[] value = randomValue();
-                assertEquals(201, upsert(node, key, NO_EXPIRE, value, 2, 2).getStatus());
+                assertEquals(201, upsert(node, key, value, 2, 2).getStatus());
 
                 // Stop node 0
                 stop(node);
@@ -190,13 +190,13 @@ class TwoNodeTest extends ClusterTestBase {
                 waitForVersionAdvancement();
 
                 // Delete
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 1, 2).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, 1, 2).getStatus());
 
                 // Start node 0
                 createAndStart(node);
 
                 // Check
-                assertEquals(404, get(node, key, NO_EXPIRE, 2, 2).getStatus());
+                assertEquals(404, get(node, key, 2, 2).getStatus());
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -215,7 +215,7 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert value1
                 final byte[] value1 = randomValue();
-                assertEquals(201, upsert(node, key, NO_EXPIRE, value1, 2, 2).getStatus());
+                assertEquals(201, upsert(node, key, value1, 2, 2).getStatus());
 
                 // Stop node
                 stop(node);
@@ -225,13 +225,13 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert value2
                 final byte[] value2 = randomValue();
-                assertEquals(201, upsert((node + 1) % getClusterSize(), key, NO_EXPIRE, value2, 1, 2).getStatus());
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value2, 1, 2).getStatus());
 
                 // Start node
                 createAndStart(node);
 
                 // Check value2
-                checkResponse(200, value2, get(node, key, NO_EXPIRE, 2, 2));
+                checkResponse(200, value2, get(node, key, 2, 2));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -250,9 +250,9 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert & delete value1
                 final byte[] value1 = randomValue();
-                assertEquals(201, upsert(node, key, NO_EXPIRE, value1, 2, 2).getStatus());
+                assertEquals(201, upsert(node, key, value1, 2, 2).getStatus());
                 waitForVersionAdvancement();
-                assertEquals(202, delete(node, key, NO_EXPIRE, 2, 2).getStatus());
+                assertEquals(202, delete(node, key, 2, 2).getStatus());
 
                 // Stop node
                 stop(node);
@@ -262,13 +262,13 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert value2
                 final byte[] value2 = randomValue();
-                assertEquals(201, upsert((node + 1) % getClusterSize(), key, NO_EXPIRE, value2, 1, 2).getStatus());
+                assertEquals(201, upsert((node + 1) % getClusterSize(), key, value2, 1, 2).getStatus());
 
                 // Start node
                 createAndStart(node);
 
                 // Check value2
-                checkResponse(200, value2, get(node, key, NO_EXPIRE, 2, 2));
+                checkResponse(200, value2, get(node, key, 2, 2));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -287,22 +287,22 @@ class TwoNodeTest extends ClusterTestBase {
 
                 // Insert into node
                 final byte[] value = randomValue();
-                assertEquals(201, upsert(node, key, NO_EXPIRE, value, 2, 2).getStatus());
+                assertEquals(201, upsert(node, key, value, 2, 2).getStatus());
 
                 // Stop node
                 stop(node);
 
                 // Check
-                checkResponse(200, value, get((node + 1) % getClusterSize(), key, NO_EXPIRE, 1, 2));
+                checkResponse(200, value, get((node + 1) % getClusterSize(), key, 1, 2));
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
 
                 // Delete
-                assertEquals(202, delete((node + 1) % getClusterSize(), key, NO_EXPIRE, 1, 2).getStatus());
+                assertEquals(202, delete((node + 1) % getClusterSize(), key, 1, 2).getStatus());
 
                 // Check
-                assertEquals(404, get((node + 1) % getClusterSize(), key, NO_EXPIRE, 1, 2).getStatus());
+                assertEquals(404, get((node + 1) % getClusterSize(), key, 1, 2).getStatus());
 
                 // Help implementors with ms precision for conflict resolution
                 waitForVersionAdvancement();
@@ -317,7 +317,7 @@ class TwoNodeTest extends ClusterTestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, NO_EXPIRE, value, 1, 1).getStatus());
+            assertEquals(201, upsert(0, key, value, 1, 1).getStatus());
 
             // Stop all
             for (int node = 0; node < getClusterSize(); node++) {
@@ -331,7 +331,7 @@ class TwoNodeTest extends ClusterTestBase {
                 createAndStart(node);
 
                 // Check
-                if (get(node, key, NO_EXPIRE, 1, 1).getStatus() == 200) {
+                if (get(node, key, 1, 1).getStatus() == 200) {
                     copies++;
                 }
 

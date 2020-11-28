@@ -93,26 +93,33 @@ class SingleRangeTest extends TestBase {
 
     @NotNull
     private String path(@NotNull final String id,
-                        final String expire) {
+                        @NotNull final String expire) {
         return path(id) + "&expire=" + expire;
     }
 
     private Response range(
             @NotNull final String start,
             @Nullable final String end) throws Exception {
-        return client.get("/v0/entities?start=" + start + (end != null ? "&end=" + end : ""));
+        return range(start, end, NO_EXPIRE);
+    }
+
+    private Response range(
+            @NotNull final String start,
+            @Nullable final String end,
+            @NotNull final String expire) throws Exception {
+        return client.get("/v0/entities?start=" + start + (end != null ? "&end=" + end : "") + "&expire=" + expire);
     }
 
     private Response upsert(
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
-        return client.put(path(key), data);
+        return upsert(key, data, NO_EXPIRE);
     }
 
     private Response upsert(
             @NotNull final String key,
-            final String expire,
-            @NotNull final byte[] data) throws Exception {
+            @NotNull final byte[] data,
+            @NotNull final String expire) throws Exception {
         return client.put(path(key, expire), data);
     }
 
@@ -120,7 +127,7 @@ class SingleRangeTest extends TestBase {
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertEquals(400, range("", "").getStatus());
-            assertEquals(400, upsert("", NO_EXPIRE, new byte[]{0}).getStatus());
+            assertEquals(400, upsert("", new byte[]{0}).getStatus());
         });
     }
 
@@ -149,7 +156,7 @@ class SingleRangeTest extends TestBase {
 
         assertTimeoutPreemptively(TIMEOUT, () -> {
             // Insert
-            assertEquals(201, upsert(key, NO_EXPIRE, value.getBytes()).getStatus());
+            assertEquals(201, upsert(key, value.getBytes()).getStatus());
 
             // Check
             final Response response = range(key, prefix + 2);
@@ -181,9 +188,9 @@ class SingleRangeTest extends TestBase {
 
         // Insert reversed
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(201, upsert(prefix + 3, NO_EXPIRE, value3.getBytes()).getStatus());
-            assertEquals(201, upsert(prefix + 2, NO_EXPIRE, value2.getBytes()).getStatus());
-            assertEquals(201, upsert(prefix + 1, NO_EXPIRE, value1.getBytes()).getStatus());
+            assertEquals(201, upsert(prefix + 3, value3.getBytes()).getStatus());
+            assertEquals(201, upsert(prefix + 2, value2.getBytes()).getStatus());
+            assertEquals(201, upsert(prefix + 1, value1.getBytes()).getStatus());
         });
 
         // Check all

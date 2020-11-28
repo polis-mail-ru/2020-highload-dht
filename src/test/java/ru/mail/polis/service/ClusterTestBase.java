@@ -77,10 +77,10 @@ abstract class ClusterTestBase extends TestBase {
     @NotNull
     private static String path(
             @NotNull final String id,
-            @NotNull final String expire,
             final int ack,
-            final int from) {
-        return path(id, expire) + "&replicas=" + ack + "/" + from;
+            final int from,
+            @NotNull final String expire) {
+        return path(id, ack, from) + "&expire=" + expire;
     }
 
     @BeforeEach
@@ -194,7 +194,7 @@ abstract class ClusterTestBase extends TestBase {
     Response get(
             final int node,
             @NotNull final String key) throws Exception {
-        return client(node).get(path(key));
+        return get(node, key, NO_EXPIRE);
     }
 
     Response get(
@@ -217,22 +217,22 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final String key,
             final int ack,
             final int from) throws Exception {
-        return client(node).get(path(key, ack, from));
+        return get(node, key, ack, from, NO_EXPIRE);
     }
 
     Response get(
             final int node,
             @NotNull final String key,
-            @NotNull final String expire,
             final int ack,
-            final int from) throws Exception {
-        return client(node).get(path(key, expire, ack, from));
+            final int from,
+            @NotNull final String expire) throws Exception {
+        return client(node).get(path(key, ack, from, expire));
     }
 
     Response delete(
             final int node,
             @NotNull final String key) throws Exception {
-        return client(node).delete(path(key));
+        return delete(node, key, NO_EXPIRE);
     }
 
     Response delete(
@@ -247,30 +247,30 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final String key,
             final int ack,
             final int from) throws Exception {
-        return client(node).delete(path(key, ack, from));
+        return delete(node, key, ack, from, NO_EXPIRE);
     }
 
     Response delete(
             final int node,
             @NotNull final String key,
-            @NotNull final String expire,
             final int ack,
-            final int from) throws Exception {
-        return client(node).delete(path(key, expire, ack, from));
+            final int from,
+            @NotNull final String expire) throws Exception {
+        return client(node).delete(path(key, ack, from, expire));
     }
 
     Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
-        return client(node).put(path(key), data);
+        return upsert(node, key, data, NO_EXPIRE);
     }
 
     Response upsert(
             final int node,
             @NotNull final String key,
-            @NotNull final String expire,
-            @NotNull final byte[] data) throws Exception {
+            @NotNull final byte[] data,
+            @NotNull final String expire) throws Exception {
         return client(node).put(path(key, expire), data);
     }
 
@@ -280,16 +280,16 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final byte[] data,
             final int ack,
             final int from) throws Exception {
-        return client(node).put(path(key, ack, from), data);
+        return upsert(node, key, data, ack, from, NO_EXPIRE);
     }
 
     Response upsert(
             final int node,
             @NotNull final String key,
-            @NotNull final String expire,
             @NotNull final byte[] data,
             final int ack,
-            final int from) throws Exception {
-        return client(node).put(path(key, expire, ack, from), data);
+            final int from,
+            @NotNull final String expire) throws Exception {
+        return client(node).put(path(key, ack, from, expire), data);
     }
 }
