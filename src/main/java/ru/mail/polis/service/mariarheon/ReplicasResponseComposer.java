@@ -13,6 +13,7 @@ public class ReplicasResponseComposer {
     private int status;
     private Record record;
     private static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
+    private Response preparedResponse;
 
     /**
      * Create composer for generating response for client from replicas answers.
@@ -28,7 +29,8 @@ public class ReplicasResponseComposer {
      *
      * @param response - response from replica.
      */
-    public void addResponse(final Response response) {
+    public void addResponse(final String fromNode, final Response response) {
+        preparedResponse = null;
         totalReceived++;
         final var responseStatus = response.getStatus();
         if (responseStatus < 200 || responseStatus > 202) {
@@ -55,12 +57,7 @@ public class ReplicasResponseComposer {
         return ackReceived >= replicas.getAckCount() || totalReceived >= replicas.getTotalNodes();
     }
 
-    /**
-     * Get response for client, combined from responses from replicas.
-     *
-     * @return - response for client.
-     */
-    public Response getComposedResponse() {
+    private Response getPreparedResponse() {
         if (ackReceived < replicas.getAckCount()) {
             return new Response(NOT_ENOUGH_REPLICAS, Response.EMPTY);
         }
@@ -74,5 +71,22 @@ public class ReplicasResponseComposer {
             return new Response(Response.NOT_FOUND, Response.EMPTY);
         }
         return Response.ok(record.getValue());
+    }
+
+    private void prepareResponse() {
+        if (preparedResponse != null) {
+            return;
+        }
+        preparedResponse = getPreparedResponse();
+    }
+
+    /**
+     * Get response for client, combined from responses from replicas.
+     *
+     * @return - response for client.
+     */
+    public Response getComposedResponse() {
+        prepareResponse();
+        return preparedResponse;
     }
 }

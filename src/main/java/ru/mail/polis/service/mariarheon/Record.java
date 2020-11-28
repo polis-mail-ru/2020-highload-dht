@@ -40,10 +40,27 @@ public final class Record {
      * @return - generated record.
      */
     public static Record newRecord(final String key, final byte[] value) {
+        return newRecord(key, value, -1);
+    }
+
+    /**
+     * Create record by key, value and timestamp.
+     *
+     * @param key - record key.
+     * @param value - record value.
+     * @param timestamp - value of time of creation.
+     * @return - generated record.
+     */
+    public static Record newRecord(final String key, final byte[] value, final long timestamp) {
         final var argKey = key.getBytes(StandardCharsets.UTF_8);
         final var argValue = Arrays.copyOf(value, value.length);
         final var argState = RecordState.UNDEFINED;
-        final var argTimestamp = new Date();
+        Date argTimestamp;
+        if (timestamp == -1) {
+            argTimestamp = new Date();
+        } else {
+            argTimestamp = new Date(timestamp);
+        }
         return new Record(argKey, argValue, argTimestamp, argState);
     }
 
@@ -54,10 +71,26 @@ public final class Record {
      * @return - generated record.
      */
     public static Record newRemoved(final String key) {
+        return newRemoved(key, -1);
+    }
+
+    /**
+     * Create record with information, that this record was removed.
+     *
+     * @param key - the key of the record, which was removed.
+     * @param timestamp - timestamp.
+     * @return - generated record.
+     */
+    public static Record newRemoved(final String key, final long timestamp) {
         final var argKey = key.getBytes(StandardCharsets.UTF_8);
         final var argValue = new byte[]{};
         final var argState = RecordState.REMOVED;
-        final var argTimestamp = new Date();
+        Date argTimestamp;
+        if (timestamp == -1) {
+            argTimestamp = new Date();
+        } else {
+            argTimestamp = new Date(timestamp);
+        }
         return new Record(argKey, argValue, argTimestamp, argState);
     }
 
@@ -101,7 +134,31 @@ public final class Record {
      * @return - record with parsed value information.
      */
     public static Record newFromRawValue(final byte[] rawValue) {
-        return newFromRawValue(ByteBuffer.wrap(rawValue));
+        return newFromRawValue(null, rawValue);
+    }
+
+    /**
+     * Returns record with parsed information, including
+     * value of the record, state (usual, removed, not found) of the record
+     * and provided key.
+     *
+     * @param key - key
+     * @param rawValue - raw (unparsed) value from record.
+     * @return - record with parsed value information.
+     */
+    public static Record newFromRawValue(final String key, final byte[] rawValue) {
+        final var bb = ByteBuffer.wrap(rawValue);
+        final var argState = RecordState.values()[bb.get()];
+        byte[] argKey;
+        if (key == null) {
+            argKey = null;
+        } else {
+            argKey = key.getBytes(StandardCharsets.UTF_8);
+        }
+        final var argTimestamp = new Date(bb.getLong());
+        final var argValue = new byte[bb.remaining()];
+        bb.get(argValue);
+        return new Record(argKey, argValue, argTimestamp, argState);
     }
 
     /**
@@ -190,5 +247,14 @@ public final class Record {
      */
     public Date getTimestamp() {
         return this.timestamp;
+    }
+
+    /**
+     * Returns key used for the record.
+     *
+     * @return - key.
+     */
+    public String getKey() {
+        return new String(key, StandardCharsets.UTF_8);
     }
 }

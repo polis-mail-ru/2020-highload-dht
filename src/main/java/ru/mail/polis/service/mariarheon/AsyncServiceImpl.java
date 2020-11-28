@@ -19,7 +19,9 @@ import ru.mail.polis.dao.mariarheon.ByteBufferUtils;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -41,7 +43,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     private static final String RESP_ERR = "Response can't be sent: ";
     private static final String SERV_UN = "Service unavailable: ";
     private static final String BAD_REPL_PARAM = "Bad replicas-param: ";
-    private static final String MYSELF_PARAMETER = "myself";
+    private static final String TIMESTAMP_STR = " timestamp=";
+    private static final Random rnd = new Random();
 
     /**
      * Asynchronous Service Implementation.
@@ -53,8 +56,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                             @NotNull final DAO dao,
                             @NotNull final RendezvousSharding sharding) throws IOException {
         super(config);
-        logger.info("Created: " + sharding.getMe());
-        logger.info("nodes count: " + sharding.getNodesCount());
+        logger.info("\n" + sharding.getMe() + ": Node Created");
         this.dao = dao;
         this.sharding = sharding;
         final int workers = Runtime.getRuntime().availableProcessors();
@@ -113,16 +115,21 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void handleEntityRequest(final @Param(value = "id", required = true) String key,
                     final @Param(value = "replicas") String replicasParameter,
-                    final @Param(value = MYSELF_PARAMETER) String myself,
+                    final @Param(value = Util.MYSELF_PARAMETER) String myself,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
-        logger.info("handler executed: " + sharding.getMe());
+        final String timestampStr = request.getParameter("timestamp");
+        final long timestamp = Util.parseTimestamp(timestampStr);
+        logger.info("\n" + sharding.getMe() + ": Start " + request.getMethodName()
+                + (replicasParameter == null ? "" : " " + replicasParameter)
+                + (myself == null ? "" : " myself")
+                + TIMESTAMP_STR + timestamp);
         if (key.isEmpty()) {
             trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
         if (myself != null) {
-            final var resp = processLocalRequest(key, request);
+            final var resp = processLocalRequest(key, request, timestamp);
             try {
                 trySendResponse(session, resp.get());
             } catch (InterruptedException | ExecutionException e) {
@@ -147,25 +154,31 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                 final @Param("request") Request request) {
         final var responsibleNodes = sharding.getResponsibleNodes(key, replicas);
         final var composer = new ReplicasResponseComposer(replicas);
+        final var timestamp = new Date().getTime();
         for (final var node : responsibleNodes) {
             CompletableFuture<Response> answer;
+            final int id = rnd.nextInt(100);
             if (sharding.isMe(node)) {
-                answer = processLocalRequest(key, request);
+                logger.info("\n" + sharding.getMe() + ": process locally (id=" + id + ")");
+                answer = processLocalRequest(key, request, timestamp);
             } else {
-                final var changedRequest = addMyselfParamToRequest(request);
-                logger.info(sharding.getMe() + " tries to pass on the request to " + node);
+                logger.info("\n" + sharding.getMe() + ": pass on to " + node + " (id=" + id + ")");
+                final var changedRequest = Util.prepareRequestForPassingOn(request, timestamp);
                 answer = sharding.passOn(node, changedRequest);
             }
             answer.exceptionally(ex -> {
                 logger.error(SERV_UN, ex);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }).thenAccept(resp -> {
+                logger.info("\n" + sharding.getMe() + ": node " + node + " answers (id=" + id + ")");
+
                 synchronized (composer) {
                     if (composer.answerIsReady()) {
                         return;
                     }
-                    composer.addResponse(resp);
+                    composer.addResponse(node, resp);
                     if (composer.answerIsReady()) {
+                        logger.info("\n" + sharding.getMe() + ": answer is ready");
                         final var requiredResponse = composer.getComposedResponse();
                         trySendResponse(session, requiredResponse);
                     }
@@ -179,15 +192,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private CompletableFuture<Response> processLocalRequest(final @Param(value = "id", required = true) String key,
-                                                            final @Param("request") Request request) {
+                                                            final @Param("request") Request request,
+                                                            final long timestamp) {
         return CompletableFuture.supplyAsync(() -> {
             switch (request.getMethod()) {
                 case METHOD_GET:
                     return get(key);
                 case METHOD_PUT:
-                    return put(key, request);
+                    return put(key, request, timestamp);
                 case METHOD_DELETE:
-                    return delete(key);
+                    return delete(key, timestamp);
                 default:
                     return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
@@ -195,6 +209,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private Response get(final String key) {
+        logger.info("\n" + sharding.getMe() + ": DAO-get");
         try {
             final var record = Record.newFromDAO(dao, key);
             return Response.ok(record.getRawValue());
@@ -205,9 +220,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     }
 
     private Response put(final String key,
-                     final Request request) {
+                         final Request request,
+                         final long timestamp) {
+        logger.info("\n" + sharding.getMe() + ": DAO-put" + Util.loggingValue(request.getBody())
+                + TIMESTAMP_STR + timestamp);
         try {
-            final var record = Record.newRecord(key, request.getBody());
+            final var existedRecord = Record.newFromDAO(dao, key);
+            if (Util.isOldRecord(existedRecord, timestamp)) {
+                logger.info("\n" + sharding.getMe() + ": DAO-put skipped");
+                return new Response(Response.CREATED, Response.EMPTY);
+            }
+            final var record = Record.newRecord(key, request.getBody(), timestamp);
             record.save(dao);
             return new Response(Response.CREATED, Response.EMPTY);
         } catch (IOException ex) {
@@ -216,9 +239,16 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
     }
 
-    private Response delete(final String key) {
+    private Response delete(final String key, final long timestamp) {
+        logger.info("\n" + sharding.getMe() + ": DAO-delete"
+                + TIMESTAMP_STR + timestamp);
         try {
-            final var record = Record.newRemoved(key);
+            final var existedRecord = Record.newFromDAO(dao, key);
+            if (Util.isOldRecord(existedRecord, timestamp)) {
+                logger.info("\n" + sharding.getMe() + ": DAO-delete skipped");
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            }
+            final var record = Record.newRemoved(key, timestamp);
             record.save(dao);
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } catch (IOException ex) {
@@ -250,18 +280,5 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     public void handleDefault(@NotNull final Request request,
                               @NotNull final HttpSession session) {
         trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-    }
-
-    private static Request addMyselfParamToRequest(final Request request) {
-        if (request.getParameter(MYSELF_PARAMETER) != null) {
-            return request;
-        }
-        final var newURI = request.getURI() + "&" + MYSELF_PARAMETER + "=";
-        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
-        for (int i = 0; i < request.getHeaderCount(); i++) {
-            res.addHeader(request.getHeaders()[i]);
-        }
-        res.setBody(request.getBody());
-        return res;
     }
 }
