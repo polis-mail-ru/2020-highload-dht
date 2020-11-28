@@ -60,7 +60,6 @@ public class RendezvousHashingTest {
             sumOfDeference = before.count(node) + after.count(node);
         }
         final int countByNode = COUNT_OF_KEYS / clusterSize;
-        System.out.println(countByNode);
         return sumOfDeference >= countByNode - countByNode * ERR || sumOfDeference <= countByNode + countByNode * ERR;
     }
 
