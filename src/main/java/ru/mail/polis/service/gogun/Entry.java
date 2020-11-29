@@ -4,30 +4,36 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
 final class Entry {
-    public static final long ABSENT = -1;
+    public static final long EMPTY_TIMESTAMP = -1;
     public static final byte[] EMPTY_DATA = new byte[0];
     private final byte[] body;
-    private Status status;
-    private long timestamp;
+    private final Status status;
+    private final long timestamp;
+    private static final Entry ABSENT_ENTRY =
+            new Entry(Entry.EMPTY_TIMESTAMP, Entry.EMPTY_DATA, Status.ABSENT);
 
-    public Entry(final long timestamp,
-                 final byte[] body,
-                 final Status status) {
+    private Entry(final long timestamp,
+                  final byte[] body,
+                  final Status status) {
         this.timestamp = timestamp;
         this.body = body.clone();
         this.status = status;
     }
 
-    public Status getStatus() {
-        return status;
+    public static Entry absent() {
+        return ABSENT_ENTRY;
     }
 
-    public void setTimestamp(final long timestamp) {
-        this.timestamp = timestamp;
+    public static Entry removed(final long timestamp) {
+        return new Entry(timestamp, Entry.EMPTY_DATA, Status.REMOVED);
     }
 
-    public void setStatus(final Status status) {
-        this.status = status;
+    public static Entry present(final long timestamp, final byte[] data) {
+        return new Entry(timestamp, data, Status.PRESENT);
+    }
+
+    public boolean isRemoved() {
+        return this.status == Entry.Status.REMOVED;
     }
 
     public byte[] getBody() {
@@ -54,5 +60,11 @@ final class Entry {
             default:
                 throw new IllegalStateException("Unknown value response value state");
         }
+    }
+
+    private enum Status {
+        PRESENT,
+        ABSENT,
+        REMOVED
     }
 }

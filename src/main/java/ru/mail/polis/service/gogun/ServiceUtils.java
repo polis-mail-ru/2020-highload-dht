@@ -15,6 +15,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -59,9 +60,7 @@ final class ServiceUtils {
                     return;
                 }
 
-                final EntryMerger<Entry> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
-
-                session.sendResponse(entryMerger.mergeGetResponses());
+                session.sendResponse(ServiceUtils.mergeGetResponses(v, localReplicasFactor.getAck()));
             } catch (IOException e) {
                 log.error("error sending response", e);
             }
@@ -82,9 +81,7 @@ final class ServiceUtils {
                     return;
                 }
 
-                final EntryMerger<Response> entryMerger = new EntryMerger<>(v, localReplicasFactor.getAck());
-
-                session.sendResponse(entryMerger.mergePutDeleteResponses(request));
+                session.sendResponse(ServiceUtils.mergePutDeleteResponses(v, localReplicasFactor.getAck(), request));
 
             } catch (IOException e) {
                 log.error("error sending response", e);
@@ -158,16 +155,15 @@ final class ServiceUtils {
             log.error("Internal server error get", e);
             throw new IllegalStateException(e);
         } catch (NoSuchElementException e) {
-            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.ABSENT);
+            entry = Entry.absent();
             return entry;
         }
-
+        final long timestamp = value.getTimestamp();
         if (value.isTombstone()) {
-            entry = new Entry(Entry.ABSENT, Entry.EMPTY_DATA, Status.REMOVED);
+            entry = Entry.removed(timestamp);
         } else {
-            entry = new Entry(Entry.ABSENT, ServiceUtils.getArray(value.getData()), Status.PRESENT);
+            entry = Entry.present(timestamp, ServiceUtils.getArray(value.getData()));
         }
-        entry.setTimestamp(value.getTimestamp());
 
         return entry;
     }
@@ -180,5 +176,49 @@ final class ServiceUtils {
             return new Response(Response.INTERNAL_ERROR);
         }
         return new Response(Response.ACCEPTED, Response.EMPTY);
+    }
+
+    static Response mergeGetResponses(final Collection<Entry> entries, final int ack) {
+        if (entries.size() < ack) {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        }
+
+        int notFoundResponsesCount = 0;
+        Entry latestResponse = Entry.removed(Long.MIN_VALUE);
+        for (final Entry entry : entries) {
+            final long timestamp = entry.getTimestamp();
+            if (timestamp == Entry.EMPTY_TIMESTAMP) {
+                notFoundResponsesCount++;
+            } else {
+                if (timestamp > latestResponse.getTimestamp()) {
+                    latestResponse = entry;
+                }
+            }
+        }
+
+        if (entries.size() == notFoundResponsesCount
+                || latestResponse.isRemoved()) {
+            return new Response(Response.NOT_FOUND, Response.EMPTY);
+        }
+
+        return Response.ok(latestResponse.getBody());
+    }
+
+    static Response mergePutDeleteResponses(
+            final Collection<Response> responses,
+            final int ack,
+            @NotNull final Request request) {
+        if (responses.size() < ack) {
+            return new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
+        }
+        switch (request.getMethod()) {
+            case Request.METHOD_PUT:
+                return new Response(Response.CREATED, Response.EMPTY);
+            case Request.METHOD_DELETE:
+                return new Response(Response.ACCEPTED, Response.EMPTY);
+            default:
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
+
     }
 }
