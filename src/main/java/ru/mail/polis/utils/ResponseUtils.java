@@ -25,7 +25,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 
 public final class ResponseUtils {
 
@@ -69,11 +68,7 @@ public final class ResponseUtils {
     @NotNull
     public static HttpRequest.Builder requestForReplica(@NotNull final String node,
                                                         @NotNull final String id) {
-        final String uri = node + ENTITY + "?id=" + id;
-        return HttpRequest.newBuilder()
-                .uri(URI.create(uri))
-                .header(PROXY, "True")
-                .timeout(Duration.ofMillis(TIMEOUT_MILLIS));
+        return requestForReplica(node, id, Instant.MAX);
     }
 
     /** Create request builder for current client (with expire).
@@ -81,9 +76,9 @@ public final class ResponseUtils {
      * @param id - request id.
      * */
     @NotNull
-    public static HttpRequest.Builder requestForExpireReplica(@NotNull final String node,
-                                                              @NotNull final String id,
-                                                              @NotNull final Instant expire) {
+    public static HttpRequest.Builder requestForReplica(@NotNull final String node,
+                                                     @NotNull final String id,
+                                                     @NotNull final Instant expire) {
         final String uri = node + ENTITY + "?id=" + id + EXPIRES + expire;
         return HttpRequest.newBuilder()
                 .uri(URI.create(uri))
@@ -124,15 +119,14 @@ public final class ResponseUtils {
 
     /** GET response from Entry.*/
     public static CompletableFuture<Entry> getResponse(@NotNull final Map<String, HttpClient> httpClients,
-                                                          @NotNull final String node,
-                                                          @NotNull final String id,
-                                                          @NotNull final ExecutorService executor) {
+                                                       @NotNull final String node,
+                                                       @NotNull final String id) {
         final HttpRequest request = ResponseUtils.requestForReplica(node, id)
                 .GET()
                 .build();
         return httpClients.get(node)
                 .sendAsync(request, GetBodyHandler.INSTANCE)
-                .thenApplyAsync(HttpResponse::body, executor);
+                .thenApplyAsync(HttpResponse::body);
     }
 
     /** PUT response from Entry.*/
@@ -140,30 +134,24 @@ public final class ResponseUtils {
                                                           @NotNull final String node,
                                                           @NotNull final String id,
                                                           @NotNull final byte[] value,
-                                                          @NotNull final ExecutorService executor,
-                                                          final Instant expire) {
-        final HttpRequest request = expire == null
-                ? ResponseUtils.requestForReplica(node, id)
-                .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
-                .build()
-                : ResponseUtils.requestForExpireReplica(node, id, expire)
+                                                          @NotNull final Instant expire) {
+        final HttpRequest request = ResponseUtils.requestForReplica(node, id, expire)
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                 .build();
         return httpClients.get(node)
                 .sendAsync(request, PutBodyHandler.INSTANCE)
-                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED), executor);
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.CREATED));
     }
 
     /** DELETE response from Entry.*/
     public static CompletableFuture<Response> deleteResponse(@NotNull final Map<String, HttpClient> httpClients,
-                                                          @NotNull final String node,
-                                                          @NotNull final String id,
-                                                          @NotNull final ExecutorService executor) {
+                                                             @NotNull final String node,
+                                                             @NotNull final String id) {
         final HttpRequest request = ResponseUtils.requestForReplica(node, id)
                 .DELETE()
                 .build();
         return httpClients.get(node)
                 .sendAsync(request, DeleteBodyHandler.INSTANCE)
-                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED), executor);
+                .thenApplyAsync(r -> ResponseUtils.emptyResponse(Response.ACCEPTED));
     }
 }

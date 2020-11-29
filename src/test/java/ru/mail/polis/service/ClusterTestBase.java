@@ -61,26 +61,11 @@ abstract class ClusterTestBase extends TestBase {
     }
 
     @NotNull
-    private static String path(@NotNull final String id,
-                               @NotNull final String expire) {
-        return path(id) + "&expire=" + expire;
-    }
-
-    @NotNull
     private static String path(
             @NotNull final String id,
             final int ack,
             final int from) {
         return path(id) + "&replicas=" + ack + "/" + from;
-    }
-
-    @NotNull
-    private static String path(
-            @NotNull final String id,
-            final int ack,
-            final int from,
-            @NotNull final String expire) {
-        return path(id, ack, from) + "&expire=" + expire;
     }
 
     @BeforeEach
@@ -194,14 +179,7 @@ abstract class ClusterTestBase extends TestBase {
     Response get(
             final int node,
             @NotNull final String key) throws Exception {
-        return get(node, key, NO_EXPIRE);
-    }
-
-    Response get(
-            final int node,
-            @NotNull final String key,
-            @NotNull final String expire) throws Exception {
-        return client(node).get(path(key, expire));
+        return client(node).get(path(key));
     }
 
     void checkResponse(
@@ -217,29 +195,13 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final String key,
             final int ack,
             final int from) throws Exception {
-        return get(node, key, ack, from, NO_EXPIRE);
-    }
-
-    Response get(
-            final int node,
-            @NotNull final String key,
-            final int ack,
-            final int from,
-            @NotNull final String expire) throws Exception {
-        return client(node).get(path(key, ack, from, expire));
+        return client(node).get(path(key, ack, from));
     }
 
     Response delete(
             final int node,
             @NotNull final String key) throws Exception {
-        return delete(node, key, NO_EXPIRE);
-    }
-
-    Response delete(
-            final int node,
-            @NotNull final String key,
-            @NotNull final String expire) throws Exception {
-        return client(node).delete(path(key, expire));
+        return client(node).delete(path(key));
     }
 
     Response delete(
@@ -247,31 +209,14 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final String key,
             final int ack,
             final int from) throws Exception {
-        return delete(node, key, ack, from, NO_EXPIRE);
-    }
-
-    Response delete(
-            final int node,
-            @NotNull final String key,
-            final int ack,
-            final int from,
-            @NotNull final String expire) throws Exception {
-        return client(node).delete(path(key, ack, from, expire));
+        return client(node).delete(path(key, ack, from));
     }
 
     Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
-        return upsert(node, key, data, NO_EXPIRE);
-    }
-
-    Response upsert(
-            final int node,
-            @NotNull final String key,
-            @NotNull final byte[] data,
-            @NotNull final String expire) throws Exception {
-        return client(node).put(path(key, expire), data);
+        return client(node).put(path(key), data);
     }
 
     Response upsert(
@@ -280,16 +225,6 @@ abstract class ClusterTestBase extends TestBase {
             @NotNull final byte[] data,
             final int ack,
             final int from) throws Exception {
-        return upsert(node, key, data, ack, from, NO_EXPIRE);
-    }
-
-    Response upsert(
-            final int node,
-            @NotNull final String key,
-            @NotNull final byte[] data,
-            final int ack,
-            final int from,
-            @NotNull final String expire) throws Exception {
-        return client(node).put(path(key, ack, from, expire), data);
+        return client(node).put(path(key, ack, from), data);
     }
 }

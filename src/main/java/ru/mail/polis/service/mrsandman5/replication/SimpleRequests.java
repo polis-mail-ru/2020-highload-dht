@@ -64,7 +64,7 @@ public final class SimpleRequests {
      */
     public CompletableFuture<Response> put(@NotNull final ByteBuffer key,
                                            @NotNull final byte[] bytes,
-                                           final Instant expire) {
+                                           @NotNull final Instant expire) {
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {

@@ -31,13 +31,13 @@ public final class Entry implements Comparable<Entry> {
     private final byte[] data;
     @NotNull
     private final State state;
-    @Nullable
+    @NotNull
     private final Instant expires;
 
     private Entry(final long timestamp,
                   @Nullable final byte[] data,
                   @NotNull final State state,
-                  @Nullable final Instant expires) {
+                  @NotNull final Instant expires) {
         this.timestamp = timestamp;
         this.data = data == null ? null : Arrays.copyOf(data, data.length);
         this.state = state;
@@ -58,7 +58,7 @@ public final class Entry implements Comparable<Entry> {
         return state;
     }
 
-    @Nullable
+    @NotNull
     public Instant getExpires() {
         return expires;
     }
@@ -70,17 +70,17 @@ public final class Entry implements Comparable<Entry> {
 
     public static Entry present(final long timestamp,
                                 @NotNull final byte[] data,
-                                @Nullable final Instant expires) {
+                                @NotNull final Instant expires) {
         return new Entry(timestamp, data, State.PRESENT, expires);
     }
 
     public static Entry removed(final long timestamp,
-                                @Nullable final Instant expires) {
+                                @NotNull final Instant expires) {
         return new Entry(timestamp, null, State.REMOVED, expires);
     }
 
     public static Entry absent() {
-        return new Entry(-1, null, State.ABSENT, null);
+        return new Entry(-1, null, State.ABSENT, Instant.MAX);
     }
 
     /** Merge all existed Entries comparing to their timestamp.
@@ -146,9 +146,7 @@ public final class Entry implements Comparable<Entry> {
         } else {
             final ByteBuffer value = cell.getValue().getData();
             final byte[] buf = ByteUtils.toByteArray(Objects.requireNonNull(value));
-            return Entry.present(cell.getValue().getTimestamp(),
-                    buf,
-                    Instant.MAX.equals(cell.getValue().getExpire()) ? null : cell.getValue().getExpire());
+            return Entry.present(cell.getValue().getTimestamp(), buf, cell.getValue().getExpire());
         }
     }
 }

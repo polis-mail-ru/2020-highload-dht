@@ -85,41 +85,18 @@ class SingleNodeTest extends TestBase {
         return "/v0/entity?id=" + id;
     }
 
-    @NotNull
-    private String path(@NotNull final String id,
-                        @NotNull final String expire) {
-        return path(id) + "&expire=" + expire;
-    }
-
     private Response get(@NotNull final String key) throws Exception {
-        return get(key, NO_EXPIRE);
-    }
-
-    private Response get(@NotNull final String key,
-                         @NotNull final String expire) throws Exception {
-        return client.get(path(key, expire));
+        return client.get(path(key));
     }
 
     private Response delete(@NotNull final String key) throws Exception {
-        return delete(key, NO_EXPIRE);
-    }
-
-    private Response delete(@NotNull final String key,
-                            @NotNull final String expire) throws Exception {
-        return client.delete(path(key, expire));
+        return client.delete(path(key));
     }
 
     private Response upsert(
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
-        return upsert(key, data, NO_EXPIRE);
-    }
-
-    private Response upsert(
-            @NotNull final String key,
-            @NotNull final byte[] data,
-            @NotNull final String expire) throws Exception {
-        return client.put(path(key, expire), data);
+        return client.put(path(key), data);
     }
 
     @Test

@@ -114,8 +114,8 @@ public final class ServiceImpl extends HttpServer implements Service {
      */
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
-                       @Param(value = "expire") final String expire,
                        @Param(value = "replicas") final String replicas,
+                       @Param(value = "expire") final String expire,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
         if (id.isEmpty()) {
@@ -138,7 +138,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Instant expireTime = "MAX".equals(expire) ? Instant.MAX : ResponseUtils.parseExpires(expire);
+        final Instant expireTime = expire == null ? Instant.MAX : ResponseUtils.parseExpires(expire);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor));
@@ -208,7 +208,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
-                result.add(ResponseUtils.getResponse(httpClients, node, id, executor));
+                result.add(ResponseUtils.getResponse(httpClients, node, id));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
@@ -225,11 +225,9 @@ public final class ServiceImpl extends HttpServer implements Service {
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
-                result.add(simpleRequests.put(key, value, expire.equals(Instant.MAX) ? null : expire));
+                result.add(simpleRequests.put(key, value, expire));
             } else {
-                result.add(ResponseUtils.putResponse(
-                        httpClients, node, id, value, executor,
-                        expire.equals(Instant.MAX) ? null : expire));
+                result.add(ResponseUtils.putResponse(httpClients, node, id, value, expire));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
@@ -246,7 +244,7 @@ public final class ServiceImpl extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
-                result.add(ResponseUtils.deleteResponse(httpClients, node, id, executor));
+                result.add(ResponseUtils.deleteResponse(httpClients, node, id));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)

@@ -91,36 +91,16 @@ class SingleRangeTest extends TestBase {
         return "/v0/entity?id=" + id;
     }
 
-    @NotNull
-    private String path(@NotNull final String id,
-                        @NotNull final String expire) {
-        return path(id) + "&expire=" + expire;
-    }
-
     private Response range(
             @NotNull final String start,
             @Nullable final String end) throws Exception {
-        return range(start, end, NO_EXPIRE);
-    }
-
-    private Response range(
-            @NotNull final String start,
-            @Nullable final String end,
-            @NotNull final String expire) throws Exception {
-        return client.get("/v0/entities?start=" + start + (end != null ? "&end=" + end : "") + "&expire=" + expire);
+        return client.get("/v0/entities?start=" + start + (end != null ? "&end=" + end : ""));
     }
 
     private Response upsert(
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
-        return upsert(key, data, NO_EXPIRE);
-    }
-
-    private Response upsert(
-            @NotNull final String key,
-            @NotNull final byte[] data,
-            @NotNull final String expire) throws Exception {
-        return client.put(path(key, expire), data);
+        return client.put(path(key), data);
     }
 
     @Test
