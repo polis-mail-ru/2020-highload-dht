@@ -17,6 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -81,11 +82,16 @@ abstract public class TestBase {
 
     @NotNull
     protected static Instant randomExpire() {
-        final long startSeconds = Instant.now().minus(Duration.ofMinutes(1)).getEpochSecond();
-        final long endSeconds = Instant.now().plus(Duration.ofMinutes(1)).getEpochSecond();
+        final long startSeconds = Instant.now().getEpochSecond();
+        final long endSeconds = Instant.now().plus(Duration.ofSeconds(30)).getEpochSecond();
         final long randomSeconds = ThreadLocalRandom.current()
                 .nextLong(startSeconds, endSeconds);
         return Instant.ofEpochSecond(randomSeconds);
+    }
+
+    @NotNull
+    protected static String randomExpire(@NotNull final Instant expire) {
+        return ResponseUtils.expirationFormat.format(expire);
     }
 
     @NotNull

@@ -23,7 +23,6 @@ import ru.mail.polis.Record;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.rmi.UnexpectedException;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -76,7 +75,7 @@ public interface DAO extends Closeable {
     default ByteBuffer get(@NotNull final ByteBuffer key) throws IOException, NoSuchElementException {
         final Iterator<Record> iter = iterator(key);
         if (!iter.hasNext()) {
-            throw new UnexpectedException("Not found");
+            throw new NoSuchElementException("Not found");
         }
 
         final Record next = iter.next();
