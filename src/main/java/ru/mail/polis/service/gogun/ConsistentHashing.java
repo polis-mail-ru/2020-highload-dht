@@ -61,11 +61,12 @@ public class ConsistentHashing implements Hashing<String> {
     @NotNull
     @Override
     public Set<String> primaryFor(@NotNull final ByteBuffer key, final int count) {
-
         if (count > new TreeSet<>(circle.values()).size()) {
             throw new InvalidParameterException("Wrong count number");
         }
-        final int hash = key.hashCode();
+
+        final byte[] keyBytes = ServiceUtils.getArray(key.duplicate());
+        final int hash = Hash.murmur3(keyBytes, 0, keyBytes.length);
         final Set<String> result = new HashSet<>();
         final Collection<String> values = circle.tailMap(hash).values();
         Iterator<String> iterator = values.iterator();

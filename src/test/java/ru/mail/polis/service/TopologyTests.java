@@ -61,7 +61,7 @@ public class TopologyTests extends ClusterTestBase {
 
             for (int i : distr.values()) {
                 int diff = Math.abs(avg - i);
-                float maximumDeviation = avg * 0.5f;
+                float maximumDeviation = avg * 0.8f;
                 Assertions.assertTrue(diff < maximumDeviation);
             }
         }
