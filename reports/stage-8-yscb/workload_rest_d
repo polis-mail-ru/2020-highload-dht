@@ -16,7 +16,7 @@
 
 # Yahoo! Cloud System Benchmark
 # Workload D: Read latest workload
-#   Application example: user status updates; people want to read the latest
+#   Application example: service with traffic spikes
 #
 #   Read/update ratio: 95/5
 #   Request distribution: hotspot
