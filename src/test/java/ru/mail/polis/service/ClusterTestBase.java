@@ -48,7 +48,7 @@ abstract class ClusterTestBase extends TestBase {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
     private final Map<String, HttpClient> hostToClient = new HashMap<>();
 
-    private String[] nodes;
+    protected String[] nodes;
     private int[] ports;
     private File[] datas;
     private DAO[] daos;

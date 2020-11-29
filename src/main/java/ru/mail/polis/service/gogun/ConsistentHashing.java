@@ -1,5 +1,6 @@
 package ru.mail.polis.service.gogun;
 
+import one.nio.util.Hash;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
@@ -46,8 +47,14 @@ public class ConsistentHashing implements Hashing<String> {
     }
 
     private void add(final String node) {
-        for (int i = 0; i < vnodes; i++) {
-            circle.put((node + i).hashCode(), node);
+        for (int i = 0; i < vnodes; ++i) {
+            String stringToHash = node + i;
+            int hashCode = Hash.murmur3(stringToHash);
+            while (circle.containsKey(hashCode)) {
+                stringToHash = stringToHash + i;
+                hashCode = Hash.murmur3(stringToHash);
+            }
+            circle.put(hashCode, node);
         }
     }
 
