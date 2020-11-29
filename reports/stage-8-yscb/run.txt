@@ -1,0 +1,8 @@
+mvn -pl site.ycsb:rest-binding -am clean package
+sudo ./bin/ycsb run rest -s -P workloads/workload_rest > ./reports/report_rest.txt
+sudo ./bin/ycsb run rest -s -P workloads/workload_rest_a > ./reports/report_a.txt
+sudo ./bin/ycsb run rest -s -P workloads//workload_rest_b > ./reports/report_b.txt
+sudo ./bin/ycsb run rest -s -P workloads//workload_rest_c > ./reports/report_c.txt
+sudo ./bin/ycsb run rest -s -P workloads//workload_rest_d > ./reports/report_d.txt
+
+

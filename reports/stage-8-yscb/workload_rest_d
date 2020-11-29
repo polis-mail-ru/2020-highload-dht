@@ -1,0 +1,64 @@
+# Copyright (c) 2016 Yahoo! Inc. All rights reserved.                                                                                                                             
+#                                                                                                                                                                                 
+# Licensed under the Apache License, Version 2.0 (the "License"); you                                                                                                             
+# may not use this file except in compliance with the License. You                                                                                                                
+# may obtain a copy of the License at                                                                                                                                             
+#                                                                                                                                                                                 
+# http://www.apache.org/licenses/LICENSE-2.0                                                                                                                                      
+#                                                                                                                                                                                 
+# Unless required by applicable law or agreed to in writing, software                                                                                                             
+# distributed under the License is distributed on an "AS IS" BASIS,                                                                                                               
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or                                                                                                                 
+# implied. See the License for the specific language governing                                                                                                                    
+# permissions and limitations under the License. See accompanying                                                                                                                 
+# LICENSE file.                                                                                                                                                                   
+
+
+# Yahoo! Cloud System Benchmark
+# Workload D: Read latest workload
+#   Application example: user status updates; people want to read the latest
+#
+#   Read/update ratio: 95/5
+#   Request distribution: hotspot
+
+
+#	Core Properties
+workload=site.ycsb.workloads.RestWorkload
+db=site.ycsb.webservice.rest.RestClient
+exporter=site.ycsb.measurements.exporter.TextMeasurementsExporter
+threadcount=1
+fieldlengthdistribution=uniform
+measurementtype=hdrhistogram
+
+#	Workload Properties
+fieldcount=5
+fieldlength=100
+updateproportion=0.05
+readproportion=0.95
+deleteproportion=0
+insertproportion=0
+requestdistribution=hotspot
+operationcount=1000000
+maxexecutiontime=720
+readallfields=true
+writeallfields=true
+
+#	Custom Properties
+url.prefix=http://127.0.0.1:8080/
+url.trace.read=./workloads/trace.txt
+url.trace.insert=./workloads/trace.txt
+url.trace.update=./workloads/trace.txt
+url.trace.delete=./workloads/trace.txt
+# Header must be separated by space. Other delimiters might occur as header values and hence can not be used.
+headers=Accept */* Accept-Language en-US,en;q=0.5 Content-Type application/x-www-form-urlencoded user-agent Mozilla/5.0 Connection close
+timeout.con=60
+timeout.read=60
+timeout.exec=60
+log.enable=true
+readrecordcount=1000000
+updaterecordcount=1000000
+
+
+#	Measurement Properties
+hdrhistogram.percentiles=50,90,95,99
+histogram.buckets=1
