@@ -1,0 +1,19 @@
+rm wrkLogsGet1.txt
+
+rm flameGetCpu1.svg 
+rm flameGetAlloc1.svg  
+rm flameGetLock1.svg 
+
+../../wrk2/wrk -c20 -d50s -R1000 -s ../../wrk2/scripts/get.lua --u_latency http://localhost:8080 > wrkLogsGet1.txt &
+
+
+sleep 10s
+
+echo "start analitics"
+
+../../async-profiler-1.8.1-linux-x64/profiler.sh -d 10 -e cpu -f flameGetCpu1.svg $(lsof -t -i :8080 -s TCP:LISTEN) 
+../../async-profiler-1.8.1-linux-x64/profiler.sh -d 10 -e alloc -f flameGetAlloc1.svg $(lsof -t -i :8080 -s TCP:LISTEN) 
+../../async-profiler-1.8.1-linux-x64/profiler.sh -d 10 -e lock -f flameGetLock1.svg $(lsof -t -i :8080 -s TCP:LISTEN) 
+
+echo "end analitics"
+

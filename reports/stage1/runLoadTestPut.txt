@@ -1,0 +1,7 @@
+rm wrkLogsPut.txt
+./wrk2/wrk -t1 -c1 -d15s -R2000 -s ./wrk2/scripts/put.lua --u_latency http://localhost:8080 > wrkLogsPut.txt &
+rm flamePutCpu.svg 
+rm flamePutAlloc.svg 
+./async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e cpu -f flamePutCpu.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+./async-profiler-1.8.1-linux-x64/profiler.sh -d 5 -e alloc -f flamePutAlloc.svg $(lsof -t -i :8080 -s TCP:LISTEN)
+
