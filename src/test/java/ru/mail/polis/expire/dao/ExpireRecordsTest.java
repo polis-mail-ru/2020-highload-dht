@@ -50,6 +50,7 @@ public class ExpireRecordsTest extends TestBase {
         final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
             dao.upsert(key, value, expire);
+            assertEquals(value, dao.get(key));
             Thread.sleep(10000);
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
         }

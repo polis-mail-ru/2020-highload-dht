@@ -51,8 +51,9 @@ public final class SSTable implements Table {
                              @NotNull final File file) throws IOException {
         try (FileChannel fc = new FileOutputStream(file).getChannel()) {
             final List<Integer> offsets = new ArrayList<>();
+            int offset = 0;
             while (cells.hasNext()) {
-                write(fc, cells, offsets);
+                offset = write(fc, cells, offset, offsets);
             }
             for (final Integer anOffset : offsets) {
                 fc.write(ByteUtils.fromInt(anOffset));
@@ -61,14 +62,15 @@ public final class SSTable implements Table {
         }
     }
 
-    private static void write(@NotNull final FileChannel fc,
+    private static int write(@NotNull final FileChannel fc,
                              @NotNull final Iterator<Cell> cells,
+                             final int offset,
                              @NotNull final List<Integer> offsets) throws IOException {
-        int offset = 0;
+        int curOffset = offset;
         final Cell cell = cells.next();
         final ByteBuffer key = cell.getKey();
-        offsets.add(offset);
-        offset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
+        offsets.add(curOffset);
+        curOffset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
         fc.write(ByteUtils.fromInt(key.duplicate().remaining()));
         fc.write(key);
         final Value value = cell.getValue();
@@ -77,14 +79,15 @@ public final class SSTable implements Table {
         } else {
             fc.write(ByteUtils.fromLong(value.getTimestamp()));
             final ByteBuffer data = Objects.requireNonNull(value.getData()).duplicate();
-            offset += data.remaining();
+            curOffset += data.remaining();
             fc.write(data);
             final Instant expire = value.getExpire();
             if (!expire.equals(Instant.MAX)) {
-                offset += (Long.BYTES + Integer.BYTES);
+                curOffset += (Long.BYTES + Integer.BYTES);
                 fc.write(ByteUtils.fromInstant(expire));
             }
         }
+        return curOffset;
     }
 
     private ByteBuffer keyAt(final int i) throws IOException {
