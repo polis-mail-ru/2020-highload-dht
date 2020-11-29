@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.util.Objects;
 
 public final class Value {
 
