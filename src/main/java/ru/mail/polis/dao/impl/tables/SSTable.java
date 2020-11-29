@@ -51,9 +51,8 @@ public final class SSTable implements Table {
                              @NotNull final File file) throws IOException {
         try (FileChannel fc = new FileOutputStream(file).getChannel()) {
             final List<Integer> offsets = new ArrayList<>();
-            int offset = 0;
             while (cells.hasNext()) {
-                offset = write(fc, cells, offset, offsets);
+                write(fc, cells, offsets);
             }
             for (final Integer anOffset : offsets) {
                 fc.write(ByteUtils.fromInt(anOffset));
@@ -62,10 +61,10 @@ public final class SSTable implements Table {
         }
     }
 
-    private static int write(@NotNull FileChannel fc,
-                              @NotNull final Iterator<Cell> cells,
-                              int offset,
-                              @NotNull final List<Integer> offsets) throws IOException{
+    private static void write(@NotNull final FileChannel fc,
+                             @NotNull final Iterator<Cell> cells,
+                             @NotNull final List<Integer> offsets) throws IOException {
+        int offset = 0;
         final Cell cell = cells.next();
         final ByteBuffer key = cell.getKey();
         offsets.add(offset);
@@ -86,7 +85,6 @@ public final class SSTable implements Table {
                 fc.write(ByteUtils.fromInstant(expire));
             }
         }
-        return offset;
     }
 
     private ByteBuffer keyAt(final int i) throws IOException {
