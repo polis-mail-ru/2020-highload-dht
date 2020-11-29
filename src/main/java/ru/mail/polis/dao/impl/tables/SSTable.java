@@ -53,33 +53,40 @@ public final class SSTable implements Table {
             final List<Integer> offsets = new ArrayList<>();
             int offset = 0;
             while (cells.hasNext()) {
-                final Cell cell = cells.next();
-                final ByteBuffer key = cell.getKey();
-                offsets.add(offset);
-                offset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
-                fc.write(ByteUtils.fromInt(key.duplicate().remaining()));
-                fc.write(key);
-                final Value value = cell.getValue();
-                if (value.isTombstone()) {
-                    fc.write(ByteUtils.fromLong(-value.getTimestamp()));
-                } else {
-                    fc.write(ByteUtils.fromLong(value.getTimestamp()));
-                    final ByteBuffer data = Objects.requireNonNull(value.getData()).duplicate();
-                    offset += data.remaining();
-                    fc.write(data);
-                    final Instant expire = value.getExpire();
-                    if (expire.equals(Instant.MAX)) {
-                        continue;
-                    }
-                    offset += (Long.BYTES + Integer.BYTES);
-                    fc.write(ByteUtils.fromInstant(expire));
-                }
+                offset = write(fc, cells, offset, offsets);
             }
             for (final Integer anOffset : offsets) {
                 fc.write(ByteUtils.fromInt(anOffset));
             }
             fc.write(ByteUtils.fromInt(offsets.size()));
         }
+    }
+
+    private static int write(@NotNull FileChannel fc,
+                              @NotNull final Iterator<Cell> cells,
+                              int offset,
+                              @NotNull final List<Integer> offsets) throws IOException{
+        final Cell cell = cells.next();
+        final ByteBuffer key = cell.getKey();
+        offsets.add(offset);
+        offset += key.duplicate().remaining() + Long.BYTES + Integer.BYTES;
+        fc.write(ByteUtils.fromInt(key.duplicate().remaining()));
+        fc.write(key);
+        final Value value = cell.getValue();
+        if (value.isTombstone()) {
+            fc.write(ByteUtils.fromLong(-value.getTimestamp()));
+        } else {
+            fc.write(ByteUtils.fromLong(value.getTimestamp()));
+            final ByteBuffer data = Objects.requireNonNull(value.getData()).duplicate();
+            offset += data.remaining();
+            fc.write(data);
+            final Instant expire = value.getExpire();
+            if (!expire.equals(Instant.MAX)) {
+                offset += (Long.BYTES + Integer.BYTES);
+                fc.write(ByteUtils.fromInstant(expire));
+            }
+        }
+        return offset;
     }
 
     private ByteBuffer keyAt(final int i) throws IOException {
