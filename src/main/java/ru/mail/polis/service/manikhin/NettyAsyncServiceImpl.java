@@ -18,23 +18,24 @@ public class NettyAsyncServiceImpl implements Service {
     private final int port;
     private final Topology nodes;
     private final int timeout;
-    private final int queueSize;
+    private final int countOfWorkers;
     private ChannelFuture cf;
     private final EventLoopGroup bossGroup;
     private final EventLoopGroup workersGroup;
     private final Logger log = LoggerFactory.getLogger(NettyAsyncServiceImpl.class);
 
     public NettyAsyncServiceImpl(final int port, @NotNull final DAO dao,
-                                 @NotNull final Topology nodes, final int countOfWorkers,
-                                 final int queueSize, final int timeout) {
+                                 @NotNull final Topology nodes, final int countOfWorkers, final int timeout) {
 
         this.port = port;
         this.dao = dao;
         this.nodes = nodes;
         this.timeout = timeout;
-        this.queueSize = queueSize;
+        this.countOfWorkers = countOfWorkers;
+
         bossGroup = new NioEventLoopGroup(countOfWorkers);
         workersGroup = new NioEventLoopGroup(countOfWorkers);
+
     }
 
     @Override
@@ -44,7 +45,7 @@ public class NettyAsyncServiceImpl implements Service {
         try {
             final ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup, workersGroup).channel(NioServerSocketChannel.class)
-                    .childHandler(new NettyInit(dao, nodes, queueSize, timeout))
+                    .childHandler(new NettyInit(dao, nodes, countOfWorkers, timeout))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 

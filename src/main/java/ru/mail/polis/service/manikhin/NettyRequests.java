@@ -4,13 +4,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.QueryStringDecoder;
+import io.netty.handler.codec.http.*;
+
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,21 +31,18 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
     private final Logger log = LoggerFactory.getLogger(NettyRequests.class);
     private static final String SUCCESS_MESSAGE = "200";
-    private static final String INTERNAL_ERROR_MESSAGE = "500";
-    private static final String BAD_REQUEST_MESSAGE = "400";
-    private static final String NOT_FOUND_MESSAGE = "404";
     private final Replicas defaultReplica;
     private final Topology nodes;
     private final ReplicasNettyRequests replHelper;
 
-    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes,
-                         final int queueSize, final int timeout) {
+    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int timeout) {
         this.dao = dao;
         this.nodes = nodes;
 
         this.clusterSize = nodes.getNodes().size();
         this.defaultReplica = Replicas.quorum(clusterSize);
         this.replHelper = new ReplicasNettyRequests(dao, nodes, timeout);
+
     }
 
     @Override
@@ -59,7 +51,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     @Override
-    protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) throws IOException {
+    protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
         final String uri = msg.uri();
 
         if (uri.equals(STATUS_PATH)) {
@@ -74,8 +66,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 final List<String> id = decoder.parameters().get("id");
 
                 if (id == null || id.isEmpty() || id.get(0).length() == 0) {
-                    sendResponse(HttpResponseStatus.BAD_REQUEST,
-                            BAD_REQUEST_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+                    sendResponse(HttpResponseStatus.BAD_REQUEST, new byte[0], ctx);
                     return;
                 }
 
@@ -84,14 +75,9 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
                 if (isForwardedRequest || clusterSize > 1) {
                     final List<String> replicas = decoder.parameters().get("replicas");
+
                     final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica,
                             clusterSize);
-
-                    if (replicaFactor == null) {
-                        sendResponse(HttpResponseStatus.BAD_REQUEST,
-                                BAD_REQUEST_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
-                        return;
-                    }
 
                     final Set<String> replicaClusters = isForwardedRequest ? Collections.singleton(nodes.getId())
                             : nodes.getReplicas(key, replicaFactor);
@@ -111,18 +97,15 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                         delete(key, ctx);
                         return;
                     } else {
-                        sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED,
-                                INTERNAL_ERROR_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+                        sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, new byte[0], ctx);
                         return;
                     }
                 }
             } catch (RejectedExecutionException | IOException error) {
-                sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE,
-                        INTERNAL_ERROR_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+                sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, new byte[0], ctx);
             }
         } else {
-            sendResponse(HttpResponseStatus.BAD_REQUEST,
-                    BAD_REQUEST_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            sendResponse(HttpResponseStatus.BAD_REQUEST, new byte[0], ctx);
             return;
         }
     }
@@ -133,15 +116,12 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final byte[] valueArray = ByteConvertor.toArray(value);
 
             sendResponse(HttpResponseStatus.OK, valueArray, ctx);
-
         } catch (final IOException error) {
             log.error("IO get error: ", error);
-            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                    INTERNAL_ERROR_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, new byte[0], ctx);
         } catch (NoSuchElementException error) {
             log.error("NoSuchElement get error: ", error);
-            sendResponse(HttpResponseStatus.NOT_FOUND,
-                    NOT_FOUND_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            sendResponse(HttpResponseStatus.NOT_FOUND, new byte[0], ctx);
         }
     }
 
@@ -152,8 +132,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             sendResponse(HttpResponseStatus.CREATED, new byte[0], ctx);
         } catch (IOException error) {
             log.error("IO put error: ", error);
-            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                    INTERNAL_ERROR_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, new byte[0], ctx);
         }
     }
 
@@ -161,12 +140,10 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                         @NotNull final ChannelHandlerContext ctx) {
         try {
             dao.remove(key);
-            sendResponse(HttpResponseStatus.ACCEPTED,
-                    INTERNAL_ERROR_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            sendResponse(HttpResponseStatus.ACCEPTED, new byte[0], ctx);
         } catch (IOException error) {
             log.error("IO delete error: ", error);
-            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                    INTERNAL_ERROR_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, new byte[0], ctx);
         }
     }
 
@@ -187,9 +164,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 Unpooled.copiedBuffer(bytes)
         );
 
-        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain");
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
-
         ctx.writeAndFlush(response).addListener(future -> {
             if (!future.isSuccess()) {
                 log.error("Something wrong with written some data.");

@@ -230,6 +230,9 @@ public class ReplicasRequests {
             }
         }
 
+        log.debug(String.valueOf(isForwardedRequest));
+        log.debug(asks + "/" + replicateAcks);
+
         if (asks >= replicateAcks || isForwardedRequest) {
             sendResponse(session, new Response(Response.ACCEPTED, Response.EMPTY));
         } else {
@@ -252,6 +255,7 @@ public class ReplicasRequests {
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
 
         if (mergedResp.isValue()) {
+            log.debug("FOUND");
             if (!isForwardedRequest && replicaNodes.size() == 1) {
                 sendResponse(session, new Response(Response.OK, mergedResp.getValueAsBytes()));
             } else if (isForwardedRequest && replicaNodes.size() == 1) {
@@ -260,8 +264,10 @@ public class ReplicasRequests {
                 sendResponse(session, new Response(Response.OK, mergedResp.getValueAsBytes()));
             }
         } else if (mergedResp.isDeleted()) {
+            log.debug("DELETED - 1");
             sendResponse(session, new Response(Response.NOT_FOUND, mergedResp.toBytes()));
         } else {
+            log.debug("DELETED - 2");
             sendResponse(session, new Response(Response.NOT_FOUND, Response.EMPTY));
         }
     }
