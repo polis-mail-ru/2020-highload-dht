@@ -31,7 +31,7 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
                 final Optional<String> ofExpires =
                         responseInfo.headers().firstValue(ResponseUtils.EXPIRES);
                 final Instant okExpireTime =
-                        ofExpires.map(ResponseUtils::parseExpires).orElse(null);
+                        ofExpires.map(ResponseUtils::parseExpires).orElse(Instant.MAX);
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
                         bytes -> Entry.present(okTimestampValue, bytes, okExpireTime));
@@ -46,7 +46,7 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
                 final Optional<String> notFoundExpires =
                         responseInfo.headers().firstValue(ResponseUtils.EXPIRES);
                 final Instant notFoundExpireTime =
-                        notFoundExpires.map(ResponseUtils::parseExpires).orElse(null);
+                        notFoundExpires.map(ResponseUtils::parseExpires).orElse(Instant.MAX);
                 return HttpResponse.BodySubscribers.replacing(
                         Entry.removed(notFoundTimestampValue, notFoundExpireTime));
             default:
