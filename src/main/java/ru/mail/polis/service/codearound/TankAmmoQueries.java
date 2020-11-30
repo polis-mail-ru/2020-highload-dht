@@ -1,5 +1,8 @@
 package ru.mail.polis.service.codearound;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -14,11 +17,12 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class TankAmmoQueries {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(TankAmmoQueries.class);
     private static final String CRLF = "\r\n";
     private static final String TAG_GET_AMMO = " GET\n";
     private static final String TAG_PUT_AMMO = " PUT\n";
     private static final String WEIGHT_BOUNDS_ERROR_MSG = "Second argument isn't valid "
-                                                     + "(should be a number in range between 0 and 1";
+                                                        + "(should be a number in range between 0 and 1";
     private static final String WEIGHT_MISSING_ERROR_MSG = "Given two arguments instead of 3 expected\n"
                                                          + "Retry completing them with specific weight argument";
     private static final int KEY_LENGTH = 256;
@@ -107,10 +111,12 @@ public final class TankAmmoQueries {
         }
 
         final Random rand = new Random();
+        double pickGaussian;
         long key;
 
         for (long i = 0; i < numOfKeys; i++) {
-            key = (int) Math.round(rand.nextGaussian() * numOfKeys * newestEntryShare  + numOfKeys * (1 - newestEntryShare));
+            pickGaussian = rand.nextGaussian() * numOfKeys * newestEntryShare + numOfKeys * (1 - newestEntryShare);
+            key = Math.round(pickGaussian);
             if (key >= numOfKeys) {
                 key = numOfKeys - 1;
             } else if (key < 0) {
@@ -150,13 +156,13 @@ public final class TankAmmoQueries {
     private static void getKey(final String keyStr) throws IOException {
         final ByteArrayOutputStream outStream = new ByteArrayOutputStream();
 
-        try (Writer writer = new OutputStreamWriter(outStream, StandardCharsets.US_ASCII)) {
-            writer.write("GET /v0/entity?id=" + keyStr + " HTTP/1.1" + CRLF);
-            writer.write(CRLF);
+        try (Writer streamWriter = new OutputStreamWriter(outStream, StandardCharsets.US_ASCII)) {
+            streamWriter.write("GET /v0/entity?id=" + keyStr + " HTTP/1.1" + CRLF);
+            streamWriter.write(CRLF);
         }
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
         outStream.write(TAG_GET_AMMO.getBytes(StandardCharsets.US_ASCII));
-        outStream.writeTo(System.out);
+        outStream.writeTo(outStream);
         outStream.write(CRLF.getBytes(StandardCharsets.US_ASCII));
     }
 
@@ -204,7 +210,7 @@ public final class TankAmmoQueries {
                     final double opt2Weight = Double.parseDouble(args[2]);
                     putWhenOverwriting(requestPool, opt2Weight);
                 } catch (ArrayIndexOutOfBoundsException exc) {
-                    System.out.println(WEIGHT_MISSING_ERROR_MSG);
+                    LOGGER.error(WEIGHT_MISSING_ERROR_MSG);
                 }
                 break;
             case "3":
@@ -215,7 +221,7 @@ public final class TankAmmoQueries {
                     final double opt4Weight = Double.parseDouble(args[2]);
                     getLatestKey(requestPool, opt4Weight);
                 } catch (ArrayIndexOutOfBoundsException exc) {
-                    System.out.println(WEIGHT_MISSING_ERROR_MSG);
+                    LOGGER.error(WEIGHT_MISSING_ERROR_MSG);
                 }
                 break;
             case "5":
