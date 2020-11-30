@@ -39,7 +39,6 @@ import static ru.mail.polis.service.gogun.Entry.toProxyResponse;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
-    public static final String ABSENT = "-1";
     static final Logger log = LoggerFactory.getLogger(AsyncServiceImpl.class);
     public static final Duration TIMEOUT = Duration.ofSeconds(1);
     public static final String PROXY_HEADER = "X-Proxy-For: ";

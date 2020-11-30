@@ -51,7 +51,7 @@ public class ConsistentHashing implements Hashing<String> {
             String stringToHash = node + i;
             int hashCode = Hash.murmur3(stringToHash);
             while (circle.containsKey(hashCode)) {
-                stringToHash = stringToHash + i;
+                stringToHash += i;
                 hashCode = Hash.murmur3(stringToHash);
             }
             circle.put(hashCode, node);

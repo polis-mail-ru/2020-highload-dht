@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TopologyTests extends ClusterTestBase {
 
     private static final int VNODES = 100;
+    private static final int KEYS = 10_000;
 
     @Override
     int getClusterSize() {
@@ -28,7 +29,7 @@ public class TopologyTests extends ClusterTestBase {
         for (final String node : nodes) {
             final Hashing<String> TopologyFirst = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
             final Hashing<String> TopologySecond = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
-            for (int i = 0; i < VNODES; i++) {
+            for (int i = 0; i < KEYS; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final Set<String> nodesFirst = TopologyFirst.primaryFor(key, 3);
                 final Set<String> nodesSecond = TopologySecond.primaryFor(key, 3);
@@ -43,7 +44,7 @@ public class TopologyTests extends ClusterTestBase {
         for (final String node : nodes) {
             final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
             final Map<String, Integer> distr = new HashMap<>();
-            for (int i = 0; i < VNODES * nodes.length; i++) {
+            for (int i = 0; i < KEYS; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final String nodeForKey = topology.primaryFor(key, 1).toArray(new String[0])[0];
                 if (!distr.containsKey(nodeForKey)) {
@@ -61,7 +62,7 @@ public class TopologyTests extends ClusterTestBase {
 
             for (int i : distr.values()) {
                 int diff = Math.abs(avg - i);
-                float maximumDeviation = avg * 0.5f;
+                float maximumDeviation = avg * 0.4f;
                 Assertions.assertTrue(diff < maximumDeviation);
             }
         }
@@ -73,7 +74,7 @@ public class TopologyTests extends ClusterTestBase {
         for (final String node : nodes) {
             final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
             final Map<String, Integer> distr = new HashMap<>();
-            for (int i = 0; i < VNODES; i++) {
+            for (int i = 0; i < KEYS; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final String nodeForKey = topology.primaryFor(key, 1).toArray(new String[0])[0];
                 if (!distr.containsKey(nodeForKey)) {
@@ -95,7 +96,7 @@ public class TopologyTests extends ClusterTestBase {
         for (final String node : nodes) {
             final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
             final Map<String, Integer> distr = new HashMap<>();
-            for (int i = 0; i < VNODES * 2; i++) {
+            for (int i = 0; i < KEYS; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final Set<String> nodesForKey = topology.primaryFor(key, 5);
                 for (final String nodeForKey : nodesForKey) {
@@ -115,7 +116,7 @@ public class TopologyTests extends ClusterTestBase {
 
             for (int i : distr.values()) {
                 int diff = Math.abs(avg - i);
-                float maximumDeviation = avg * 0.5f;
+                float maximumDeviation = avg * 0.4f;
                 Assertions.assertTrue(diff < maximumDeviation);
             }
         }
