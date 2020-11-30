@@ -9,15 +9,19 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- *  class pools implementations of methods to carry out highload cluster stress tests
+ *  class pools up implementations of methods to carry out highload cluster stress tests
  *  using both Yandex Tank and Overload analytics service.
  */
 public final class TankAmmoQueries {
 
-    private static final int KEY_LENGTH = 256;
     private static final String CRLF = "\r\n";
     private static final String TAG_GET_AMMO = " GET\n";
     private static final String TAG_PUT_AMMO = " PUT\n";
+    private static final String WEIGHT_BOUNDS_ERROR_MSG = "Second argument isn't valid "
+                                                     + "(should be a number in range between 0 and 1";
+    private static final String WEIGHT_MISSING_ERROR_MSG = "Given two arguments instead of 3 expected\n"
+                                                         + "Retry completing them with specific weight argument";
+    private static final int KEY_LENGTH = 256;
 
     /**
      * class instance const.
@@ -52,11 +56,22 @@ public final class TankAmmoQueries {
      * generates PUT requests featured to resolving partial overwrites among keys stored (query option #2).
      *
      * @param numOfKeys - number of keys to be initially provided for pushing into the storage via PUT requests
+     * @param overwritesWeight - specific weight of keys resolved to be potentially modified
+     *                         throughout each test session
      */
-    private static void putWhenOverwriting(final long numOfKeys) throws IOException {
+    private static void putWhenOverwriting(final long numOfKeys, final double overwritesWeight) throws IOException {
+
+        if (overwritesWeight < 0 || overwritesWeight > 1) {
+            throw new IllegalArgumentException(WEIGHT_BOUNDS_ERROR_MSG);
+        }
+
         long initKey = 0;
+
+        final int boundKey = (int) (overwritesWeight * 100);
+        int nextKey;
         for (long i = 0; i < numOfKeys; i++) {
-            if (ThreadLocalRandom.current().nextInt(10) == 1) {
+            nextKey = ThreadLocalRandom.current().nextInt(100);
+            if (nextKey <= boundKey) {
                 final String key = Long.toString(ThreadLocalRandom.current().nextLong(initKey));
                 putKey(key);
             } else {
@@ -83,20 +98,23 @@ public final class TankAmmoQueries {
      * to handle temporarily rising number of requests for the newest added / refreshed contents (query option #4).
      *
      * @param numOfKeys - number of keys to be available for fetching from the storage via GET requests
-     * @param numOfEntries - size of record pool given to select recently added entries
+     * @param newestEntryShare - specific weight of entries assumed as those recently pushed into the store
      */
-    private static void getLatestKey(final long numOfKeys, final long numOfEntries) throws IOException {
-        long key;
-        int position;
-        for (long i = 0; i < numOfKeys; i++) {
-            position = ThreadLocalRandom.current().nextInt(0, 10);
+    private static void getLatestKey(final long numOfKeys, final double newestEntryShare) throws IOException {
 
-            if (position == 0) {
-                key = ThreadLocalRandom.current().nextLong(0, numOfEntries / 2);
-            } else if (position == 1) {
-                key = ThreadLocalRandom.current().nextLong(numOfEntries / 2, numOfEntries / 2 + numOfEntries / 4);
-            } else {
-                key = ThreadLocalRandom.current().nextLong(numOfEntries / 2 + numOfEntries / 4, numOfEntries);
+        if (newestEntryShare < 0 || newestEntryShare > 1) {
+            throw new IllegalArgumentException(WEIGHT_BOUNDS_ERROR_MSG);
+        }
+
+        final Random rand = new Random();
+        long key;
+
+        for (long i = 0; i < numOfKeys; i++) {
+            key = (int) Math.round(rand.nextGaussian() * numOfKeys * newestEntryShare  + numOfKeys * (1 - newestEntryShare));
+            if (key >= numOfKeys) {
+                key = numOfKeys - 1;
+            } else if (key < 0) {
+                key = 0;
             }
             getKey(Long.toString(key));
         }
@@ -138,7 +156,7 @@ public final class TankAmmoQueries {
         }
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
         outStream.write(TAG_GET_AMMO.getBytes(StandardCharsets.US_ASCII));
-        outStream.flush();
+        outStream.writeTo(System.out);
         outStream.write(CRLF.getBytes(StandardCharsets.US_ASCII));
     }
 
@@ -159,7 +177,7 @@ public final class TankAmmoQueries {
         outStream.write(value);
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.UTF_8));
         outStream.write(TAG_PUT_AMMO.getBytes(StandardCharsets.UTF_8));
-        outStream.flush();
+        outStream.writeTo(System.out);
         outStream.write(CRLF.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -182,14 +200,23 @@ public final class TankAmmoQueries {
                 putRandKey(requestPool);
                 break;
             case "2":
-                putWhenOverwriting(requestPool);
+                try {
+                    final double opt2Weight = Double.parseDouble(args[2]);
+                    putWhenOverwriting(requestPool, opt2Weight);
+                } catch (ArrayIndexOutOfBoundsException exc) {
+                    System.out.println(WEIGHT_MISSING_ERROR_MSG);
+                }
                 break;
             case "3":
                 getKeyContinuously(requestPool);
                 break;
             case "4":
-                final long numOfEntries = Long.parseLong(args[2]);
-                getLatestKey(requestPool, numOfEntries);
+                try {
+                    final double opt4Weight = Double.parseDouble(args[2]);
+                    getLatestKey(requestPool, opt4Weight);
+                } catch (ArrayIndexOutOfBoundsException exc) {
+                    System.out.println(WEIGHT_MISSING_ERROR_MSG);
+                }
                 break;
             case "5":
                 mixPutGetLoad(requestPool);
