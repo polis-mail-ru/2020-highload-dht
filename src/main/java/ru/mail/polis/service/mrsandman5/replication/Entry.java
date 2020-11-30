@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.dao.impl.models.Cell;
+import ru.mail.polis.dao.impl.models.Value;
 import ru.mail.polis.utils.ByteUtils;
 import ru.mail.polis.utils.IteratorUtils;
 import ru.mail.polis.utils.ResponseUtils;
@@ -88,7 +89,7 @@ public final class Entry implements Comparable<Entry> {
      * @return target Entry.
      * */
     @NotNull
-    private static Entry mergeExistEntriesWithTimestamp(@NotNull final Collection<Entry> entries) {
+    private static Entry mergeExistedEntriesWithTimestamp(@NotNull final Collection<Entry> entries) {
         return entries.stream()
                 .filter(value -> value.getState() != State.ABSENT)
                 .max(Comparator.comparingLong(Entry::getTimestamp))
@@ -97,7 +98,7 @@ public final class Entry implements Comparable<Entry> {
 
     @NotNull
     public static Response entriesToResponse(@NotNull final Collection<Entry> entries) {
-        final Entry entry = Entry.mergeExistEntriesWithTimestamp(entries);
+        final Entry entry = Entry.mergeExistedEntriesWithTimestamp(entries);
         return entryToResponse(entry);
     }
 
@@ -139,14 +140,15 @@ public final class Entry implements Comparable<Entry> {
         if (!cell.getKey().equals(key)) {
             return Entry.absent();
         }
-        if (cell.getValue().isTombstone()
-                || (!Instant.MAX.equals(cell.getValue().getExpire())
-                && cell.getValue().isExpired())) {
-            return Entry.removed(cell.getValue().getTimestamp(), cell.getValue().getExpire());
+        final Value value = cell.getValue();
+        if (value.isTombstone()
+                || (!Instant.MAX.equals(value.getExpire())
+                && value.isExpired())) {
+            return Entry.removed(value.getTimestamp(), value.getExpire());
         } else {
-            final ByteBuffer value = cell.getValue().getData();
-            final byte[] buf = ByteUtils.toByteArray(Objects.requireNonNull(value));
-            return Entry.present(cell.getValue().getTimestamp(), buf, cell.getValue().getExpire());
+            final ByteBuffer data = value.getData();
+            final byte[] buf = ByteUtils.toByteArray(Objects.requireNonNull(data));
+            return Entry.present(value.getTimestamp(), buf, value.getExpire());
         }
     }
 }

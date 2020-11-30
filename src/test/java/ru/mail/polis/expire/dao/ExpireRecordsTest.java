@@ -128,7 +128,6 @@ public class ExpireRecordsTest extends TestBase {
     @Test
     void multipleExpire(@TempDir File data) throws IOException, InterruptedException {
         final int keyCount = 10;
-        final int overwrites = 10;
 
         final Collection<ByteBuffer> keys = new ArrayList<>(keyCount);
         for (int i = 0; i < keyCount; i++) {
@@ -136,7 +135,7 @@ public class ExpireRecordsTest extends TestBase {
         }
 
         try (DAO dao = DAOFactory.create(data)) {
-            for (int round = 0; round < overwrites; round++) {
+            for (int round = 0; round < keyCount; round++) {
                 final ByteBuffer value = randomValueBuffer();
                 final Instant expire = randomExpire();
 
