@@ -19,7 +19,7 @@ public class TopologyTests extends ClusterTestBase {
 
     @Override
     int getClusterSize() {
-        return 5;
+        return 15;
     }
 
     //тест проверяет детерминированность нод для репликации
@@ -43,7 +43,7 @@ public class TopologyTests extends ClusterTestBase {
         for (final String node : nodes) {
             final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
             final Map<String, Integer> distr = new HashMap<>();
-            for (int i = 0; i < VNODES; i++) {
+            for (int i = 0; i < VNODES * nodes.length; i++) {
                 final ByteBuffer key = randomKeyBuffer();
                 final String nodeForKey = topology.primaryFor(key, 1).toArray(new String[0])[0];
                 if (!distr.containsKey(nodeForKey)) {
@@ -61,7 +61,7 @@ public class TopologyTests extends ClusterTestBase {
 
             for (int i : distr.values()) {
                 int diff = Math.abs(avg - i);
-                float maximumDeviation = avg * 0.8f;
+                float maximumDeviation = avg * 0.5f;
                 Assertions.assertTrue(diff < maximumDeviation);
             }
         }
@@ -85,6 +85,38 @@ public class TopologyTests extends ClusterTestBase {
 
             for (int i : distr.values()) {
                 Assertions.assertTrue(i != 0);
+            }
+        }
+    }
+
+    //тест проверяет распределение ключей по нодам при репликейшн факторе больше 1
+    @Test
+    void distributionTestMany() {
+        for (final String node : nodes) {
+            final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
+            final Map<String, Integer> distr = new HashMap<>();
+            for (int i = 0; i < VNODES * 2; i++) {
+                final ByteBuffer key = randomKeyBuffer();
+                final Set<String> nodesForKey = topology.primaryFor(key, 5);
+                for (final String nodeForKey : nodesForKey) {
+                    if (!distr.containsKey(nodeForKey)) {
+                        distr.put(nodeForKey, 0);
+                    }
+
+                    distr.put(nodeForKey, distr.get(nodeForKey) + 1);
+                }
+            }
+            final int avg = distr
+                    .values()
+                    .stream()
+                    .mapToInt(Integer::intValue)
+                    .sum()
+                    / distr.size();
+
+            for (int i : distr.values()) {
+                int diff = Math.abs(avg - i);
+                float maximumDeviation = avg * 0.5f;
+                Assertions.assertTrue(diff < maximumDeviation);
             }
         }
     }
