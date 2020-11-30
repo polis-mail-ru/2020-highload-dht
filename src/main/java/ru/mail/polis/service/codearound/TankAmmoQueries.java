@@ -3,10 +3,7 @@ package ru.mail.polis.service.codearound;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -162,7 +159,7 @@ public final class TankAmmoQueries {
         }
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.US_ASCII));
         outStream.write(TAG_GET_AMMO.getBytes(StandardCharsets.US_ASCII));
-        outStream.writeTo(outStream);
+        System.setOut(new PrintStream(outStream));
         outStream.write(CRLF.getBytes(StandardCharsets.US_ASCII));
     }
 
@@ -183,7 +180,7 @@ public final class TankAmmoQueries {
         outStream.write(value);
         outStream.write(Integer.toString(outStream.size()).getBytes(StandardCharsets.UTF_8));
         outStream.write(TAG_PUT_AMMO.getBytes(StandardCharsets.UTF_8));
-        outStream.writeTo(System.out);
+        System.setOut(new PrintStream(outStream));
         outStream.write(CRLF.getBytes(StandardCharsets.UTF_8));
     }
 
