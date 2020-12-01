@@ -1,13 +1,17 @@
 package ru.mail.polis.service.manikhin;
 
-import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.*;
 
-import io.netty.handler.stream.ChunkedStream;
+import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpUtil;
+import io.netty.handler.codec.http.LastHttpContent;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
@@ -27,9 +31,8 @@ public class StreamNettySession {
     private final ChannelHandlerContext ctx;
     private final FullHttpRequest request;
 
-
-    public StreamNettySession(Iterator<Record> iterator, ChannelHandlerContext ctx,
-                              FullHttpRequest msg) {
+    public StreamNettySession(final Iterator<Record> iterator, final ChannelHandlerContext ctx,
+                              final FullHttpRequest msg) {
         this.iterator = iterator;
         this.ctx = ctx;
         this.request = msg;
@@ -53,9 +56,7 @@ public class StreamNettySession {
             final Record record = iterator.next();
             data = formFilledChunk(record.getKey(), record.getValue());
             log.debug("loop data: " + data.length);
-            // ByteBufInputStream contentStream = new ByteBufInputStream(
-            //         Unpooled.copiedBuffer(data), data.length);
-            // new HttpChunkedInput(new ChunkedStream(contentStream))
+
             ctx.write(data).addListener(ChannelFutureListener.CLOSE);
 
             if (!HttpUtil.isKeepAlive(request)) {

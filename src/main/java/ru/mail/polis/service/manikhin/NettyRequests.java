@@ -3,8 +3,10 @@ package ru.mail.polis.service.manikhin;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.*;
-
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,10 +16,18 @@ import ru.mail.polis.dao.DAO;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
 import java.net.http.HttpClient;
 
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Collections;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
     private final DAO dao;
@@ -39,7 +49,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         this.clusterSize = nodes.getNodes().size();
         this.defaultReplica = Replicas.quorum(clusterSize);
 
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
+        final ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
                 TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder().setNameFormat("async_worker-%d").setUncaughtExceptionHandler((t, e) ->
                         log.error("Error in {} when processing request", t, e)

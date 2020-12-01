@@ -35,6 +35,6 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
         pipeline.addLast(new HttpServerCodec());
         pipeline.addLast(new ChunkedWriteHandler());
         pipeline.addLast(new HttpObjectAggregator(1024 * 512));
-        pipeline.addLast(new NettyRequests(dao, nodes,  countOfWorkers, queueSize, timeout));
+        pipeline.addLast(new NettyRequests(dao, nodes, countOfWorkers, queueSize, timeout));
     }
 }

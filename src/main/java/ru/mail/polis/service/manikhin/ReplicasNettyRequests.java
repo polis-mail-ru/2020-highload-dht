@@ -2,7 +2,12 @@ package ru.mail.polis.service.manikhin;
 
 import io.netty.channel.ChannelHandlerContext;
 
-import io.netty.handler.codec.http.*;
+
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.QueryStringDecoder;
 
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -13,10 +18,13 @@ import ru.mail.polis.dao.manikhin.TimestampRecord;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
-
 
 public class ReplicasNettyRequests {
     private final Map<String, HttpClient> clusterClients;
@@ -62,7 +70,7 @@ public class ReplicasNettyRequests {
             }
         } catch (IllegalStateException error) {
             log.error("handleMultiRequest error: ", error);
-            Utils.sendResponse(HttpResponseStatus.GATEWAY_TIMEOUT,  Utils.EMPTY_BODY, ctx, request);
+            Utils.sendResponse(HttpResponseStatus.GATEWAY_TIMEOUT, Utils.EMPTY_BODY, ctx, request);
             return;
         }
     }
@@ -169,7 +177,7 @@ public class ReplicasNettyRequests {
         if (mergedResp.isValue()) {
             if (isForwardedRequest) {
                 return Utils.responseBuilder(HttpResponseStatus.OK, mergedResp.toBytes());
-            } else  {
+            } else {
                 return Utils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
             }
         } else {

@@ -4,7 +4,14 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.*;
+
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpUtil;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,8 +19,8 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.ByteConvertor;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
 import ru.mail.polis.service.manikhin.handlers.GetBodyHandler;
-import ru.mail.polis.service.manikhin.handlers.deleteBodyHandler;
-import ru.mail.polis.service.manikhin.handlers.putBodyHandler;
+import ru.mail.polis.service.manikhin.handlers.DeleteBodyHandler;
+import ru.mail.polis.service.manikhin.handlers.PutBodyHandler;
 
 import java.io.IOException;
 import java.net.URI;
@@ -62,7 +69,7 @@ public class Utils {
     }
 
     public void localGet(@NotNull final ByteBuffer key, @NotNull ChannelHandlerContext ctx,
-                         @NotNull FullHttpRequest request) {
+                         @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     final ByteBuffer value = dao.get(key).duplicate();
@@ -78,11 +85,9 @@ public class Utils {
                 }
             }, executor)
         );
-
-        return;
     }
 
-    public void localPut(@NotNull final ByteBuffer key, @NotNull ChannelHandlerContext ctx,
+    public void localPut(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
                          @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
@@ -94,11 +99,9 @@ public class Utils {
                 }
             }, executor)
         );
-
-        return;
     }
 
-    public void localDelete(@NotNull final ByteBuffer key, ChannelHandlerContext ctx,
+    public void localDelete(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
                             @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
@@ -110,8 +113,6 @@ public class Utils {
                 }
             }, executor)
         );
-
-        return;
     }
 
     public CompletableFuture<FullHttpResponse> putResponse(@NotNull final ByteBuffer key,
@@ -153,7 +154,7 @@ public class Utils {
 
         final HttpRequest request = requestBuilder(node, id).DELETE().build();
 
-        return clusterClients.get(node).sendAsync(request, deleteBodyHandler.INSTANCE)
+        return clusterClients.get(node).sendAsync(request, DeleteBodyHandler.INSTANCE)
                 .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY), executor);
     }
 
@@ -166,7 +167,7 @@ public class Utils {
                 HttpRequest.BodyPublishers.ofByteArray(value)
         ).build();
 
-        return clusterClients.get(node).sendAsync(request, putBodyHandler.INSTANCE)
+        return clusterClients.get(node).sendAsync(request, PutBodyHandler.INSTANCE)
                 .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY), executor);
     }
 
@@ -197,7 +198,7 @@ public class Utils {
         return array;
     }
 
-    static FullHttpResponse responseBuilder(@NotNull HttpResponseStatus status, @NotNull final byte[] bytes) {
+    static FullHttpResponse responseBuilder(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes) {
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
@@ -233,7 +234,7 @@ public class Utils {
         return future;
     }
 
-    public void respond(@NotNull final ChannelHandlerContext ctx, @NotNull FullHttpRequest request,
+    public void respond(@NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request,
                         @NotNull final CompletableFuture<FullHttpResponse> response) {
         response.whenComplete((r, t) -> {
             if (t == null) {
@@ -257,8 +258,8 @@ public class Utils {
         }).isCancelled();
     }
 
-    public static void sendResponse(final @NotNull HttpResponseStatus status, final @NotNull byte[] bytes,
-                                   final @NotNull ChannelHandlerContext ctx, FullHttpRequest request) {
+    public static void sendResponse(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes,
+                                    @NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request) {
         final boolean isKeepAlive = HttpUtil.isKeepAlive(request);
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
