@@ -92,7 +92,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final Map<String, StreamingHttpClient> pool = new HashMap<>();
         for (final String node : topology.all()) {
             if (topology.isMe(node)) continue;
-            final StreamingHttpClient streamClient = new StreamingHttpClient(new ConnectionString(node + "?timeout=1000"));
+            final StreamingHttpClient streamClient =
+                    new StreamingHttpClient(new ConnectionString(node + "?timeout=1000"));
             if (pool.put(node, streamClient) != null) {
                 throw new IllegalStateException("Duplicate node");
             }

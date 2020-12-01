@@ -97,7 +97,7 @@ public class StreamingHttpClient extends HttpClient {
 
             response = new Response(responseHeader.substring(9));
             while (!readLine().isEmpty()) {
-                response.addHeader( readLine());
+                response.addHeader(readLine());
             }
 
             if (method != Request.METHOD_HEAD && response.getStatus() != 204) {
