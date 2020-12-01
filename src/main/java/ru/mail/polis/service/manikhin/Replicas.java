@@ -91,21 +91,20 @@ public class Replicas {
             }
 
         } catch (IllegalArgumentException error) {
-            sendResponse(new byte[0], ctx);
+            sendResponse(ctx);
         }
 
         return replicaFactor;
     }
 
-    private static void sendResponse(final @NotNull byte[] bytes,
-                                     final @NotNull ChannelHandlerContext ctx) {
+    private static void sendResponse(final @NotNull ChannelHandlerContext ctx) {
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, HttpResponseStatus.BAD_REQUEST,
-                Unpooled.copiedBuffer(bytes)
+                Unpooled.copiedBuffer(Utils.EMPTY_BODY)
         );
 
-        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, Utils.EMPTY_BODY.length);
         ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
 

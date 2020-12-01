@@ -15,16 +15,12 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class StreamNettySession {
     private final Iterator<Record> iterator;
-    private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
     private static final Logger log = LoggerFactory.getLogger(StreamNettySession.class);
     private final ChannelHandlerContext ctx;
     private final FullHttpRequest request;
@@ -52,7 +48,7 @@ public class StreamNettySession {
 
         while (iterator.hasNext()) {
             final Record record = iterator.next();
-            data = formFillChunk(record.getKey(), record.getValue());
+            data = StreamUtils.formFilledChunk(record.getKey(), record.getValue());
             log.debug("loop data: " + data.length);
 
             ctx.write(data).addListener(ChannelFutureListener.CLOSE);
@@ -69,22 +65,5 @@ public class StreamNettySession {
         if (!handling) {
             throw new IOException("Out of order response");
         }
-    }
-
-    private byte[] formFillChunk(final ByteBuffer key, final ByteBuffer value) {
-        final int dataLength = key.limit() + LF.length + value.limit();
-        final byte[] hexLength = Integer.toHexString(dataLength)
-                .getBytes(StandardCharsets.US_ASCII);
-        final int chunkLength = dataLength + 2 * CRLF.length + hexLength.length;
-        final ByteBuffer data = ByteBuffer.wrap(new byte[chunkLength]);
-
-        data.put(hexLength);
-        data.put(CRLF);
-        data.put(key);
-        data.put(LF);
-        data.put(value);
-        data.put(CRLF);
-
-        return data.array();
     }
 }
