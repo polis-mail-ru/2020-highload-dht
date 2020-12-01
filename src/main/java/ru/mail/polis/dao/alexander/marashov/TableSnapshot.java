@@ -2,7 +2,7 @@ package ru.mail.polis.dao.alexander.marashov;
 
 import java.io.File;
 import java.util.NavigableMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.TreeMap;
 
 public final class TableSnapshot {
 
@@ -52,7 +52,7 @@ public final class TableSnapshot {
      * @return new state of the TableSnapshot.
      */
     public TableSnapshot flushIntent() {
-        final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
+        final NavigableMap<Integer, Table> newFlushingTables = new TreeMap<>(flushingTables);
         newFlushingTables.put(generation, memTable);
         return new TableSnapshot(
                 new MemTable(),
@@ -73,8 +73,8 @@ public final class TableSnapshot {
             final int oldGeneration,
             final File file
     ) {
-        final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
-        final ConcurrentSkipListMap<Integer, Table> newFlushingTables = new ConcurrentSkipListMap<>(flushingTables);
+        final NavigableMap<Integer, Table> newStorageTables = new TreeMap<>(storageTables);
+        final NavigableMap<Integer, Table> newFlushingTables = new TreeMap<>(flushingTables);
         newFlushingTables.remove(oldGeneration);
         newStorageTables.put(oldGeneration, new SSTable(file));
         return new TableSnapshot(
@@ -97,7 +97,7 @@ public final class TableSnapshot {
             final int compactedGen,
             final File compactedFile
     ) {
-        final ConcurrentSkipListMap<Integer, Table> newStorageTables = new ConcurrentSkipListMap<>(storageTables);
+        final NavigableMap<Integer, Table> newStorageTables = new TreeMap<>(storageTables);
         for (final Integer integer : tablesToRemove.keySet()) {
             newStorageTables.remove(integer);
         }

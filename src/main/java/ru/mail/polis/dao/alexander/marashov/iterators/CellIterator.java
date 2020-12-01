@@ -1,28 +1,20 @@
-package ru.mail.polis.dao.alexander.marashov;
+package ru.mail.polis.dao.alexander.marashov.iterators;
+
+import ru.mail.polis.dao.alexander.marashov.Cell;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.PriorityQueue;
 
 public final class CellIterator implements Iterator<Cell> {
 
-    private final PriorityQueue<TableIterator> tableIteratorPriorityQueue;
+    private final TableIteratorPriorityQueue tableIteratorPriorityQueue;
 
     /**
      * Creates an CellIterator instance from the list of table iterators.
      */
     public CellIterator(final List<TableIterator> tableIteratorList) {
-        tableIteratorPriorityQueue = new PriorityQueue<>() {
-            @Override
-            public boolean add(final TableIterator tableIterator) {
-                if (tableIterator.getBufferedCell() == null) {
-                    return false;
-                } else {
-                    return super.add(tableIterator);
-                }
-            }
-        };
+        tableIteratorPriorityQueue = new TableIteratorPriorityQueue();
         tableIteratorPriorityQueue.addAll(tableIteratorList);
     }
 

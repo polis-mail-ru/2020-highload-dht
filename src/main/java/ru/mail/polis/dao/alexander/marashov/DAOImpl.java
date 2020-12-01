@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.Iters;
+import ru.mail.polis.dao.alexander.marashov.compactor.Compactor;
+import ru.mail.polis.dao.alexander.marashov.compactor.CompactorTask;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
@@ -69,11 +71,7 @@ public class DAOImpl implements DAO {
         );
         flusher = new Flusher(storage, this::postFlushingMethod);
         flusher.start();
-        compactor = new Compactor(
-                storage,
-                this::getStorageTablesSnapshot,
-                tables -> maxGen -> dst -> postCompactingMethod(tables, maxGen, dst)
-        );
+        compactor = new Compactor(storage, this::getStorageTablesSnapshot, this::postCompactingMethod);
         compactor.start();
     }
 
@@ -209,7 +207,7 @@ public class DAOImpl implements DAO {
     }
 
     @Override
-    public synchronized void compact() {
+    public void compact() {
         try {
             compactor.tasksQueue.add(new CompactorTask(false));
         } catch (final IllegalStateException e) {
@@ -232,8 +230,8 @@ public class DAOImpl implements DAO {
         }
         try {
             flusher.tablesQueue.put(new NumberedTable(null, -1));
-            compactor.tasksQueue.put(new CompactorTask(true));
             flusher.join();
+            compactor.tasksQueue.put(new CompactorTask(true));
             compactor.join();
         } catch (final InterruptedException e) {
             log.error("Stopping interrupted", e);

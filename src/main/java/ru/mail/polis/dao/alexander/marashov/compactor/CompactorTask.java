@@ -1,4 +1,4 @@
-package ru.mail.polis.dao.alexander.marashov;
+package ru.mail.polis.dao.alexander.marashov.compactor;
 
 public class CompactorTask {
 

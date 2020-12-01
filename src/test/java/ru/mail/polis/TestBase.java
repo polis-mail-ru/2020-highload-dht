@@ -44,7 +44,12 @@ abstract public class TestBase {
         }
     }
 
-    protected static int randomSize(final int modulo) {
+    protected static String randomAddress() {
+        return randomInt(256) + "." + randomInt(256) + "."
+                + randomInt(256) + "." + randomInt(256) + ":" + randomPort();
+    }
+
+    protected static int randomInt(final int modulo) {
         return (ThreadLocalRandom.current().nextInt() & 0x7fffffff) % modulo + 1;
     }
 

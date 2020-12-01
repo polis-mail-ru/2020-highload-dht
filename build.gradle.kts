@@ -34,7 +34,11 @@ dependencies {
 
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
+    testCompile("org.junit.jupiter:junit-jupiter-params:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")
+
+    // Murmur3
+    implementation("com.github.eprst:murmur3:0.3")
 }
 
 val run by tasks.getting(JavaExec::class) {

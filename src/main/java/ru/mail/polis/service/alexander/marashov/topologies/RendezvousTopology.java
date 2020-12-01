@@ -1,5 +1,7 @@
 package ru.mail.polis.service.alexander.marashov.topologies;
 
+import com.google.common.base.Charsets;
+import com.google.common.hash.Hashing;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
@@ -51,13 +53,12 @@ public class RendezvousTopology implements Topology<String> {
         assert 0 < nodesCount;
         assert nodesCount <= size;
 
-        final int keyHashCode = key.hashCode();
         final Queue<NodeKeyPair> minQueue = new PriorityQueue<>(nodesCount);
-        for (int i = 0; i < nodesCount; ++i) {
-            minQueue.add(new NodeKeyPair(nodes[i], keyHashCode));
+        for (int i = 0; i < nodesCount; i++) {
+            minQueue.add(new NodeKeyPair(nodes[i], key));
         }
-        for (int i = nodesCount; i < size; ++i) {
-            final NodeKeyPair next = new NodeKeyPair(nodes[i], keyHashCode);
+        for (int i = nodesCount; i < size; i++) {
+            final NodeKeyPair next = new NodeKeyPair(nodes[i], key);
             final NodeKeyPair minElement = minQueue.peek();
             assert minElement != null;
 
@@ -94,15 +95,15 @@ public class RendezvousTopology implements Topology<String> {
          * NodeKeyPair calculates the hash code of the node combined with the key's hash code.
          *
          * @param node        - string representing the node
-         * @param keyHashCode - integer hash code of the key
+         * @param key         - byte buffer to hash
          */
-        public NodeKeyPair(@NotNull final String node, final int keyHashCode) {
+        public NodeKeyPair(@NotNull final String node, final ByteBuffer key) {
             this.node = node;
-            int tmpHashCode = keyHashCode;
-            for (int i = node.length() - 1; i >= 0; --i) {
-                tmpHashCode = 31 * tmpHashCode + node.charAt(i);
-            }
-            this.hashCode = tmpHashCode;
+            final int offset = key.arrayOffset();
+            assert offset == 0;
+            final String stringToHash = new String(key.array(), Charsets.UTF_8) + node;
+            final int hashCode = Hashing.murmur3_32().hashString(stringToHash, Charsets.UTF_8).asInt();
+            this.hashCode = hashCode;
         }
 
         @NotNull

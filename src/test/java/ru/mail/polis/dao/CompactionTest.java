@@ -28,7 +28,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.NoSuchElementException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Compaction tests for {@link DAO} implementations.
@@ -36,6 +38,36 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Vadim Tsesko
  */
 class CompactionTest extends TestBase {
+
+    @Test
+    void autoCompactionWorks(@TempDir File data) throws IOException {
+        final int valueSize = 1024 * 1024;
+        final int keyCount = 20;
+        final int overwrites = 20;
+
+        final ByteBuffer value = randomBuffer(valueSize);
+        final Collection<ByteBuffer> keys = new ArrayList<>(keyCount);
+        for (int i = 0; i < keyCount; i++) {
+            keys.add(randomKeyBuffer());
+        }
+
+        for (int round = 0; round < overwrites; round++) {
+            try (DAO dao = DAOFactory.create(data)) {
+                for (final ByteBuffer key : keys) {
+                    dao.upsert(key, join(key, value));
+                }
+            }
+        }
+
+        // Check store size
+        final long size = Files.directorySize(data);
+        final long minSize = keyCount * (KEY_LENGTH + KEY_LENGTH + valueSize);
+
+        // Heuristic
+        assertTrue(size > minSize);
+        assertTrue(size < 2 * minSize);
+    }
+
     @Test
     void overwrite(@TempDir File data) throws IOException {
         // Reference value

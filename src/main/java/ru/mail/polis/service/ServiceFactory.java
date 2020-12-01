@@ -19,8 +19,8 @@ package ru.mail.polis.service;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.alexander.marashov.ServiceImpl;
-import ru.mail.polis.service.alexander.marashov.topologies.RendezvousTopology;
 import ru.mail.polis.service.alexander.marashov.topologies.Topology;
+import ru.mail.polis.service.alexander.marashov.topologies.TopologyFactory;
 
 import java.io.IOException;
 import java.util.Set;
@@ -62,7 +62,7 @@ public final class ServiceFactory {
         }
 
         final Topology<String> serviceTopology =
-                new RendezvousTopology(topology, "http://localhost:" + port);
+                TopologyFactory.create(topology, "http://localhost:" + port);
 
         return new ServiceImpl(
                 port,
