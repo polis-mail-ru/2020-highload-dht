@@ -48,11 +48,11 @@ public class ConsistentHashing implements Hashing<String> {
 
     private void add(final String node) {
         for (int i = 0; i < vnodes; ++i) {
-            String stringToHash = node + i;
-            int hashCode = Hash.murmur3(stringToHash);
+            StringBuilder stringToHash = new StringBuilder(node + i);
+            int hashCode = Hash.murmur3(stringToHash.toString());
             while (circle.containsKey(hashCode)) {
-                stringToHash += i;
-                hashCode = Hash.murmur3(stringToHash);
+                stringToHash.append(i);
+                hashCode = Hash.murmur3(stringToHash.toString());
             }
             circle.put(hashCode, node);
         }

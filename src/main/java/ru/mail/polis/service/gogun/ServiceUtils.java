@@ -13,14 +13,18 @@ import ru.mail.polis.dao.gogun.Value;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static ru.mail.polis.service.gogun.AsyncServiceImpl.log;
 
 final class ServiceUtils {
@@ -122,6 +126,24 @@ final class ServiceUtils {
         } catch (URISyntaxException e) {
             throw new IllegalStateException("uri error", e);
         }
+    }
+
+    static CompletableFuture<Entry> proxyGet(final String node,
+                                             final Request request,
+                                             final Hashing topology,
+                                             final HttpClient client,
+                                             final DAO dao,
+                                             final ExecutorService executorService) {
+        final String id = request.getParameter("id=");
+        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
+
+        if (topology.isMe(node)) {
+            return CompletableFuture.supplyAsync(() -> ServiceUtils.handleGet(key, dao), executorService);
+        }
+
+        final HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
+        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                .thenApplyAsync(HttpResponse::body, executorService);
     }
 
     static void sendServiceUnavailable(final HttpSession session, final Logger log) {

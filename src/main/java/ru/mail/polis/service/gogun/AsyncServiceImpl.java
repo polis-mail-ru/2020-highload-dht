@@ -112,17 +112,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         return Response.ok("OK");
     }
 
-    private void execute(final String id, final HttpSession session,
-                         final Request request) throws RejectedExecutionException {
-        executorService.execute(() -> {
-            try {
-                handleRequest(id, request, session);
-            } catch (IOException e) {
-                log.error("Error sending response", e);
-            }
-        });
-    }
-
     private void handleRequest(final String id, final Request request,
                                final HttpSession session) throws IOException {
         log.debug("{} request with id: {}", request.getMethodName(), id);
@@ -178,7 +167,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         if (request.getMethod() == Request.METHOD_GET) {
             final List<CompletableFuture<Entry>> responsesFutureGet = replNodes.stream()
-                    .map(node -> proxyGet(node, request))
+                    .map(node -> ServiceUtils.proxyGet(node, request, topology, client,
+                            dao, executorService))
                     .collect(Collectors.toList());
             ServiceUtils.getCompletableFutureGetResponses(
                     responsesFutureGet,
@@ -197,19 +187,6 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     executorService);
         }
 
-    }
-
-    private CompletableFuture<Entry> proxyGet(final String node, final Request request) {
-        final String id = request.getParameter("id=");
-        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
-
-        if (topology.isMe(node)) {
-            return CompletableFuture.supplyAsync(() -> ServiceUtils.handleGet(key, dao), executorService);
-        }
-
-        final HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
-        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
-                .thenApplyAsync(HttpResponse::body, executorService);
     }
 
     private CompletableFuture<Response> proxyDeletePut(final String node, final Request request) {
@@ -241,6 +218,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
             default:
                 throw new IllegalStateException("Wrong request method");
         }
+    }
+
+    private void execute(final String id, final HttpSession session,
+                         final Request request) throws RejectedExecutionException {
+        executorService.execute(() -> {
+            try {
+                handleRequest(id, request, session);
+            } catch (IOException e) {
+                log.error("Error sending response", e);
+            }
+        });
     }
 
     /**
