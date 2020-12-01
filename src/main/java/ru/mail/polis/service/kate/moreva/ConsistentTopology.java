@@ -18,6 +18,13 @@ public class ConsistentTopology implements Topology<String> {
     private final String me;
     private final NavigableMap<Integer, String> nodesRing = new TreeMap<>();
 
+    /**
+     * Consistent topology constructor.
+     *
+     * @param nodes - cluster.
+     * @param me - name of the current node.
+     * @param nodesNumber - number of virtual nodes.
+     */
     public ConsistentTopology(final Set<String> nodes, final String me, final int nodesNumber) {
         this.me = me;
         assert nodes.contains(me);

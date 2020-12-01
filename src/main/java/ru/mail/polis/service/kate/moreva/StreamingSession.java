@@ -37,6 +37,23 @@ public class StreamingSession extends HttpSession {
         }
     }
 
+    /**
+     * Sends records thru Transfer-Encoding protocol.
+     */
+    public synchronized void setRecordIterator(final Iterator<Record> recordIterator) throws IOException {
+        this.recordIterator = recordIterator;
+        if (handling == null) {
+            throw new IOException("Out of order response");
+        }
+        final var response = new Response(Response.OK);
+        response.addHeader(keepAlive() ? "Connection: Keep-Alive" : "Connection: close");
+        response.addHeader(TRANSFER_HEADER);
+
+        writeResponse(response, false);
+
+        pushNext();
+    }
+
     private boolean keepAlive() {
         final var connection = handling.getHeader(CONNECTION_HEADER);
         return handling.isHttp11()
@@ -68,20 +85,6 @@ public class StreamingSession extends HttpSession {
                 server.handleRequest(handling, this);
             }
         }
-    }
-
-    public synchronized void setRecordIterator(final Iterator<Record> recordIterator) throws IOException {
-        this.recordIterator = recordIterator;
-        if (handling == null) {
-            throw new IOException("Out of order response");
-        }
-        final var response = new Response(Response.OK);
-        response.addHeader(keepAlive() ? "Connection: Keep-Alive" : "Connection: close");
-        response.addHeader(TRANSFER_HEADER);
-
-        writeResponse(response, false);
-
-        pushNext();
     }
 
     private byte[] makeChunk(final Record record) {

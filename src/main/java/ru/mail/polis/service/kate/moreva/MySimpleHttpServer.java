@@ -70,7 +70,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         assert numberOfWorkers > 0;
         assert queueSize > 0;
         this.requestHelper = new MyRequestHelper(dao);
-
         this.executorService = new ThreadPoolExecutor(numberOfWorkers,
                 queueSize,
                 0L,
@@ -90,12 +89,10 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 .connectTimeout(Duration.ofSeconds(1))
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
                 .build();
-        final Map<String, StreamHttpClient> pool = new HashMap<>();
+        final Map<String, StreamingHttpClient> pool = new HashMap<>();
         for (final String node : topology.all()) {
-            if (topology.isMe(node)) {
-                continue;
-            }
-            final StreamHttpClient streamClient = new StreamHttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (topology.isMe(node)) continue;
+            final StreamingHttpClient streamClient = new StreamingHttpClient(new ConnectionString(node + "?timeout=1000"));
             if (pool.put(node, streamClient) != null) {
                 throw new IllegalStateException("Duplicate node");
             }
@@ -168,9 +165,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final ByteBuffer endRange = end == null ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8));
         final boolean isProxy = requestHelper.isProxied(request);
         final Context context = new Context(session, isProxy, request, null);
-        executorService.execute(() -> {
-            rangeRequestHelper.parseRequest(startRange, endRange, context);
-        });
+        executorService.execute(() -> rangeRequestHelper.parseRequest(startRange, endRange, context));
     }
 
     private void parseRequest(final String id, final Request request,

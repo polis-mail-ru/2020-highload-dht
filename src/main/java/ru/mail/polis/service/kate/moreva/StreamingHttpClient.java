@@ -13,17 +13,20 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.Iterator;
 
-public class StreamHttpClient extends HttpClient {
+public class StreamingHttpClient extends HttpClient {
     private static final String CONNECTION_HEADER = "Connection: ";
     private static final String CONTENT_LENGTH_HEADER = "Content-Length: ";
     private static final String TRANSFER_HEADER = "Transfer-Encoding: ";
     private static final long serialVersionUID = Long.MAX_VALUE;
     private static final int BUFFER_SIZE = 10000;
 
-    public StreamHttpClient(final ConnectionString conn) {
+    public StreamingHttpClient(final ConnectionString conn) {
         super(conn);
     }
 
+    /**
+     * Method invokes stream to work with chunks.
+     * */
     public synchronized void invokeStream(
             final Request request,
             final StreamConsumer streamConsumer)
@@ -40,8 +43,6 @@ public class StreamHttpClient extends HttpClient {
                 socket.writeFully(rawRequest, 0, rawRequest.length);
                 responseReader = new StreamReader(socket, BUFFER_SIZE);
             } catch (SocketTimeoutException e) {
-                throw new IOException("Socket exception while reading stream", e);
-            } catch (IOException e) {
                 destroyObject(socket);
                 socket = createObject();
                 socket.writeFully(rawRequest, 0, rawRequest.length);
@@ -95,9 +96,8 @@ public class StreamHttpClient extends HttpClient {
             }
 
             response = new Response(responseHeader.substring(9));
-            for (String header; !readLine().isEmpty(); ) {
-                header = readLine();
-                response.addHeader(header);
+            while (!readLine().isEmpty()) {
+                response.addHeader( readLine());
             }
 
             if (method != Request.METHOD_HEAD && response.getStatus() != 204) {

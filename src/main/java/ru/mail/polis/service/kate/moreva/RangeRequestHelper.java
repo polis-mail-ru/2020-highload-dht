@@ -28,15 +28,24 @@ public class RangeRequestHelper {
     private static final Logger log = LoggerFactory.getLogger(RangeRequestHelper.class);
     private final DAO dao;
     private final Topology<String> topology;
-    private final Map<String, StreamHttpClient> pool;
+    private final Map<String, StreamingHttpClient> pool;
 
+    /**
+     * RangeRequestHelper constructor.
+     * @param dao - dao.
+     * @param topology - cluster topology.
+     * @param pool - pool of StreamingHttpClients.
+     * */
     public RangeRequestHelper(final DAO dao, final Topology<String> topology,
-                              final Map<String, StreamHttpClient> pool) {
+                              final Map<String, StreamingHttpClient> pool) {
         this.topology = topology;
         this.dao = dao;
         this.pool = pool;
     }
 
+    /**
+     * Method defines how range request should be handled.
+     * */
     public void parseRequest(final ByteBuffer start, final ByteBuffer end, final Context context) {
         final StreamingSession streamSession = (StreamingSession) context.getSession();
         try {
@@ -53,7 +62,7 @@ public class RangeRequestHelper {
 
     }
 
-    public void sendLoggedResponse(final HttpSession session, final Response response) {
+    private void sendLoggedResponse(final HttpSession session, final Response response) {
         try {
             session.sendResponse(response);
         } catch (IOException e) {
@@ -93,9 +102,9 @@ public class RangeRequestHelper {
         if (topology.isMe(node)) {
             workOnTheNode(context, nodes, iterators);
         } else {
-            final StreamHttpClient streamHttpClient = pool.get(node);
+            final StreamingHttpClient streamingHttpClient = pool.get(node);
             try {
-                streamHttpClient.invokeStream(context.getRequest(), iterator -> {
+                streamingHttpClient.invokeStream(context.getRequest(), iterator -> {
                     if (iterator.getResponse().getStatus() != 200 || iterator.isNotAvailable()) {
                         log.error("Unexpected response from node {}", node);
                         throw new IOException("Unexpected response from node");
