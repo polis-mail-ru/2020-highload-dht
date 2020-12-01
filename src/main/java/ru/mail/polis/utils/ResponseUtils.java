@@ -35,7 +35,7 @@ public final class ResponseUtils {
     public static final String PROXY = "X-Proxy-For";
     public static final String TIMESTAMP = "Timestamp";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
-    public static final String EXPIRES = "&expires=";
+    public static final String EXPIRES = "Expires";
 
     public static final DateTimeFormatter expirationFormat =
             DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss z", Locale.ENGLISH).withZone(ZoneId.of("GMT"));
@@ -67,20 +67,11 @@ public final class ResponseUtils {
      * */
     @NotNull
     public static HttpRequest.Builder requestForReplica(@NotNull final String node,
-                                                        @NotNull final String id) {
-        return requestForReplica(node, id, Instant.MAX);
-    }
-
-    /** Create request builder for current client (with expire).
-     * @param node - current client.
-     * @param id - request id.
-     * */
-    @NotNull
-    public static HttpRequest.Builder requestForReplica(@NotNull final String node,
-                                                     @NotNull final String id,
-                                                     @NotNull final Instant expire) {
-        final String uri = node + ENTITY + "?id=" + id + EXPIRES + expire;
+                                                        @NotNull final String id,
+                                                        @NotNull final Instant expire) {
+        final String uri = node + ENTITY + "?id=" + id + "&expires=" + expire.getEpochSecond();
         return HttpRequest.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .uri(URI.create(uri))
                 .header(PROXY, "True")
                 .timeout(Duration.ofMillis(TIMEOUT_MILLIS));
@@ -112,6 +103,11 @@ public final class ResponseUtils {
         return TIMESTAMP + ": " + entry.getTimestamp();
     }
 
+    public static String getExpires(@NotNull final Entry entry) {
+        final Instant expire = entry.getExpires();
+        return EXPIRES + ": " + (Instant.MAX.equals(expire) ? expire : expirationFormat.format(expire));
+    }
+
     public static Instant parseExpires(@NotNull final String expires) {
         return LocalDateTime.parse(expires, ResponseUtils.expirationFormat)
                 .toInstant(ZoneOffset.ofTotalSeconds(0));
@@ -120,8 +116,9 @@ public final class ResponseUtils {
     /** GET response from Entry.*/
     public static CompletableFuture<Entry> getResponse(@NotNull final Map<String, HttpClient> httpClients,
                                                        @NotNull final String node,
-                                                       @NotNull final String id) {
-        final HttpRequest request = ResponseUtils.requestForReplica(node, id)
+                                                       @NotNull final String id,
+                                                       @NotNull final Instant expire) {
+        final HttpRequest request = ResponseUtils.requestForReplica(node, id, expire)
                 .GET()
                 .build();
         return httpClients.get(node)
@@ -146,8 +143,9 @@ public final class ResponseUtils {
     /** DELETE response from Entry.*/
     public static CompletableFuture<Response> deleteResponse(@NotNull final Map<String, HttpClient> httpClients,
                                                              @NotNull final String node,
-                                                             @NotNull final String id) {
-        final HttpRequest request = ResponseUtils.requestForReplica(node, id)
+                                                             @NotNull final String id,
+                                                             @NotNull final Instant expire) {
+        final HttpRequest request = ResponseUtils.requestForReplica(node, id, expire)
                 .DELETE()
                 .build();
         return httpClients.get(node)

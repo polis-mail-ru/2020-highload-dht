@@ -115,7 +115,7 @@ public final class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     public void entity(@Param(value = "id", required = true) final String id,
                        @Param(value = "replicas") final String replicas,
-                       @Param(value = "expire") final String expire,
+                       @Param(value = "expires") final String expire,
                        @NotNull final Request request,
                        @NotNull final HttpSession session) {
         if (id.isEmpty()) {
@@ -141,14 +141,14 @@ public final class ServiceImpl extends HttpServer implements Service {
         final Instant expireTime = expire == null ? Instant.MAX : ResponseUtils.parseExpires(expire);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
-                respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor));
+                respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor, expireTime));
                 break;
             case Request.METHOD_PUT:
                 respond(session, proxied ? simpleRequests.put(key, request.getBody(), expireTime)
                                 : replicasPut(id, request.getBody(), replicasFactor, expireTime));
                 break;
             case Request.METHOD_DELETE:
-                respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(id, replicasFactor));
+                respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(id, replicasFactor, expireTime));
                 break;
             default:
                 log.error("Non-supported request : {}", id);
@@ -201,14 +201,15 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private CompletableFuture<Response> replicasGet(@NotNull final String id,
-                                                    @NotNull final ReplicasFactor replicasFactor) {
+                                                    @NotNull final ReplicasFactor replicasFactor,
+                                                    @NotNull final Instant expire) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
-                result.add(ResponseUtils.getResponse(httpClients, node, id));
+                result.add(ResponseUtils.getResponse(httpClients, node, id, expire));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
@@ -237,14 +238,15 @@ public final class ServiceImpl extends HttpServer implements Service {
 
     @NotNull
     private CompletableFuture<Response> replicasDelete(@NotNull final String id,
-                                                       @NotNull final ReplicasFactor replicasFactor) {
+                                                       @NotNull final ReplicasFactor replicasFactor,
+                                                       @NotNull final Instant expire) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
-                result.add(ResponseUtils.deleteResponse(httpClients, node, id));
+                result.add(ResponseUtils.deleteResponse(httpClients, node, id, expire));
             }
         }
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
