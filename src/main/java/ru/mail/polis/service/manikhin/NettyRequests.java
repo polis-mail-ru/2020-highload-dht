@@ -1,7 +1,6 @@
 package ru.mail.polis.service.manikhin;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
@@ -9,40 +8,54 @@ import io.netty.handler.codec.http.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.manikhin.ByteConvertor;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.*;
+import java.util.concurrent.*;
+import java.net.http.HttpClient;
 
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
     private final DAO dao;
     static final String STATUS_PATH = "/v0/status";
     static final String ENTITY_PATH = "/v0/entity";
+    static final String ENTITIES_PATH = "/v0/entities";
     private final int clusterSize;
 
-    private final Logger log = LoggerFactory.getLogger(NettyRequests.class);
-    private static final String SUCCESS_MESSAGE = "200";
+    private static final Logger log = LoggerFactory.getLogger(NettyRequests.class);
     private final Replicas defaultReplica;
     private final Topology nodes;
-    private final ReplicasNettyRequests replHelper;
+    private final ReplicasNettyRequests replicaHelper;
+    private final Utils utils;
 
-    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int timeout) {
+    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes,
+                         final int countOfWorkers, final int queueSize) {
         this.dao = dao;
         this.nodes = nodes;
-
         this.clusterSize = nodes.getNodes().size();
         this.defaultReplica = Replicas.quorum(clusterSize);
-        this.replHelper = new ReplicasNettyRequests(dao, nodes, timeout);
 
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
+                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder().setNameFormat("async_worker-%d").setUncaughtExceptionHandler((t, e) ->
+                        log.error("Error in {} when processing request", t, e)
+                ).build(),
+                new ThreadPoolExecutor.AbortPolicy());
+
+        Map<String, HttpClient> clusterClients = new HashMap<>();
+        for (final String node : nodes.getNodes()) {
+            if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
+                clusterClients.put(node, HttpClient.newBuilder().executor(executor)
+                        .version(HttpClient.Version.HTTP_1_1).build());
+            }
+        }
+
+        this.replicaHelper = new ReplicasNettyRequests(dao, nodes, clusterClients, executor);
+        this.utils = new Utils(dao, executor);
     }
 
     @Override
@@ -55,9 +68,31 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         final String uri = msg.uri();
 
         if (uri.equals(STATUS_PATH)) {
-            sendResponse(HttpResponseStatus.OK,
-                    SUCCESS_MESSAGE.getBytes(StandardCharsets.UTF_8), ctx);
+            Utils.sendResponse(HttpResponseStatus.OK, Utils.EMPTY_BODY, ctx, msg);
             return;
+        }
+
+        if (uri.contains(ENTITIES_PATH)) {
+            try {
+                final QueryStringDecoder decoder = new QueryStringDecoder(uri);
+                final List<String> start = decoder.parameters().get("start");
+                final List<String> end = decoder.parameters().get("end");
+
+                if (start == null || ((end != null) && end.get(0).isEmpty()) || end == null) {
+                    throw new IllegalArgumentException();
+                }
+
+                final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
+                final ByteBuffer to = ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
+                final Iterator<Record> iterator = dao.range(from, to);
+                StreamNettySession session = new StreamNettySession(iterator, ctx, msg);
+                session.startStream();
+                return;
+            } catch (IllegalArgumentException | IOException error) {
+                log.error("IOexception error: ", error);
+                Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
+                return;
+            }
         }
 
         if (uri.contains(ENTITY_PATH)) {
@@ -66,7 +101,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 final List<String> id = decoder.parameters().get("id");
 
                 if (id == null || id.isEmpty() || id.get(0).length() == 0) {
-                    sendResponse(HttpResponseStatus.BAD_REQUEST, new byte[0], ctx);
+                    Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
                     return;
                 }
 
@@ -79,96 +114,39 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                     final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica,
                             clusterSize);
 
-                    final Set<String> replicaClusters = isForwardedRequest ? Collections.singleton(nodes.getId())
-                            : nodes.getReplicas(key, replicaFactor);
+                    final Set<String> replicaClusters;
 
-                    replHelper.handleMultiRequest(replicaClusters, msg, replicaFactor.getAck(), ctx);
+                    if (isForwardedRequest) {
+                        replicaClusters = Collections.singleton(nodes.getId());
+                    } else {
+                        replicaClusters = nodes.getReplicas(key, replicaFactor);
+                    }
+
+                    replicaHelper.handleMultiRequest(replicaClusters, msg, replicaFactor.getAck(), ctx);
                     return;
                 } else {
                     final HttpMethod method = msg.method();
 
                     if (HttpMethod.GET.equals(method)) {
-                        get(key, ctx);
+                        utils.localGet(key, ctx, msg);
                         return;
                     } else if (HttpMethod.PUT.equals(method)) {
-                        put(key, msg, ctx);
+                        utils.localPut(key, ctx, msg.retain());
                         return;
                     } else if (HttpMethod.DELETE.equals(method)) {
-                        delete(key, ctx);
+                        utils.localDelete(key, ctx, msg);
                         return;
                     } else {
-                        sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, new byte[0], ctx);
+                        Utils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, Utils.EMPTY_BODY, ctx, msg);
                         return;
                     }
                 }
             } catch (RejectedExecutionException | IOException error) {
-                sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, new byte[0], ctx);
+                Utils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, Utils.EMPTY_BODY, ctx, msg);
             }
         } else {
-            sendResponse(HttpResponseStatus.BAD_REQUEST, new byte[0], ctx);
+            Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
             return;
         }
-    }
-
-    private void get(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx) {
-        try {
-            final ByteBuffer value = dao.get(key).duplicate();
-            final byte[] valueArray = ByteConvertor.toArray(value);
-
-            sendResponse(HttpResponseStatus.OK, valueArray, ctx);
-        } catch (final IOException error) {
-            log.error("IO get error: ", error);
-            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, new byte[0], ctx);
-        } catch (NoSuchElementException error) {
-            log.error("NoSuchElement get error: ", error);
-            sendResponse(HttpResponseStatus.NOT_FOUND, new byte[0], ctx);
-        }
-    }
-
-    private void put(final ByteBuffer key, @NotNull final FullHttpRequest request,
-                     @NotNull final ChannelHandlerContext ctx) {
-        try {
-            dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content().retain())));
-            sendResponse(HttpResponseStatus.CREATED, new byte[0], ctx);
-        } catch (IOException error) {
-            log.error("IO put error: ", error);
-            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, new byte[0], ctx);
-        }
-    }
-
-    private void delete(@NotNull final ByteBuffer key,
-                        @NotNull final ChannelHandlerContext ctx) {
-        try {
-            dao.remove(key);
-            sendResponse(HttpResponseStatus.ACCEPTED, new byte[0], ctx);
-        } catch (IOException error) {
-            log.error("IO delete error: ", error);
-            sendResponse(HttpResponseStatus.INTERNAL_SERVER_ERROR, new byte[0], ctx);
-        }
-    }
-
-    public static byte[] getRequestBody(final ByteBuf buffer) {
-        final ByteBuf bufferCopy = buffer.duplicate();
-        final byte[] array = new byte[bufferCopy.readableBytes()];
-
-        bufferCopy.getBytes(0, array).clear();
-        return array;
-    }
-
-    private void sendResponse(final @NotNull HttpResponseStatus status,
-                              final @NotNull byte[] bytes,
-                              final @NotNull ChannelHandlerContext ctx) {
-
-        final FullHttpResponse response = new DefaultFullHttpResponse(
-                HTTP_1_1, status,
-                Unpooled.copiedBuffer(bytes)
-        );
-
-        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
-        ctx.writeAndFlush(response).addListener(future -> {
-            if (!future.isSuccess()) {
-                log.error("Something wrong with written some data.");
-            }
-        });
     }
 }

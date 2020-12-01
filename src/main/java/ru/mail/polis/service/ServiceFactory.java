@@ -62,6 +62,6 @@ public final class ServiceFactory {
         final Topology nodes = new Topology(topology, "http://localhost:" + port);
 
         // return new AsyncServiceImpl(port, dao, nodes, countWorkers, 1024, 100);
-        return new NettyAsyncServiceImpl(port, dao, nodes, countWorkers, 50);
+        return new NettyAsyncServiceImpl(port, dao, nodes, countWorkers, 1024,50);
     }
 }

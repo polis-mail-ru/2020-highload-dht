@@ -78,18 +78,20 @@ public class Replicas {
                                               final Replicas defaultReplicaFactor,
                                               final int clusterSize) throws IOException {
 
+        Replicas replicaFactor = null;
+
         try {
-            final Replicas replicaFactor = replicas == null ? defaultReplicaFactor : parser(replicas.get(0));
+            replicaFactor = replicas == null ? defaultReplicaFactor : parser(replicas.get(0));
 
             if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack || replicaFactor.from > clusterSize) {
                 throw new IllegalArgumentException("From is is very big");
             }
 
-            return replicaFactor;
         } catch (IllegalArgumentException error) {
             sendResponse(new byte[0], ctx);
-            return null;
         }
+
+        return replicaFactor;
     }
 
     private static void sendResponse(final @NotNull byte[] bytes,

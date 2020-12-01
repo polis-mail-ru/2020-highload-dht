@@ -6,20 +6,25 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import io.netty.handler.stream.ChunkedWriteHandler;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 
 public class NettyInit extends ChannelInitializer<SocketChannel> {
     private final DAO dao;
     private final Topology nodes;
-    private final int timeout;
-    private final DefaultEventExecutorGroup executor;
+    private final int queueSize;
+    private final int countOfWorkers;
 
-    NettyInit(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers, final int timeout) {
+    NettyInit(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
+              final int queueSize, final int timeout) {
+        Logger log = LoggerFactory.getLogger(NettyInit.class);
+        log.debug(String.valueOf(timeout));
         this.nodes = nodes;
-        this.timeout = timeout;
-        this.executor = new DefaultEventExecutorGroup(countOfWorkers);
+        this.queueSize = queueSize;
+        this.countOfWorkers = countOfWorkers;
         this.dao = dao;
     }
 
@@ -29,7 +34,8 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
 
         pipeline.addLast(new HttpRequestDecoder());
         pipeline.addLast(new HttpServerCodec());
+        pipeline.addLast(new ChunkedWriteHandler());
         pipeline.addLast(new HttpObjectAggregator(1024 * 512));
-        pipeline.addLast(executor, new NettyRequests(dao, nodes, timeout));
+        pipeline.addLast(new NettyRequests(dao, nodes,  countOfWorkers, queueSize));
     }
 }

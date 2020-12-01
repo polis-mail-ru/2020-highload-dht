@@ -2,16 +2,21 @@ package ru.mail.polis.dao.manikhin;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
+import ru.mail.polis.service.manikhin.Utils;
 
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.NoSuchElementException;
 
 public class TimestampRecord {
     private final long timestamp;
     private final ByteBuffer value;
     private final RecordType recordType;
+    private static final Logger log = LoggerFactory.getLogger(TimestampRecord.class);
 
     private enum RecordType {
         VALUE((byte) 1),
@@ -62,10 +67,11 @@ public class TimestampRecord {
      * @return timestamp record instance
      */
     public static TimestampRecord fromBytes(@Nullable final byte[] bytes) {
-        if (bytes == null || bytes.length == 0) {
+        if (bytes == null) {
             return new TimestampRecord(-1, null, RecordType.ABSENT);
         }
 
+        log.debug("bytes length: " + String.valueOf(bytes.length));
         final ByteBuffer buffer = ByteBuffer.wrap(bytes);
         final TimestampRecord.RecordType recordType = RecordType.fromValue(buffer.get());
         final long ts = buffer.getLong();
@@ -150,12 +156,9 @@ public class TimestampRecord {
      * @param responses - to define the input
      * @return latest timestamp record instance
      */
-    public static TimestampRecord merge(final List<TimestampRecord> responses) {
-        if (responses.size() == 1) return responses.get(0);
-        else {
-            return responses.stream().filter(timestampRecord -> !timestampRecord.isEmpty())
+    public static TimestampRecord merge(final Collection<TimestampRecord> responses) {
+        return responses.stream().filter(timestampRecord -> !timestampRecord.isEmpty())
                     .max(Comparator.comparingLong(TimestampRecord::getTimestamp))
                     .orElseGet(TimestampRecord::getEmpty);
-        }
     }
 }
