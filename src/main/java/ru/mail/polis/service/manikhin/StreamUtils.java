@@ -8,7 +8,7 @@ public class StreamUtils {
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
     private static final byte [] END_CHUNK_DATA = new byte[0];
 
-    public StreamUtils(){
+    private StreamUtils(){
     }
 
     public static byte[] formFilledChunk(final ByteBuffer key, final ByteBuffer value) {
