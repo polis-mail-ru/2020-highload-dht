@@ -4,7 +4,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
@@ -135,23 +134,23 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
                     replicaHelper.handleMultiRequest(replicaClusters, msg.retain(), replicaFactor.getAck(), ctx);
                     return;
-                } else {
-                    final HttpMethod method = msg.method();
+                }
 
-                    if (HttpMethod.GET.equals(method)) {
+                switch (msg.method().toString()) {
+                    case "GET":
                         utils.localGet(key, ctx, msg);
                         return;
-                    } else if (HttpMethod.PUT.equals(method)) {
+                    case "PUT":
                         utils.localPut(key, ctx, msg.retain());
                         return;
-                    } else if (HttpMethod.DELETE.equals(method)) {
+                    case "DELETE":
                         utils.localDelete(key, ctx, msg);
                         return;
-                    } else {
+                    default:
                         Utils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, Utils.EMPTY_BODY, ctx, msg);
                         return;
-                    }
                 }
+
             } catch (RejectedExecutionException | IOException error) {
                 Utils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, Utils.EMPTY_BODY, ctx, msg);
             }
