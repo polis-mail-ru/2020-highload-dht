@@ -20,6 +20,7 @@ import one.nio.http.HttpClient;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import ru.mail.polis.Files;
@@ -226,5 +227,12 @@ abstract class ClusterTestBase extends TestBase {
             final int ack,
             final int from) throws Exception {
         return client(node).put(path(key, ack, from), data);
+    }
+
+    Response range(
+            final int node,
+            @NotNull final String start,
+            @Nullable final String end) throws Exception {
+        return client(node).get("/v0/entities?start=" + start + (end != null ? "&end=" + end : ""));
     }
 }

@@ -3,6 +3,7 @@ package ru.mail.polis.service.kate.moreva;
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import one.nio.http.*;
+import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
 import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
@@ -41,14 +42,14 @@ import static ru.mail.polis.service.kate.moreva.MyRequestHelper.PROXY_HEADER;
 
 public class MySimpleHttpServer extends HttpServer implements Service {
     private static final String TIMESTAMP = "Timestamp";
-    private static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
+    public static final Logger log = LoggerFactory.getLogger(MySimpleHttpServer.class);
     private final ExecutorService executorService;
     private final Executor clientExecutor;
     private final Topology<String> topology;
     private final MyRequestHelper requestHelper;
+    private final RangeRequestHelper rangeRequestHelper;
     private final Replicas quorum;
     private final HttpClient client;
-
 
     /**
      * Http Server constructor.
@@ -63,6 +64,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         assert numberOfWorkers > 0;
         assert queueSize > 0;
         this.requestHelper = new MyRequestHelper(dao);
+
         this.executorService = new ThreadPoolExecutor(numberOfWorkers,
                 queueSize,
                 0L,
@@ -82,6 +84,17 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 .connectTimeout(Duration.ofSeconds(1))
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
                 .build();
+        Map<String, StreamHttpClient> pool = new HashMap<>();
+        for (final String node : topology.all()) {
+            if (topology.isMe(node)) {
+                continue;
+            }
+            final StreamHttpClient client = new StreamHttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (pool.put(node, client) != null) {
+                throw new IllegalStateException("Duplicate node");
+            }
+        }
+        this.rangeRequestHelper = new RangeRequestHelper(dao, topology, pool);
     }
 
     private static HttpServerConfig getConfig(final int port, final int numberOfWorkers) {
@@ -139,7 +152,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
     @Path("/v0/entities")
     public void entities(@NotNull final HttpSession session, final Request request,
                          @Param("start") final String start,
-                         @Param("end") final String end, @Param("replicas") final String replicas) {
+                         @Param("end") final String end) {
         if (start == null || start.isEmpty() || (end != null && end.isEmpty())) {
             log.error("Request with incorrect parameters start {}, end {} on /v0/entities", start, end);
             requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
@@ -147,24 +160,12 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         }
         final ByteBuffer startRange = ByteBuffer.wrap(start.getBytes(Charsets.UTF_8));
         final ByteBuffer endRange = end == null ? null : ByteBuffer.wrap(end.getBytes(Charsets.UTF_8));
-        parseRangeRequest(startRange, endRange, request, session, replicas);
-    }
-    private void parseRangeRequest(final ByteBuffer start, final ByteBuffer end, final Request request,
-                               final HttpSession session, final String replicas) {
         final boolean isProxy = requestHelper.isProxied(request);
-        try {
-            final Replicas replicasFactor = isProxy
-                    || replicas == null ? this.quorum : Replicas.parser(replicas);
-            if (replicasFactor.getFrom() > this.topology.size()
-                    || replicasFactor.getAck() > replicasFactor.getFrom() || replicasFactor.getAck() <= 0) {
-                requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-                return;
-            }
-            final Context context = new Context(session, isProxy, request, replicasFactor);
-            requestHelper.workRangeRequest(context.getSession(), start, end, clientExecutor);
-        } catch (IllegalArgumentException e) {
-            requestHelper.sendLoggedResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-        }
+        final Context context = new Context(session, isProxy, request, null);
+        executorService.execute(() -> {
+            rangeRequestHelper.parseRequest(startRange, endRange, context);
+//            requestHelper.workRangeRequest(session, startRange, endRange, clientExecutor);
+        });
     }
 
     private void parseRequest(final String id, final Request request,

@@ -33,12 +33,6 @@ public class ModuleTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String primaryFor(@NotNull final ByteBuffer key) {
-        return nodes.get((key.hashCode() & Integer.MAX_VALUE) % nodes.size());
-    }
-
-    @NotNull
-    @Override
     public Set<String> primaryFor(@NotNull final ByteBuffer key,
                                   @NotNull final Replicas replicas,
                                   final int ask) throws IllegalArgumentException {
