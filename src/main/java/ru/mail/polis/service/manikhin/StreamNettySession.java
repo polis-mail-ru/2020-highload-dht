@@ -52,7 +52,7 @@ public class StreamNettySession {
 
         while (iterator.hasNext()) {
             final Record record = iterator.next();
-            data = formFilledChunk(record.getKey(), record.getValue());
+            data = formFillChunk(record.getKey(), record.getValue());
             log.debug("loop data: " + data.length);
 
             ctx.write(data).addListener(ChannelFutureListener.CLOSE);
@@ -71,7 +71,7 @@ public class StreamNettySession {
         }
     }
 
-    private byte[] formFilledChunk(final ByteBuffer key, final ByteBuffer value) {
+    private byte[] formFillChunk(final ByteBuffer key, final ByteBuffer value) {
         final int dataLength = key.limit() + LF.length + value.limit();
         final byte[] hexLength = Integer.toHexString(dataLength)
                 .getBytes(StandardCharsets.US_ASCII);

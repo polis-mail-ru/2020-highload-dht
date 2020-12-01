@@ -9,7 +9,8 @@ import java.util.concurrent.RejectedExecutionException;
 public final class GetBodyHandler implements HttpResponse.BodyHandler<TimestampRecord> {
 
     public static final HttpResponse.BodyHandler<TimestampRecord> INSTANCE = new GetBodyHandler();
-    private GetBodyHandler() {}
+    private GetBodyHandler() {
+    }
 
     @Override
     public HttpResponse.BodySubscriber<TimestampRecord> apply(@NotNull final HttpResponse.ResponseInfo responseInfo) {
