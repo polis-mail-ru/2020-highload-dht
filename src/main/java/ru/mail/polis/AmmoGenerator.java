@@ -19,7 +19,6 @@ public final class AmmoGenerator {
     private static final byte[] GET_BYTES = " get\n".getBytes(US_ASCII);
     private static final String HTTP_VERSION = " HTTP/1.1";
     private static final String CONTENT_LENGTH_HEADER = "Content-Length: ";
-    private static final int OFFSET = 100;
     private static Random random = new Random();
 
     private AmmoGenerator() {
@@ -103,24 +102,24 @@ public final class AmmoGenerator {
     ) throws IOException {
         int i = 0;
         while (i < numOfRequests) {
-            if (i % 10 != 0 || i == 0) {
-                makePutRequest(outputFile, String.valueOf(i), generateRandomValue());
-            } else {
+            if (i % 10 == 0 && i != 0) {
                 final long keyToRewrite = random.nextInt(i);
                 makePutRequest(outputFile, String.valueOf(keyToRewrite), generateRandomValue());
+            } else {
+                makePutRequest(outputFile, String.valueOf(i), generateRandomValue());
             }
             i++;
         }
     }
 
     /**
-     * Generates GET requests to existing records using Gauss distribution.
+     * Generates GET requests to existing records using equal distribution.
      *
      * @param numOfRequests - how many requests to generate
      * @param outputFile    - where to write generated requests
      * @throws IOException - something went wrong
      */
-    private static void generateGetExistingGauss(
+    private static void generateGetExisting(
             final int numOfRequests,
             final FileOutputStream outputFile
     ) throws IOException {
@@ -142,24 +141,14 @@ public final class AmmoGenerator {
     private static void generateGetExistingWithOffset(
             final int numOfRequests, final FileOutputStream outputFile
     ) throws IOException {
-        long currentKey;
-        int position;
-        long i = 0;
+        int i = 0;
         while (i < numOfRequests) {
-            position = ThreadLocalRandom.current().nextInt(0, 10);
-
-            switch (position) {
-                case 0:
-                    currentKey = ThreadLocalRandom.current().nextLong(0, OFFSET / 2);
-                    break;
-                case 1:
-                    currentKey = ThreadLocalRandom.current().nextLong(
-                            OFFSET / 2, OFFSET / 2 + OFFSET / 4
-                    );
-                    break;
-                default:
-                    currentKey = ThreadLocalRandom.current().nextLong(OFFSET / 2 + OFFSET / 4, OFFSET);
-                    break;
+            final double randomGaussKey = random.nextGaussian() * numOfRequests * 0.1 + numOfRequests * 0.9;
+            int currentKey = (int) Math.round(randomGaussKey);
+            if (currentKey >= numOfRequests) {
+                currentKey = numOfRequests - 1;
+            } else if (currentKey < 0) {
+                currentKey = 0;
             }
             makeGetRequest(outputFile, String.valueOf(currentKey));
             i++;
@@ -218,8 +207,8 @@ public final class AmmoGenerator {
                 case "PUT_PARTIAL_REWRITE":
                     generatePutPartialRewrite(numOfRequests, outputFile);
                     break;
-                case "GET_EXISTING_GAUSS":
-                    generateGetExistingGauss(numOfRequests, outputFile);
+                case "GET_EXISTING":
+                    generateGetExisting(numOfRequests, outputFile);
                     break;
                 case "GET_EXISTING_WITH_OFFSET":
                     generateGetExistingWithOffset(numOfRequests, outputFile);
