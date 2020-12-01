@@ -8,8 +8,6 @@ import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 
 public class NettyInit extends ChannelInitializer<SocketChannel> {
@@ -17,13 +15,14 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
     private final Topology nodes;
     private final int queueSize;
     private final int countOfWorkers;
+    private final int timeout;
 
     NettyInit(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
               final int queueSize, final int timeout) {
-        Logger log = LoggerFactory.getLogger(NettyInit.class);
-        log.debug(String.valueOf(timeout));
+
         this.nodes = nodes;
         this.queueSize = queueSize;
+        this.timeout = timeout;
         this.countOfWorkers = countOfWorkers;
         this.dao = dao;
     }
@@ -36,6 +35,6 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
         pipeline.addLast(new HttpServerCodec());
         pipeline.addLast(new ChunkedWriteHandler());
         pipeline.addLast(new HttpObjectAggregator(1024 * 512));
-        pipeline.addLast(new NettyRequests(dao, nodes,  countOfWorkers, queueSize));
+        pipeline.addLast(new NettyRequests(dao, nodes,  countOfWorkers, queueSize, timeout));
     }
 }

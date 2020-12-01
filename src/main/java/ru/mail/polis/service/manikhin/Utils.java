@@ -42,11 +42,13 @@ public class Utils {
     private static final String PROXY_HEADER = "X-OK-Proxy";
     public static final byte [] EMPTY_BODY = new byte[0];
 
-    private final Logger log = LoggerFactory.getLogger(Utils.class);
+    private static final Logger log = LoggerFactory.getLogger(Utils.class);
+    private final int timeout;
 
-    public Utils (@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor) {
+    public Utils (@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor, final int timeout) {
         this.dao = dao;
         this.executor = executor;
+        this.timeout = timeout;
     }
 
     public CompletableFuture<TimestampRecord> getResponse(@NotNull final ByteBuffer key) {
@@ -139,7 +141,7 @@ public class Utils {
                                                                @NotNull final String node,
                                                                @NotNull final String id) {
 
-        final HttpRequest request = Utils.requestBuilder(node, id).GET().build();
+        final HttpRequest request = requestBuilder(node, id).GET().build();
 
         return clusterClients.get(node).sendAsync(request, GetBodyHandler.INSTANCE)
                 .thenApplyAsync(HttpResponse::body, executor);
@@ -149,7 +151,7 @@ public class Utils {
                                                                    @NotNull final String node,
                                                                    @NotNull final String id) {
 
-        final HttpRequest request = Utils.requestBuilder(node, id).DELETE().build();
+        final HttpRequest request = requestBuilder(node, id).DELETE().build();
 
         return clusterClients.get(node).sendAsync(request, deleteBodyHandler.INSTANCE)
                 .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY), executor);
@@ -160,7 +162,7 @@ public class Utils {
                                                                 @NotNull final String id,
                                                                 @NotNull final byte[] value) {
 
-        final HttpRequest request = Utils.requestBuilder(node, id).PUT(
+        final HttpRequest request = requestBuilder(node, id).PUT(
                 HttpRequest.BodyPublishers.ofByteArray(value)
         ).build();
 
@@ -178,11 +180,12 @@ public class Utils {
         return res.toBytes();
     }
 
-    public static HttpRequest.Builder requestBuilder(@NotNull final String node, @NotNull final String id) {
+    public HttpRequest.Builder requestBuilder(@NotNull final String node, @NotNull final String id) {
 
-        final String uri = node + ENTITY_PATH + id;
+        final String uri = node + ENTITY_PATH + id;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+
         return HttpRequest.newBuilder().uri(URI.create(uri)).header(PROXY_HEADER, "True")
-                .timeout(Duration.ofMillis(350));
+                .timeout(Duration.ofMillis(timeout));
     }
 
     public static byte[] getRequestBody(final ByteBuf buffer) {
@@ -194,7 +197,7 @@ public class Utils {
         return array;
     }
 
-    FullHttpResponse responseBuilder(@NotNull HttpResponseStatus status, @NotNull final byte[] bytes) {
+    static FullHttpResponse responseBuilder(@NotNull HttpResponseStatus status, @NotNull final byte[] bytes) {
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
@@ -208,23 +211,21 @@ public class Utils {
     public <T> CompletableFuture<Collection<T>> atLeastAsync(@NotNull final Collection<CompletableFuture<T>> futures,
                                                              final int successes, final boolean isForwarded) {
 
-        final AtomicInteger successesLeft = new AtomicInteger(successes);
         final AtomicInteger errorsLeft = new AtomicInteger(0);
         final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> future = new CompletableFuture<>();
 
         futures.forEach(f -> f.whenCompleteAsync((v, t) -> {
-            log.debug("max errors count: " + (futures.size() - successes + 1));
-
             if (t == null) {
                 results.add(v);
 
-                if (successesLeft.decrementAndGet() == 0 || isForwarded) {
+                if (results.size() >= successes || isForwarded) {
                     future.complete(results);
                 }
             } else {
                 if (errorsLeft.incrementAndGet() >= (futures.size() - successes + 1)) {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
+                    return;
                 }
             }
         }, executor).isCancelled());
@@ -239,7 +240,6 @@ public class Utils {
                 ctx.writeAndFlush(r).addListener(ChannelFutureListener.CLOSE);
                 return;
             } else {
-                log.debug(t.getMessage());
                 final HttpResponseStatus code;
 
                 if (t instanceof CompletionException) {

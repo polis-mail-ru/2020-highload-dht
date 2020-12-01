@@ -2,10 +2,6 @@ package ru.mail.polis.dao.manikhin;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import ru.mail.polis.Record;
-import ru.mail.polis.service.manikhin.Utils;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -16,7 +12,6 @@ public class TimestampRecord {
     private final long timestamp;
     private final ByteBuffer value;
     private final RecordType recordType;
-    private static final Logger log = LoggerFactory.getLogger(TimestampRecord.class);
 
     private enum RecordType {
         VALUE((byte) 1),
@@ -71,7 +66,6 @@ public class TimestampRecord {
             return new TimestampRecord(-1, null, RecordType.ABSENT);
         }
 
-        log.debug("bytes length: " + String.valueOf(bytes.length));
         final ByteBuffer buffer = ByteBuffer.wrap(bytes);
         final TimestampRecord.RecordType recordType = RecordType.fromValue(buffer.get());
         final long ts = buffer.getLong();

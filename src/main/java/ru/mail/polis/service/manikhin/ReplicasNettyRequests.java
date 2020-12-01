@@ -27,11 +27,11 @@ public class ReplicasNettyRequests {
     private final ThreadPoolExecutor executor;
 
     ReplicasNettyRequests(final DAO dao, final Topology nodes, final Map<String, HttpClient> clusterClients,
-                          final ThreadPoolExecutor executor) {
+                          final ThreadPoolExecutor executor, final int timeout) {
         this.clusterClients = clusterClients;
         this.nodes = nodes;
         this.executor = executor;
-        this.utils = new Utils(dao, executor);
+        this.utils = new Utils(dao, executor, timeout);
     }
 
     /**
@@ -70,7 +70,7 @@ public class ReplicasNettyRequests {
     /**
      * Request handler for input GET-request with many replicas.
      *
-     * @param ctx - http-session
+     * @param ctx - http-context
      * @param replicaNodes - replica nodes
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
@@ -78,11 +78,10 @@ public class ReplicasNettyRequests {
     public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request, final int replicateAcks) {
 
-        final QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-        final String id = decoder.parameters().get("id").get(0);
+        final String id = queryParser(request.uri());
         final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Collection<CompletableFuture<TimestampRecord>>  responses = new ArrayList<>();
+        final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>();
 
         for (final String node : replicaNodes) {
             if (node.equals(nodes.getId())) {
@@ -100,7 +99,7 @@ public class ReplicasNettyRequests {
     /**
      * Request handler for input PUT-request with many replicas.
      *
-     * @param ctx - http-session
+     * @param ctx - http-context
      * @param replicaNodes - replica nodes
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
@@ -108,8 +107,7 @@ public class ReplicasNettyRequests {
     public void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request, final int replicateAcks) {
 
-        final QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-        final String id = decoder.parameters().get("id").get(0);
+        final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicateAcks);
@@ -118,19 +116,20 @@ public class ReplicasNettyRequests {
             if (node.equals(nodes.getId())) {
                 responses.add(utils.putResponse(key, Utils.getRequestBody(request.content())));
             } else {
-                responses.add(utils.putProxyResponse(clusterClients, node, id, Utils.getRequestBody(request.content())));
+                final byte[] body = Utils.getRequestBody(request.content());
+                responses.add(utils.putProxyResponse(clusterClients, node, id, body));
             }
         }
 
         utils.respond(ctx, request, utils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> utils.responseBuilder(HttpResponseStatus.CREATED, Utils.EMPTY_BODY), executor)
+                .thenApplyAsync(res -> Utils.responseBuilder(HttpResponseStatus.CREATED, Utils.EMPTY_BODY), executor)
         );
     }
 
     /**
      * Request handler for input DELETE-request with many replicas.
      *
-     * @param ctx - http-session
+     * @param ctx - http-context
      * @param replicaNodes - replica nodes
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
@@ -138,8 +137,7 @@ public class ReplicasNettyRequests {
     public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                             @NotNull final FullHttpRequest request, final int replicateAcks) {
 
-        final QueryStringDecoder decoder = new QueryStringDecoder(request.uri());
-        final String id = decoder.parameters().get("id").get(0);
+        final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicateAcks);
         final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
@@ -153,7 +151,7 @@ public class ReplicasNettyRequests {
         }
 
         utils.respond(ctx, request, utils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> utils.responseBuilder(HttpResponseStatus.ACCEPTED, Utils.EMPTY_BODY),
+                .thenApplyAsync(res -> Utils.responseBuilder(HttpResponseStatus.ACCEPTED, Utils.EMPTY_BODY),
                         executor)
         );
     }
@@ -170,12 +168,18 @@ public class ReplicasNettyRequests {
 
         if (mergedResp.isValue()) {
             if (isForwardedRequest) {
-                return utils.responseBuilder(HttpResponseStatus.OK, mergedResp.toBytes());
+                return Utils.responseBuilder(HttpResponseStatus.OK, mergedResp.toBytes());
             } else  {
-                return utils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
+                return Utils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
             }
         } else {
-            return utils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
+            return Utils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
         }
+    }
+
+    private String queryParser(final String uri) {
+        final QueryStringDecoder decoder = new QueryStringDecoder(uri);
+
+        return decoder.parameters().get("id").get(0);
     }
 }

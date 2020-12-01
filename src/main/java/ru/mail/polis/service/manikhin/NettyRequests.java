@@ -33,7 +33,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final Utils utils;
 
     public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes,
-                         final int countOfWorkers, final int queueSize) {
+                         final int countOfWorkers, final int queueSize, final int timeout) {
         this.dao = dao;
         this.nodes = nodes;
         this.clusterSize = nodes.getNodes().size();
@@ -54,8 +54,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             }
         }
 
-        this.replicaHelper = new ReplicasNettyRequests(dao, nodes, clusterClients, executor);
-        this.utils = new Utils(dao, executor);
+        this.replicaHelper = new ReplicasNettyRequests(dao, nodes, clusterClients, executor, timeout);
+        this.utils = new Utils(dao, executor, timeout);
     }
 
     @Override
@@ -122,7 +122,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                         replicaClusters = nodes.getReplicas(key, replicaFactor);
                     }
 
-                    replicaHelper.handleMultiRequest(replicaClusters, msg, replicaFactor.getAck(), ctx);
+                    replicaHelper.handleMultiRequest(replicaClusters, msg.retain(), replicaFactor.getAck(), ctx);
                     return;
                 } else {
                     final HttpMethod method = msg.method();
