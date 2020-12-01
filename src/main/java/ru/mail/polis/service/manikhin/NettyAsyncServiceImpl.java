@@ -55,7 +55,6 @@ public class NettyAsyncServiceImpl implements Service {
 
         } catch (InterruptedException error) {
             log.error("Interrupted error: ", error);
-            throw new InterruptedException("Interrupted exception");
         }
     }
 

@@ -14,14 +14,14 @@ import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.net.http.HttpClient;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -93,6 +93,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 }
 
                 final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
+                assert end != null;
                 final ByteBuffer to = ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
                 final Iterator<Record> iterator = dao.range(from, to);
                 final StreamNettySession session = new StreamNettySession(iterator, ctx, msg);
