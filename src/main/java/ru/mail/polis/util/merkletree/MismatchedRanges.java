@@ -16,11 +16,15 @@ public class MismatchedRanges {
         private final long start;
         private final long end;
         
-        private Range(long start, long end) {
+        private Range(final long start, final long end) {
             this.start = start;
             this.end = end < 0 ? Long.MAX_VALUE : end;
         }
-        
+    
+        /**
+         * Creates a new {@link Range} that fits all values in {@link MerkleTree.Node}'s subtree.
+         * @param node {@link MerkleTree.Node}
+         */
         public Range(@NotNull final MerkleTree.Node node) {
             this(
                     node.minValueIndex() * (Long.MAX_VALUE / rangesCount),
@@ -83,15 +87,17 @@ public class MismatchedRanges {
             final var hash2 = node2.hash();
             
             final boolean isEqual = Arrays.equals(hash1, hash2);
-            
-            if (!isEqual) {
+    
+            if (isEqual) {
+                if (!node1.isLeaf() && !node2.isLeaf()) {
+                    nodeQueue1.add(node1.left());
+                    nodeQueue1.add(node1.right());
+                    
+                    nodeQueue2.add(node2.left());
+                    nodeQueue2.add(node2.right());
+                }
+            } else {
                 result.add(new Range(node1));
-            } else if (!node1.isLeaf() && !node2.isLeaf()) {
-                nodeQueue1.add(node1.left());
-                nodeQueue1.add(node1.right());
-                
-                nodeQueue2.add(node2.left());
-                nodeQueue2.add(node2.right());
             }
         }
         

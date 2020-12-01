@@ -10,7 +10,8 @@ import java.io.RandomAccessFile;
 import java.nio.file.Path;
 
 public class ResponseFileSession extends StreamingSession {
-    public ResponseFileSession(@NotNull Socket socket, @NotNull HttpServer server) {
+    public ResponseFileSession(@NotNull final Socket socket,
+                               @NotNull final HttpServer server) {
         super(socket, server);
     }
     

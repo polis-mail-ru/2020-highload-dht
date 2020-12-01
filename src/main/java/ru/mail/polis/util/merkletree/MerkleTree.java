@@ -13,7 +13,7 @@ public class MerkleTree {
     public class Node {
         private final int offset;
         
-        public Node(int offset) {
+        public Node(final int offset) {
             this.offset = offset;
         }
         
@@ -95,7 +95,7 @@ public class MerkleTree {
         return i * leafSize();
     }
     
-    public int leafSize() {
+    private int leafSize() {
         return hash.hashSize();
     }
     

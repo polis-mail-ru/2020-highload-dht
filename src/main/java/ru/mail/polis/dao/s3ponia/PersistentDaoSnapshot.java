@@ -49,8 +49,8 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
         }
 
         range(start, end).forEachRemaining(c -> {
-            final var hash = longHash(hashCode(c)) - start;
-            blocks.get((int) (hash / step)).add(c);
+            final var hashValue = longHash(hashCode(c)) - start;
+            blocks.get((int) (hashValue / step)).add(c);
         });
 
         final var leaves = new ArrayList<byte[]>();
@@ -62,8 +62,8 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     @Override
     public Iterator<ICell> range(final long start, final long end) {
         return Iterators.filter(iterator(), c -> {
-            final var hash = longHash(hashCode(c));
-            return hash >= start && hash <= end;
+            final var hashValue = longHash(hashCode(c));
+            return hashValue >= start && hashValue <= end;
         });
     }
 
