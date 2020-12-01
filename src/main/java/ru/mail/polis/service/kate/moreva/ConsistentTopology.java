@@ -18,16 +18,16 @@ public class ConsistentTopology implements Topology<String> {
     private final String me;
     private final NavigableMap<Integer, String> nodesRing = new TreeMap<>();
 
-    public ConsistentTopology(final Set<String> nodes, final String me, final int vNodesNumber) {
+    public ConsistentTopology(final Set<String> nodes, final String me, final int nodesNumber) {
         this.me = me;
         assert nodes.contains(me);
         this.nodes = nodes;
-        nodes.forEach(node -> addNode(node, vNodesNumber));
+        nodes.forEach(node -> addNode(node, nodesNumber));
     }
 
     private void addNode(final String node, final int vNodeCount) {
         for (var i = 0; i < vNodeCount; i++) {
-            StringBuilder vnode = new StringBuilder(node);
+            final StringBuilder vnode = new StringBuilder(node);
             vnode.append(i);
             int hashFunction = Hash.murmur3(vnode.toString());
             while (nodesRing.containsKey(hashFunction)) {

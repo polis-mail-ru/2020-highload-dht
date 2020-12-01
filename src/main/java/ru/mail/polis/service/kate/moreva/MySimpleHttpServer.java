@@ -2,10 +2,15 @@ package ru.mail.polis.service.kate.moreva;
 
 import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.*;
+import one.nio.http.HttpServer;
+import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Param;
+import one.nio.http.Path;
+import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.net.ConnectionString;
 import one.nio.net.Socket;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,7 +26,11 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -30,9 +39,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import static ru.mail.polis.service.kate.moreva.MyRequestHelper.PROXY_HEADER;
 
 /**
  * Simple Http Server Service implementation.
@@ -84,7 +90,7 @@ public class MySimpleHttpServer extends HttpServer implements Service {
                 .connectTimeout(Duration.ofSeconds(1))
                 .version(java.net.http.HttpClient.Version.HTTP_1_1)
                 .build();
-        Map<String, StreamHttpClient> pool = new HashMap<>();
+        final Map<String, StreamHttpClient> pool = new HashMap<>();
         for (final String node : topology.all()) {
             if (topology.isMe(node)) {
                 continue;

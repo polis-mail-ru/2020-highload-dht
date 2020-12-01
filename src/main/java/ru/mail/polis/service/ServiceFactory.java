@@ -34,7 +34,7 @@ import java.util.Set;
 public final class ServiceFactory {
     private static final long MAX_HEAP = 256 * 1024 * 1024;
     private static final int QUEUE_SIZE = 256;
-    private static final int vNodesNumber = 200;
+    private static final int nodesNumber = 200;
 
     private ServiceFactory() {
         // Not supposed to be instantiated
@@ -61,7 +61,7 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
         final Topology<String> consistentTopology = new ConsistentTopology(topology,
-                "http://localhost:" + port, vNodesNumber);
+                "http://localhost:" + port, nodesNumber);
         return new MySimpleHttpServer(port,
                 dao,
                 Runtime.getRuntime().availableProcessors(),

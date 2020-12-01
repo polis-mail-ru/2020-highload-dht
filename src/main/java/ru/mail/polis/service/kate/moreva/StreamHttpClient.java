@@ -1,11 +1,10 @@
 package ru.mail.polis.service.kate.moreva;
 
+import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.ConnectionString;
-
-import one.nio.http.HttpClient;
 import one.nio.net.Socket;
 import one.nio.pool.PoolException;
 import one.nio.util.Utf8;
@@ -154,22 +153,21 @@ public class StreamHttpClient extends HttpClient {
         }
 
         private String readLine() throws IOException, HttpException {
-            final byte[] buf = this.buf;
-            int pos = this.pos;
-            final int lineStart = this.pos;
+            final byte[] buffer = this.buf;
+            int position = this.pos;
+            final int lineStart = position;
 
             do {
-                if (pos == length) {
-                    if (pos >= buf.length) {
+                if (position == length) {
+                    if (position >= buffer.length) {
                         throw new HttpException("Line too long");
                     }
-                    length += socket.read(buf, pos, buf.length - pos, 0);
+                    length += socket.read(buffer, position, buffer.length - position, 0);
                 }
-            }
-            while (buf[pos++] != '\n');
+            } while (buffer[position++] != '\n');
 
-            this.pos = pos;
-            return Utf8.read(buf, lineStart, pos - lineStart - 2);
+            this.pos = position;
+            return Utf8.read(buffer, lineStart, position - lineStart - 2);
         }
 
         private void readSingleChunk() throws IOException, HttpException {
@@ -193,7 +191,8 @@ public class StreamHttpClient extends HttpClient {
                     System.arraycopy(buf, pos, chunk, 0, chunkSize);
                     pos += chunkSize;
                     if (pos + 128 >= buf.length) {
-                        System.arraycopy(buf, pos, buf, 0, length -= pos);
+                        length -= pos;
+                        System.arraycopy(buf, pos, buf, 0, length);
                         pos = 0;
                     }
                 }

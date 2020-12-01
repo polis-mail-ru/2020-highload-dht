@@ -17,7 +17,6 @@ class Context {
     private ByteBuffer rangeEnd;
     private StreamingSession streamingSession;
 
-
     public Context(final HttpSession session,
                    final boolean isProxy,
                    final Request request,
@@ -48,7 +47,7 @@ class Context {
         return rangeStart;
     }
 
-    public void setRangeStart(ByteBuffer rangeStart) {
+    public void setRangeStart(final ByteBuffer rangeStart) {
         this.rangeStart = rangeStart;
     }
 
@@ -56,7 +55,7 @@ class Context {
         return rangeEnd;
     }
 
-    public void setRangeEnd(ByteBuffer rangeEnd) {
+    public void setRangeEnd(final ByteBuffer rangeEnd) {
         this.rangeEnd = rangeEnd;
     }
 
@@ -64,7 +63,7 @@ class Context {
         return streamingSession;
     }
 
-    public void setStreamingSession(StreamingSession streamingSession) {
+    public void setStreamingSession(final StreamingSession streamingSession) {
         this.streamingSession = streamingSession;
     }
 }

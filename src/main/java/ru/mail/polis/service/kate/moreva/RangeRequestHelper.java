@@ -64,7 +64,7 @@ public class RangeRequestHelper {
     private void runOnCurrentNode(final ByteBuffer start, final ByteBuffer end,
                                   final StreamingSession streamSession) throws IOException {
         final Iterator<Record> iterator = dao.range(start, end);
-        streamSession.stream(iterator);
+        streamSession.setRecordIterator(iterator);
     }
 
     void runProxied(final ByteBuffer start, final ByteBuffer end,
@@ -118,8 +118,8 @@ public class RangeRequestHelper {
         }
     }
 
-    private void workOnTheNode(Context context,
-                               Iterator<String> nodes, List<Iterator<Record>> iterators) throws IOException {
+    private void workOnTheNode(final Context context,
+                               final Iterator<String> nodes, final List<Iterator<Record>> iterators) throws IOException {
         Iterator<Record> iterator;
         try {
             iterator = dao.range(context.getRangeStart(), context.getRangeEnd());
@@ -131,10 +131,10 @@ public class RangeRequestHelper {
         workProxied(context, nodes, iterators);
     }
 
-    private void handleStreamEnd(Context context, List<Iterator<Record>> iterators) throws IOException {
+    private void handleStreamEnd(final Context context, final List<Iterator<Record>> iterators) throws IOException {
         final Iterator<Record> mergedIterators = Iterators.mergeSorted(iterators, Record::compareTo);
         try {
-            context.getStreamingSession().stream(mergedIterators);
+            context.getStreamingSession().setRecordIterator(mergedIterators);
         } catch (IOException e) {
             log.error("Error while streaming", e);
             throw new IOException("Error while streaming", e);
