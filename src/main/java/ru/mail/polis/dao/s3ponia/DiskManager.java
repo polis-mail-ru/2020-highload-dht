@@ -3,7 +3,6 @@ package ru.mail.polis.dao.s3ponia;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.s3ponia.DaoOperationException;
-import ru.mail.polis.service.s3ponia.HttpEntityService;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -17,7 +16,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class DiskManager implements Closeable {
     private static final Logger logger = LoggerFactory.getLogger(DiskManager.class);
@@ -25,6 +23,7 @@ public class DiskManager implements Closeable {
     static final String META_PREFIX = "fzxyGZ9LDM";
     private final Path metaFile;
     private static final String TABLE_EXTENSION = ".db";
+    private static final String UNIQUE_EXTENSION = ".tdb";
 
     private final List<String> fileNames;
     private final List<DiskTable> diskTables;
@@ -135,6 +134,10 @@ public class DiskManager implements Closeable {
         final var fileName = filePath.toString();
         saveFileNameToMeta(fileName);
         saveTo(it, filePath);
+    }
+    
+    public Path uniqueFile(final long generation) {
+        return Paths.get(metaFile.getParent().toAbsolutePath().toString(), generation + UNIQUE_EXTENSION);
     }
 
     int getGeneration() {

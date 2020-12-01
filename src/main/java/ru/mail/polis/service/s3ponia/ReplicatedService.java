@@ -7,38 +7,45 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.dao.s3ponia.DiskTable;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.Proxy;
 import ru.mail.polis.util.Utility;
+import ru.mail.polis.util.merkletree.MerkleTree;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class ReplicatedService implements HttpEntityEntitiesHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReplicatedService.class);
-    final AsyncService asyncService;
-    final ShardingPolicy<ByteBuffer, String> policy;
-    final HttpClient httpClient;
+    protected final AsyncService asyncService;
+    protected final DaoService daoService;
+    protected final ShardingPolicy<ByteBuffer, String> policy;
+    protected final HttpClient httpClient;
 
     /**
      * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
-     *
-     * @param service {@link HttpEntityHandler} base service for proxy handle
+     *  @param service {@link HttpEntityHandler} base service for proxy handle
+     * @param daoService {@link DaoService} service for interacting with dao
      * @param policy  {@link ShardingPolicy} replica policy
      */
     public ReplicatedService(@NotNull final AsyncService service,
-                             @NotNull final ShardingPolicy<ByteBuffer, String> policy) {
+                             DaoService daoService, @NotNull final ShardingPolicy<ByteBuffer, String> policy) {
         this.asyncService = service;
+        this.daoService = daoService;
         this.policy = policy;
         final var executor = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),

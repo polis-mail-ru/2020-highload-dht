@@ -26,6 +26,7 @@ import ru.mail.polis.dao.s3ponia.Value;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -158,6 +159,14 @@ public interface DAO extends Closeable {
      * @return a {@code DaoSnapshot}
      */
     default DaoSnapshot snapshot() {
+        throw new UnsupportedOperationException();
+    }
+    
+    /**
+     * Constructs recent snapshot of Dao.
+     * @return a {@code DaoSnapshot}
+     */
+    default Path tempFile() {
         throw new UnsupportedOperationException();
     }
 }

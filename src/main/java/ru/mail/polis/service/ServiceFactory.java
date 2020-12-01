@@ -22,6 +22,7 @@ import ru.mail.polis.service.s3ponia.AsyncService;
 import ru.mail.polis.service.s3ponia.DaoService;
 import ru.mail.polis.service.s3ponia.HttpSyncableService;
 import ru.mail.polis.service.s3ponia.ModularPolicy;
+import ru.mail.polis.service.s3ponia.RepairableReplicatedService;
 import ru.mail.polis.service.s3ponia.ReplicatedService;
 
 import java.io.IOException;
@@ -63,14 +64,14 @@ public final class ServiceFactory {
 
         final var daoService = new DaoService(dao);
 
+        final var service = new RepairableReplicatedService(
+                new AsyncService(
+                        daoService,
+                        Runtime.getRuntime().availableProcessors(),
+                        150),
+                daoService, new ModularPolicy(topology, ByteBuffer::hashCode, "http://localhost:" + port)
+        );
         return new HttpSyncableService(port,
-                new ReplicatedService(
-                        new AsyncService(
-                                daoService,
-                                Runtime.getRuntime().availableProcessors(),
-                                150),
-                        new ModularPolicy(topology, ByteBuffer::hashCode, "http://localhost:" + port)
-                ),
-                daoService, topology);
+                service, daoService, service);
     }
 }

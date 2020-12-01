@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -240,5 +241,10 @@ public final class PersistenceDAO implements DAO {
         }
 
         return new PersistentDaoSnapshot(snapshot, new TigerHash());
+    }
+    
+    @Override
+    public Path tempFile() {
+        return manager.uniqueFile(tableSet.generation + 1);
     }
 }

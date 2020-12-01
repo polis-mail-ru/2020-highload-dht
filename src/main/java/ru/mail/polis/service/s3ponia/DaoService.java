@@ -15,6 +15,7 @@ import ru.mail.polis.util.Utility;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Iterator;
 
 public class DaoService implements Closeable, HttpEntitiesHandler {
@@ -110,6 +111,10 @@ public class DaoService implements Closeable, HttpEntitiesHandler {
 
     public DaoSnapshot snapshot() {
         return dao.snapshot();
+    }
+    
+    public Path tempFile() {
+        return dao.tempFile();
     }
 
     @Override
