@@ -77,15 +77,6 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
                        .thenApply(HttpResponse::body);
     }
     
-    private MerkleTree merkleTree(@NotNull final String node,
-                                  final long start,
-                                  final long end) throws IOException, InterruptedException {
-        final var request = merkleRequest(node, start, end);
-        return new MerkleTree(
-                httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray()).body()
-        );
-    }
-    
     @Override
     public Response repair(final long start, final long end) {
         final var snapshot = daoService.snapshot();
@@ -118,6 +109,15 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
             }
         }
         return Response.ok(Response.EMPTY);
+    }
+    
+    private MerkleTree merkleTree(@NotNull final String node,
+                                  final long start,
+                                  final long end) throws IOException, InterruptedException {
+        final var request = merkleRequest(node, start, end);
+        return new MerkleTree(
+                httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray()).body()
+        );
     }
     
     @Override
