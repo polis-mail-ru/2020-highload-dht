@@ -172,7 +172,7 @@ public class HttpSyncableService extends HttpBasicService {
         final var request = syncRangeRequest(node, range.start(), range.end());
         
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofFile(pathSave))
-                       .thenApply(r -> r.body());
+                       .thenApply(HttpResponse::body);
     }
     
     @Path("/v0/repair")

@@ -31,11 +31,21 @@ public final class Utility {
         }
         return ByteBuffer.wrap(in, offset, size).getLong();
     }
-
+    
+    /**
+     * Constructs long from {@code byte[]}.
+     * @param in long's raw represent
+     * @return a {@code long}
+     */
     public static long fromByteArray(final byte[] in) {
         return fromByteArray(in, 0, in.length);
     }
-
+    
+    /**
+     * Convert {@link String} to {@link ByteBuffer}.
+     * @param s {@link String} for conversion
+     * @return a {@link ByteBuffer}
+     */
     public static ByteBuffer byteBufferFromString(@NotNull final String s) {
         return ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8));
     }
