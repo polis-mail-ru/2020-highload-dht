@@ -79,84 +79,90 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         if (uri.equals(STATUS_PATH)) {
             Utils.sendResponse(HttpResponseStatus.OK, Utils.EMPTY_BODY, ctx, msg);
             return;
-        }
-
-        if (uri.contains(ENTITIES_PATH)) {
-            try {
-                final QueryStringDecoder decoder = new QueryStringDecoder(uri);
-                final List<String> start = decoder.parameters().get("start");
-                final List<String> end = decoder.parameters().get("end");
-
-                if (start == null || ((end != null) && end.get(0).isEmpty())) {
-                    throw new IllegalArgumentException();
-                }
-
-                final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
-                assert end != null;
-                final ByteBuffer to = ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
-                final Iterator<Record> iterator = dao.range(from, to);
-                final StreamNettySession session = new StreamNettySession(iterator, ctx, msg);
-                session.startStream();
-                return;
-            } catch (IllegalArgumentException | IOException error) {
-                log.error("IOexception error: ", error);
-                Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
-                return;
-            }
-        }
-
-        if (uri.contains(ENTITY_PATH)) {
-            try {
-                final QueryStringDecoder decoder = new QueryStringDecoder(uri);
-                final List<String> id = decoder.parameters().get("id");
-
-                if (id == null || id.isEmpty() || id.get(0).length() == 0) {
-                    Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
-                    return;
-                }
-
-                final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
-                final boolean isForwardedRequest = msg.headers().contains("X-OK-Proxy");
-
-                if (isForwardedRequest || clusterSize > 1) {
-                    final List<String> replicas = decoder.parameters().get("replicas");
-
-                    final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica,
-                            clusterSize);
-
-                    final Set<String> replicaClusters;
-
-                    if (isForwardedRequest) {
-                        replicaClusters = Collections.singleton(nodes.getId());
-                    } else {
-                        replicaClusters = nodes.getReplicas(key, replicaFactor);
-                    }
-
-                    replicaHelper.handleMultiRequest(replicaClusters, msg.retain(), replicaFactor.getAck(), ctx);
-                    return;
-                }
-
-                switch (msg.method().toString()) {
-                    case "GET":
-                        utils.localGet(key, ctx, msg);
-                        return;
-                    case "PUT":
-                        utils.localPut(key, ctx, msg.retain());
-                        return;
-                    case "DELETE":
-                        utils.localDelete(key, ctx, msg);
-                        return;
-                    default:
-                        Utils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, Utils.EMPTY_BODY, ctx, msg);
-                        return;
-                }
-
-            } catch (RejectedExecutionException | IOException error) {
-                Utils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, Utils.EMPTY_BODY, ctx, msg);
-            }
+        } else if (uri.contains(ENTITIES_PATH)) {
+            entitiesHandler(ctx, msg, uri);
+            return;
+        } else if (uri.contains(ENTITY_PATH)) {
+            entityHandler(ctx, msg, uri);
+            return;
         } else {
             Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
+        }
+    }
+
+    private void entitiesHandler(@NotNull final ChannelHandlerContext ctx,
+                                 @NotNull final FullHttpRequest request, @NotNull final String uri) {
+        try {
+            final QueryStringDecoder decoder = new QueryStringDecoder(uri);
+            final List<String> start = decoder.parameters().get("start");
+            final List<String> end = decoder.parameters().get("end");
+
+            if (start == null || ((end != null) && end.get(0).isEmpty())) {
+                throw new IllegalArgumentException();
+            }
+
+            final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
+            assert end != null;
+            final ByteBuffer to = ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
+            final Iterator<Record> iterator = dao.range(from, to);
+            final StreamNettySession session = new StreamNettySession(iterator, ctx, request);
+            session.startStream();
             return;
+        } catch (IllegalArgumentException | IOException error) {
+            log.error("IOexception error: ", error);
+            Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, request);
+            return;
+        }
+    }
+
+    private void entityHandler(@NotNull final ChannelHandlerContext ctx,
+                               @NotNull final FullHttpRequest request, @NotNull final String uri) {
+        try {
+            final QueryStringDecoder decoder = new QueryStringDecoder(uri);
+            final List<String> id = decoder.parameters().get("id");
+
+            if (id == null || id.isEmpty() || id.get(0).length() == 0) {
+                Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, request);
+                return;
+            }
+
+            final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
+            final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
+
+            if (isForwardedRequest || clusterSize > 1) {
+                final List<String> replicas = decoder.parameters().get("replicas");
+
+                final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica,
+                        clusterSize);
+
+                final Set<String> replicaClusters;
+
+                if (isForwardedRequest) {
+                    replicaClusters = Collections.singleton(nodes.getId());
+                } else {
+                    replicaClusters = nodes.getReplicas(key, replicaFactor);
+                }
+
+                replicaHelper.handleMultiRequest(replicaClusters, request.retain(), replicaFactor.getAck(), ctx);
+                return;
+            }
+
+            switch (request.method().toString()) {
+                case "GET":
+                    utils.localGet(key, ctx, request);
+                    return;
+                case "PUT":
+                    utils.localPut(key, ctx, request.retain());
+                    return;
+                case "DELETE":
+                    utils.localDelete(key, ctx, request);
+                    return;
+                default:
+                    Utils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, Utils.EMPTY_BODY, ctx, request);
+                    return;
+            }
+        } catch (RejectedExecutionException | IOException error) {
+            Utils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, Utils.EMPTY_BODY, ctx, request);
         }
     }
 }
