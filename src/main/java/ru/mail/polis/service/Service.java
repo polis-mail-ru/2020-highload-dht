@@ -44,7 +44,7 @@ public interface Service {
      * <p>
      * May be called only once.
      */
-    void start();
+    void start() throws InterruptedException;
 
     /**
      * Stop listening and free all the resources.

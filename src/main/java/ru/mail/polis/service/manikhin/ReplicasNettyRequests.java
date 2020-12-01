@@ -1,14 +1,11 @@
 package ru.mail.polis.service.manikhin;
 
 import io.netty.channel.ChannelHandlerContext;
-
-
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
-
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +15,6 @@ import ru.mail.polis.dao.manikhin.TimestampRecord;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -170,7 +166,7 @@ public class ReplicasNettyRequests {
      * @param responses - input set with responses
      * @param isForwardedRequest - check result request on forwarding
      */
-    public FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord>  responses,
+    public FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord> responses,
                                              final boolean isForwardedRequest) {
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
 

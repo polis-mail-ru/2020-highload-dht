@@ -4,13 +4,12 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -18,8 +17,8 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.ByteConvertor;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
-import ru.mail.polis.service.manikhin.handlers.GetBodyHandler;
 import ru.mail.polis.service.manikhin.handlers.DeleteBodyHandler;
+import ru.mail.polis.service.manikhin.handlers.GetBodyHandler;
 import ru.mail.polis.service.manikhin.handlers.PutBodyHandler;
 
 import java.io.IOException;
@@ -52,7 +51,7 @@ public class Utils {
     private static final Logger log = LoggerFactory.getLogger(Utils.class);
     private final int timeout;
 
-    public Utils (@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor, final int timeout) {
+    public Utils(@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor, final int timeout) {
         this.dao = dao;
         this.executor = executor;
         this.timeout = timeout;
@@ -68,7 +67,7 @@ public class Utils {
         }, executor);
     }
 
-    public void localGet(@NotNull final ByteBuffer key, @NotNull ChannelHandlerContext ctx,
+    public void localGet(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
                          @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
@@ -183,9 +182,7 @@ public class Utils {
 
     public HttpRequest.Builder requestBuilder(@NotNull final String node, @NotNull final String id) {
 
-        final String uri = node + ENTITY_PATH + id;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
-
-        return HttpRequest.newBuilder().uri(URI.create(uri)).header(PROXY_HEADER, "True")
+        return HttpRequest.newBuilder().uri(URI.create(node + ENTITY_PATH + id)).header(PROXY_HEADER, "True")
                 .timeout(Duration.ofMillis(timeout));
     }
 

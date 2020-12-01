@@ -15,15 +15,14 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
-
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -56,7 +55,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 ).build(),
                 new ThreadPoolExecutor.AbortPolicy());
 
-        Map<String, HttpClient> clusterClients = new HashMap<>();
+        final Map<String, HttpClient> clusterClients = new HashMap<>();
+
         for (final String node : nodes.getNodes()) {
             if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
                 clusterClients.put(node, HttpClient.newBuilder().executor(executor)
@@ -88,14 +88,14 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 final List<String> start = decoder.parameters().get("start");
                 final List<String> end = decoder.parameters().get("end");
 
-                if (start == null || ((end != null) && end.get(0).isEmpty()) || end == null) {
+                if (start == null || ((end != null) && end.get(0).isEmpty())) {
                     throw new IllegalArgumentException();
                 }
 
                 final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
                 final ByteBuffer to = ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
                 final Iterator<Record> iterator = dao.range(from, to);
-                StreamNettySession session = new StreamNettySession(iterator, ctx, msg);
+                final StreamNettySession session = new StreamNettySession(iterator, ctx, msg);
                 session.startStream();
                 return;
             } catch (IllegalArgumentException | IOException error) {
