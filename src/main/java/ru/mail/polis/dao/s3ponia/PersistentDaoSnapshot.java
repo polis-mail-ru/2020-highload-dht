@@ -25,11 +25,9 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
                         .allocate(
                                 cell.getKey().capacity()
                                         + cell.getValue().getValue().capacity()
-                                        + Long.BYTES /* TIMESTAMP */
                         );
         byteBuffer.put(cell.getKey());
         byteBuffer.put(cell.getValue().getValue());
-        byteBuffer.asLongBuffer().put(cell.getValue().getDeadFlagTimeStamp());
         return hash.hash(byteBuffer.array());
     }
 
@@ -53,16 +51,17 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     }
 
     @Override
-    public MerkleTree merkleTree(final long blocksCount) {
+    public MerkleTree merkleTree(final long blocksCount, final long start, final long end) {
         assert blocksCount > 3;
+        assert end >= start;
         final var blocks = new ArrayList<ArrayList<ICell>>();
-        final var step = Long.MAX_VALUE / blocksCount;
+        final var step = (end - start) / blocksCount;
         for (int i = 0; i < blocksCount; i++) {
             blocks.add(new ArrayList<>());
         }
 
-        iterator().forEachRemaining(c -> {
-            final var hash = longHash(hash(c));
+        range(start, end).forEachRemaining(c -> {
+            final var hash = longHash(hash(c)) - start;
             blocks.get((int) (hash / step)).add(c);
         });
 

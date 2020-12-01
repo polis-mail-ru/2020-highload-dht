@@ -27,15 +27,15 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class HttpSyncableService extends HttpBasicService {
     private static final Logger logger = LoggerFactory.getLogger(HttpEntityService.class);
-    private static final int RANGES_COUNT = 1024;
+    private static final int RANGES_COUNT = 32_768;
     private final HttpEntityEntitiesHandler httpSyncEntityEntitiesService;
     private final DaoService daoService;
     private final Set<String> nodes;
@@ -84,8 +84,21 @@ public class HttpSyncableService extends HttpBasicService {
     }
     
     @Path("/v0/merkleTree")
-    public void merkleTree(@NotNull final HttpSession session) throws IOException {
-        final MerkleTree tree = daoService.snapshot().merkleTree(RANGES_COUNT);
+    public void merkleTree(
+            @Param(value = "start", required = true) final String startParam,
+            @Param(value = "end", required = true) final String endParam,
+            @NotNull final HttpSession session) throws IOException {
+        final long start;
+        final long end;
+        try {
+            start = Long.parseLong(startParam);
+            end = Long.parseLong(endParam);
+        } catch (NumberFormatException e) {
+            logger.error("Error in parsing start({}) and end({})", startParam, endParam, e);
+            session.sendError(Response.BAD_REQUEST, "Error in parsing start and end");
+            return;
+        }
+        final MerkleTree tree = daoService.snapshot().merkleTree(RANGES_COUNT, start, end);
         final var response = new Response(Response.OK);
         final var body = tree.body();
         response.addHeader("Content-Length: " + body.length);
@@ -122,10 +135,12 @@ public class HttpSyncableService extends HttpBasicService {
         Files.delete(pathSave);
     }
     
-    private HttpRequest merkleRequest(@NotNull final String node) {
+    private HttpRequest merkleRequest(@NotNull final String node,
+                                      final long start,
+                                      final long end) {
         try {
             return HttpRequest.newBuilder()
-                           .uri(new URI(node + "/v0/merkleTree"))
+                           .uri(new URI(node + "/v0/merkleTree?start=" + start + "&end=" + end))
                            .timeout(Duration.ofSeconds(1))
                            .GET()
                            .build();
@@ -161,81 +176,75 @@ public class HttpSyncableService extends HttpBasicService {
     }
     
     @Path("/v0/repair")
-    public void repair(@NotNull final HttpSession session) throws IOException {
-        final var snapshot = daoService.snapshot();
+    public void repair(@Param(value = "start") final String startParam,
+                       @Param(value = "end") final String endParam,
+                       @NotNull final HttpSession session) throws IOException {
+        final long start;
+        final long end;
+    
+        try {
+            if (startParam != null) {
+                start = Long.parseLong(startParam);
+            } else {
+                start = 0;
+            }
+            if (endParam != null) {
+                end = Long.parseLong(endParam);
+            } else {
+                end = Long.MAX_VALUE;
+            }
+        } catch (NumberFormatException e) {
+            logger.error("Error in parsing start({}) and end({})", startParam, endParam, e);
+            session.sendError(Response.BAD_REQUEST, "Error in parsing start and end");
+            return;
+        }
         
-        final var tree = snapshot.merkleTree(RANGES_COUNT);
+        final var snapshot = daoService.snapshot();
+    
+        final var tree = snapshot.merkleTree(RANGES_COUNT, start, end);
         final var mismatchedNodes = new MismatchedRanges(tree);
-        final var successCounter = new AtomicInteger(nodes.size() - 1);
-        final var failuresCounter = new AtomicInteger(1);
         
         for (final var node :
                 nodes) {
             if (node.equals("http://localhost:" + port)) {
                 continue;
             }
-            final var request = merkleRequest(node);
-            final var nodeRangesMismatch =
-                    httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
-                            .thenApply(HttpResponse::body)
-                            .thenApply(t -> {
-                                final var merkleTree = new MerkleTree(t);
-                                return mismatchedNodes.mismatchedNodes(merkleTree);
-                            });
-            if (nodeRangesMismatch.whenComplete((a, t) -> {
-                if (t == null) {
-                    final var successArrayCounter = new AtomicInteger(a.size());
-                    a.forEach(r -> {
-                        final var pathSave = relativePath(counter.incrementAndGet() + "_" + r.start() + "_" + r.end() +
-                                                                  ".daoRange");
-                        try {
-                            Files.createFile(pathSave);
-                        } catch (IOException e) {
-                            logger.error("Error in creating file", e);
-                        }
-                        repair(node, r, pathSave).whenComplete((path, th) -> {
-                            try {
-                                if (th == null) {
-                                    daoService.merge(DiskTable.of(path));
-                                    if (successArrayCounter.decrementAndGet() == 0) {
-                                        if (successCounter.decrementAndGet() == 0) {
-                                            session.sendResponse(Response.ok(Response.EMPTY));
-                                        }
-                                    }
-                                } else {
-                                    if (failuresCounter.decrementAndGet() == 0) {
-                                        logger.error("Error in repairing range = ({}; {})", r.start(), r.end(), th);
-                                        session.sendError(Response.INTERNAL_ERROR, "Error in repairing range");
-                                    }
-                                }
-                            } catch (IOException e) {
-                                logger.error("Error in response sending", e);
-                            }
-                        });
-                    });
-                    if (a.isEmpty()) {
-                        try {
-                            session.sendResponse(new Response(Response.OK, Response.EMPTY));
-                        } catch (IOException e) {
-                            logger.error("Error in sending response", e);
-                        }
+            final var request = merkleRequest(node, start, end);
+            try {
+                final var merkleTree = new MerkleTree(
+                        httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray()).body()
+                );
+                final var nodeRangesMismatch = mismatchedNodes.mismatchedNodes(merkleTree);
+                for (final var r :
+                        nodeRangesMismatch) {
+                    java.nio.file.Path pathSave;
+                    do {
+                        pathSave = relativePath(counter.incrementAndGet() + "_" + r.start() + "_" + r.end() +
+                                                        ".daoRange");
+                    } while (Files.exists(pathSave));
+                    try {
+                        Files.createFile(pathSave);
+                    } catch (IOException e) {
+                        logger.error("Error in creating file", e);
+                        session.sendError(Response.INTERNAL_ERROR, "Error in creating file");
+                        return;
                     }
-                } else {
-                    if (failuresCounter.decrementAndGet() == 0) {
-                        logger.error("Error in comparing merkle trees", t);
-                        try {
-                            session.sendError(Response.INTERNAL_ERROR, "Error in comparing merkle trees");
-                        } catch (IOException e) {
-                            logger.error("Error in sending response", e);
-                        }
+                    try {
+                        final var path = repair(node, r, pathSave).get();
+                        daoService.merge(DiskTable.of(path));
+                    } catch (ExecutionException | RuntimeException | DaoOperationException e) {
+                        logger.error("Error in repairing", e);
+                        session.sendError(Response.INTERNAL_ERROR, "Error in repairing");
+                        return;
                     }
                 }
-            }).isCancelled()) {
-                logger.error("Canceled task");
-                session.sendError(Response.INTERNAL_ERROR, "Canceled task");
+            } catch (InterruptedException e) {
+                logger.error("Error in receiving merkle tree from {}", node, e);
+                session.sendError(Response.INTERNAL_ERROR, "Error in receiving merkle tree");
                 return;
             }
         }
+        session.sendResponse(Response.ok(Response.EMPTY));
     }
     
     /**

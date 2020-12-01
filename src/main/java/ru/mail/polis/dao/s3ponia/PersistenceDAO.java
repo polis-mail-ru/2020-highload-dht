@@ -2,10 +2,13 @@ package ru.mail.polis.dao.s3ponia;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DaoSnapshot;
 import ru.mail.polis.dao.Iters;
+import ru.mail.polis.service.s3ponia.DaoOperationException;
 import ru.mail.polis.util.hash.TigerHash;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -22,6 +25,7 @@ import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public final class PersistenceDAO implements DAO {
+    private static final Logger logger = LoggerFactory.getLogger(PersistenceDAO.class);
     private final DiskManager manager;
     private final long maxMemory;
     private static final double THRESHOLD = 0.7;
@@ -70,9 +74,15 @@ public final class PersistenceDAO implements DAO {
         }
 
         this.manager.save(snapshot.memTable.iterator(ByteBuffer.allocate(0)), snapshot.generation);
-
-        final var dest = this.manager.diskTableFromGeneration(snapshot.generation);
-
+    
+        final DiskTable dest;
+        try {
+            dest = this.manager.diskTableFromGeneration(snapshot.generation);
+        } catch (DaoOperationException e) {
+            logger.error("Error in DiskTable's creation", e);
+            throw new IOException("Error in DiskTable's creation", e);
+        }
+    
         readWriteLock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.afterFlush(snapshot.memTable, dest, snapshot.generation);
@@ -188,8 +198,14 @@ public final class PersistenceDAO implements DAO {
 
         this.manager.clear();
         this.manager.save(newest, snapshot.generation);
-        final var dest = this.manager.diskTableFromGeneration(snapshot.generation);
-
+        final DiskTable dest;
+        try {
+            dest = this.manager.diskTableFromGeneration(snapshot.generation);
+        } catch (DaoOperationException e) {
+            logger.error("Error in DiskTable's creation in compact", e);
+            throw new IOException("Error in DiskTable's creation in compact", e);
+        }
+    
         readWriteLock.writeLock().lock();
         try {
             this.tableSet = this.tableSet.afterCompact(snapshot.diskTables, dest, snapshot.generation);

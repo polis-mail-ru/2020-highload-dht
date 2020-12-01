@@ -225,6 +225,14 @@ abstract class ClusterTestBase extends TestBase {
         return client(node).get("/v0/repair");
     }
     
+    Response repair(
+            final int node,
+            final long start,
+            final long end
+    ) throws Exception {
+        return client(node).get("/v0/repair?start=" + start + "&end=" + end);
+    }
+    
     Response upsert(
             final int node,
             @NotNull final String key,

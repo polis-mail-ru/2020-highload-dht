@@ -63,15 +63,6 @@ public class MismatchedRanges {
         return result;
     }
     
-    private boolean isZeroArray(final byte[] a) {
-        for (final var b : a) {
-            if (b != 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-    
     public List<Range> mismatchedNodes(@NotNull final MerkleTree tree) {
         final Queue<MerkleTree.Node> nodeQueue1 = new ArrayDeque<>();
         final Queue<MerkleTree.Node> nodeQueue2 = new ArrayDeque<>();
@@ -86,17 +77,12 @@ public class MismatchedRanges {
             final var hash1 = node1.hash();
             assert node2 != null;
             final var hash2 = node2.hash();
-    
-            final boolean isEqual = Arrays.equals(hash1, hash2);
-            if (node1.isLeaf() && node2.isLeaf()) {
-                if (!isEqual) {
-                    result.add(new Range(node1));
-                } else if (!result.isEmpty() && isZeroArray(hash1)) {
-                    result.add(new Range(node1));
-                }
-            }
             
-            if (!isEqual && !node1.isLeaf() && !node2.isLeaf()) {
+            final boolean isEqual = Arrays.equals(hash1, hash2);
+            
+            if (!isEqual) {
+                result.add(new Range(node1));
+            } else if (!node1.isLeaf() && !node2.isLeaf()) {
                 nodeQueue1.add(node1.left());
                 nodeQueue1.add(node1.right());
                 

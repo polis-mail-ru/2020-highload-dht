@@ -3,6 +3,7 @@ package ru.mail.polis.dao.s3ponia;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.service.s3ponia.DaoOperationException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -238,12 +239,12 @@ public class DiskTable implements Closeable, Table {
         throw new UnsupportedOperationException();
     }
 
-    public static DiskTable of(final Path path) {
+    public static DiskTable of(final Path path) throws DaoOperationException {
         try {
             return new DiskTable(path);
         } catch (IOException e) {
             logger.error("DiskTable init error", e);
-            return new DiskTable();
+            throw new DaoOperationException("Error in disktable creation", e);
         }
     }
 

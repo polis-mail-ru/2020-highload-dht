@@ -1,5 +1,10 @@
 package ru.mail.polis.dao.s3ponia;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ru.mail.polis.service.s3ponia.DaoOperationException;
+import ru.mail.polis.service.s3ponia.HttpEntityService;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -15,6 +20,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class DiskManager implements Closeable {
+    private static final Logger logger = LoggerFactory.getLogger(DiskManager.class);
     static final String META_EXTENSION = ".mdb";
     static final String META_PREFIX = "fzxyGZ9LDM";
     private final Path metaFile;
@@ -88,10 +94,18 @@ public class DiskManager implements Closeable {
         }
 
         fileNames = Files.readAllLines(metaFile);
-        diskTables = fileNames.stream()
-                .map(Paths::get)
-                .map(DiskTable::of)
-                .collect(Collectors.toList());
+        List<DiskTable> list = new ArrayList<>();
+        for (String fileName : fileNames) {
+            Path path = Paths.get(fileName);
+            DiskTable of = null;
+            try {
+                of = DiskTable.of(path);
+                list.add(of);
+            } catch (DaoOperationException e) {
+                logger.error("Error in DiskTable's creation", e);
+            }
+        }
+        diskTables = list;
         setSeed();
     }
 
@@ -104,7 +118,7 @@ public class DiskManager implements Closeable {
         Files.createFile(metaFile);
     }
 
-    DiskTable diskTableFromGeneration(final int generation) {
+    DiskTable diskTableFromGeneration(final int generation) throws DaoOperationException {
         final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         return DiskTable.of(filePath);
     }
