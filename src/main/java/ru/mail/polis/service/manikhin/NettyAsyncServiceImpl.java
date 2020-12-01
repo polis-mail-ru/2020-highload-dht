@@ -41,7 +41,7 @@ public class NettyAsyncServiceImpl implements Service {
     }
 
     @Override
-    public void start() throws InterruptedException {
+    public void start() {
         Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
 
         try {
@@ -55,6 +55,7 @@ public class NettyAsyncServiceImpl implements Service {
 
         } catch (InterruptedException error) {
             log.error("Interrupted error: ", error);
+            Thread.currentThread().interrupt();
         }
     }
 
