@@ -68,7 +68,7 @@ public class RangeRequestHelper {
     }
 
     void runProxied(final ByteBuffer start, final ByteBuffer end,
-                    final StreamingSession streamSession, Context context) throws IOException {
+                    final StreamingSession streamSession, final Context context) throws IOException {
         context.setRangeStart(start);
         context.setRangeEnd(end);
         context.setStreamingSession(streamSession);
@@ -119,7 +119,8 @@ public class RangeRequestHelper {
     }
 
     private void workOnTheNode(final Context context,
-                               final Iterator<String> nodes, final List<Iterator<Record>> iterators) throws IOException {
+                               final Iterator<String> nodes,
+                               final List<Iterator<Record>> iterators) throws IOException {
         Iterator<Record> iterator;
         try {
             iterator = dao.range(context.getRangeStart(), context.getRangeEnd());

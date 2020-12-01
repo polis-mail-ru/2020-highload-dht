@@ -95,8 +95,8 @@ public class MySimpleHttpServer extends HttpServer implements Service {
             if (topology.isMe(node)) {
                 continue;
             }
-            final StreamHttpClient client = new StreamHttpClient(new ConnectionString(node + "?timeout=1000"));
-            if (pool.put(node, client) != null) {
+            final StreamHttpClient streamClient = new StreamHttpClient(new ConnectionString(node + "?timeout=1000"));
+            if (pool.put(node, streamClient) != null) {
                 throw new IllegalStateException("Duplicate node");
             }
         }
@@ -170,7 +170,6 @@ public class MySimpleHttpServer extends HttpServer implements Service {
         final Context context = new Context(session, isProxy, request, null);
         executorService.execute(() -> {
             rangeRequestHelper.parseRequest(startRange, endRange, context);
-//            requestHelper.workRangeRequest(session, startRange, endRange, clientExecutor);
         });
     }
 

@@ -95,7 +95,8 @@ public class StreamHttpClient extends HttpClient {
             }
 
             response = new Response(responseHeader.substring(9));
-            for (String header; !(header = readLine()).isEmpty(); ) {
+            for (String header; !readLine().isEmpty(); ) {
+                header = readLine();
                 response.addHeader(header);
             }
 
@@ -154,8 +155,8 @@ public class StreamHttpClient extends HttpClient {
 
         private String readLine() throws IOException, HttpException {
             final byte[] buffer = this.buf;
-            int position = this.pos;
-            final int lineStart = position;
+            final int lineStart = this.pos;
+            int position = lineStart;
 
             do {
                 if (position == length) {

@@ -25,8 +25,8 @@ public class ConsistentTopology implements Topology<String> {
         nodes.forEach(node -> addNode(node, nodesNumber));
     }
 
-    private void addNode(final String node, final int vNodeCount) {
-        for (var i = 0; i < vNodeCount; i++) {
+    private void addNode(final String node, final int nodeCount) {
+        for (var i = 0; i < nodeCount; i++) {
             final StringBuilder vnode = new StringBuilder(node);
             vnode.append(i);
             int hashFunction = Hash.murmur3(vnode.toString());

@@ -46,8 +46,7 @@ public class StreamingSession extends HttpSession {
 
     private synchronized void pushNext() throws IOException {
         while (recordIterator.hasNext() && queueHead == null) {
-            Record record = recordIterator.next();
-            MySimpleHttpServer.log.info("Record" + record.getValue());
+            final Record record = recordIterator.next();
             final byte[] data = makeChunk(record);
             write(data, 0, data.length);
         }
