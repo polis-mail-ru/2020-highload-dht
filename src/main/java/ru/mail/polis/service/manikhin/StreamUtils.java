@@ -3,7 +3,7 @@ package ru.mail.polis.service.manikhin;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-public class StreamUtils {
+public final class StreamUtils {
     private static final byte[] LF = "\n".getBytes(StandardCharsets.UTF_8);
     private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
     private static final byte [] END_CHUNK_DATA = new byte[0];
