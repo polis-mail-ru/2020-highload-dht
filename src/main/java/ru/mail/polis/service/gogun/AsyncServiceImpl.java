@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static ru.mail.polis.service.gogun.Entry.toProxyResponse;
+import static ru.mail.polis.service.gogun.ServiceUtils.poxiedResponse;
 import static ru.mail.polis.service.gogun.ServiceUtils.requestForRepl;
 
 public class AsyncServiceImpl extends HttpServer implements Service {
@@ -123,20 +123,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
 
         if (request.getHeader(PROXY_HEADER) != null) {
-            switch (request.getMethod()) {
-                case Request.METHOD_PUT:
-                    session.sendResponse(ServiceUtils.handlePut(key, request, dao));
-                    break;
-                case Request.METHOD_DELETE:
-                    session.sendResponse(ServiceUtils.handleDel(key, dao));
-                    break;
-                case Request.METHOD_GET:
-                    session.sendResponse(toProxyResponse(ServiceUtils.handleGet(key, dao)));
-                    break;
-                default:
-                    session.sendResponse(new Response(Response.INTERNAL_ERROR, Response.EMPTY));
-                    break;
-            }
+            poxiedResponse(request, key, dao, session);
             return;
         }
 
@@ -167,8 +154,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         }
         if (request.getMethod() == Request.METHOD_GET) {
             final List<CompletableFuture<Entry>> responsesFutureGet = replNodes.stream()
-                    .map(node -> ServiceUtils.proxyGet(node, request, topology, client,
-                            dao, executorService))
+                    .map(node -> proxyGet(node, request))
                     .collect(Collectors.toList());
             ServiceUtils.getCompletableFutureGetResponses(
                     responsesFutureGet,
@@ -187,6 +173,19 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     executorService);
         }
 
+    }
+
+    private CompletableFuture<Entry> proxyGet(final String node, final Request request) {
+        final String id = request.getParameter("id=");
+        final ByteBuffer key = ServiceUtils.getBuffer(id.getBytes(UTF_8));
+
+        if (topology.isMe(node)) {
+            return CompletableFuture.supplyAsync(() -> ServiceUtils.handleGet(key, dao), executorService);
+        }
+
+        final HttpRequest requestForReplica = requestForRepl(node, id).GET().build();
+        return client.sendAsync(requestForReplica, GetBodyHandler.INSTANCE)
+                .thenApplyAsync(HttpResponse::body, executorService);
     }
 
     private CompletableFuture<Response> proxyDeletePut(final String node, final Request request) {
@@ -244,7 +243,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
         try {
             execute(id, session, request);
         } catch (RejectedExecutionException e) {
-            ServiceUtils.sendServiceUnavailable(session, log);
+            ServiceUtils.sendServiceUnavailable(session);
         }
     }
 

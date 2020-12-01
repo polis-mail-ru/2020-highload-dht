@@ -48,7 +48,7 @@ public class ConsistentHashing implements Hashing<String> {
 
     private void add(final String node) {
         for (int i = 0; i < vnodes; ++i) {
-            StringBuilder stringToHash = new StringBuilder(node + i);
+            final StringBuilder stringToHash = new StringBuilder(node + i);
             int hashCode = Hash.murmur3(stringToHash.toString());
             while (circle.containsKey(hashCode)) {
                 stringToHash.append(i);
