@@ -18,21 +18,7 @@ import static ru.mail.polis.util.Utility.fromByteArray;
 public class PersistentDaoSnapshot implements DaoSnapshot {
     private final TableSet tableSet;
     private final ConcatHash hash;
-
-    private byte[] hash(@NotNull final ICell cell) {
-        final var byteBuffer =
-                ByteBuffer
-                        .allocate(
-                                cell.getKey().capacity()
-                                        + cell.getValue().getValue().capacity()
-                                        + Long.BYTES /* TIMESTAMP */
-                        );
-        byteBuffer.put(cell.getKey());
-        byteBuffer.put(cell.getValue().getValue());
-        byteBuffer.asLongBuffer().put(cell.getValue().getDeadFlagTimeStamp());
-        return hash.hash(byteBuffer.array());
-    }
-
+    
     private long longHash(@NotNull final byte[] hashArray) {
         return fromByteArray(hashArray, 0, Long.BYTES) & Long.MAX_VALUE;
     }
@@ -53,21 +39,22 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     }
 
     @Override
-    public MerkleTree merkleTree(final long blocksCount) {
+    public MerkleTree merkleTree(final long blocksCount, final long start, final long end) {
         assert blocksCount > 3;
+        assert end >= start;
         final var blocks = new ArrayList<ArrayList<ICell>>();
-        final var step = Long.MAX_VALUE / blocksCount;
+        final var step = (end - start) / blocksCount;
         for (int i = 0; i < blocksCount; i++) {
             blocks.add(new ArrayList<>());
         }
 
-        iterator().forEachRemaining(c -> {
-            final var hash = longHash(hash(c));
-            blocks.get((int) (hash / step)).add(c);
+        range(start, end).forEachRemaining(c -> {
+            final var hashValue = longHash(hashCode(c)) - start;
+            blocks.get((int) (hashValue / step)).add(c);
         });
 
         final var leaves = new ArrayList<byte[]>();
-        blocks.forEach(a -> leaves.add(hash(a.iterator())));
+        blocks.forEach(a -> leaves.add(hashCode(a.iterator())));
 
         return new MerkleTree(leaves, new TigerHash());
     }
@@ -75,25 +62,37 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     @Override
     public Iterator<ICell> range(final long start, final long end) {
         return Iterators.filter(iterator(), c -> {
-            final var hash = longHash(hash(c));
-            return hash >= start && hash <= end;
+            final var hashValue = longHash(hashCode(c));
+            return hashValue >= start && hashValue <= end;
         });
     }
 
-    private byte[] hash(final Iterator<ICell> iterator) {
+    private byte[] hashCode(final Iterator<ICell> iterator) {
         var accumulateValue = new byte[hash.hashSize()];
 
         while (iterator.hasNext()) {
-            accumulateValue = hash.combine(accumulateValue, hash(iterator.next()));
+            accumulateValue = hash.combine(accumulateValue, hashCode(iterator.next()));
         }
 
         return accumulateValue;
     }
-
+    
+    private byte[] hashCode(@NotNull final ICell cell) {
+        final var byteBuffer =
+                ByteBuffer
+                        .allocate(
+                                cell.getKey().capacity()
+                                        + cell.getValue().getValue().capacity()
+                        );
+        byteBuffer.put(cell.getKey());
+        byteBuffer.put(cell.getValue().getValue());
+        return hash.hash(byteBuffer.array());
+    }
+    
     @Override
-    public byte[] hash(final long start, final long end) {
+    public byte[] hashCode(final long start, final long end) {
         final var iterator = range(start, end);
-        return hash(iterator);
+        return hashCode(iterator);
     }
 
     @Override

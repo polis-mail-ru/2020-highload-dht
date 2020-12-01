@@ -10,10 +10,16 @@ import java.io.RandomAccessFile;
 import java.nio.file.Path;
 
 public class ResponseFileSession extends StreamingSession {
-    public ResponseFileSession(@NotNull Socket socket, @NotNull HttpServer server) {
+    public ResponseFileSession(@NotNull final Socket socket,
+                               @NotNull final HttpServer server) {
         super(socket, server);
     }
-
+    
+    /**
+     * Sends file directly to socket with http's headers.
+     * @param sendFile file's {@link Path}
+     * @throws IOException rethrows from {@link Socket#sendFile}
+     */
     public void responseFile(@NotNull final Path sendFile) throws IOException {
         final var file = sendFile.toFile();
         final var randomAccessFile = new RandomAccessFile(file, "r");

@@ -8,7 +8,7 @@ import java.util.NoSuchElementException;
 public class LimitIterator<T> implements Iterator<T> {
     final Iterator<T> iterator;
     final long size;
-    long count = 0;
+    long count;
     T next;
 
     private void goNext() {

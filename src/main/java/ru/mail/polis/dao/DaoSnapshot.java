@@ -9,11 +9,14 @@ import java.util.Iterator;
 
 public interface DaoSnapshot {
     /**
-     * Constructs MerkleTree with given leaves' count.
+     * Constructs MerkleTree with given leaves' count within given range.
+     * Start have to be less than or equal to end.
      * @param blocksCount ranges' count. Must be > 3
+     * @param start range's start
+     * @param end range's end
      * @return a {@code MerkleTree}
      */
-    MerkleTree merkleTree(final long blocksCount);
+    MerkleTree merkleTree(final long blocksCount, long start, long end);
 
     /**
      * Provides iterator over records that fits in hash range from start to end.
@@ -29,7 +32,7 @@ public interface DaoSnapshot {
      * @param end maximum hash to fit in range
      * @return a {@code byte[]}
      */
-    byte[] hash(final long start, final long end);
+    byte[] hashCode(final long start, final long end);
 
     /**
      * Saves snapshot to given path.

@@ -16,15 +16,15 @@ import java.util.TreeMap;
 public final class TableSet {
     @NotNull
     public Set<Table> flushingTables;
-
+    
     @NotNull
     public final NavigableMap<Integer, Table> diskTables;
-
+    
     @NotNull
     public Table memTable;
-
+    
     public final int generation;
-
+    
     /**
      * Constructor {link TableSet}.
      *
@@ -45,7 +45,7 @@ public final class TableSet {
                 Collections.unmodifiableNavigableMap(diskTableCollection);
         this.generation = generation;
     }
-
+    
     /**
      * Provides iterator (possibly empty) over {@link ICell}s starting at "from" key (inclusive)
      * in <b>ascending</b> order according to {@link ICell#compareTo(ICell)}.
@@ -58,7 +58,7 @@ public final class TableSet {
         final var merge = Iterators.mergeSorted(diskIterators, ICell::compareTo);
         return Iters.collapseEquals(merge, ICell::getKey);
     }
-
+    
     /**
      * Set current table to flushing.
      *
@@ -73,7 +73,7 @@ public final class TableSet {
                 diskTables,
                 this.generation + 1);
     }
-
+    
     /**
      * Set flushing table to flushed.
      *
@@ -99,7 +99,24 @@ public final class TableSet {
         }
         return new TableSet(this.memTable, tablesToFlush, newDiskTables, this.generation);
     }
-
+    
+    /**
+     * Creates {@link TableSet} with added new {@link Table}.
+     * @param table new {@link Table}
+     * @return a {@link TableSet}
+     */
+    @NotNull
+    public TableSet addTable(
+            @NotNull final Table table) {
+        final NavigableMap<Integer, Table> newDiskTables =
+                new TreeMap<>(this.diskTables);
+        if (newDiskTables.put(generation, table) != null) {
+            throw new IllegalStateException("table have already have this table!");
+        }
+        
+        return new TableSet(this.memTable, this.flushingTables, newDiskTables, this.generation + 1);
+    }
+    
     /**
      * Complete compaction.
      *
@@ -125,7 +142,7 @@ public final class TableSet {
         }
         return new TableSet(new MemTable(this.generation), this.flushingTables, newDiskTables, this.generation);
     }
-
+    
     /**
      * Mark as compact start.
      *

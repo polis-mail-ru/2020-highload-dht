@@ -47,19 +47,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 abstract class ClusterTestBase extends TestBase {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
     private final Map<String, HttpClient> hostToClient = new HashMap<>();
-
+    
     private String[] nodes;
     private int[] ports;
     private File[] datas;
     private DAO[] daos;
     private Service[] services;
     private Set<String> endpoints;
-
+    
     @NotNull
     private static String path(@NotNull final String id) {
         return "/v0/entity?id=" + id;
     }
-
+    
     @NotNull
     private static String path(
             @NotNull final String id,
@@ -67,11 +67,11 @@ abstract class ClusterTestBase extends TestBase {
             final int from) {
         return path(id) + "&replicas=" + ack + "/" + from;
     }
-
+    
     @BeforeEach
     void beforeEach() throws Exception {
         final int size = getClusterSize();
-
+        
         // Allocate structures
         nodes = new String[size];
         ports = new int[size];
@@ -79,7 +79,7 @@ abstract class ClusterTestBase extends TestBase {
         daos = new DAO[size];
         services = new Service[size];
         endpoints = new HashSet<>(size);
-
+        
         // Choose ports and build topology
         for (int i = 0; i < size; i++) {
             int port;
@@ -90,7 +90,7 @@ abstract class ClusterTestBase extends TestBase {
             nodes[i] = endpoint(ports[i]);
             endpoints.add(nodes[i]);
         }
-
+        
         // Initialize and start each node
         for (int i = 0; i < size; i++) {
             datas[i] = Files.createTempDirectory();
@@ -98,14 +98,14 @@ abstract class ClusterTestBase extends TestBase {
             createAndStart(i);
         }
     }
-
+    
     @AfterEach
     void afterEach() throws IOException {
         for (int i = 0; i < getClusterSize(); i++) {
             if (services[i] == null) {
                 continue;
             }
-
+            
             stop(i);
             daos[i].close();
             daos[i] = null;
@@ -114,13 +114,13 @@ abstract class ClusterTestBase extends TestBase {
         }
         endpoints.clear();
     }
-
+    
     abstract int getClusterSize();
-
+    
     void waitForVersionAdvancement() throws Exception {
         Thread.sleep(10);
     }
-
+    
     @NotNull
     private HttpClient client(final int node) {
         final String endpoint = nodes[node];
@@ -128,7 +128,7 @@ abstract class ClusterTestBase extends TestBase {
                 endpoint,
                 key -> new HttpClient(new ConnectionString(key + "?timeout=" + TIMEOUT.dividedBy(2).toMillis())));
     }
-
+    
     private void resetClient(final int node) {
         final String endpoint = nodes[node];
         final HttpClient client = hostToClient.remove(endpoint);
@@ -136,12 +136,12 @@ abstract class ClusterTestBase extends TestBase {
             client.close();
         }
     }
-
+    
     @NotNull
     Service service(final int node) {
         return services[node];
     }
-
+    
     void restartAllNodes() throws Exception {
         for (int i = 0; i < getClusterSize(); i++) {
             if (services[i] != null) {
@@ -150,18 +150,18 @@ abstract class ClusterTestBase extends TestBase {
             createAndStart(i);
         }
     }
-
+    
     void stop(final int node) {
         resetClient(node);
         service(node).stop();
         services[node] = null;
     }
-
+    
     void createAndStart(final int node) throws Exception {
         assert services[node] == null;
         services[node] = ServiceFactory.create(ports[node], daos[node], endpoints);
         services[node].start();
-
+        
         // Wait for the server to answer
         final long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(1);
         while (System.currentTimeMillis() < deadline) {
@@ -175,13 +175,13 @@ abstract class ClusterTestBase extends TestBase {
         }
         throw new RuntimeException("Can't wait for the service");
     }
-
+    
     Response get(
             final int node,
             @NotNull final String key) throws Exception {
         return client(node).get(path(key));
     }
-
+    
     void checkResponse(
             final int expectedStatus,
             final byte[] expectedBody,
@@ -189,7 +189,7 @@ abstract class ClusterTestBase extends TestBase {
         assertEquals(expectedStatus, response.getStatus());
         assertArrayEquals(expectedBody, response.getBody());
     }
-
+    
     Response get(
             final int node,
             @NotNull final String key,
@@ -197,13 +197,13 @@ abstract class ClusterTestBase extends TestBase {
             final int from) throws Exception {
         return client(node).get(path(key, ack, from));
     }
-
+    
     Response delete(
             final int node,
             @NotNull final String key) throws Exception {
         return client(node).delete(path(key));
     }
-
+    
     Response delete(
             final int node,
             @NotNull final String key,
@@ -211,14 +211,28 @@ abstract class ClusterTestBase extends TestBase {
             final int from) throws Exception {
         return client(node).delete(path(key, ack, from));
     }
-
+    
     Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
         return client(node).put(path(key), data);
     }
-
+    
+    Response repair(
+            final int node
+    ) throws Exception {
+        return client(node).get("/v0/repair");
+    }
+    
+    Response repair(
+            final int node,
+            final long start,
+            final long end
+    ) throws Exception {
+        return client(node).get("/v0/repair?repairStart=" + start + "&repairEnd=" + end);
+    }
+    
     Response upsert(
             final int node,
             @NotNull final String key,

@@ -26,19 +26,22 @@ import java.util.stream.Collectors;
 
 public class ReplicatedService implements HttpEntityEntitiesHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReplicatedService.class);
-    final AsyncService asyncService;
-    final ShardingPolicy<ByteBuffer, String> policy;
-    final HttpClient httpClient;
+    protected final AsyncService asyncService;
+    protected final DaoService daoService;
+    protected final ShardingPolicy<ByteBuffer, String> policy;
+    protected final HttpClient httpClient;
 
     /**
      * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
-     *
-     * @param service {@link HttpEntityHandler} base service for proxy handle
+     *  @param service {@link HttpEntityHandler} base service for proxy handle
+     * @param daoService {@link DaoService} service for interacting with dao
      * @param policy  {@link ShardingPolicy} replica policy
      */
     public ReplicatedService(@NotNull final AsyncService service,
+                             @NotNull final DaoService daoService,
                              @NotNull final ShardingPolicy<ByteBuffer, String> policy) {
         this.asyncService = service;
+        this.daoService = daoService;
         this.policy = policy;
         final var executor = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),

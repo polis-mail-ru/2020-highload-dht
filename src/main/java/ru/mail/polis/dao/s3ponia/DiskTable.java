@@ -3,6 +3,7 @@ package ru.mail.polis.dao.s3ponia;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.service.s3ponia.DaoOperationException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -157,21 +158,17 @@ public class DiskTable implements Closeable, Table {
         return new LazyCell(position, size);
     }
 
-    /**
-     * DiskTable default constructor.
-     */
-    public DiskTable() {
-        shifts = null;
-        filePath = null;
-        fileChannel = null;
-        generation = 0;
-    }
-
-    public DiskTable(final Path path) throws IOException {
+    private DiskTable(final Path path) throws IOException {
         fileChannel = FileChannel.open(path, StandardOpenOption.READ);
         filePath = path;
         final var fileName = path.getFileName().toString();
-        generation = Integer.parseInt(fileName.substring(0, fileName.length() - 3));
+        int gen;
+        try {
+            gen = Integer.parseInt(fileName.substring(0, fileName.length() - 3));
+        } catch (NumberFormatException e) {
+            gen = -1;
+        }
+        generation = gen;
         final long size = fileChannel.size();
         final var buffSize = ByteBuffer.allocate(Integer.BYTES);
         fileChannel.read(buffSize, size - Integer.BYTES);
@@ -231,13 +228,19 @@ public class DiskTable implements Closeable, Table {
                                     final long timeStamp) {
         throw new UnsupportedOperationException();
     }
-
-    public static DiskTable of(final Path path) {
+    
+    /**
+     * Creates a new {@link DiskTable} within given file.
+     * @param path file's {@link Path}
+     * @return a {@link DiskTable}
+     * @throws DaoOperationException throws on {@link IOException}
+     */
+    public static DiskTable of(final Path path) throws DaoOperationException {
         try {
             return new DiskTable(path);
         } catch (IOException e) {
             logger.error("DiskTable init error", e);
-            return new DiskTable();
+            throw new DaoOperationException("Error in disktable creation", e);
         }
     }
 

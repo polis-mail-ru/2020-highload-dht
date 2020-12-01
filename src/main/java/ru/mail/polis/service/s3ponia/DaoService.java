@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DaoSnapshot;
+import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.session.StreamingSession;
 import ru.mail.polis.util.MapIterator;
@@ -14,6 +15,7 @@ import ru.mail.polis.util.Utility;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Iterator;
 
 public class DaoService implements Closeable, HttpEntitiesHandler {
@@ -84,7 +86,15 @@ public class DaoService implements Closeable, HttpEntitiesHandler {
         resp.addHeader(Utility.DEADFLAG_TIMESTAMP_HEADER + ": " + v.getDeadFlagTimeStamp());
         return resp;
     }
-
+    
+    /**
+     * Merges existing table to dao.
+     * @param table a {@link Table}
+     */
+    public void merge(@NotNull final Table table) {
+        dao.merge(table);
+    }
+    
     @Override
     public void close() throws IOException {
         dao.close();
@@ -102,9 +112,16 @@ public class DaoService implements Closeable, HttpEntitiesHandler {
     public DaoSnapshot snapshot() {
         return dao.snapshot();
     }
+    
+    public Path tempFile() throws IOException {
+        return dao.tempFile();
+    }
 
     @Override
-    public void entities(String start, String end, StreamingSession session) throws IOException {
+    public void entities(
+            final String start,
+            final String end,
+            @NotNull final StreamingSession session) throws IOException {
         Iterator<StreamingValue> streamIterator;
 
         if (end == null) {
