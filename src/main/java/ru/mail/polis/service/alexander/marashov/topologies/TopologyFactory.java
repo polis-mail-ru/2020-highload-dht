@@ -4,7 +4,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
 
-public class TopologyFactory {
+public final class TopologyFactory {
 
     private TopologyFactory() {
         // Not instantiatable

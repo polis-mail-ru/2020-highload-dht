@@ -102,8 +102,7 @@ public class RendezvousTopology implements Topology<String> {
             final int offset = key.arrayOffset();
             assert offset == 0;
             final String stringToHash = new String(key.array(), Charsets.UTF_8) + node;
-            final int hashCode = Hashing.murmur3_32().hashString(stringToHash, Charsets.UTF_8).asInt();
-            this.hashCode = hashCode;
+            this.hashCode = Hashing.murmur3_32().hashString(stringToHash, Charsets.UTF_8).asInt();
         }
 
         @NotNull
