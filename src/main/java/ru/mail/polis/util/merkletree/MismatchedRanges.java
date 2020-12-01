@@ -1,7 +1,6 @@
-package ru.mail.polis.service.s3ponia;
+package ru.mail.polis.util.merkletree;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.util.merkletree.MerkleTree;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -43,7 +42,7 @@ public class MismatchedRanges {
         this.rangesCount = tree.root().maxValueIndex();
     }
     
-    public List<Range> compact(@NotNull final List<Range> misMatches) {
+    private List<Range> compact(@NotNull final List<Range> misMatches) {
         if (misMatches.isEmpty()) {
             return misMatches;
         }
@@ -63,6 +62,11 @@ public class MismatchedRanges {
         return result;
     }
     
+    /**
+     * Compares with given {@link MerkleTree} and constructs a {@link List} of mismatched {@link Range}s.
+     * @param tree {@link MerkleTree}
+     * @return a {@code List<Range>}
+     */
     public List<Range> mismatchedNodes(@NotNull final MerkleTree tree) {
         final Queue<MerkleTree.Node> nodeQueue1 = new ArrayDeque<>();
         final Queue<MerkleTree.Node> nodeQueue2 = new ArrayDeque<>();

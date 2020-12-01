@@ -23,7 +23,6 @@ import ru.mail.polis.service.s3ponia.DaoService;
 import ru.mail.polis.service.s3ponia.HttpSyncableService;
 import ru.mail.polis.service.s3ponia.ModularPolicy;
 import ru.mail.polis.service.s3ponia.RepairableReplicatedService;
-import ru.mail.polis.service.s3ponia.ReplicatedService;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

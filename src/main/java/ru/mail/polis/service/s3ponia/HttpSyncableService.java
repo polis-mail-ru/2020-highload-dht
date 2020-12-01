@@ -52,13 +52,21 @@ public class HttpSyncableService extends HttpBasicService {
     }
     
     private java.nio.file.Path rootDirectory() {
-        return Paths.get("" + port);
+        return Paths.get(Long.toString(port));
     }
     
     private java.nio.file.Path relativePath(final String s) {
         return Paths.get(rootDirectory().toAbsolutePath().toString(), s);
     }
     
+    /**
+     * Constructs and response a {@link MerkleTree} of given range.
+     *
+     * @param startParam range's start
+     * @param endParam   range's end
+     * @param session    {@link HttpSession}
+     * @throws IOException rethrows from {@link HttpSession#sendResponse}
+     */
     @Path("/v0/merkleTree")
     public void merkleTree(
             @Param(value = "start", required = true) final String startParam,
@@ -82,6 +90,15 @@ public class HttpSyncableService extends HttpBasicService {
         session.sendResponse(response);
     }
     
+    /**
+     * Constructs and response a file of given range.
+     *
+     * @param start   range's start
+     * @param end     range's end
+     * @param request {@link Request}
+     * @param session {@link HttpSession}
+     * @throws IOException rethrows from {@link HttpSession#sendResponse}
+     */
     @Path("/v0/syncRange")
     public void sync(@Param(value = "start", required = true) final String start,
                      @Param(value = "end", required = true) final String end,
@@ -94,8 +111,8 @@ public class HttpSyncableService extends HttpBasicService {
         
         final var snapshot = daoService.snapshot();
         final var pathSave =
-                relativePath(counter.incrementAndGet() +
-                                     request.getHeader(Proxy.PROXY_HEADER + ": ").substring(7) + "-"
+                relativePath(counter.incrementAndGet()
+                                     + request.getHeader(Proxy.PROXY_HEADER + ": ").substring(7) + "-"
                                      + start + "-" + end + ".back");
         Files.createFile(pathSave);
         
@@ -111,6 +128,13 @@ public class HttpSyncableService extends HttpBasicService {
         Files.delete(pathSave);
     }
     
+    /**
+     * Repairs mismatched values in given range within dao.
+     * @param startParam range's start
+     * @param endParam range's end
+     * @param session {@link HttpSession}
+     * @throws IOException rethrows from {@link HttpSession#sendResponse}
+     */
     @Path("/v0/repair")
     public void repair(@Param(value = "start") final String startParam,
                        @Param(value = "end") final String endParam,
@@ -118,15 +142,15 @@ public class HttpSyncableService extends HttpBasicService {
         final long start;
         final long end;
         try {
-            if (startParam != null) {
-                start = Long.parseLong(startParam);
-            } else {
+            if (startParam == null) {
                 start = 0;
-            }
-            if (endParam != null) {
-                end = Long.parseLong(endParam);
             } else {
+                start = Long.parseLong(startParam);
+            }
+            if (endParam == null) {
                 end = Long.MAX_VALUE;
+            } else {
+                end = Long.parseLong(endParam);
             }
         } catch (NumberFormatException e) {
             logger.error("Error in parsing start({}) and end({})", startParam, endParam, e);

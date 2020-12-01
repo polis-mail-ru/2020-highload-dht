@@ -5,5 +5,6 @@ import ru.mail.polis.util.merkletree.MerkleTree;
 
 public interface RepairableService {
     Response repair(final long start, final long end);
+    
     MerkleTree merkleTree(final long start, final long end);
 }

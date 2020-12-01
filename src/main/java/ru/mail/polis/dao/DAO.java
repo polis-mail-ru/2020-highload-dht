@@ -19,6 +19,7 @@ package ru.mail.polis.dao;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.s3ponia.DiskTable;
 import ru.mail.polis.dao.s3ponia.ICell;
 import ru.mail.polis.dao.s3ponia.Table;
 import ru.mail.polis.dao.s3ponia.Value;
@@ -163,10 +164,11 @@ public interface DAO extends Closeable {
     }
     
     /**
-     * Constructs recent snapshot of Dao.
-     * @return a {@code DaoSnapshot}
+     * Creates a temporary file within dao directory without creating {@link DiskTable}
+     * @return a {@code Path}
+     * @throws IOException throw on exception in files' manipulations
      */
-    default Path tempFile() {
+    default Path tempFile() throws IOException {
         throw new UnsupportedOperationException();
     }
 }

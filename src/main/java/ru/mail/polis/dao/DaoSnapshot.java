@@ -32,7 +32,7 @@ public interface DaoSnapshot {
      * @param end maximum hash to fit in range
      * @return a {@code byte[]}
      */
-    byte[] hash(final long start, final long end);
+    byte[] hashCode(final long start, final long end);
 
     /**
      * Saves snapshot to given path.

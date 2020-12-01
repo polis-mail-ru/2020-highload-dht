@@ -24,7 +24,14 @@ public final class Utility {
     public static boolean invalid(@NotNull final String id) {
         return id.isEmpty();
     }
-
+    
+    /**
+     * Constructs long from subarray of {@code byte[]} with given offset and size.
+     * @param in parent array
+     * @param offset subarray's offset
+     * @param size subarray's size
+     * @return a {@code long}
+     */
     public static long fromByteArray(final byte[] in, final int offset, final int size) {
         if (size != Long.BYTES) {
             throw new IllegalArgumentException("Byte arrays is not the same size as Long");

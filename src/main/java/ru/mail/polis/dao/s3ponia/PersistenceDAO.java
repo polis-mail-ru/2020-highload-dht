@@ -244,7 +244,7 @@ public final class PersistenceDAO implements DAO {
     }
     
     @Override
-    public Path tempFile() {
+    public Path tempFile() throws IOException {
         return manager.uniqueFile(tableSet.generation + 1);
     }
 }

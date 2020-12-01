@@ -113,12 +113,15 @@ public class DaoService implements Closeable, HttpEntitiesHandler {
         return dao.snapshot();
     }
     
-    public Path tempFile() {
+    public Path tempFile() throws IOException {
         return dao.tempFile();
     }
 
     @Override
-    public void entities(String start, String end, StreamingSession session) throws IOException {
+    public void entities(
+            final String start,
+            final String end,
+            @NotNull final StreamingSession session) throws IOException {
         Iterator<StreamingValue> streamIterator;
 
         if (end == null) {

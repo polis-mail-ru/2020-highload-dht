@@ -100,6 +100,11 @@ public final class TableSet {
         return new TableSet(this.memTable, tablesToFlush, newDiskTables, this.generation);
     }
     
+    /**
+     * Creates {@link TableSet} with added new {@link Table}.
+     * @param table new {@link Table}
+     * @return a {@link TableSet}
+     */
     @NotNull
     public TableSet addTable(
             @NotNull final Table table) {

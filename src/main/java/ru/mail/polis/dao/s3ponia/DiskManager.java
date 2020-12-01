@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -93,10 +94,10 @@ public class DiskManager implements Closeable {
         }
 
         fileNames = Files.readAllLines(metaFile);
-        List<DiskTable> list = new ArrayList<>();
-        for (String fileName : fileNames) {
-            Path path = Paths.get(fileName);
-            DiskTable of = null;
+        final List<DiskTable> list = new ArrayList<>();
+        for (final String fileName : fileNames) {
+            final Path path = Paths.get(fileName);
+            final DiskTable of;
             try {
                 of = DiskTable.of(path);
                 list.add(of);
@@ -128,7 +129,13 @@ public class DiskManager implements Closeable {
             writer.write(fileName + "\n");
         }
     }
-
+    
+    /**
+     * Saves {@link ICell}s in given {@code Iterator<ICell>} on disk.
+     * @param it {@code Iterator<ICell>}
+     * @param generation {@link ICell}s' generation.
+     * @throws IOException rethrows from
+     */
     public void save(final Iterator<ICell> it, final int generation) throws IOException {
         final var filePath = Paths.get(metaFile.getParent().toString(), getName(generation) + TABLE_EXTENSION);
         final var fileName = filePath.toString();
@@ -136,8 +143,16 @@ public class DiskManager implements Closeable {
         saveTo(it, filePath);
     }
     
-    public Path uniqueFile(final long generation) {
-        return Paths.get(metaFile.getParent().toAbsolutePath().toString(), generation + UNIQUE_EXTENSION);
+    /**
+     * Creates file from given generation.
+     * @param generation generation
+     * @return created file
+     * @throws IOException rethrow from {@link Files#createFile}
+     */
+    public Path uniqueFile(final long generation) throws IOException {
+        final var path = Paths.get(metaFile.getParent().toAbsolutePath().toString(), generation + UNIQUE_EXTENSION);
+        Files.createFile(path);
+        return path;
     }
 
     int getGeneration() {

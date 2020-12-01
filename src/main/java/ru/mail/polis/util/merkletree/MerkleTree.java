@@ -21,6 +21,11 @@ public class MerkleTree {
             return 2 * offset / leafSize() + 1 >= tree.length / leafSize();
         }
         
+        /**
+         * Calculates hash from current node.
+         *
+         * @return a {@code byte[]}
+         */
         public byte[] hash() {
             if (offset >= tree.length || offset < 0 || offset % leafSize() != 0) {
                 throw new IllegalStateException("Leaf is outside of tree");
@@ -42,6 +47,11 @@ public class MerkleTree {
             return new Node((offset / leafSize() * 2 + 2) * leafSize());
         }
         
+        /**
+         * Finds minimum index in subtree.
+         *
+         * @return a {@code int}
+         */
         public int minValueIndex() {
             Node node = this;
             while (!node.isLeaf()) {
@@ -51,6 +61,11 @@ public class MerkleTree {
             return node.offset / leafSize() - tree.length / leafSize() / 2;
         }
         
+        /**
+         * Finds maximum index in subtree.
+         *
+         * @return a {@code int}
+         */
         public int maxValueIndex() {
             Node node = this;
             while (!node.isLeaf()) {
@@ -84,6 +99,12 @@ public class MerkleTree {
         return hash.hashSize();
     }
     
+    /**
+     * Creates a new {@link MerkleTree} with given leaves and hash.
+     *
+     * @param leaves {@link MerkleTree}'s leaves
+     * @param hash   {@link MerkleTree}'s hash
+     */
     public MerkleTree(@NotNull final List<byte[]> leaves, @NotNull final ConcatHash hash) {
         this.hash = hash;
         if ((leaves.size() & 1) != 0) {
@@ -94,7 +115,7 @@ public class MerkleTree {
         for (int i = 0; i < leaves.size(); i++) {
             final var leaf = leaves.get(i);
             if (leaf.length != leafSize()) {
-                throw new IllegalArgumentException("All hashes must be " + leafSize() +" length");
+                throw new IllegalArgumentException("All hashes must be " + leafSize() + " length");
             }
             System.arraycopy(leaves.get(i), 0, this.tree, index(startIndex + i), leafSize());
         }
@@ -102,6 +123,12 @@ public class MerkleTree {
         root().calculateHash();
     }
     
+    /**
+     * Wraps {@link MerkleTree}'s byte representation.
+     *
+     * @param tree {@link MerkleTree}'s byte representation
+     * @param hash {@link MerkleTree}'s hash
+     */
     public MerkleTree(@NotNull final byte[] tree, @NotNull final ConcatHash hash) {
         this.tree = tree;
         this.hash = hash;

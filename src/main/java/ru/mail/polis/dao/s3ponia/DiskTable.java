@@ -158,17 +158,7 @@ public class DiskTable implements Closeable, Table {
         return new LazyCell(position, size);
     }
 
-    /**
-     * DiskTable default constructor.
-     */
-    public DiskTable() {
-        shifts = null;
-        filePath = null;
-        fileChannel = null;
-        generation = 0;
-    }
-
-    public DiskTable(final Path path) throws IOException {
+    private DiskTable(final Path path) throws IOException {
         fileChannel = FileChannel.open(path, StandardOpenOption.READ);
         filePath = path;
         final var fileName = path.getFileName().toString();
@@ -238,7 +228,13 @@ public class DiskTable implements Closeable, Table {
                                     final long timeStamp) {
         throw new UnsupportedOperationException();
     }
-
+    
+    /**
+     * Creates a new {@link DiskTable} within given file.
+     * @param path file's {@link Path}
+     * @return a {@link DiskTable}
+     * @throws DaoOperationException throws on {@link IOException}
+     */
     public static DiskTable of(final Path path) throws DaoOperationException {
         try {
             return new DiskTable(path);

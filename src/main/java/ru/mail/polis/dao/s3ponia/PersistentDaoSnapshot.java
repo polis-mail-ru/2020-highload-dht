@@ -18,19 +18,7 @@ import static ru.mail.polis.util.Utility.fromByteArray;
 public class PersistentDaoSnapshot implements DaoSnapshot {
     private final TableSet tableSet;
     private final ConcatHash hash;
-
-    private byte[] hash(@NotNull final ICell cell) {
-        final var byteBuffer =
-                ByteBuffer
-                        .allocate(
-                                cell.getKey().capacity()
-                                        + cell.getValue().getValue().capacity()
-                        );
-        byteBuffer.put(cell.getKey());
-        byteBuffer.put(cell.getValue().getValue());
-        return hash.hash(byteBuffer.array());
-    }
-
+    
     private long longHash(@NotNull final byte[] hashArray) {
         return fromByteArray(hashArray, 0, Long.BYTES) & Long.MAX_VALUE;
     }
@@ -61,12 +49,12 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
         }
 
         range(start, end).forEachRemaining(c -> {
-            final var hash = longHash(hash(c)) - start;
+            final var hash = longHash(hashCode(c)) - start;
             blocks.get((int) (hash / step)).add(c);
         });
 
         final var leaves = new ArrayList<byte[]>();
-        blocks.forEach(a -> leaves.add(hash(a.iterator())));
+        blocks.forEach(a -> leaves.add(hashCode(a.iterator())));
 
         return new MerkleTree(leaves, new TigerHash());
     }
@@ -74,25 +62,37 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     @Override
     public Iterator<ICell> range(final long start, final long end) {
         return Iterators.filter(iterator(), c -> {
-            final var hash = longHash(hash(c));
+            final var hash = longHash(hashCode(c));
             return hash >= start && hash <= end;
         });
     }
 
-    private byte[] hash(final Iterator<ICell> iterator) {
+    private byte[] hashCode(final Iterator<ICell> iterator) {
         var accumulateValue = new byte[hash.hashSize()];
 
         while (iterator.hasNext()) {
-            accumulateValue = hash.combine(accumulateValue, hash(iterator.next()));
+            accumulateValue = hash.combine(accumulateValue, hashCode(iterator.next()));
         }
 
         return accumulateValue;
     }
-
+    
+    private byte[] hashCode(@NotNull final ICell cell) {
+        final var byteBuffer =
+                ByteBuffer
+                        .allocate(
+                                cell.getKey().capacity()
+                                        + cell.getValue().getValue().capacity()
+                        );
+        byteBuffer.put(cell.getKey());
+        byteBuffer.put(cell.getValue().getValue());
+        return hash.hash(byteBuffer.array());
+    }
+    
     @Override
-    public byte[] hash(final long start, final long end) {
+    public byte[] hashCode(final long start, final long end) {
         final var iterator = range(start, end);
-        return hash(iterator);
+        return hashCode(iterator);
     }
 
     @Override
