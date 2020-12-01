@@ -4,10 +4,11 @@ import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.util.hash.ConcatHash;
 import ru.mail.polis.util.hash.TigerHash;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public class MerkleTree {
-    private final byte[] tree;
+    private final ByteBuffer tree;
     private final ConcatHash hash;
     
     public class Node {
@@ -18,7 +19,7 @@ public class MerkleTree {
         }
         
         public boolean isLeaf() {
-            return 2 * offset / leafSize() + 1 >= tree.length / leafSize();
+            return 2 * offset / leafSize() + 1 >= tree.limit() / leafSize();
         }
         
         /**
@@ -27,11 +28,11 @@ public class MerkleTree {
          * @return a {@code byte[]}
          */
         public byte[] hash() {
-            if (offset >= tree.length || offset < 0 || offset % leafSize() != 0) {
+            if (offset >= tree.limit() || offset < 0 || offset % leafSize() != 0) {
                 throw new IllegalStateException("Leaf is outside of tree");
             }
             final var result = new byte[leafSize()];
-            System.arraycopy(tree, offset, result, 0, leafSize());
+            System.arraycopy(tree.array(), offset, result, 0, leafSize());
             return result;
         }
         
@@ -58,7 +59,7 @@ public class MerkleTree {
                 node = node.left();
             }
             
-            return node.offset / leafSize() - tree.length / leafSize() / 2;
+            return node.offset / leafSize() - tree.limit() / leafSize() / 2;
         }
         
         /**
@@ -72,7 +73,7 @@ public class MerkleTree {
                 node = node.right();
             }
             
-            return node.offset / leafSize() - tree.length / leafSize() / 2;
+            return node.offset / leafSize() - tree.limit() / leafSize() / 2;
         }
         
         private void calculateHash() {
@@ -86,8 +87,8 @@ public class MerkleTree {
             leftLeaf.calculateHash();
             rightLeaf.calculateHash();
             
-            final var sumHash = hash.combine(tree, leftLeaf.offset, rightLeaf.offset);
-            System.arraycopy(sumHash, 0, tree, offset, leafSize());
+            final var sumHash = hash.combine(tree.array(), leftLeaf.offset, rightLeaf.offset);
+            System.arraycopy(sumHash, 0, tree.array(), offset, leafSize());
         }
     }
     
@@ -111,13 +112,13 @@ public class MerkleTree {
             leaves.add(new byte[leafSize()]);
         }
         final var startIndex = leaves.size() - 1;
-        this.tree = new byte[(leaves.size() * 2 - 1) * leafSize()];
+        this.tree = ByteBuffer.allocate((leaves.size() * 2 - 1) * leafSize());
         for (int i = 0; i < leaves.size(); i++) {
             final var leaf = leaves.get(i);
             if (leaf.length != leafSize()) {
                 throw new IllegalArgumentException("All hashes must be " + leafSize() + " length");
             }
-            System.arraycopy(leaves.get(i), 0, this.tree, index(startIndex + i), leafSize());
+            System.arraycopy(leaves.get(i), 0, this.tree.array(), index(startIndex + i), leafSize());
         }
         
         root().calculateHash();
@@ -129,17 +130,17 @@ public class MerkleTree {
      * @param tree {@link MerkleTree}'s byte representation
      * @param hash {@link MerkleTree}'s hash
      */
-    public MerkleTree(@NotNull final byte[] tree, @NotNull final ConcatHash hash) {
+    public MerkleTree(@NotNull final ByteBuffer tree, @NotNull final ConcatHash hash) {
         this.tree = tree;
         this.hash = hash;
     }
     
-    public MerkleTree(@NotNull final byte[] tree) {
+    public MerkleTree(@NotNull final ByteBuffer tree) {
         this(tree, new TigerHash());
     }
     
-    public byte[] body() {
-        return tree;
+    public ByteBuffer body() {
+        return tree.asReadOnlyBuffer();
     }
     
     public Node root() {

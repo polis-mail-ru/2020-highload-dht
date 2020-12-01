@@ -230,7 +230,7 @@ abstract class ClusterTestBase extends TestBase {
             final long start,
             final long end
     ) throws Exception {
-        return client(node).get("/v0/repair?start=" + start + "&end=" + end);
+        return client(node).get("/v0/repair?repairStart=" + start + "&repairEnd=" + end);
     }
     
     Response upsert(

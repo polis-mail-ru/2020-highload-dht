@@ -42,7 +42,7 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
                                       final long end) {
         try {
             return HttpRequest.newBuilder()
-                           .uri(new URI(node + "/v0/merkleTree?start=" + start + "&end=" + end))
+                           .uri(new URI(node + "/v0/merkleTree?merkleStart=" + start + "&merkleEnd=" + end))
                            .timeout(Duration.ofSeconds(1))
                            .GET()
                            .build();
@@ -58,7 +58,7 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
         try {
             return HttpRequest.newBuilder()
                            .header(Proxy.PROXY_HEADER, policy.homeNode())
-                           .uri(new URI(node + "/v0/syncRange?start=" + start + "&end=" + end))
+                           .uri(new URI(node + "/v0/syncRange?syncStart=" + start + "&syncEnd=" + end))
                            .timeout(Duration.ofSeconds(1))
                            .GET()
                            .build();
@@ -116,7 +116,7 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
                                   final long end) throws IOException, InterruptedException {
         final var request = merkleRequest(node, start, end);
         return new MerkleTree(
-                httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray()).body()
+                ByteBuffer.wrap(httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray()).body())
         );
     }
     

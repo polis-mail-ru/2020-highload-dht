@@ -69,8 +69,8 @@ public class HttpSyncableService extends HttpBasicService {
      */
     @Path("/v0/merkleTree")
     public void merkleTree(
-            @Param(value = "start", required = true) final String startParam,
-            @Param(value = "end", required = true) final String endParam,
+            @Param(value = "merkleStart", required = true) final String startParam,
+            @Param(value = "merkleEnd", required = true) final String endParam,
             @NotNull final HttpSession session) throws IOException {
         final long start;
         final long end;
@@ -85,8 +85,10 @@ public class HttpSyncableService extends HttpBasicService {
         final MerkleTree tree = repairService.merkleTree(start, end);
         final var response = new Response(Response.OK);
         final var body = tree.body();
-        response.addHeader("Content-Length: " + body.length);
-        response.setBody(body);
+        final var array = new byte[body.limit()];
+        body.get(array);
+        response.addHeader("Content-Length: " + body.capacity());
+        response.setBody(array);
         session.sendResponse(response);
     }
     
@@ -100,8 +102,8 @@ public class HttpSyncableService extends HttpBasicService {
      * @throws IOException rethrows from {@link HttpSession#sendResponse}
      */
     @Path("/v0/syncRange")
-    public void sync(@Param(value = "start", required = true) final String start,
-                     @Param(value = "end", required = true) final String end,
+    public void sync(@Param(value = "syncStart", required = true) final String start,
+                     @Param(value = "syncEnd", required = true) final String end,
                      @NotNull final Request request,
                      @NotNull final HttpSession session) throws IOException {
         if (request.getHeader(Proxy.PROXY_HEADER + ": ") == null) {
@@ -136,8 +138,8 @@ public class HttpSyncableService extends HttpBasicService {
      * @throws IOException rethrows from {@link HttpSession#sendResponse}
      */
     @Path("/v0/repair")
-    public void repair(@Param(value = "start") final String startParam,
-                       @Param(value = "end") final String endParam,
+    public void repair(@Param(value = "repairStart") final String startParam,
+                       @Param(value = "repairEnd") final String endParam,
                        @NotNull final HttpSession session) throws IOException {
         final long start;
         final long end;
