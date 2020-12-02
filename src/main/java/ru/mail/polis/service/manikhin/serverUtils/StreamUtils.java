@@ -1,4 +1,4 @@
-package ru.mail.polis.service.manikhin;
+package ru.mail.polis.service.manikhin.serverUtils;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

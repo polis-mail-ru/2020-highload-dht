@@ -1,4 +1,4 @@
-package ru.mail.polis.service.manikhin;
+package ru.mail.polis.service.manikhin.serverUtils;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -195,7 +195,7 @@ public class Utils {
         return array;
     }
 
-    static FullHttpResponse responseBuilder(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes) {
+    public static FullHttpResponse responseBuilder(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes) {
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
