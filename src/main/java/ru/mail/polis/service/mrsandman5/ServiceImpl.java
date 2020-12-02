@@ -124,7 +124,8 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        final ReplicasFactor replicasFactor = RequestUtils.getReplicasFactor(session, topology, proxied, replicas, quorum);
+        final ReplicasFactor replicasFactor =
+                RequestUtils.getReplicasFactor(session, topology, proxied, replicas, quorum);
         if (replicasFactor == null) {
             return;
         }
