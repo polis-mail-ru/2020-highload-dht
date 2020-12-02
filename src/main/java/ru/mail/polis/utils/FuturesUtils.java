@@ -1,8 +1,6 @@
 package ru.mail.polis.utils;
 
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -11,8 +9,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class FuturesUtils {
-
-    private static final Logger log = LoggerFactory.getLogger(FuturesUtils.class);
 
     private FuturesUtils() {
     }

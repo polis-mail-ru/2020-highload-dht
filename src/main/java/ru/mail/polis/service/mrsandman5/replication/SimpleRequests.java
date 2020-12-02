@@ -2,8 +2,6 @@ package ru.mail.polis.service.mrsandman5.replication;
 
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.utils.ResponseUtils;
 
@@ -15,8 +13,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 public final class SimpleRequests {
-
-    private static final Logger log = LoggerFactory.getLogger(SimpleRequests.class);
 
     private final DAOImpl dao;
     private final ExecutorService executor;

@@ -23,6 +23,7 @@ import ru.mail.polis.service.mrsandman5.replication.ReplicasFactor;
 import ru.mail.polis.service.mrsandman5.replication.SimpleRequests;
 import ru.mail.polis.utils.ByteUtils;
 import ru.mail.polis.utils.FuturesUtils;
+import ru.mail.polis.utils.RequestUtils;
 import ru.mail.polis.utils.ResponseUtils;
 
 import java.io.IOException;
@@ -123,29 +124,12 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final boolean proxied = request.getHeader(ResponseUtils.PROXY) != null;
-        ReplicasFactor replicasFactor;
-        try {
-            replicasFactor = proxied || replicas == null ? quorum : ReplicasFactor.parser(replicas);
-        } catch (NumberFormatException e) {
-            log.error("Request replica parsing error", e);
-            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
-            return;
-        }
-        if (replicasFactor.getAck() < 1
-                || replicasFactor.getFrom() < replicasFactor.getAck()
-                || replicasFactor.getFrom() > topology.all().size()) {
-            ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
+        final ReplicasFactor replicasFactor = RequestUtils.getReplicasFactor(session, topology, proxied, replicas, quorum);
+        if (replicasFactor == null) {
             return;
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final boolean expired = request.getHeader(ResponseUtils.EXPIRES) != null;
-        final String proxyExpire = expired ? request.getHeader(ResponseUtils.EXPIRES).substring(2) : null;
-        Instant expireTime;
-        if (expire == null) {
-            expireTime = (proxied && proxyExpire != null ? ResponseUtils.parseExpires(proxyExpire) : Instant.MAX);
-        } else {
-            expireTime = ResponseUtils.parseExpires(expire);
-        }
+        final Instant expireTime = RequestUtils.getExpire(request, expire, proxied);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor, expireTime));
