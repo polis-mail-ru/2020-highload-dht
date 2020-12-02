@@ -112,10 +112,14 @@ public class SingleNodeExpireTest extends TestBase {
             // Insert
             assertEquals(201, upsert(key, expire, value).getStatus());
 
+            final Response response1 = get(key, expire);
+            assertEquals(200, response1.getStatus());
+            assertArrayEquals(value, response1.getBody());
+
             Thread.sleep(31000);
-            final Response response = get(key, expire);
-            assertEquals(404, response.getStatus());
-            assertArrayEquals(value, response.getBody());
+            final Response response2 = get(key, expire);
+            assertEquals(404, response2.getStatus());
+            assertArrayEquals(new byte[0], response2.getBody());
         });
     }
 
@@ -160,7 +164,7 @@ public class SingleNodeExpireTest extends TestBase {
             Thread.sleep(31000);
             final Response response = get(key, expire2);
             assertEquals(404, response.getStatus());
-            assertArrayEquals(value2, response.getBody());
+            assertArrayEquals(new byte[0], response.getBody());
         });
     }
 
@@ -182,19 +186,4 @@ public class SingleNodeExpireTest extends TestBase {
         });
     }
 
-    @Test
-    void deleteExpire() {
-        assertTimeoutPreemptively(TIMEOUT, () -> {
-            final String key = randomId();
-            final byte[] value = randomValue();
-            final String expire = randomExpire(randomExpire());
-
-            // Insert
-            assertEquals(201, upsert(key, expire, value).getStatus());
-
-            // Delete
-            Thread.sleep(31000);
-            assertEquals(404, delete(key, expire).getStatus());
-        });
-    }
 }

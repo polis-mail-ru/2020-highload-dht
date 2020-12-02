@@ -138,7 +138,8 @@ public final class ServiceImpl extends HttpServer implements Service {
             return;
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Instant expireTime = expire == null ? Instant.MAX : ResponseUtils.parseExpires(expire);
+        final boolean expired = request.getHeader(ResponseUtils.EXPIRES) != null;
+        final Instant expireTime = expired || expire == null ? Instant.MAX : ResponseUtils.parseExpires(expire);
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor, expireTime));

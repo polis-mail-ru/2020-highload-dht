@@ -48,7 +48,7 @@ public class ShardingExpireTest extends ClusterExpireTestBase {
                 // Check
                 Thread.sleep(31000);
                 for (int i = 0; i < getClusterSize(); i++) {
-                    checkResponse(404, value, get(i, key, expire));
+                    checkResponse(404, new byte[0], get(i, key, expire));
                 }
             }
         });
@@ -94,7 +94,7 @@ public class ShardingExpireTest extends ClusterExpireTestBase {
             // Check value 2
             Thread.sleep(31000);
             for (int i = 0; i < getClusterSize(); i++) {
-                checkResponse(404, value2, get(i, key, expire2));
+                checkResponse(404, new byte[0], get(i, key, expire2));
             }
         });
     }
@@ -116,24 +116,6 @@ public class ShardingExpireTest extends ClusterExpireTestBase {
             // Check
             assertEquals(404, get(0, key, expire).getStatus());
             assertEquals(404, get(1, key, expire).getStatus());
-        });
-    }
-
-    @Test
-    void deleteExpire() {
-        assertTimeoutPreemptively(TIMEOUT, () -> {
-            final String key = randomId();
-            final byte[] value = randomValue();
-            final String expire = randomExpire(randomExpire());
-
-            // Insert
-            assertEquals(201, upsert(0, key, expire, value).getStatus());
-            assertEquals(201, upsert(1, key, expire, value).getStatus());
-
-            // Delete
-            Thread.sleep(31000);
-            assertEquals(404, delete(0, key, expire).getStatus());
-
         });
     }
 }

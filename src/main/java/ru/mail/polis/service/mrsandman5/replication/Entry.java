@@ -113,12 +113,10 @@ public final class Entry implements Comparable<Entry> {
             case PRESENT:
                 result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
                 result.addHeader(ResponseUtils.getTimestamp(entry));
-                result.addHeader(ResponseUtils.getExpires(entry));
                 return result;
             case REMOVED:
                 result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
                 result.addHeader(ResponseUtils.getTimestamp(entry));
-                result.addHeader(ResponseUtils.getExpires(entry));
                 return result;
             case ABSENT:
                 return ResponseUtils.emptyResponse(Response.NOT_FOUND);
