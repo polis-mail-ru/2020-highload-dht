@@ -19,7 +19,8 @@ public final class RequestUtils {
     private RequestUtils() {
     }
 
-    /** Calculate replicas factor from request*/
+    /** Calculate replicas factor from request.
+     * */
     public static ReplicasFactor getReplicasFactor(@NotNull final HttpSession session,
                                                    @NotNull final Topology<String> topology,
                                                    final boolean proxied,
@@ -42,7 +43,8 @@ public final class RequestUtils {
         return replicasFactor;
     }
 
-    /** Calculate expire time from request*/
+    /** Calculate expire time from request.
+     * */
     public static Instant getExpire(@NotNull final Request request,
                                     final String expire,
                                     final boolean proxied) {
