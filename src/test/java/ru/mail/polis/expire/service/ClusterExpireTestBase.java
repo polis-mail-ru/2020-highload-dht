@@ -37,9 +37,22 @@ abstract class ClusterExpireTestBase extends TestBase {
     private Set<String> endpoints;
 
     @NotNull
+    private static String path(@NotNull final String id) {
+        return "/v0/entity?id=" + id;
+    }
+
+    @NotNull
     private static String path(@NotNull final String id,
                                @NotNull final String expire) {
         return "/v0/entity?id=" + id + "&expires=" + expire;
+    }
+
+    @NotNull
+    private static String path(
+            @NotNull final String id,
+            final int ack,
+            final int from) {
+        return path(id) + "&replicas=" + ack + "/" + from;
     }
 
     @NotNull
@@ -161,9 +174,8 @@ abstract class ClusterExpireTestBase extends TestBase {
 
     Response get(
             final int node,
-            @NotNull final String key,
-            @NotNull final String expire) throws Exception {
-        return client(node).get(path(key, expire));
+            @NotNull final String key) throws Exception {
+        return client(node).get(path(key));
     }
 
     void checkResponse(
@@ -185,9 +197,8 @@ abstract class ClusterExpireTestBase extends TestBase {
 
     Response delete(
             final int node,
-            @NotNull final String key,
-            @NotNull final String expire) throws Exception {
-        return client(node).delete(path(key, expire));
+            @NotNull final String key) throws Exception {
+        return client(node).delete(path(key));
     }
 
     Response delete(

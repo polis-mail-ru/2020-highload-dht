@@ -5,7 +5,6 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.service.mrsandman5.ServiceImpl;
 import ru.mail.polis.service.mrsandman5.handlers.DeleteBodyHandler;
 import ru.mail.polis.service.mrsandman5.handlers.GetBodyHandler;
 import ru.mail.polis.service.mrsandman5.handlers.PutBodyHandler;
@@ -20,7 +19,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
@@ -28,10 +26,10 @@ import java.util.concurrent.CompletableFuture;
 
 public final class ResponseUtils {
 
-    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ResponseUtils.class);
 
     public static final String ENTITY = "/v0/entity";
-    public static final int TIMEOUT_MILLIS = 2000;
+    public static final int TIMEOUT_MILLIS = 1000;
     public static final String PROXY = "X-Proxy-For";
     public static final String TIMESTAMP = "Timestamp";
     public static final String NOT_ENOUGH_REPLICAS = "504 Not Enough Replicas";
@@ -84,8 +82,8 @@ public final class ResponseUtils {
     public static HttpRequest.Builder requestForReplica(@NotNull final String node,
                                                         @NotNull final String id,
                                                         @NotNull final Instant expire) {
-        final String uri = node + ENTITY + "?id=" + id + "&expires=" + expire.getEpochSecond();
-        final String expireTime = Instant.MAX.equals(expire) ? expire.toString() : expirationFormat.format(expire);
+        final String uri = node + ENTITY + "?id=" + id;
+        final String expireTime = expirationFormat.format(expire);
         return HttpRequest.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .uri(URI.create(uri))
@@ -121,8 +119,7 @@ public final class ResponseUtils {
     }
 
     public static Instant parseExpires(@NotNull final String expires) {
-        return LocalDateTime.parse(expires, ResponseUtils.expirationFormat)
-                .toInstant(ZoneOffset.ofTotalSeconds(0));
+        return LocalDateTime.parse(expires, ResponseUtils.expirationFormat).atZone(ZoneId.of("GMT")).toInstant();
     }
 
     /** GET response from Entry.*/
@@ -130,10 +127,12 @@ public final class ResponseUtils {
                                                        @NotNull final String node,
                                                        @NotNull final String id,
                                                        @NotNull final Instant expire) {
+        log.info("Start response GET");
         final HttpRequest request =
                 (Instant.MAX.equals(expire) ? requestForReplica(node, id) : requestForReplica(node, id, expire))
                 .GET()
                 .build();
+        log.info("GET request body: {}, {}", request.uri(), request.headers());
         return httpClients.get(node)
                 .sendAsync(request, GetBodyHandler.INSTANCE)
                 .thenApplyAsync(HttpResponse::body);
@@ -145,10 +144,12 @@ public final class ResponseUtils {
                                                           @NotNull final String id,
                                                           @NotNull final byte[] value,
                                                           @NotNull final Instant expire) {
+        log.info("Start response PUT");
         final HttpRequest request =
                 (Instant.MAX.equals(expire) ? requestForReplica(node, id) : requestForReplica(node, id, expire))
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                 .build();
+        log.info("PUT request body: {}, {}", request.uri(), request.headers());
         return httpClients.get(node)
                 .sendAsync(request, PutBodyHandler.INSTANCE)
                 .thenApplyAsync(r -> emptyResponse(Response.CREATED));

@@ -137,7 +137,7 @@ public class ExpireRecordsTest extends TestBase {
         try (DAO dao = DAOFactory.create(data)) {
             for (int round = 0; round < keyCount; round++) {
                 final ByteBuffer value = randomValueBuffer();
-                final Instant expire = randomExpire();
+                final Instant expire = randomExpire(10, 15);
 
                 for (final ByteBuffer key : keys) {
                     dao.upsert(key, value, expire);
@@ -149,7 +149,7 @@ public class ExpireRecordsTest extends TestBase {
                 }
             }
 
-            Thread.sleep(31000);
+            Thread.sleep(15000);
             dao.compact();
             for (final ByteBuffer key : keys) {
                 assertThrows(NoSuchElementException.class, () -> dao.get(key));

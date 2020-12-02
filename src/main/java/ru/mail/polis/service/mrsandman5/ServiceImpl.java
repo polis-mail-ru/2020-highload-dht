@@ -139,14 +139,21 @@ public final class ServiceImpl extends HttpServer implements Service {
         }
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final boolean expired = request.getHeader(ResponseUtils.EXPIRES) != null;
-        final Instant expireTime = expired || expire == null ? Instant.MAX : ResponseUtils.parseExpires(expire);
+        final String proxyExpire = expired ? request.getHeader(ResponseUtils.EXPIRES).substring(2) : null;
+        log.info("Expires: {}", proxyExpire);
+        final Instant expireTime = expire == null
+                ? (proxied && proxyExpire != null ? ResponseUtils.parseExpires(proxyExpire) : Instant.MAX)
+                : ResponseUtils.parseExpires(expire);
+        log.info("Start entity");
         switch (request.getMethod()) {
             case Request.METHOD_GET:
                 respond(session, proxied ? simpleRequests.get(key) : replicasGet(id, replicasFactor, expireTime));
+                log.info("End GET");
                 break;
             case Request.METHOD_PUT:
                 respond(session, proxied ? simpleRequests.put(key, request.getBody(), expireTime)
                                 : replicasPut(id, request.getBody(), replicasFactor, expireTime));
+                log.info("End PUT");
                 break;
             case Request.METHOD_DELETE:
                 respond(session, proxied ? simpleRequests.delete(key) : replicasDelete(id, replicasFactor, expireTime));
@@ -156,6 +163,7 @@ public final class ServiceImpl extends HttpServer implements Service {
                 ResponseUtils.sendEmptyResponse(session, Response.METHOD_NOT_ALLOWED);
                 break;
         }
+        log.info("End entity");
     }
 
     /**
@@ -187,13 +195,16 @@ public final class ServiceImpl extends HttpServer implements Service {
     private void respond(@NotNull final HttpSession session,
                          @NotNull final CompletableFuture<Response> response) {
         response.whenComplete((r, t) -> {
+            log.info("Inside respond");
             if (t == null) {
+                log.info("No exception found");
                 ResponseUtils.sendResponse(session, r);
             } else {
                 final String code;
                 if (t instanceof CompletionException) {
                     t = t.getCause();
                 }
+                log.info("Exception found: ", t);
                 code = t instanceof IllegalStateException ? ResponseUtils.NOT_ENOUGH_REPLICAS : Response.INTERNAL_ERROR;
                 ResponseUtils.sendNonEmptyResponse(session, code, t.getMessage().getBytes(StandardCharsets.UTF_8));
             }
@@ -204,15 +215,21 @@ public final class ServiceImpl extends HttpServer implements Service {
     private CompletableFuture<Response> replicasGet(@NotNull final String id,
                                                     @NotNull final ReplicasFactor replicasFactor,
                                                     @NotNull final Instant expire) {
+        log.info("Start GET");
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
+                log.info("Start simple GET");
                 result.add(simpleRequests.getEntry(key));
+                log.info("End simple GET");
             } else {
+                log.info("Start replicas GET");
                 result.add(ResponseUtils.getResponse(httpClients, node, id, expire));
+                log.info("End replicas GET");
             }
         }
+        log.info("End GET");
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
                 .handle((res, ex) -> ex == null ? Entry.entriesToResponse(res)
                         : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));
@@ -223,15 +240,21 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final byte[] value,
                                                     @NotNull final ReplicasFactor replicasFactor,
                                                     @NotNull final Instant expire) {
+        log.info("Start PUT");
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
         for (final String node : topology.replicasFor(key, replicasFactor)) {
             if (topology.isMe(node)) {
+                log.info("Start simple PUT");
                 result.add(simpleRequests.put(key, value, expire));
+                log.info("End simple PUT");
             } else {
+                log.info("Start replicas PUT");
                 result.add(ResponseUtils.putResponse(httpClients, node, id, value, expire));
+                log.info("End replicas PUT");
             }
         }
+        log.info("End PUT");
         return FuturesUtils.atLeastAsync(result, replicasFactor.getAck(), executor)
                 .handle((res, ex) -> ex == null ? ResponseUtils.emptyResponse(Response.CREATED)
                         : ResponseUtils.emptyResponse(ResponseUtils.NOT_ENOUGH_REPLICAS));

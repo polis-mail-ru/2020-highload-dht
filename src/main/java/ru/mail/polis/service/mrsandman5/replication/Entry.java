@@ -3,6 +3,8 @@ package ru.mail.polis.service.mrsandman5.replication;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.impl.DAOImpl;
 import ru.mail.polis.dao.impl.models.Cell;
 import ru.mail.polis.dao.impl.models.Value;
@@ -20,6 +22,8 @@ import java.util.Iterator;
 import java.util.Objects;
 
 public final class Entry implements Comparable<Entry> {
+
+    private static final Logger log = LoggerFactory.getLogger(Entry.class);
 
     public enum State {
         PRESENT,
@@ -109,14 +113,17 @@ public final class Entry implements Comparable<Entry> {
     @NotNull
     public static Response entryToResponse(@NotNull final Entry entry) {
         final Response result;
+        log.info("Inside entryToResponse");
         switch (entry.getState()) {
             case PRESENT:
                 result = ResponseUtils.nonemptyResponse(Response.OK, entry.getData());
                 result.addHeader(ResponseUtils.getTimestamp(entry));
+                log.info("Present response: {}", result);
                 return result;
             case REMOVED:
                 result = ResponseUtils.emptyResponse(Response.NOT_FOUND);
                 result.addHeader(ResponseUtils.getTimestamp(entry));
+                log.info("Removed response: {}", result);
                 return result;
             case ABSENT:
                 return ResponseUtils.emptyResponse(Response.NOT_FOUND);

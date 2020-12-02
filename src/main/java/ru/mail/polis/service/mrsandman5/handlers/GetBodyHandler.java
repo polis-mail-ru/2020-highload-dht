@@ -1,6 +1,8 @@
 package ru.mail.polis.service.mrsandman5.handlers;
 
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.service.mrsandman5.replication.Entry;
 import ru.mail.polis.utils.ResponseUtils;
 
@@ -12,6 +14,7 @@ import java.util.concurrent.RejectedExecutionException;
 
 public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
 
+    private static final Logger log = LoggerFactory.getLogger(GetBodyHandler.class);
     public static final HttpResponse.BodyHandler<Entry> INSTANCE = new GetBodyHandler();
 
     private GetBodyHandler() {
@@ -32,6 +35,7 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
                         responseInfo.headers().firstValue(ResponseUtils.EXPIRES);
                 final Instant okExpireTime =
                         ofExpires.map(ResponseUtils::parseExpires).orElse(Instant.MAX);
+                log.info("Present expires value: {}", okExpireTime);
                 return HttpResponse.BodySubscribers.mapping(
                         HttpResponse.BodySubscribers.ofByteArray(),
                         bytes -> Entry.present(okTimestampValue, bytes, okExpireTime));
@@ -47,6 +51,7 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<Entry> {
                         responseInfo.headers().firstValue(ResponseUtils.EXPIRES);
                 final Instant notFoundExpireTime =
                         notFoundExpires.map(ResponseUtils::parseExpires).orElse(Instant.MAX);
+                log.info("Removed expires value: {}", notFoundExpireTime);
                 return HttpResponse.BodySubscribers.replacing(
                         Entry.removed(notFoundTimestampValue, notFoundExpireTime));
             default:
