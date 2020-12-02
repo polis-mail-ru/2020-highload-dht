@@ -53,19 +53,19 @@ overload:
 
 Если на этапе проведения тестов 2000 запросов в секунду казалось адекватным значением, во время перехода к боевым стрельбам опытным путем было решено нагрузку уменьшить до 1500 запросов в секунду, а где-то и до 1200 или 1000. При большей нагрузке в ответах появлялись 504 Error Code'ы и небольшой процент 71 Protocol Error. После уменьшения нагрузки имеем 99.9-100% успешно обработанных запросов (Response Code'ы 200, 201, 404).
 
-1. [Лента с PUT-ами с уникальными ключами](https://overload.yandex.net/355603#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606235517&slider_end=1606235817)
+1. [Лента с PUT-ами с уникальными ключами](https://overload.yandex.net/359396#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606927469&slider_end=1606927768&compress_ratio=1)
 ![Лента с PUT-ами с уникальными ключами](assets/stage_8/line_const/put_unique.png)
 
-2. [Лента с PUT-ами с частичной перезаписью ключей (вероятность 10%)](https://overload.yandex.net/355608#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606237187&slider_end=1606237487)
+2. [Лента с PUT-ами с частичной перезаписью ключей (вероятность 10%)](https://overload.yandex.net/358947#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606858021&slider_end=1606858321)
 ![Лента с PUT-ами с частичной перезаписью ключей (вероятность 10%)](assets/stage_8/line_const/put_not_unique.png)
 
-3. [Лента с GET-ами существующих ключей с равномерным распределением (стреляем по наполненной БД)](https://overload.yandex.net/355618#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606238004&slider_end=1606238296)
+3. [Лента с GET-ами существующих ключей с равномерным распределением (стреляем по наполненной БД)](https://overload.yandex.net/358949#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606858499&slider_end=1606858799)
 ![Лента с GET-ами существующих ключей с равномерным распределением (стреляем по наполненной БД)](assets/stage_8/line_const/existing_get_gauss.png)
 
-4. [То же самое, но со смещением распределения GET-ов к недавно добавленным ключам (частый случай на практике)](https://overload.yandex.net/355627#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606238593&slider_end=1606238893)
+4. [То же самое, но со смещением распределения GET-ов к недавно добавленным ключам (частый случай на практике)](https://overload.yandex.net/358951#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606858893&slider_end=1606859193)
 ![То же самое, но со смещением распределения GET-ов к недавно добавленным ключам (частый случай на практике)](assets/stage_8/line_const/existing_get_offset.png)
 
-5. [Наконец, лента со смешанной нагрузкой с 50% PUT-ы новых ключей и 50% GETы существующих ключей (равномерное распределение)](https://overload.yandex.net/355634#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606240780&slider_end=1606241080)
+5. [Наконец, лента со смешанной нагрузкой с 50% PUT-ы новых ключей и 50% GETы существующих ключей (равномерное распределение)](https://overload.yandex.net/358957#tab=test_data&tags=&plot_groups=main&machines=&metrics=&slider_start=1606859279&slider_end=1606859579)
 ![Наконец, лента со смешанной нагрузкой с 50% PUT-ы новых ключей и 50% GETы существующих ключей (равномерное распределение)](assets/stage_8/line_const/mixed_put_get.png)
 
 ## Анализ времени ответа
