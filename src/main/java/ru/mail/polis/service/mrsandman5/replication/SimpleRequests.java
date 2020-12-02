@@ -34,12 +34,10 @@ public final class SimpleRequests {
      * {@code 500} (internal server error occurred).
      */
     public CompletableFuture<Response> get(@NotNull final ByteBuffer key) {
-        log.info("GET");
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         final Entry value = Entry.entryFromBytes(key, dao);
-                        log.info("GET value: {}", Entry.entryToResponse(value));
                         return Entry.entryToResponse(value);
                     } catch (NoSuchElementException e) {
                         return ResponseUtils.emptyResponse(Response.NOT_FOUND);
@@ -53,16 +51,10 @@ public final class SimpleRequests {
      * Get value.
      */
     public CompletableFuture<Entry> getEntry(@NotNull final ByteBuffer key) {
-        log.info("GET entry");
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        final Entry entry = Entry.entryFromBytes(key, dao);
-                        log.info("GET entry: {}, {}, {}, {}", entry.getTimestamp(),
-                                entry.getData(),
-                                entry.getState(),
-                                entry.getExpires());
-                        return entry;
+                        return Entry.entryFromBytes(key, dao);
                     } catch (IOException e) {
                         throw new RuntimeException("Get future error", e);
                     }
@@ -77,12 +69,10 @@ public final class SimpleRequests {
     public CompletableFuture<Response> put(@NotNull final ByteBuffer key,
                                            @NotNull final byte[] bytes,
                                            @NotNull final Instant expire) {
-        log.info("PUT");
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         final ByteBuffer body = ByteBuffer.wrap(bytes);
-                        log.info("PUT entry: {}, {}, {}", key, body, expire);
                         dao.upsert(key, body, expire);
                         return ResponseUtils.emptyResponse(Response.CREATED);
                     } catch (IOException e) {

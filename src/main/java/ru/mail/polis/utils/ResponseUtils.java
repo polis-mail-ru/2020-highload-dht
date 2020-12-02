@@ -127,12 +127,10 @@ public final class ResponseUtils {
                                                        @NotNull final String node,
                                                        @NotNull final String id,
                                                        @NotNull final Instant expire) {
-        log.info("Start response GET");
         final HttpRequest request =
                 (Instant.MAX.equals(expire) ? requestForReplica(node, id) : requestForReplica(node, id, expire))
                 .GET()
                 .build();
-        log.info("GET request body: {}, {}", request.uri(), request.headers());
         return httpClients.get(node)
                 .sendAsync(request, GetBodyHandler.INSTANCE)
                 .thenApplyAsync(HttpResponse::body);
@@ -144,12 +142,10 @@ public final class ResponseUtils {
                                                           @NotNull final String id,
                                                           @NotNull final byte[] value,
                                                           @NotNull final Instant expire) {
-        log.info("Start response PUT");
         final HttpRequest request =
                 (Instant.MAX.equals(expire) ? requestForReplica(node, id) : requestForReplica(node, id, expire))
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(value))
                 .build();
-        log.info("PUT request body: {}, {}", request.uri(), request.headers());
         return httpClients.get(node)
                 .sendAsync(request, PutBodyHandler.INSTANCE)
                 .thenApplyAsync(r -> emptyResponse(Response.CREATED));
