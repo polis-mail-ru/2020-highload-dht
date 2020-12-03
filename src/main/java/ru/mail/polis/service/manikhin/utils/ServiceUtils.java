@@ -303,6 +303,7 @@ public class ServiceUtils {
     public <T> CompletableFuture<Collection<T>> atLeastAsync(@NotNull final Collection<CompletableFuture<T>> futures,
                                                              final int successes, final boolean isForwarded) {
 
+        final AtomicInteger successLeft = new AtomicInteger(0);
         final AtomicInteger errorsLeft = new AtomicInteger(0);
         final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> future = new CompletableFuture<>();
@@ -311,11 +312,11 @@ public class ServiceUtils {
             if (t == null) {
                 results.add(v);
 
-                if (results.size() >= successes || isForwarded) {
+                if (successLeft.incrementAndGet() >= successes || isForwarded) {
                     future.complete(results);
                 }
             } else {
-                if (errorsLeft.incrementAndGet() >= (futures.size() - successes + 1)) {
+                if (errorsLeft.incrementAndGet() == (futures.size() - successes + 1)) {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
                 }
             }

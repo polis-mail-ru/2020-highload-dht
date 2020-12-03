@@ -94,7 +94,9 @@ public class ReplicasNettyRequests {
             }
 
             serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                    .thenApplyAsync(res -> processResponses(res, isForwardedRequest))
+                    .handle((res, ex) -> ex == null ? processResponses(res) : ServiceUtils.responseBuilder(
+                            HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY)
+                    )
             );
         }
     }
@@ -164,21 +166,19 @@ public class ReplicasNettyRequests {
      * Joiner input set responses for one.
      *
      * @param responses - input set with responses
-     * @param isForwardedRequest - check result request on forwarding
      */
-    public FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord> responses,
-                                             final boolean isForwardedRequest) {
+    public FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord> responses) {
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
+        final FullHttpResponse response;
 
         if (mergedResp.isValue()) {
-            if (isForwardedRequest) {
-                return ServiceUtils.responseBuilder(HttpResponseStatus.OK, mergedResp.toBytes());
-            } else {
-                return ServiceUtils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
-            }
+            response = ServiceUtils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
         } else {
-            return ServiceUtils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
+            response = ServiceUtils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
         }
+
+        response.headers().add("Timestamp", mergedResp.getTimestamp());
+        return response;
     }
 
     private String queryParser(final String uri) {
