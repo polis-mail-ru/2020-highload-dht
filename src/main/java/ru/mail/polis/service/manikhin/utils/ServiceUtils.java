@@ -1,4 +1,4 @@
-package ru.mail.polis.service.manikhin.serverUtils;
+package ru.mail.polis.service.manikhin.utils;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-public class Utils {
+public class ServiceUtils {
 
     private final DAO dao;
     private final ThreadPoolExecutor executor;
@@ -48,16 +48,28 @@ public class Utils {
     private static final String PROXY_HEADER = "X-OK-Proxy";
     public static final byte [] EMPTY_BODY = new byte[0];
 
-    private static final Logger log = LoggerFactory.getLogger(Utils.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceUtils.class);
     private final int timeout;
 
-    public Utils(@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor, final int timeout) {
+    /**
+     * Netty service utils.
+     *
+     * @param dao - storage interface
+     * @param executor - thread pool executor for clients
+     * @param timeout - init timeout for http clients
+     */
+    public ServiceUtils(@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor, final int timeout) {
         this.dao = dao;
         this.executor = executor;
         this.timeout = timeout;
     }
 
-    public CompletableFuture<TimestampRecord> getResponse(@NotNull final ByteBuffer key) {
+    /**
+     * Response handler for getting record with timestamp from storage by input key.
+     *
+     * @param key - input record key
+     */
+    public CompletableFuture<TimestampRecord> getTimestampResponse(@NotNull final ByteBuffer key) {
         return CompletableFuture.supplyAsync(() -> {
            try {
                return TimestampRecord.fromBytes(timestampFromByteBuffer(key));
@@ -67,8 +79,15 @@ public class Utils {
         }, executor);
     }
 
-    public void localGet(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
-                         @NotNull final FullHttpRequest request) {
+    /**
+     * Response handler for getting record from storage by input key.
+     *
+     * @param key - input record key
+     * @param ctx - channel handler context
+     * @param request - input http request
+     */
+    public void getResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
+                            @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     final ByteBuffer value = dao.get(key).duplicate();
@@ -86,11 +105,18 @@ public class Utils {
         );
     }
 
-    public void localPut(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
+    /**
+     * Response handler for insert new record in storage with input key.
+     *
+     * @param key - input record key
+     * @param ctx - channel handler context
+     * @param request - input http request
+     */
+    public void putResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
                          @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
-                    dao.upsert(key, ByteBuffer.wrap(Utils.getRequestBody(request.content())));
+                    dao.upsert(key, ByteBuffer.wrap(ServiceUtils.getRequestBody(request.content())));
                     return responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY);
                 } catch (IOException | IllegalStateException error) {
                     log.error("IO put error: ", error);
@@ -100,7 +126,14 @@ public class Utils {
         );
     }
 
-    public void localDelete(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
+    /**
+     * Response handler for delete record from storage by input key.
+     *
+     * @param key - input record key
+     * @param ctx - channel handler context
+     * @param request - input http request
+     */
+    public void deleteResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
                             @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
@@ -114,8 +147,14 @@ public class Utils {
         );
     }
 
-    public CompletableFuture<FullHttpResponse> putResponse(@NotNull final ByteBuffer key,
-                                                           @NotNull final byte[] bytes) {
+    /**
+     * Response handler for insert record with timestamp in storage with input key.
+     *
+     * @param key - input record key
+     * @param bytes - input record in the form of bytes
+     */
+    public CompletableFuture<FullHttpResponse> putTimestampResponse(@NotNull final ByteBuffer key,
+                                                                    @NotNull final byte[] bytes) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 dao.upsertTimestampRecord(key, ByteBuffer.wrap(bytes));
@@ -126,7 +165,12 @@ public class Utils {
         }, executor);
     }
 
-    public CompletableFuture<FullHttpResponse> deleteResponse(@NotNull final ByteBuffer key) {
+    /**
+     * Response handler for delete record with timestamp from storage by input key.
+     *
+     * @param key - input record key
+     */
+    public CompletableFuture<FullHttpResponse> deleteTimestampResponse(@NotNull final ByteBuffer key) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 dao.removeTimestampRecord(key);
@@ -137,6 +181,13 @@ public class Utils {
         }, executor);
     }
 
+    /**
+     * Proxy Response handler for getting record with timestamp from storage.
+     *
+     * @param clusterClients - input cluster clients
+     * @param node - input node
+     * @param id - input record id
+     */
     public CompletableFuture<TimestampRecord> getProxyResponse(final Map<String, HttpClient> clusterClients,
                                                                @NotNull final String node,
                                                                @NotNull final String id) {
@@ -147,6 +198,13 @@ public class Utils {
                 .thenApplyAsync(HttpResponse::body, executor);
     }
 
+    /**
+     * Proxy Response handler for delete record with timestamp from storage.
+     *
+     * @param clusterClients - input cluster clients
+     * @param node - input node
+     * @param id - input record id
+     */
     public CompletableFuture<FullHttpResponse> deleteProxyResponse(final Map<String, HttpClient> clusterClients,
                                                                    @NotNull final String node,
                                                                    @NotNull final String id) {
@@ -157,6 +215,13 @@ public class Utils {
                 .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY), executor);
     }
 
+    /**
+     * Proxy Response handler for insert record with timestamp in storage.
+     *
+     * @param clusterClients - input cluster clients
+     * @param node - input node
+     * @param id - input record id
+     */
     public CompletableFuture<FullHttpResponse> putProxyResponse(final Map<String, HttpClient> clusterClients,
                                                                 @NotNull final String node,
                                                                 @NotNull final String id,
@@ -170,6 +235,11 @@ public class Utils {
                 .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY), executor);
     }
 
+    /**
+     * Timestamp records convertor to bytes.
+     *
+     * @param key - input ByteBuffer key
+     */
     public byte[] timestampFromByteBuffer(@NotNull final ByteBuffer key) throws IOException {
         final TimestampRecord res = dao.getTimestampRecord(key);
 
@@ -180,12 +250,23 @@ public class Utils {
         return res.toBytes();
     }
 
+    /**
+     * Request builder.
+     *
+     * @param node - input node
+     * @param id - input record id
+     */
     public HttpRequest.Builder requestBuilder(@NotNull final String node, @NotNull final String id) {
 
         return HttpRequest.newBuilder().uri(URI.create(node + ENTITY_PATH + id)).header(PROXY_HEADER, "True")
                 .timeout(Duration.ofMillis(timeout));
     }
 
+    /**
+     * ByteBuf body convertor to bytes.
+     *
+     * @param buffer - input ByteBuf request body
+     */
     public static byte[] getRequestBody(final ByteBuf buffer) {
 
         final ByteBuf bufferCopy = buffer.duplicate();
@@ -195,7 +276,14 @@ public class Utils {
         return array;
     }
 
-    public static FullHttpResponse responseBuilder(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes) {
+    /**
+     * Response builder.
+     *
+     * @param status - response status
+     * @param bytes - input message in the form of bytes
+     */
+    public static FullHttpResponse responseBuilder(@NotNull final HttpResponseStatus status,
+                                                   @NotNull final byte[] bytes) {
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status,
@@ -206,6 +294,12 @@ public class Utils {
         return response;
     }
 
+    /** Create future of input requests results.
+     *
+     * @param futures - list of futures with requests results.
+     * @param successes - necessary number of successful requests
+     * @param isForwarded - check processed request on forwarding
+     * */
     public <T> CompletableFuture<Collection<T>> atLeastAsync(@NotNull final Collection<CompletableFuture<T>> futures,
                                                              final int successes, final boolean isForwarded) {
 
@@ -223,7 +317,6 @@ public class Utils {
             } else {
                 if (errorsLeft.incrementAndGet() >= (futures.size() - successes + 1)) {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
-                    return;
                 }
             }
         }, executor).isCancelled());
@@ -231,12 +324,17 @@ public class Utils {
         return future;
     }
 
+    /** Handler to processing final future response.
+     *
+     * @param ctx - channel handler context.
+     * @param request - processed request
+     * @param response - input future response
+     * */
     public void respond(@NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request,
                         @NotNull final CompletableFuture<FullHttpResponse> response) {
         response.whenComplete((r, t) -> {
             if (t == null) {
                 ctx.writeAndFlush(r).addListener(ChannelFutureListener.CLOSE);
-                return;
             } else {
                 final HttpResponseStatus code;
 
@@ -255,6 +353,13 @@ public class Utils {
         }).isCancelled();
     }
 
+    /** Handler to sending http responses.
+     *
+     * @param status - http status code sending response
+     * @param bytes - input message in the form of bytes
+     * @param ctx - channel handler context
+     * @param request - processed request
+     * */
     public static void sendResponse(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes,
                                     @NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request) {
         final boolean isKeepAlive = HttpUtil.isKeepAlive(request);

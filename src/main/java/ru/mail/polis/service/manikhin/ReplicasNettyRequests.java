@@ -3,7 +3,6 @@ package ru.mail.polis.service.manikhin;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
@@ -11,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
-import ru.mail.polis.service.manikhin.serverUtils.Utils;
+import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
@@ -28,7 +27,7 @@ public class ReplicasNettyRequests {
     private final Logger log = LoggerFactory.getLogger(ReplicasNettyRequests.class);
     private static final String PROXY_HEADER = "X-OK-Proxy";
     private final Topology nodes;
-    private final Utils utils;
+    private final ServiceUtils serviceUtils;
     private final ThreadPoolExecutor executor;
 
     ReplicasNettyRequests(final DAO dao, final Topology nodes, final Map<String, HttpClient> clusterClients,
@@ -36,7 +35,7 @@ public class ReplicasNettyRequests {
         this.clusterClients = clusterClients;
         this.nodes = nodes;
         this.executor = executor;
-        this.utils = new Utils(dao, executor, timeout);
+        this.serviceUtils = new ServiceUtils(dao, executor, timeout);
     }
 
     /**
@@ -50,25 +49,23 @@ public class ReplicasNettyRequests {
     public void handleMultiRequest(@NotNull final Set<String> replicaClusters, @NotNull final FullHttpRequest request,
                                    final int replicateAcks, @NotNull final ChannelHandlerContext ctx) {
         try {
-            final HttpMethod method = request.method();
-
-            if (HttpMethod.GET.equals(method)) {
-                multiGet(ctx, replicaClusters, request, replicateAcks);
-                return;
-            } else if (HttpMethod.PUT.equals(method)) {
-                multiPut(ctx, replicaClusters, request, replicateAcks);
-                return;
-            } else if (HttpMethod.DELETE.equals(method)) {
-                multiDelete(ctx, replicaClusters, request, replicateAcks);
-                return;
-            } else {
-                Utils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, Utils.EMPTY_BODY, ctx, request);
-                return;
+            switch (request.method().toString()) {
+                case "GET":
+                    multiGet(ctx, replicaClusters, request, replicateAcks);
+                    return;
+                case "PUT":
+                    multiPut(ctx, replicaClusters, request, replicateAcks);
+                    return;
+                case "DELETE":
+                    multiDelete(ctx, replicaClusters, request, replicateAcks);
+                    return;
+                default:
+                    ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
+                            ctx, request);
             }
         } catch (IllegalStateException error) {
             log.error("handleMultiRequest error: ", error);
-            Utils.sendResponse(HttpResponseStatus.GATEWAY_TIMEOUT, Utils.EMPTY_BODY, ctx, request);
-            return;
+            ServiceUtils.sendResponse(HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY, ctx, request);
         }
     }
 
@@ -90,12 +87,12 @@ public class ReplicasNettyRequests {
 
         for (final String node : replicaNodes) {
             if (node.equals(nodes.getId())) {
-                responses.add(utils.getResponse(key));
+                responses.add(serviceUtils.getTimestampResponse(key));
             } else {
-                responses.add(utils.getProxyResponse(clusterClients, node, id));
+                responses.add(serviceUtils.getProxyResponse(clusterClients, node, id));
             }
 
-            utils.respond(ctx, request, utils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
+            serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
                     .thenApplyAsync(res -> processResponses(res, isForwardedRequest))
             );
         }
@@ -119,15 +116,16 @@ public class ReplicasNettyRequests {
 
         for (final String node : replicaNodes) {
             if (node.equals(nodes.getId())) {
-                responses.add(utils.putResponse(key, Utils.getRequestBody(request.content())));
+                responses.add(serviceUtils.putTimestampResponse(key, ServiceUtils.getRequestBody(request.content())));
             } else {
-                final byte[] body = Utils.getRequestBody(request.content());
-                responses.add(utils.putProxyResponse(clusterClients, node, id, body));
+                final byte[] body = ServiceUtils.getRequestBody(request.content());
+                responses.add(serviceUtils.putProxyResponse(clusterClients, node, id, body));
             }
         }
 
-        utils.respond(ctx, request, utils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> Utils.responseBuilder(HttpResponseStatus.CREATED, Utils.EMPTY_BODY), executor)
+        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
+                .thenApplyAsync(res -> ServiceUtils.responseBuilder(HttpResponseStatus.CREATED,
+                        ServiceUtils.EMPTY_BODY), executor)
         );
     }
 
@@ -149,14 +147,14 @@ public class ReplicasNettyRequests {
 
         for (final String node : replicaNodes) {
             if (node.equals(nodes.getId())) {
-                responses.add(utils.deleteResponse(key));
+                responses.add(serviceUtils.deleteTimestampResponse(key));
             } else {
-                responses.add(utils.deleteProxyResponse(clusterClients, node, id));
+                responses.add(serviceUtils.deleteProxyResponse(clusterClients, node, id));
             }
         }
 
-        utils.respond(ctx, request, utils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> Utils.responseBuilder(HttpResponseStatus.ACCEPTED, Utils.EMPTY_BODY),
+        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
+                .thenApplyAsync(res -> ServiceUtils.responseBuilder(HttpResponseStatus.ACCEPTED, ServiceUtils.EMPTY_BODY),
                         executor)
         );
     }
@@ -173,12 +171,12 @@ public class ReplicasNettyRequests {
 
         if (mergedResp.isValue()) {
             if (isForwardedRequest) {
-                return Utils.responseBuilder(HttpResponseStatus.OK, mergedResp.toBytes());
+                return ServiceUtils.responseBuilder(HttpResponseStatus.OK, mergedResp.toBytes());
             } else {
-                return Utils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
+                return ServiceUtils.responseBuilder(HttpResponseStatus.OK, mergedResp.getValueAsBytes());
             }
         } else {
-            return Utils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
+            return ServiceUtils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
         }
     }
 

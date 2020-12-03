@@ -22,10 +22,6 @@ dependencies {
     // Our beloved one-nio
     compile("ru.odnoklassniki:one-nio:1.3.2")
 
-    compile ("io.projectreactor.netty:reactor-netty-core:1.0.1")
-
-    compile("org.apache.httpcomponents:fluent-hc:4.5.3")
-
     // Netty
     compile("io.netty:netty-all:4.1.16.Final")
 

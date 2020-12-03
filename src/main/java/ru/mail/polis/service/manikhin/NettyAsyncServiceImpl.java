@@ -6,7 +6,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.util.concurrent.Future;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +24,18 @@ public class NettyAsyncServiceImpl implements Service {
     private final EventLoopGroup workersGroup;
     private final Logger log = LoggerFactory.getLogger(NettyAsyncServiceImpl.class);
 
-    public NettyAsyncServiceImpl(final int port, @NotNull final DAO dao,
-                                 @NotNull final Topology nodes, final int countOfWorkers,
-                                 final int queueSize, final int timeout) {
+    /**
+     * Start endpoint for init netty service.
+     *
+     * @param port - service port
+     * @param dao - storage interface
+     * @param nodes - nodes list
+     * @param countOfWorkers - count of workers
+     * @param queueSize - queue size
+     * @param timeout - init timeout for http clients
+     */
+    public NettyAsyncServiceImpl(final int port, @NotNull final DAO dao, @NotNull final Topology nodes,
+                                 final int countOfWorkers, final int queueSize, final int timeout) {
 
         this.port = port;
         this.dao = dao;
@@ -53,7 +61,7 @@ public class NettyAsyncServiceImpl implements Service {
 
             cf = serverBootstrap.bind(port).sync();
 
-        } catch (InterruptedException error) {
+        } catch (InterruptedException | NullPointerException error) {
             log.error("Interrupted error: ", error);
             Thread.currentThread().interrupt();
         }
@@ -62,19 +70,11 @@ public class NettyAsyncServiceImpl implements Service {
     @Override
     public synchronized void stop() {
         try {
-            final Future<?> bossGroupFuture = bossGroup.shutdownGracefully();
-            final Future<?> workersGroupFuture = workersGroup.shutdownGracefully();
+            bossGroup.shutdownGracefully().isCancelled();
+            workersGroup.shutdownGracefully().isCancelled();
+            cf.channel().closeFuture().sync().isCancelled();
 
-            if (bossGroupFuture.isCancelled()) {
-                log.error("bossGroup error!");
-            }
-
-            if (workersGroupFuture.isCancelled()) {
-                log.error("workersGroup error!");
-            }
-
-            cf = cf.channel().closeFuture().sync();
-        } catch (InterruptedException error) {
+        } catch (InterruptedException | NullPointerException error) {
             log.error("Can't stop server! Error: ", error);
             Thread.currentThread().interrupt();
         }

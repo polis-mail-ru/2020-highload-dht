@@ -10,7 +10,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.manikhin.serverUtils.Utils;
+import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,6 +27,9 @@ public class Replicas {
         this.from = from;
     }
 
+    /**
+     * Calculate replicas by input count nodes quorum.
+     * */
     public static Replicas quorum(final int count) {
         final int n = count / 2 + 1;
 
@@ -50,7 +53,7 @@ public class Replicas {
     }
 
     /**
-     * Calculate replica factor value.
+     * Calculate replica factor value for one-nio service.
      *
      * @param replicas - input replicas
      * @param session - input http-session
@@ -77,10 +80,19 @@ public class Replicas {
         return replicaFactor;
     }
 
+    /**
+     * Calculate replica factor value for netty service.
+     *
+     * @param replicas - input replicas
+     * @param ctx - channel handler context
+     * @param defaultReplicaFactor - default replica factor
+     * @param clusterSize - input nodes cluster size
+     * @return ReplicaFactor value
+     */
     public static Replicas replicaNettyFactor(final List<String> replicas,
                                               final @NotNull ChannelHandlerContext ctx,
                                               final Replicas defaultReplicaFactor,
-                                              final int clusterSize) throws IOException {
+                                              final int clusterSize) {
 
         Replicas replicaFactor = null;
 
@@ -102,10 +114,10 @@ public class Replicas {
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, HttpResponseStatus.BAD_REQUEST,
-                Unpooled.copiedBuffer(Utils.EMPTY_BODY)
+                Unpooled.copiedBuffer(ServiceUtils.EMPTY_BODY)
         );
 
-        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, Utils.EMPTY_BODY.length);
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, ServiceUtils.EMPTY_BODY.length);
         ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
 

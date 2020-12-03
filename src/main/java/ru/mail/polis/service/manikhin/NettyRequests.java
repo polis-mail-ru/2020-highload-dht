@@ -11,7 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.manikhin.serverUtils.Utils;
+import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -39,8 +39,17 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final Replicas defaultReplica;
     private final Topology nodes;
     private final ReplicasNettyRequests replicaHelper;
-    private final Utils utils;
+    private final ServiceUtils serviceUtils;
 
+    /**
+     * Request handlers for netty async service implementation.
+     *
+     * @param dao - storage interface
+     * @param nodes - nodes list
+     * @param countOfWorkers - count of workers
+     * @param queueSize - queue size
+     * @param timeout - init timeout for http clients
+     */
     public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes,
                          final int countOfWorkers, final int queueSize, final int timeout) {
         this.dao = dao;
@@ -65,7 +74,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
 
         this.replicaHelper = new ReplicasNettyRequests(dao, nodes, clusterClients, executor, timeout);
-        this.utils = new Utils(dao, executor, timeout);
+        this.serviceUtils = new ServiceUtils(dao, executor, timeout);
     }
 
     @Override
@@ -78,16 +87,13 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         final String uri = msg.uri();
 
         if (uri.equals(STATUS_PATH)) {
-            Utils.sendResponse(HttpResponseStatus.OK, Utils.EMPTY_BODY, ctx, msg);
-            return;
+            ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
         } else if (uri.contains(ENTITIES_PATH)) {
             entitiesHandler(ctx, msg, uri);
-            return;
         } else if (uri.contains(ENTITY_PATH)) {
             entityHandler(ctx, msg, uri);
-            return;
         } else {
-            Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, msg);
+            ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, msg);
         }
     }
 
@@ -108,11 +114,9 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final Iterator<Record> iterator = dao.range(from, to);
             final StreamNettySession session = new StreamNettySession(iterator, ctx, request);
             session.startStream();
-            return;
         } catch (IllegalArgumentException | IOException error) {
             log.error("IOexception error: ", error);
-            Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, request);
-            return;
+            ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
         }
     }
 
@@ -123,7 +127,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final List<String> id = decoder.parameters().get("id");
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
-                Utils.sendResponse(HttpResponseStatus.BAD_REQUEST, Utils.EMPTY_BODY, ctx, request);
+                ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
                 return;
             }
 
@@ -150,20 +154,19 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
             switch (request.method().toString()) {
                 case "GET":
-                    utils.localGet(key, ctx, request);
+                    serviceUtils.getResponse(key, ctx, request);
                     return;
                 case "PUT":
-                    utils.localPut(key, ctx, request.retain());
+                    serviceUtils.putResponse(key, ctx, request.retain());
                     return;
                 case "DELETE":
-                    utils.localDelete(key, ctx, request);
+                    serviceUtils.deleteResponse(key, ctx, request);
                     return;
                 default:
-                    Utils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, Utils.EMPTY_BODY, ctx, request);
-                    return;
+                    ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY, ctx, request);
             }
-        } catch (RejectedExecutionException | IOException error) {
-            Utils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, Utils.EMPTY_BODY, ctx, request);
+        } catch (RejectedExecutionException error) {
+            ServiceUtils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY, ctx, request);
         }
     }
 }
