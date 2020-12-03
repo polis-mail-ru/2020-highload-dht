@@ -39,7 +39,7 @@ public final class Cluster {
     }
 
     /**
-     * main start point
+     * main start point.
      */
     public static void main(final String[] args) throws IOException, InterruptedException {
         // Fill the topology
