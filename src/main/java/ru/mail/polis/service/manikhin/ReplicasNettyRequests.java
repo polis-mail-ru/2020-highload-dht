@@ -52,13 +52,13 @@ public class ReplicasNettyRequests {
             switch (request.method().toString()) {
                 case "GET":
                     multiGet(ctx, replicaClusters, request, replicateAcks);
-                    return;
+                    break;
                 case "PUT":
                     multiPut(ctx, replicaClusters, request, replicateAcks);
-                    return;
+                    break;
                 case "DELETE":
                     multiDelete(ctx, replicaClusters, request, replicateAcks);
-                    return;
+                    break;
                 default:
                     ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
                             ctx, request);
@@ -154,8 +154,8 @@ public class ReplicasNettyRequests {
         }
 
         serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> ServiceUtils.responseBuilder(HttpResponseStatus.ACCEPTED, ServiceUtils.EMPTY_BODY),
-                        executor)
+                .thenApplyAsync(res -> ServiceUtils.responseBuilder(HttpResponseStatus.ACCEPTED,
+                        ServiceUtils.EMPTY_BODY), executor)
         );
     }
 

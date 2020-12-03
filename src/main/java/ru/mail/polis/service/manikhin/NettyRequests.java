@@ -1,6 +1,8 @@
 package ru.mail.polis.service.manikhin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -155,15 +157,16 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             switch (request.method().toString()) {
                 case "GET":
                     serviceUtils.getResponse(key, ctx, request);
-                    return;
+                    break;
                 case "PUT":
                     serviceUtils.putResponse(key, ctx, request.retain());
-                    return;
+                    break;
                 case "DELETE":
                     serviceUtils.deleteResponse(key, ctx, request);
-                    return;
+                    break;
                 default:
-                    ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY, ctx, request);
+                    ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
+                            ctx, request);
             }
         } catch (RejectedExecutionException error) {
             ServiceUtils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY, ctx, request);

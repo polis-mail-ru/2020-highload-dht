@@ -26,13 +26,23 @@ public class StreamNettySession {
     private final ChannelHandlerContext ctx;
     private final FullHttpRequest request;
 
+    /**
+     * Stream netty service session.
+     *
+     * @param iterator - record iterator from DAO storage
+     * @param ctx - channel handler context
+     * @param request - input http request
+     * */
     public StreamNettySession(final Iterator<Record> iterator, final ChannelHandlerContext ctx,
-                              final FullHttpRequest msg) {
+                              final FullHttpRequest request) {
         this.iterator = iterator;
         this.ctx = ctx;
-        this.request = msg;
+        this.request = request;
     }
 
+    /**
+     * Handle for running stream in session.
+     * */
     public void startStream() throws IOException {
         final HttpResponse response = new DefaultHttpResponse(
                 HTTP_1_1, HttpResponseStatus.OK

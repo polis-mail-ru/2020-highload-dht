@@ -19,7 +19,6 @@ public class NettyAsyncServiceImpl implements Service {
     private final int timeout;
     private final int countOfWorkers;
     private final int queueSize;
-    private ChannelFuture cf;
     private final EventLoopGroup bossGroup;
     private final EventLoopGroup workersGroup;
     private final Logger log = LoggerFactory.getLogger(NettyAsyncServiceImpl.class);
@@ -59,9 +58,8 @@ public class NettyAsyncServiceImpl implements Service {
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            cf = serverBootstrap.bind(port).sync();
-
-        } catch (InterruptedException | NullPointerException error) {
+            serverBootstrap.bind(port).sync().isSuccess();
+        } catch (InterruptedException error) {
             log.error("Interrupted error: ", error);
             Thread.currentThread().interrupt();
         }
@@ -69,14 +67,7 @@ public class NettyAsyncServiceImpl implements Service {
 
     @Override
     public synchronized void stop() {
-        try {
-            bossGroup.shutdownGracefully().isCancelled();
-            workersGroup.shutdownGracefully().isCancelled();
-            cf.channel().closeFuture().sync().isCancelled();
-
-        } catch (InterruptedException | NullPointerException error) {
-            log.error("Can't stop server! Error: ", error);
-            Thread.currentThread().interrupt();
-        }
+        bossGroup.shutdownGracefully().isSuccess();
+        workersGroup.shutdownGracefully().isSuccess();
     }
 }
