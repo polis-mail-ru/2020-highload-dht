@@ -69,11 +69,12 @@ public class RendezvousHashingTest {
     public void uniformDistributionTest(@NotNull final Set<String> allNodes) {
         final Topology<String> topology = getTopologyInstance(allNodes);
         final Multiset<String> resultOfReplication = HashMultiset.create();
-        final int[] replicas = random.ints(COUNT_OF_KEYS, 1, (int) Math.ceil(allNodes.size() * 0.75) + 1).toArray();
+        final int replicas = (allNodes.size() / 2) + 1 ;
+        System.out.println(replicas);
         final byte[] rndKey = new byte[SIZE_OF_RANDOM_KEY];
         for (int i = 0; i < COUNT_OF_KEYS; i++) {
             random.nextBytes(rndKey);
-            final String[] owners = topology.replicasFor(ByteBuffer.wrap(rndKey),replicas[i]);
+            final String[] owners = topology.replicasFor(ByteBuffer.wrap(rndKey),replicas);
             resultOfReplication.addAll(Arrays.asList(owners));
         }
         assertTrue(isUniformDistribution(resultOfReplication, allNodes.size()));
