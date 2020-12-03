@@ -259,7 +259,7 @@ public class ServiceUtils {
     public HttpRequest.Builder requestBuilder(@NotNull final String node, @NotNull final String id) {
 
         return HttpRequest.newBuilder().uri(URI.create(node + ENTITY_PATH + id)).header(PROXY_HEADER, "True")
-                .timeout(Duration.ofMillis(timeout));
+                .timeout(Duration.ofSeconds(timeout));
     }
 
     /**
@@ -316,7 +316,7 @@ public class ServiceUtils {
                     future.complete(results);
                 }
             } else {
-                if (errorsLeft.incrementAndGet() == (futures.size() - successes + 1)) {
+                if (errorsLeft.incrementAndGet() == futures.size() - successes + 1) {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
                 }
             }
