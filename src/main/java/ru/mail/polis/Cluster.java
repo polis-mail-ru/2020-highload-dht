@@ -38,7 +38,10 @@ public final class Cluster {
         // Not instantiable
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    /**
+     * main start point
+     */
+    public static void main(final String[] args) throws IOException, InterruptedException {
         // Fill the topology
         final Set<String> topology = new HashSet<>(3);
         for (final int port : PORTS) {

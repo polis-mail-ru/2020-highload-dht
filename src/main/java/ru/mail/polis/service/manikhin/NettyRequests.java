@@ -1,8 +1,6 @@
 package ru.mail.polis.service.manikhin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -167,6 +165,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 default:
                     ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
                             ctx, request);
+                    break;
             }
         } catch (RejectedExecutionException error) {
             ServiceUtils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY, ctx, request);

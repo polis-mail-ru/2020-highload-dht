@@ -62,6 +62,7 @@ public class ReplicasNettyRequests {
                 default:
                     ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
                             ctx, request);
+                    break;
             }
         } catch (IllegalStateException error) {
             log.error("handleMultiRequest error: ", error);
