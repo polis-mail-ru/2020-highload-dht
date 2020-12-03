@@ -11,7 +11,7 @@ import java.util.concurrent.RejectedExecutionException;
 public final class GetBodyHandler implements HttpResponse.BodyHandler<TimestampRecord> {
 
     public static final HttpResponse.BodyHandler<TimestampRecord> INSTANCE = new GetBodyHandler();
-    private static final String TIMESTAMP = "Timestamp";
+    private static final String TIMESTAMP_HEADER = "Timestamp";
 
     private GetBodyHandler() {
     }
@@ -20,17 +20,16 @@ public final class GetBodyHandler implements HttpResponse.BodyHandler<TimestampR
     public HttpResponse.BodySubscriber<TimestampRecord> apply(@NotNull final HttpResponse.ResponseInfo responseInfo) {
         switch (responseInfo.statusCode()) {
             case 200:
-                final OptionalLong okTimestamp = responseInfo.headers().firstValueAsLong(TIMESTAMP);
+                final OptionalLong successTimestamp = responseInfo.headers().firstValueAsLong(TIMESTAMP_HEADER);
 
-                if (okTimestamp.isEmpty()) {
+                if (successTimestamp.isEmpty()) {
                     throw new IllegalArgumentException("No timestamp header");
                 }
 
-                final long okTimestampValue = okTimestamp.getAsLong();
                 return HttpResponse.BodySubscribers.mapping(HttpResponse.BodySubscribers.ofByteArray(),
-                        bytes -> TimestampRecord.fromValue(ByteBuffer.wrap(bytes), okTimestampValue));
+                        bytes -> TimestampRecord.fromValue(ByteBuffer.wrap(bytes), successTimestamp.getAsLong()));
             case 404:
-                final OptionalLong errorTimestamp = responseInfo.headers().firstValueAsLong(TIMESTAMP);
+                final OptionalLong errorTimestamp = responseInfo.headers().firstValueAsLong(TIMESTAMP_HEADER);
 
                 if (errorTimestamp.isEmpty()) {
                     return HttpResponse.BodySubscribers.replacing(TimestampRecord.getEmpty());

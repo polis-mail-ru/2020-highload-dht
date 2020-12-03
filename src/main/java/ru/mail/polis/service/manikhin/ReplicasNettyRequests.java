@@ -26,6 +26,7 @@ public class ReplicasNettyRequests {
     private final Map<String, HttpClient> clusterClients;
     private final Logger log = LoggerFactory.getLogger(ReplicasNettyRequests.class);
     private static final String PROXY_HEADER = "X-OK-Proxy";
+    private static final String TIMESTAMP_HEADER = "Timestamp";
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
     private final ThreadPoolExecutor executor;
@@ -78,7 +79,7 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
      */
-    public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
+    private void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request, final int replicateAcks) {
 
         final String id = queryParser(request.uri());
@@ -109,7 +110,7 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
      */
-    public void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
+    private void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request, final int replicateAcks) {
 
         final String id = queryParser(request.uri());
@@ -140,7 +141,7 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
      */
-    public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
+    private void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                             @NotNull final FullHttpRequest request, final int replicateAcks) {
 
         final String id = queryParser(request.uri());
@@ -167,7 +168,7 @@ public class ReplicasNettyRequests {
      *
      * @param responses - input set with responses
      */
-    public FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord> responses) {
+    private FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord> responses) {
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
         final FullHttpResponse response;
 
@@ -177,7 +178,7 @@ public class ReplicasNettyRequests {
             response = ServiceUtils.responseBuilder(HttpResponseStatus.NOT_FOUND, mergedResp.toBytes());
         }
 
-        response.headers().add("Timestamp", mergedResp.getTimestamp());
+        response.headers().add(TIMESTAMP_HEADER, mergedResp.getTimestamp());
         return response;
     }
 
