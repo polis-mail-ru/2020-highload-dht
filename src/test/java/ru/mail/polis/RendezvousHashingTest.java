@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class RendezvousHashingTest {
+    private static final int SIZE_OF_RANDOM_KEY = 50;
+    private static final int REPLICAS = 5;
     private static final int[] TOPOLOGY_SIZES = {3, 5, 8, 10, 20, 100};
     private static final int COUNT_OF_KEYS = 1_000_000;
     public static final double ERR = 0.05;
@@ -41,11 +43,10 @@ public class RendezvousHashingTest {
         final Multiset<String> ownersBeforeChange = HashMultiset.create();
         final Topology<String> topologyNew = getTopologyInstance(nodes);
         final Multiset<String> ownersAfterChange = HashMultiset.create();
-        final int replicas = 5;
         final byte[][] keyArr = generateRandomKeys(COUNT_OF_KEYS);
         for (final byte[] bytes : keyArr) {
-            ownersBeforeChange.addAll(Arrays.asList(topologyOld.replicasFor(ByteBuffer.wrap(bytes), replicas)));
-            ownersAfterChange.addAll(Arrays.asList(topologyNew.replicasFor(ByteBuffer.wrap(bytes), replicas)));
+            ownersBeforeChange.addAll(Arrays.asList(topologyOld.replicasFor(ByteBuffer.wrap(bytes), REPLICAS)));
+            ownersAfterChange.addAll(Arrays.asList(topologyNew.replicasFor(ByteBuffer.wrap(bytes), REPLICAS)));
         }
         assertTrue(compareOwners(ownersBeforeChange, ownersAfterChange, newNode, topologyOld.nodeCount()));
     }
@@ -57,7 +58,7 @@ public class RendezvousHashingTest {
         after.remove(newNode);
         int sumOfDeference = 0;
         for (final String node: before.elementSet()) {
-            sumOfDeference = before.count(node) + after.count(node);
+            sumOfDeference += before.count(node) - after.count(node);
         }
         final int countByNode = COUNT_OF_KEYS / clusterSize;
         return sumOfDeference >= countByNode - countByNode * ERR || sumOfDeference <= countByNode + countByNode * ERR;
@@ -65,29 +66,26 @@ public class RendezvousHashingTest {
 
     @ParameterizedTest
     @MethodSource("nodesProvider")
-    public void normalDistributionTest(@NotNull final Set<String> allNodes) {
+    public void uniformDistributionTest(@NotNull final Set<String> allNodes) {
         final Topology<String> topology = getTopologyInstance(allNodes);
         final Multiset<String> resultOfReplication = HashMultiset.create();
         final int[] replicas = random.ints(COUNT_OF_KEYS, 1, (int) Math.ceil(allNodes.size() * 0.75) + 1).toArray();
-        final byte[] rndKey = new byte[50];
-        long countOFReplicas = 0;
+        final byte[] rndKey = new byte[SIZE_OF_RANDOM_KEY];
         for (int i = 0; i < COUNT_OF_KEYS; i++) {
             random.nextBytes(rndKey);
-            countOFReplicas += replicas[i];
             final String[] owners = topology.replicasFor(ByteBuffer.wrap(rndKey),replicas[i]);
             resultOfReplication.addAll(Arrays.asList(owners));
         }
-        assertTrue(isEquitableDistribution(resultOfReplication, allNodes.size(), countOFReplicas));
+        assertTrue(isUniformDistribution(resultOfReplication, allNodes.size()));
     }
 
-    private static boolean isEquitableDistribution(@NotNull final Multiset<String> resultIdentify,
-                                                   final int size, final long replicas) {
+    private static boolean isUniformDistribution(@NotNull final Multiset<String> resultOfReplicasFor,
+                                                 final int size) {
         final List<Integer> countsOfIndent = new ArrayList<>();
-        resultIdentify.entrySet().iterator().forEachRemaining(i -> countsOfIndent.add(i.getCount()));
-        final long avg = replicas / size;
-        final List<Integer> nonEquitableNodes = countsOfIndent.stream()
-                .filter(i -> i > avg + avg * ERR || i < avg - avg * ERR).collect(Collectors.toList());
-        return nonEquitableNodes.isEmpty();
+        resultOfReplicasFor.entrySet().iterator().forEachRemaining(i -> countsOfIndent.add(i.getCount()));
+        final long avg = resultOfReplicasFor.size() / size;
+        return countsOfIndent.stream()
+                .noneMatch(i -> i > avg + avg * ERR || i < avg - avg * ERR);
     }
 
     @NotNull
@@ -98,7 +96,7 @@ public class RendezvousHashingTest {
 
     @NotNull
     private static byte[][] generateRandomKeys(final int size) {
-        final byte[][] rndKey = new byte[size][50];
+        final byte[][] rndKey = new byte[size][SIZE_OF_RANDOM_KEY];
         for (final byte[] bytes : rndKey) {
             random.nextBytes(bytes);
         }
@@ -112,7 +110,8 @@ public class RendezvousHashingTest {
 
     @NotNull
     private static Set<String> getRandomNodes(final int size) {
-        return random.ints(size-1, MIN_PORT, MAX_PORT - 1).mapToObj(i -> URL + i).collect(Collectors.toSet());
+        return random.ints(size-1, MIN_PORT, MAX_PORT - 1)
+                .mapToObj(i -> URL + i).collect(Collectors.toSet());
     }
 
     @NotNull
