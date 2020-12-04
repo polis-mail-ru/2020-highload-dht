@@ -1,4 +1,4 @@
-package ru.mail.polis.expire.service;
+package ru.mail.polis.service;
 
 import one.nio.http.HttpClient;
 import one.nio.http.Response;
@@ -11,8 +11,6 @@ import ru.mail.polis.Files;
 import ru.mail.polis.TestBase;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.DAOFactory;
-import ru.mail.polis.service.Service;
-import ru.mail.polis.service.ServiceFactory;
 
 import java.io.File;
 import java.io.IOException;

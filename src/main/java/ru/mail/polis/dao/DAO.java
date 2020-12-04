@@ -42,7 +42,7 @@ public interface DAO extends Closeable {
      * one should not "seek" to start point ("from" element) in linear time ;)
      */
     @NotNull
-    Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException;
+    Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
 
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
@@ -90,21 +90,21 @@ public interface DAO extends Closeable {
      * Inserts or updates value by given key.
      */
     void upsert(
-            @NotNull final ByteBuffer key,
-            @NotNull final ByteBuffer value) throws IOException;
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value) throws IOException;
 
     /**
      * Inserts or updates value with expire by given key.
      */
     void upsert(
-            @NotNull final ByteBuffer key,
-            @NotNull final ByteBuffer value,
-            @NotNull final Instant expire) throws IOException;
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value,
+            @NotNull Instant expire) throws IOException;
 
     /**
      * Removes value by given key.
      */
-    void remove(@NotNull final ByteBuffer key) throws IOException;
+    void remove(@NotNull ByteBuffer key) throws IOException;
 
     /**
      * Perform compaction

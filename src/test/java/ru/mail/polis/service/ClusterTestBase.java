@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * @author Vadim Tsesko
  */
-abstract class ClusterTestBase extends TestBase {
+public abstract class ClusterTestBase extends TestBase {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
     private final Map<String, HttpClient> hostToClient = new HashMap<>();
 
@@ -61,11 +61,26 @@ abstract class ClusterTestBase extends TestBase {
     }
 
     @NotNull
+    private static String path(@NotNull final String id,
+                               @NotNull final String expire) {
+        return "/v0/entity?id=" + id + "&expires=" + expire;
+    }
+
+    @NotNull
     private static String path(
             @NotNull final String id,
             final int ack,
             final int from) {
         return path(id) + "&replicas=" + ack + "/" + from;
+    }
+
+    @NotNull
+    private static String path(
+            @NotNull final String id,
+            @NotNull final String expire,
+            final int ack,
+            final int from) {
+        return path(id, expire) + "&replicas=" + ack + "/" + from;
     }
 
     @BeforeEach
@@ -226,5 +241,23 @@ abstract class ClusterTestBase extends TestBase {
             final int ack,
             final int from) throws Exception {
         return client(node).put(path(key, ack, from), data);
+    }
+
+    Response upsert(
+            final int node,
+            @NotNull final String key,
+            @NotNull final String expire,
+            @NotNull final byte[] data) throws Exception {
+        return client(node).put(path(key, expire), data);
+    }
+
+    Response upsert(
+            final int node,
+            @NotNull final String key,
+            @NotNull final String expire,
+            @NotNull final byte[] data,
+            final int ack,
+            final int from) throws Exception {
+        return client(node).put(path(key, expire, ack, from), data);
     }
 }

@@ -1,4 +1,4 @@
-package ru.mail.polis.expire.service;
+package ru.mail.polis.service;
 
 import one.nio.http.Response;
 import org.junit.jupiter.api.Test;
@@ -8,7 +8,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-public class ShardingExpireTest extends ClusterExpireTestBase {
+public class ShardingExpireTest extends ClusterTestBase {
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
 
     @Override

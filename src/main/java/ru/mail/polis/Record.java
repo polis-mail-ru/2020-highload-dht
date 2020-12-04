@@ -45,11 +45,11 @@ public final class Record implements Comparable<Record> {
     }
 
     public ByteBuffer getKey() {
-        return key.duplicate();
+        return key.asReadOnlyBuffer();
     }
 
     public ByteBuffer getValue() {
-        return value.duplicate();
+        return value.asReadOnlyBuffer();
     }
 
     @Override

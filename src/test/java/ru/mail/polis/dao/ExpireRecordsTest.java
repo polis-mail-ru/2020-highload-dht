@@ -1,10 +1,8 @@
-package ru.mail.polis.expire.dao;
+package ru.mail.polis.dao;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import ru.mail.polis.TestBase;
-import ru.mail.polis.dao.DAO;
-import ru.mail.polis.dao.DAOFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,9 +23,8 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final Instant current = Instant.now().plus(Duration.ofMinutes(5));
-        final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, current);
             assertEquals(value, dao.get(key));
         }
     }
@@ -37,9 +34,8 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final Instant current = Instant.now().plus(Duration.ofMinutes(5));
-        final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, current);
             assertEquals(value, dao.get(key));
             dao.compact();
             assertEquals(value, dao.get(key));
@@ -51,9 +47,8 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final Instant current = Instant.now().minus(Duration.ofMinutes(5));
-        final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, current);
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
         }
     }
@@ -63,9 +58,8 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final Instant current = Instant.now().minus(Duration.ofMinutes(5));
-        final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, current);
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
             dao.compact();
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
@@ -77,9 +71,8 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final Instant current = Instant.now().plus(Duration.ofSeconds(10));
-        final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, current);
             assertEquals(value, dao.get(key));
             Thread.sleep(10000);
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
@@ -91,9 +84,8 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer key = randomKeyBuffer();
         final ByteBuffer value = randomValueBuffer();
         final Instant current = Instant.now().plus(Duration.ofSeconds(10));
-        final Instant expire = Instant.ofEpochSecond(current.getEpochSecond(), current.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key, value, expire);
+            dao.upsert(key, value, current);
             assertEquals(value, dao.get(key));
             dao.compact();
             assertEquals(value, dao.get(key));
@@ -111,12 +103,10 @@ public class ExpireRecordsTest extends TestBase {
         final ByteBuffer value2 = randomValueBuffer();
         final Instant current1 = Instant.now().plus(Duration.ofSeconds(10));
         final Instant current2 = Instant.now().plus(Duration.ofMinutes(1));
-        final Instant expire1 = Instant.ofEpochSecond(current1.getEpochSecond(), current1.getNano());
-        final Instant expire2 = Instant.ofEpochSecond(current2.getEpochSecond(), current2.getNano());
         try (DAO dao = DAOFactory.create(data)) {
-            dao.upsert(key1, value1, expire1);
+            dao.upsert(key1, value1, current1);
             assertEquals(value1, dao.get(key1));
-            dao.upsert(key2, value2, expire2);
+            dao.upsert(key2, value2, current2);
             assertEquals(value2, dao.get(key2));
             Thread.sleep(10000);
             dao.compact();
