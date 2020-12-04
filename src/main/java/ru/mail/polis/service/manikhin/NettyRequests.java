@@ -151,7 +151,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
     private void putRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
         if (isForwarded || clusterSize > 1) {
-            replicaHelper.multiPut(context, replicaClusters, request,  replicaFactor.getAck());
+            replicaHelper.multiPut(context, replicaClusters, request, replicaFactor.getAck());
         } else {
             serviceUtils.putResponse(key, context, request);
         }
