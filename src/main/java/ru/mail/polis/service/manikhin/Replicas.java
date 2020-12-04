@@ -69,9 +69,11 @@ public class Replicas {
 
         try {
             replicaFactor = replicas == null ? defaultReplicaFactor : parser(replicas);
-            if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack || replicaFactor.from > clusterSize) {
+
+            if (replicaFactor.from > clusterSize) {
                 throw new IllegalArgumentException("From is is very big");
             }
+
             return replicaFactor;
         } catch (IllegalArgumentException error) {
             session.sendError(Response.BAD_REQUEST, "Wrong ReplicaFactor");

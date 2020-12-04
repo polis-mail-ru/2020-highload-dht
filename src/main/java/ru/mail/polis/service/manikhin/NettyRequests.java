@@ -9,30 +9,27 @@ import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
-    private final DAO dao;
     static final String STATUS_PATH = "/v0/status";
     static final String ENTITY_PATH = "/v0/entity";
-    static final String ENTITIES_PATH = "/v0/entities";
     private final int clusterSize;
 
     private static final Logger log = LoggerFactory.getLogger(NettyRequests.class);
@@ -50,9 +47,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
      * @param queueSize - queue size
      * @param timeout - init timeout for http clients
      */
-    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes,
-                         final int countOfWorkers, final int queueSize, final int timeout) {
-        this.dao = dao;
+    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
+                         final int queueSize, final int timeout) {
         this.nodes = nodes;
         this.clusterSize = nodes.getNodes().size();
         this.defaultReplica = Replicas.quorum(clusterSize);
@@ -88,35 +84,11 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
         if (uri.equals(STATUS_PATH)) {
             ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
-        } else if (uri.contains(ENTITIES_PATH)) {
-            entitiesHandler(ctx, msg, uri);
         } else if (uri.contains(ENTITY_PATH)) {
-            entityHandler(ctx, msg, uri);
+            entityHandler(ctx, msg.retain(), uri);
         } else {
-            ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, msg);
-        }
-    }
-
-    private void entitiesHandler(@NotNull final ChannelHandlerContext ctx,
-                                 @NotNull final FullHttpRequest request, @NotNull final String uri) {
-        try {
-            final QueryStringDecoder decoder = new QueryStringDecoder(uri);
-            final List<String> start = decoder.parameters().get("start");
-            final List<String> end = decoder.parameters().get("end");
-
-            if (start == null || ((end != null) && end.get(0).isEmpty())) {
-                throw new IllegalArgumentException();
-            }
-
-            final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
-            assert end != null;
-            final ByteBuffer to = ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
-            final Iterator<Record> iterator = dao.range(from, to);
-            final StreamNettySession session = new StreamNettySession(iterator, ctx, request);
-            session.startStream();
-        } catch (IllegalArgumentException | IOException error) {
-            log.error("IOexception error: ", error);
-            ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
+            serviceUtils.respond(ctx, msg, CompletableFuture.supplyAsync(() ->
+                    ServiceUtils.responseBuilder(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
         }
     }
 
@@ -127,7 +99,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final List<String> id = decoder.parameters().get("id");
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
-                ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
+                serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
+                        ServiceUtils.responseBuilder(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
                 return;
             }
 
@@ -157,18 +130,20 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                     serviceUtils.getResponse(key, ctx, request);
                     break;
                 case "PUT":
-                    serviceUtils.putResponse(key, ctx, request.retain());
+                    serviceUtils.putResponse(key, ctx, request);
                     break;
                 case "DELETE":
                     serviceUtils.deleteResponse(key, ctx, request);
                     break;
                 default:
-                    ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
-                            ctx, request);
+                    serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
+                            ServiceUtils.responseBuilder(HttpResponseStatus.METHOD_NOT_ALLOWED,
+                                    ServiceUtils.EMPTY_BODY)));
                     break;
             }
         } catch (RejectedExecutionException error) {
-            ServiceUtils.sendResponse(HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY, ctx, request);
+            serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
+                    ServiceUtils.responseBuilder(HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY)));
         }
     }
 }

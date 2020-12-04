@@ -29,13 +29,11 @@ public class ReplicasNettyRequests {
     private static final String TIMESTAMP_HEADER = "Timestamp";
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
-    private final ThreadPoolExecutor executor;
 
     ReplicasNettyRequests(final DAO dao, final Topology nodes, final Map<String, HttpClient> clusterClients,
                           final ThreadPoolExecutor executor, final int timeout) {
         this.clusterClients = clusterClients;
         this.nodes = nodes;
-        this.executor = executor;
         this.serviceUtils = new ServiceUtils(dao, executor, timeout);
     }
 
@@ -61,13 +59,14 @@ public class ReplicasNettyRequests {
                     multiDelete(ctx, replicaClusters, request, replicateAcks);
                     break;
                 default:
-                    ServiceUtils.sendResponse(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY,
-                            ctx, request);
+                    serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils
+                            .responseBuilder(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY)));
                     break;
             }
         } catch (IllegalStateException error) {
             log.error("handleMultiRequest error: ", error);
-            ServiceUtils.sendResponse(HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY, ctx, request);
+            serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils
+                    .responseBuilder(HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY)));
         }
     }
 
@@ -128,8 +127,9 @@ public class ReplicasNettyRequests {
         }
 
         serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> ServiceUtils.responseBuilder(HttpResponseStatus.CREATED,
-                        ServiceUtils.EMPTY_BODY), executor)
+                .handle((res, ex) -> ex == null ? ServiceUtils.responseBuilder(HttpResponseStatus.CREATED,
+                        ServiceUtils.EMPTY_BODY) : ServiceUtils.responseBuilder(HttpResponseStatus.GATEWAY_TIMEOUT,
+                        ServiceUtils.EMPTY_BODY))
         );
     }
 
@@ -158,8 +158,9 @@ public class ReplicasNettyRequests {
         }
 
         serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                .thenApplyAsync(res -> ServiceUtils.responseBuilder(HttpResponseStatus.ACCEPTED,
-                        ServiceUtils.EMPTY_BODY), executor)
+                .handle((res, ex) -> ex == null ? ServiceUtils.responseBuilder(HttpResponseStatus.ACCEPTED,
+                        ServiceUtils.EMPTY_BODY) : ServiceUtils.responseBuilder(HttpResponseStatus.GATEWAY_TIMEOUT,
+                        ServiceUtils.EMPTY_BODY))
         );
     }
 
