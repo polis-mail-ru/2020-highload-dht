@@ -6,8 +6,6 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
 import ru.mail.polis.service.manikhin.utils.ServiceUtils;
@@ -24,7 +22,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 public class ReplicasNettyRequests {
     private final Map<String, HttpClient> clusterClients;
-    private final Logger log = LoggerFactory.getLogger(ReplicasNettyRequests.class);
     private static final String PROXY_HEADER = "X-OK-Proxy";
     private static final String TIMESTAMP_HEADER = "Timestamp";
     private final Topology nodes;
@@ -38,39 +35,6 @@ public class ReplicasNettyRequests {
     }
 
     /**
-     * Request handler for input requests with many replicas.
-     *
-     * @param replicaClusters - replica clusters
-     * @param request - input http-request
-     * @param replicateAcks - input replicate acks
-     * @param ctx - http-session
-     */
-    public void handleMultiRequest(@NotNull final Set<String> replicaClusters, @NotNull final FullHttpRequest request,
-                                   final int replicateAcks, @NotNull final ChannelHandlerContext ctx) {
-        try {
-            switch (request.method().toString()) {
-                case "GET":
-                    multiGet(ctx, replicaClusters, request, replicateAcks);
-                    break;
-                case "PUT":
-                    multiPut(ctx, replicaClusters, request, replicateAcks);
-                    break;
-                case "DELETE":
-                    multiDelete(ctx, replicaClusters, request, replicateAcks);
-                    break;
-                default:
-                    serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils
-                            .responseBuilder(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY)));
-                    break;
-            }
-        } catch (IllegalStateException error) {
-            log.error("handleMultiRequest error: ", error);
-            serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils
-                    .responseBuilder(HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY)));
-        }
-    }
-
-    /**
      * Request handler for input GET-request with many replicas.
      *
      * @param ctx - http-context
@@ -78,7 +42,7 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
      */
-    private void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
+    public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request, final int replicateAcks) {
 
         final String id = queryParser(request.uri());
@@ -109,7 +73,7 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
      */
-    private void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
+    public void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                          @NotNull final FullHttpRequest request, final int replicateAcks) {
 
         final String id = queryParser(request.uri());
@@ -141,7 +105,7 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      * @param replicateAcks - input replicate acks
      */
-    private void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
+    public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
                             @NotNull final FullHttpRequest request, final int replicateAcks) {
 
         final String id = queryParser(request.uri());

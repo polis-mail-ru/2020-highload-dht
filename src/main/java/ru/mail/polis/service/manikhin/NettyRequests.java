@@ -94,8 +94,10 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private void entityHandler(@NotNull final ChannelHandlerContext ctx,
                                @NotNull final FullHttpRequest request, @NotNull final String uri) {
         try {
+            final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
             final QueryStringDecoder decoder = new QueryStringDecoder(uri);
             final List<String> id = decoder.parameters().get("id");
+            final List<String> replicas = decoder.parameters().get("replicas");
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                 serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -104,35 +106,35 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             }
 
             final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
-            final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
+            final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica, clusterSize);
+            final int acks = replicaFactor.getAck();
+            Set<String> replicaClusters = Collections.singleton(nodes.getId());
 
-            if (isForwardedRequest || clusterSize > 1) {
-                final List<String> replicas = decoder.parameters().get("replicas");
-
-                final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica,
-                        clusterSize);
-
-                final Set<String> replicaClusters;
-
-                if (isForwardedRequest) {
-                    replicaClusters = Collections.singleton(nodes.getId());
-                } else {
-                    replicaClusters = nodes.getReplicas(key, replicaFactor);
-                }
-
-                replicaHelper.handleMultiRequest(replicaClusters, request.retain(), replicaFactor.getAck(), ctx);
-                return;
+            if (!isForwardedRequest) {
+                replicaClusters = nodes.getReplicas(key, replicaFactor);
             }
 
             switch (request.method().toString()) {
                 case "GET":
-                    serviceUtils.getResponse(key, ctx, request);
+                    if(isForwardedRequest || clusterSize > 1) {
+                        replicaHelper.multiGet(ctx, replicaClusters, request, acks);
+                    } else {
+                        serviceUtils.getResponse(key, ctx, request);
+                    }
                     break;
                 case "PUT":
-                    serviceUtils.putResponse(key, ctx, request);
+                    if (isForwardedRequest || clusterSize > 1) {
+                        replicaHelper.multiPut(ctx, replicaClusters, request, acks);
+                    } else {
+                        serviceUtils.putResponse(key, ctx, request);
+                    }
                     break;
                 case "DELETE":
-                    serviceUtils.deleteResponse(key, ctx, request);
+                    if (isForwardedRequest || clusterSize > 1) {
+                        replicaHelper.multiDelete(ctx, replicaClusters, request, acks);
+                    } else {
+                        serviceUtils.deleteResponse(key, ctx, request);
+                    }
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
