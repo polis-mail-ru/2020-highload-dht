@@ -38,6 +38,9 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final ServiceUtils serviceUtils;
     private ChannelHandlerContext context;
     private boolean isForwarded;
+    private Set<String> replicaClusters;
+    private Replicas replicaFactor;
+
     /**
      * Request handlers for netty async service implementation.
      *
@@ -80,9 +83,9 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
+        isForwarded = msg.headers().contains("X-OK-Proxy");
         final String uri = msg.uri();
         context = ctx;
-        isForwarded = msg.headers().contains("X-OK-Proxy");
 
         if (uri.equals(STATUS_PATH)) {
             ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
@@ -108,16 +111,23 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
             final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
             final List<String> replicas = decoder.parameters().get("replicas");
+            replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
+
+            if (isForwarded) {
+                replicaClusters = Collections.singleton(nodes.getId());
+            } else {
+                replicaClusters = nodes.getReplicas(key, replicaFactor);
+            }
 
             switch (request.method().toString()) {
                 case "GET":
-                    getRequest(request, replicas, key);
+                    getRequest(request, key);
                     break;
                 case "PUT":
-                    putRequest(request, replicas, key);
+                    putRequest(request, key);
                     break;
                 case "DELETE":
-                    deleteRequest(request, replicas, key);
+                    deleteRequest(request, key);
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -131,16 +141,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
     }
 
-    private void getRequest(@NotNull final FullHttpRequest request, @NotNull final List<String> replicas,
-                            @NotNull final ByteBuffer key) {
-
-        final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
-        Set<String> replicaClusters = Collections.singleton(nodes.getId());
-
-        if (!isForwarded) {
-            replicaClusters = nodes.getReplicas(key, replicaFactor);
-        }
-
+    private void getRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
         if (isForwarded || clusterSize > 1) {
             replicaHelper.multiGet(context, replicaClusters, request, replicaFactor.getAck());
         } else {
@@ -148,16 +149,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
     }
 
-    private void putRequest(@NotNull final FullHttpRequest request, @NotNull final List<String> replicas,
-                            @NotNull final ByteBuffer key) {
-
-        final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
-        Set<String> replicaClusters = Collections.singleton(nodes.getId());
-
-        if (!isForwarded) {
-           replicaClusters = nodes.getReplicas(key, replicaFactor);
-        }
-
+    private void putRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
         if (isForwarded || clusterSize > 1) {
             replicaHelper.multiPut(context, replicaClusters, request,  replicaFactor.getAck());
         } else {
@@ -165,16 +157,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
     }
 
-    private void deleteRequest(@NotNull final FullHttpRequest request, @NotNull final List<String> replicas,
-                               @NotNull final ByteBuffer key) {
-
-        final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
-        Set<String> replicaClusters = Collections.singleton(nodes.getId());
-
-        if (!isForwarded) {
-            replicaClusters = nodes.getReplicas(key, replicaFactor);
-        }
-
+    private void deleteRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
         if (isForwarded || clusterSize > 1) {
             replicaHelper.multiDelete(context, replicaClusters, request, replicaFactor.getAck());
         } else {
