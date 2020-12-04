@@ -48,9 +48,9 @@ public final class RequestUtils {
     public static Instant getExpire(@NotNull final Request request,
                                     final String expire,
                                     final boolean proxied) {
-        final String proxyExpire = request.getHeader(ResponseUtils.EXPIRES) != null
-                ? request.getHeader(ResponseUtils.EXPIRES).substring(2)
-                : null;
+        final String proxyExpire = request.getHeader(ResponseUtils.EXPIRES) == null
+                ? null
+                : request.getHeader(ResponseUtils.EXPIRES).substring(2);
         Instant expireTime;
         if (expire == null) {
             expireTime = (proxied && proxyExpire != null ? ResponseUtils.parseExpires(proxyExpire) : Instant.MAX);

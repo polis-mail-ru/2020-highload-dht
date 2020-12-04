@@ -28,8 +28,7 @@ public final class Value {
                  final int nanos) {
         this.timestamp = timestamp;
         this.data = data;
-        this.expire = (seconds > Instant.MAX.getEpochSecond() || nanos > Instant.MAX.getNano())
-                 || (seconds < 0 || nanos < 0)
+        this.expire = (seconds > Instant.MAX.getEpochSecond() || seconds < 0)
                 ? Instant.MAX
                 : Instant.ofEpochSecond(seconds, nanos);
     }
