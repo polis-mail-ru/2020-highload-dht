@@ -26,7 +26,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
     static final String STATUS_PATH = "/v0/status";
     static final String ENTITY_PATH = "/v0/entity";
