@@ -36,7 +36,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final Topology nodes;
     private final ReplicasNettyRequests replicaHelper;
     private final ServiceUtils serviceUtils;
-
+    private ChannelHandlerContext context;
+    private boolean isForwarded;
     /**
      * Request handlers for netty async service implementation.
      *
@@ -80,6 +81,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
         final String uri = msg.uri();
+        context = ctx;
+        isForwarded = msg.headers().contains("X-OK-Proxy");
 
         if (uri.equals(STATUS_PATH)) {
             ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
@@ -94,10 +97,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private void entityHandler(@NotNull final ChannelHandlerContext ctx,
                                @NotNull final FullHttpRequest request, @NotNull final String uri) {
         try {
-            final boolean isForwardedRequest = request.headers().contains("X-OK-Proxy");
             final QueryStringDecoder decoder = new QueryStringDecoder(uri);
             final List<String> id = decoder.parameters().get("id");
-            final List<String> replicas = decoder.parameters().get("replicas");
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                 serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -106,35 +107,17 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             }
 
             final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
-            final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, ctx, defaultReplica, clusterSize);
-            final int acks = replicaFactor.getAck();
-            Set<String> replicaClusters = Collections.singleton(nodes.getId());
-
-            if (!isForwardedRequest) {
-                replicaClusters = nodes.getReplicas(key, replicaFactor);
-            }
+            final List<String> replicas = decoder.parameters().get("replicas");
 
             switch (request.method().toString()) {
                 case "GET":
-                    if(isForwardedRequest || clusterSize > 1) {
-                        replicaHelper.multiGet(ctx, replicaClusters, request, acks);
-                    } else {
-                        serviceUtils.getResponse(key, ctx, request);
-                    }
+                    getRequest(request, replicas, key);
                     break;
                 case "PUT":
-                    if (isForwardedRequest || clusterSize > 1) {
-                        replicaHelper.multiPut(ctx, replicaClusters, request, acks);
-                    } else {
-                        serviceUtils.putResponse(key, ctx, request);
-                    }
+                    putRequest(request, replicas, key);
                     break;
                 case "DELETE":
-                    if (isForwardedRequest || clusterSize > 1) {
-                        replicaHelper.multiDelete(ctx, replicaClusters, request, acks);
-                    } else {
-                        serviceUtils.deleteResponse(key, ctx, request);
-                    }
+                    deleteRequest(request, replicas, key);
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -145,6 +128,57 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         } catch (RejectedExecutionException error) {
             serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
                     ServiceUtils.responseBuilder(HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY)));
+        }
+    }
+
+    private void getRequest(@NotNull final FullHttpRequest request, @NotNull final List<String> replicas,
+                            @NotNull final ByteBuffer key) {
+
+        final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
+        Set<String> replicaClusters = Collections.singleton(nodes.getId());
+
+        if (!isForwarded) {
+            replicaClusters = nodes.getReplicas(key, replicaFactor);
+        }
+
+        if (isForwarded || clusterSize > 1) {
+            replicaHelper.multiGet(context, replicaClusters, request, replicaFactor.getAck());
+        } else {
+            serviceUtils.getResponse(key, context, request);
+        }
+    }
+
+    private void putRequest(@NotNull final FullHttpRequest request, @NotNull final List<String> replicas,
+                            @NotNull final ByteBuffer key) {
+
+        final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
+        Set<String> replicaClusters = Collections.singleton(nodes.getId());
+
+        if (!isForwarded) {
+           replicaClusters = nodes.getReplicas(key, replicaFactor);
+        }
+
+        if (isForwarded || clusterSize > 1) {
+            replicaHelper.multiPut(context, replicaClusters, request,  replicaFactor.getAck());
+        } else {
+            serviceUtils.putResponse(key, context, request);
+        }
+    }
+
+    private void deleteRequest(@NotNull final FullHttpRequest request, @NotNull final List<String> replicas,
+                               @NotNull final ByteBuffer key) {
+
+        final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, context, defaultReplica, clusterSize);
+        Set<String> replicaClusters = Collections.singleton(nodes.getId());
+
+        if (!isForwarded) {
+            replicaClusters = nodes.getReplicas(key, replicaFactor);
+        }
+
+        if (isForwarded || clusterSize > 1) {
+            replicaHelper.multiDelete(context, replicaClusters, request, replicaFactor.getAck());
+        } else {
+            serviceUtils.deleteResponse(key, context, request);
         }
     }
 }
