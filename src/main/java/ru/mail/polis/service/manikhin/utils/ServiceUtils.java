@@ -28,7 +28,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -49,7 +48,6 @@ public class ServiceUtils {
     public static final byte [] EMPTY_BODY = new byte[0];
 
     private static final Logger log = LoggerFactory.getLogger(ServiceUtils.class);
-    private final int timeout;
 
     /**
      * Netty service utils.
@@ -58,10 +56,9 @@ public class ServiceUtils {
      * @param executor - thread pool executor for clients
      * @param timeout - init timeout for http clients
      */
-    public ServiceUtils(@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor, final int timeout) {
+    public ServiceUtils(@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor) {
         this.dao = dao;
         this.executor = executor;
-        this.timeout = timeout;
     }
 
     /**
@@ -113,7 +110,7 @@ public class ServiceUtils {
      * @param request - input http request
      */
     public void putResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
-                         @NotNull final FullHttpRequest request) {
+                            @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     dao.upsert(key, ByteBuffer.wrap(ServiceUtils.getRequestBody(request.content())));
@@ -134,7 +131,7 @@ public class ServiceUtils {
      * @param request - input http request
      */
     public void deleteResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
-                            @NotNull final FullHttpRequest request) {
+                               @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     dao.remove(key);
@@ -258,8 +255,7 @@ public class ServiceUtils {
      */
     public HttpRequest.Builder requestBuilder(@NotNull final String node, @NotNull final String id) {
 
-        return HttpRequest.newBuilder().uri(URI.create(node + ENTITY_PATH + id)).header(PROXY_HEADER, "True")
-                .timeout(Duration.ofSeconds(timeout));
+        return HttpRequest.newBuilder().uri(URI.create(node + ENTITY_PATH + id)).header(PROXY_HEADER, "True");
     }
 
     /**

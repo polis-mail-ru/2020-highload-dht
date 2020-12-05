@@ -15,6 +15,7 @@ import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -68,12 +69,12 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         for (final String node : nodes.getNodes()) {
             if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
                 clusterClients.put(node, HttpClient.newBuilder().executor(executor)
-                        .version(HttpClient.Version.HTTP_1_1).build());
+                        .connectTimeout(Duration.ofSeconds(timeout)).version(HttpClient.Version.HTTP_1_1).build());
             }
         }
 
-        this.replicaHelper = new ReplicasNettyRequests(dao, nodes, clusterClients, executor, timeout);
-        this.serviceUtils = new ServiceUtils(dao, executor, timeout);
+        this.serviceUtils = new ServiceUtils(dao, executor);
+        this.replicaHelper = new ReplicasNettyRequests(nodes, clusterClients, serviceUtils);
     }
 
     @Override

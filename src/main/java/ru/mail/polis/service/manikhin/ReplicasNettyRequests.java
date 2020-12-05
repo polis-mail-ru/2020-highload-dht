@@ -6,7 +6,6 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
 import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
@@ -18,7 +17,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadPoolExecutor;
 
 public class ReplicasNettyRequests {
     private final Map<String, HttpClient> clusterClients;
@@ -27,11 +25,11 @@ public class ReplicasNettyRequests {
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
 
-    ReplicasNettyRequests(final DAO dao, final Topology nodes, final Map<String, HttpClient> clusterClients,
-                          final ThreadPoolExecutor executor, final int timeout) {
+    ReplicasNettyRequests(final Topology nodes, final Map<String, HttpClient> clusterClients,
+                          final ServiceUtils serviceUtils) {
         this.clusterClients = clusterClients;
         this.nodes = nodes;
-        this.serviceUtils = new ServiceUtils(dao, executor, timeout);
+        this.serviceUtils = serviceUtils;
     }
 
     /**
