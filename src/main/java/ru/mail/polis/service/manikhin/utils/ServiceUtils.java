@@ -54,7 +54,6 @@ public class ServiceUtils {
      *
      * @param dao - storage interface
      * @param executor - thread pool executor for clients
-     * @param timeout - init timeout for http clients
      */
     public ServiceUtils(@NotNull final DAO dao, @NotNull final ThreadPoolExecutor executor) {
         this.dao = dao;
