@@ -37,31 +37,36 @@ public class RendezvousHashingTest {
     @Test
     public void clusterChangeResistanceTest() {
         final Set<String> nodes = getRandomNodes(10);
+        int acceptableMigration = COUNT_OF_KEYS / nodes.size();
+        acceptableMigration += acceptableMigration * ERR;
         final Topology<String> topologyOld = getTopologyInstance(nodes);
         final String newNode = getRandomNode();
         nodes.add(newNode);
-        final Multiset<String> ownersBeforeChange = HashMultiset.create();
         final Topology<String> topologyNew = getTopologyInstance(nodes);
-        final Multiset<String> ownersAfterChange = HashMultiset.create();
         final byte[][] keyArr = generateRandomKeys(COUNT_OF_KEYS);
+        int countOfMigrateKey = 0;
         for (final byte[] bytes : keyArr) {
-            ownersBeforeChange.addAll(Arrays.asList(topologyOld.replicasFor(ByteBuffer.wrap(bytes), REPLICAS)));
-            ownersAfterChange.addAll(Arrays.asList(topologyNew.replicasFor(ByteBuffer.wrap(bytes), REPLICAS)));
+            final String before = topologyOld.replicasFor(ByteBuffer.wrap(bytes), 1)[0];
+            final String after = topologyNew.replicasFor(ByteBuffer.wrap(bytes), 1)[0];
+            if (!before.equals(after)) {
+                countOfMigrateKey++;
+            }
+            if (countOfMigrateKey > acceptableMigration) break;
         }
-        assertTrue(compareOwners(ownersBeforeChange, ownersAfterChange, newNode, topologyOld.nodeCount()));
+        assertTrue(countOfMigrateKey <= acceptableMigration);
     }
 
-    private static boolean compareOwners(@NotNull final Multiset<String> before,
-                                         @NotNull final Multiset<String> after,
-                                         @NotNull final String newNode,
-                                         final int clusterSize) {
-        after.remove(newNode);
-        int sumOfDeference = 0;
-        for (final String node: before.elementSet()) {
-            sumOfDeference += before.count(node) - after.count(node);
+    private static int compareOwners(@NotNull final List<String> before,
+                                     @NotNull final List<String> after) {
+        for (int i = 0; i < before.size(); i++) {
+            for (int j = 0; j < after.size(); j++) {
+                if (before.get(i).equals(after.get(j))) {
+                    before.remove(i);
+                    after.remove(j);
+                }
+            }
         }
-        final int countByNode = COUNT_OF_KEYS / clusterSize;
-        return sumOfDeference >= countByNode - countByNode * ERR || sumOfDeference <= countByNode + countByNode * ERR;
+        return before.size();
     }
 
     @ParameterizedTest
