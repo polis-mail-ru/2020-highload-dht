@@ -56,19 +56,6 @@ public class RendezvousHashingTest {
         assertTrue(countOfMigrateKey <= acceptableMigration);
     }
 
-    private static int compareOwners(@NotNull final List<String> before,
-                                     @NotNull final List<String> after) {
-        for (int i = 0; i < before.size(); i++) {
-            for (int j = 0; j < after.size(); j++) {
-                if (before.get(i).equals(after.get(j))) {
-                    before.remove(i);
-                    after.remove(j);
-                }
-            }
-        }
-        return before.size();
-    }
-
     @ParameterizedTest
     @MethodSource("nodesProvider")
     public void uniformDistributionTest(@NotNull final Set<String> allNodes) {
