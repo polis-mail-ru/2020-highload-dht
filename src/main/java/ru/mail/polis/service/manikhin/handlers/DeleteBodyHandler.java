@@ -7,6 +7,7 @@ import java.util.concurrent.RejectedExecutionException;
 public final class DeleteBodyHandler implements HttpResponse.BodyHandler<Void> {
 
     public static final HttpResponse.BodyHandler<Void> INSTANCE = new DeleteBodyHandler();
+
     private DeleteBodyHandler() {
     }
 
