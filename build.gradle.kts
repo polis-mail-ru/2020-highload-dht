@@ -23,7 +23,7 @@ dependencies {
     compile("ru.odnoklassniki:one-nio:1.3.2")
 
     // Netty
-    compile("io.netty:netty-all:4.1.16.Final")
+    compile("io.netty:netty-all:4.1.54.Final")
 
     // Logging
     compile("org.slf4j:slf4j-api:1.7.26")

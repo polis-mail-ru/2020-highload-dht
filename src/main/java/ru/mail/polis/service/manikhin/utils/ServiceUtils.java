@@ -217,7 +217,7 @@ public class ServiceUtils {
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<FullHttpResponse> putProxyResponse(final Map<String, HttpClient> clients,
+    public CompletableFuture<FullHttpResponse> putProxyResponse(@NotNull final Map<String, HttpClient> clients,
                                                                 @NotNull final String node, @NotNull final String id,
                                                                 @NotNull final byte[] value) {
 
@@ -265,7 +265,7 @@ public class ServiceUtils {
         final ByteBuf bufferCopy = buffer.retainedDuplicate();
         final byte[] array = new byte[bufferCopy.readableBytes()];
         bufferCopy.readBytes(array);
-        bufferCopy.release();
+        buffer.release();
 
         return array;
     }

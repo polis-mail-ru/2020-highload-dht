@@ -92,7 +92,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         } else if (uri.contains(ENTITIES_PATH)) {
             entitiesHandler(ctx, msg, uri);
         } else if (uri.contains(ENTITY_PATH)) {
-            entityHandler(ctx, msg.retain(), uri);
+            entityHandler(ctx, msg, uri);
         } else {
             serviceUtils.respond(ctx, msg, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
                     HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
@@ -175,7 +175,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         if (clusterSize > 1) {
             replicaHelper.multiPut(context, replicaFactor, request);
         } else {
-            serviceUtils.putResponse(key, context, request);
+            serviceUtils.putResponse(key, context, request.retain());
         }
     }
 
