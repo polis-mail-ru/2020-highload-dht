@@ -55,7 +55,7 @@ public class StreamNettySession {
         while (iterator.hasNext()) {
             final Record record = iterator.next();
             final byte [] data = StreamUtils.formNettyChunk(record.getKey(), record.getValue());
-            ChunkedStream chunk = new ChunkedStream(new ByteBufInputStream(Unpooled.copiedBuffer(data)));
+            final ChunkedStream chunk = new ChunkedStream(new ByteBufInputStream(Unpooled.copiedBuffer(data)));
 
             ctx.writeAndFlush(chunk).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
 
