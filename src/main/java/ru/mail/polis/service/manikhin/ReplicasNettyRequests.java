@@ -49,7 +49,7 @@ public class ReplicasNettyRequests {
      * @param replicaFactor - input replica factor
      * @param request - input http-request
      */
-    public void multiGet(@NotNull ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
+    public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
                          @NotNull final FullHttpRequest request) {
 
         final String id = queryParser(request.uri());
