@@ -35,6 +35,11 @@ public class Topology {
     }
 
     Set<String> getReplicas(@NotNull final ByteBuffer key, @NotNull final Replicas replicas) {
+
+        if (replicas.getFrom() > nodes.size()) {
+            throw new IllegalArgumentException("From is is very big");
+        }
+
         final Set<String> result = new HashSet<>();
         int index = key.hashCode() & Integer.MAX_VALUE % nodes.size();
 

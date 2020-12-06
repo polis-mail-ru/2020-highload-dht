@@ -112,7 +112,7 @@ public class ServiceUtils {
                             @NotNull final FullHttpRequest request) {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
-                    dao.upsert(key, ByteBuffer.wrap(ServiceUtils.getRequestBody(request.content())));
+                    dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content())));
                     return responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY);
                 } catch (IOException | IllegalStateException error) {
                     log.error("IO put error: ", error);
@@ -135,7 +135,7 @@ public class ServiceUtils {
                 try {
                     dao.remove(key);
                     return responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY);
-                } catch (IOException error) {
+                } catch (IOException | IllegalStateException error) {
                     log.error("IO delete error: ", error);
                     return responseBuilder(HttpResponseStatus.INTERNAL_SERVER_ERROR, EMPTY_BODY);
                 }
@@ -155,7 +155,7 @@ public class ServiceUtils {
             try {
                 dao.upsertTimestampRecord(key, ByteBuffer.wrap(bytes));
                 return responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY);
-            } catch (IOException error) {
+            } catch (IOException | IllegalStateException error) {
                 return responseBuilder(HttpResponseStatus.INTERNAL_SERVER_ERROR, EMPTY_BODY);
             }
         }, executor);
@@ -184,9 +184,8 @@ public class ServiceUtils {
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<TimestampRecord> getProxyResponse(final Map<String, HttpClient> clusterClients,
-                                                               @NotNull final String node,
-                                                               @NotNull final String id) {
+    public CompletableFuture<TimestampRecord> getProxyResponse(@NotNull final Map<String, HttpClient> clusterClients,
+                                                               @NotNull final String node, @NotNull final String id) {
 
         final HttpRequest request = requestBuilder(node, id).GET().build();
 
@@ -197,38 +196,37 @@ public class ServiceUtils {
     /**
      * Proxy Response handler for delete record with timestamp from storage.
      *
-     * @param clusterClients - input cluster clients
+     * @param clients - input HTTP-clients
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<FullHttpResponse> deleteProxyResponse(final Map<String, HttpClient> clusterClients,
+    public CompletableFuture<FullHttpResponse> deleteProxyResponse(@NotNull final Map<String, HttpClient> clients,
                                                                    @NotNull final String node,
                                                                    @NotNull final String id) {
 
         final HttpRequest request = requestBuilder(node, id).DELETE().build();
 
-        return clusterClients.get(node).sendAsync(request, DeleteBodyHandler.INSTANCE)
-                .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY), executor);
+        return clients.get(node).sendAsync(request, DeleteBodyHandler.INSTANCE).thenApplyAsync(r -> responseBuilder(
+                HttpResponseStatus.ACCEPTED, EMPTY_BODY), executor);
     }
 
     /**
      * Proxy Response handler for insert record with timestamp in storage.
      *
-     * @param clusterClients - input cluster clients
+     * @param clients - input HTTP-clients
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<FullHttpResponse> putProxyResponse(final Map<String, HttpClient> clusterClients,
-                                                                @NotNull final String node,
-                                                                @NotNull final String id,
+    public CompletableFuture<FullHttpResponse> putProxyResponse(final Map<String, HttpClient> clients,
+                                                                @NotNull final String node, @NotNull final String id,
                                                                 @NotNull final byte[] value) {
 
         final HttpRequest request = requestBuilder(node, id).PUT(
                 HttpRequest.BodyPublishers.ofByteArray(value)
         ).build();
 
-        return clusterClients.get(node).sendAsync(request, PutBodyHandler.INSTANCE)
-                .thenApplyAsync(r -> responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY), executor);
+        return clients.get(node).sendAsync(request, PutBodyHandler.INSTANCE).thenApplyAsync(r -> responseBuilder(
+                HttpResponseStatus.CREATED, EMPTY_BODY), executor);
     }
 
     /**
@@ -264,9 +262,10 @@ public class ServiceUtils {
      */
     public static byte[] getRequestBody(final ByteBuf buffer) {
 
-        final ByteBuf bufferCopy = buffer.duplicate();
+        final ByteBuf bufferCopy = buffer.retainedDuplicate();
         final byte[] array = new byte[bufferCopy.readableBytes()];
         bufferCopy.readBytes(array);
+        bufferCopy.release();
 
         return array;
     }
@@ -298,8 +297,8 @@ public class ServiceUtils {
     public <T> CompletableFuture<Collection<T>> atLeastAsync(@NotNull final Collection<CompletableFuture<T>> futures,
                                                              final int successes, final boolean isForwarded) {
 
-        final AtomicInteger successLeft = new AtomicInteger(0);
-        final AtomicInteger errorsLeft = new AtomicInteger(0);
+        final AtomicInteger successLeft = new AtomicInteger(successes);
+        final AtomicInteger errorsLeft = new AtomicInteger(futures.size() - successes + 1);
         final Collection<T> results = new CopyOnWriteArrayList<>();
         final CompletableFuture<Collection<T>> future = new CompletableFuture<>();
 
@@ -307,11 +306,11 @@ public class ServiceUtils {
             if (t == null) {
                 results.add(v);
 
-                if (successLeft.incrementAndGet() >= successes || isForwarded) {
+                if (successLeft.decrementAndGet() == 0 || isForwarded) {
                     future.complete(results);
                 }
             } else {
-                if (errorsLeft.incrementAndGet() == futures.size() - successes + 1) {
+                if (errorsLeft.decrementAndGet() == 0) {
                     future.completeExceptionally(new IllegalStateException("Can't get " + successes + " values"));
                 }
             }

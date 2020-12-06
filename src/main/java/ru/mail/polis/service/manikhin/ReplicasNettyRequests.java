@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -36,59 +37,70 @@ public class ReplicasNettyRequests {
      * Request handler for input GET-request with many replicas.
      *
      * @param ctx - http-context
-     * @param replicaNodes - replica nodes
      * @param request - input http-request
-     * @param replicateAcks - input replicate acks
      */
-    public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
-                         @NotNull final FullHttpRequest request, final int replicateAcks) {
+    public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
+                         @NotNull final FullHttpRequest request) {
 
         final String id = queryParser(request.uri());
-        final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
+        final boolean isForwarded = request.headers().contains(PROXY_HEADER);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>();
+        final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>(replicaFactor.getFrom());
+        Set<String> replicaClusters;
 
-        for (final String node : replicaNodes) {
+        if (isForwarded) {
+            replicaClusters = Collections.singleton(nodes.getId());
+        } else {
+            replicaClusters = nodes.getReplicas(key, replicaFactor);
+        }
+
+        for (final String node : replicaClusters) {
             if (node.equals(nodes.getId())) {
                 responses.add(serviceUtils.getTimestampResponse(key));
             } else {
                 responses.add(serviceUtils.getProxyResponse(clusterClients, node, id));
             }
-
-            serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
-                    .handle((res, ex) -> ex == null ? processResponses(res) : ServiceUtils.responseBuilder(
-                            HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY)
-                    )
-            );
         }
+
+        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(), isForwarded)
+                .handle((res, ex) -> ex == null ? processResponses(res) : ServiceUtils.responseBuilder(
+                        HttpResponseStatus.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY)
+                )
+        );
     }
 
     /**
      * Request handler for input PUT-request with many replicas.
      *
      * @param ctx - http-context
-     * @param replicaNodes - replica nodes
      * @param request - input http-request
-     * @param replicateAcks - input replicate acks
      */
-    public void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
-                         @NotNull final FullHttpRequest request, final int replicateAcks) {
+    public void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
+                         @NotNull final FullHttpRequest request) {
 
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
-        final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicateAcks);
+        final boolean isForwarded = request.headers().contains(PROXY_HEADER);
+        final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
+        Set<String> replicaClusters;
 
-        for (final String node : replicaNodes) {
+        if (isForwarded) {
+            replicaClusters = Collections.singleton(nodes.getId());
+        } else {
+            replicaClusters = nodes.getReplicas(key, replicaFactor);
+        }
+
+        for (final String node : replicaClusters) {
+            final byte[] body = ServiceUtils.getRequestBody(request.content());
+
             if (node.equals(nodes.getId())) {
-                responses.add(serviceUtils.putTimestampResponse(key, ServiceUtils.getRequestBody(request.content())));
+                responses.add(serviceUtils.putTimestampResponse(key, body));
             } else {
-                final byte[] body = ServiceUtils.getRequestBody(request.content());
                 responses.add(serviceUtils.putProxyResponse(clusterClients, node, id, body));
             }
         }
 
-        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
+        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(), isForwarded)
                 .handle((res, ex) -> ex == null ? ServiceUtils.responseBuilder(HttpResponseStatus.CREATED,
                         ServiceUtils.EMPTY_BODY) : ServiceUtils.responseBuilder(HttpResponseStatus.GATEWAY_TIMEOUT,
                         ServiceUtils.EMPTY_BODY))
@@ -99,19 +111,25 @@ public class ReplicasNettyRequests {
      * Request handler for input DELETE-request with many replicas.
      *
      * @param ctx - http-context
-     * @param replicaNodes - replica nodes
      * @param request - input http-request
-     * @param replicateAcks - input replicate acks
      */
-    public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Set<String> replicaNodes,
-                            @NotNull final FullHttpRequest request, final int replicateAcks) {
+    public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
+                            @NotNull final FullHttpRequest request) {
 
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicateAcks);
-        final boolean isForwardedRequest = request.headers().contains(PROXY_HEADER);
+        final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
+        final boolean isForwarded = request.headers().contains(PROXY_HEADER);
 
-        for (final String node : replicaNodes) {
+        Set<String> replicaClusters;
+
+        if (isForwarded) {
+            replicaClusters = Collections.singleton(nodes.getId());
+        } else {
+            replicaClusters = nodes.getReplicas(key, replicaFactor);
+        }
+
+        for (final String node : replicaClusters) {
             if (node.equals(nodes.getId())) {
                 responses.add(serviceUtils.deleteTimestampResponse(key));
             } else {
@@ -119,7 +137,7 @@ public class ReplicasNettyRequests {
             }
         }
 
-        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicateAcks, isForwardedRequest)
+        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(), isForwarded)
                 .handle((res, ex) -> ex == null ? ServiceUtils.responseBuilder(HttpResponseStatus.ACCEPTED,
                         ServiceUtils.EMPTY_BODY) : ServiceUtils.responseBuilder(HttpResponseStatus.GATEWAY_TIMEOUT,
                         ServiceUtils.EMPTY_BODY))

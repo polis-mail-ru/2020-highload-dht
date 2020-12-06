@@ -1,22 +1,12 @@
 package ru.mail.polis.service.manikhin;
 
-import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class Replicas {
     private final int ack;
@@ -86,41 +76,20 @@ public class Replicas {
      * Calculate replica factor value for netty service.
      *
      * @param replicas - input replicas
-     * @param ctx - channel handler context
-     * @param defaultReplicaFactor - default replica factor
      * @param clusterSize - input nodes cluster size
+     * @param isForwarded - forwarded request or not
      * @return ReplicaFactor value
      */
-    public static Replicas replicaNettyFactor(final List<String> replicas,
-                                              final @NotNull ChannelHandlerContext ctx,
-                                              final Replicas defaultReplicaFactor,
-                                              final int clusterSize) {
+    public static Replicas replicaNettyFactor(final List<String> replicas, final int clusterSize,
+                                              final boolean isForwarded) {
 
-        Replicas replicaFactor = null;
+        Replicas replicaFactor = isForwarded || replicas == null ? quorum(clusterSize) : parser(replicas.get(0));
 
-        try {
-            replicaFactor = replicas == null ? defaultReplicaFactor : parser(replicas.get(0));
-
-            if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack || replicaFactor.from > clusterSize) {
-                throw new IllegalArgumentException("From is is very big");
-            }
-
-        } catch (IllegalArgumentException error) {
-            sendResponse(ctx);
+        if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack) {
+            throw new IllegalArgumentException("From is is very big");
+        } else {
+            return replicaFactor;
         }
-
-        return replicaFactor;
-    }
-
-    private static void sendResponse(final @NotNull ChannelHandlerContext ctx) {
-
-        final FullHttpResponse response = new DefaultFullHttpResponse(
-                HTTP_1_1, HttpResponseStatus.BAD_REQUEST,
-                Unpooled.copiedBuffer(ServiceUtils.EMPTY_BODY)
-        );
-
-        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, ServiceUtils.EMPTY_BODY.length);
-        ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
 
     public int getAck() {
