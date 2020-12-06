@@ -29,9 +29,11 @@ public class ReplicasNettyRequests {
     private static final HttpResponseStatus GATEWAY_TIMEOUT = HttpResponseStatus.GATEWAY_TIMEOUT;
     private static final HttpResponseStatus OK = HttpResponseStatus.OK;
 
+    private Set<String> replicaClusters;
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
-
+    private ChannelHandlerContext context;
+    private boolean isForwarded;
 
     ReplicasNettyRequests(final Topology nodes, final Map<String, HttpClient> clusterClients,
                           final ServiceUtils serviceUtils) {
@@ -47,14 +49,14 @@ public class ReplicasNettyRequests {
      * @param replicaFactor - input replica factor
      * @param request - input http-request
      */
-    public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
+    public void multiGet(@NotNull ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
                          @NotNull final FullHttpRequest request) {
 
         final String id = queryParser(request.uri());
-        final boolean isForwarded = request.headers().contains(PROXY_HEADER);
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>(replicaFactor.getFrom());
-        Set<String> replicaClusters;
+        isForwarded = request.headers().contains(PROXY_HEADER);
+        context = ctx;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
@@ -70,8 +72,8 @@ public class ReplicasNettyRequests {
             }
         }
 
-        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(), isForwarded)
-                .handle((res, ex) -> {
+        serviceUtils.respond(context, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(),
+                isForwarded).handle((res, ex) -> {
                     if (ex == null) {
                         return processResponses(res);
                     }
@@ -92,9 +94,9 @@ public class ReplicasNettyRequests {
 
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
-        final boolean isForwarded = request.headers().contains(PROXY_HEADER);
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
-        Set<String> replicaClusters;
+        isForwarded = request.headers().contains(PROXY_HEADER);
+        context = ctx;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
@@ -112,7 +114,7 @@ public class ReplicasNettyRequests {
             }
         }
 
-        respond(ctx, request, responses, replicaFactor.getAck(), isForwarded, CREATED);
+        respond(request, CREATED, responses, replicaFactor.getAck());
     }
 
     /**
@@ -128,9 +130,8 @@ public class ReplicasNettyRequests {
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
-        final boolean isForwarded = request.headers().contains(PROXY_HEADER);
-
-        Set<String> replicaClusters;
+        isForwarded = request.headers().contains(PROXY_HEADER);
+        context = ctx;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
@@ -146,7 +147,7 @@ public class ReplicasNettyRequests {
             }
         }
 
-        respond(ctx, request, responses, replicaFactor.getAck(), isForwarded, ACCEPTED);
+        respond(request, ACCEPTED, responses, replicaFactor.getAck());
     }
 
     /**
@@ -174,11 +175,10 @@ public class ReplicasNettyRequests {
         return decoder.parameters().get("id").get(0);
     }
 
-    private void respond(@NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request,
-                         @NotNull Collection<CompletableFuture<FullHttpResponse>> responses, final int acks,
-                         final boolean isForwarded, @NotNull final HttpResponseStatus successStatus) {
+    private void respond(@NotNull final FullHttpRequest request, @NotNull final HttpResponseStatus successStatus,
+                         @NotNull final Collection<CompletableFuture<FullHttpResponse>> responses, final int acks) {
 
-        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, acks, isForwarded)
+        serviceUtils.respond(context, request, serviceUtils.atLeastAsync(responses, acks, isForwarded)
                 .handle((res, ex) -> {
                     if (ex == null) {
                         return ServiceUtils.responseBuilder(successStatus, ServiceUtils.EMPTY_BODY);
