@@ -265,7 +265,6 @@ public class ServiceUtils {
         final ByteBuf bufferCopy = buffer.retainedDuplicate();
         final byte[] array = new byte[bufferCopy.readableBytes()];
         bufferCopy.readBytes(array);
-        buffer.release();
 
         return array;
     }
