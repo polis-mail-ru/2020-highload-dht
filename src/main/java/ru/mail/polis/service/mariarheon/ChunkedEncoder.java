@@ -15,6 +15,8 @@ import java.nio.charset.StandardCharsets;
  */
 public final class ChunkedEncoder {
     private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
+    private static final byte[] NEW_LINE = new byte[]{'\r', '\n'};
+    private static final byte[] LAST_CHUNK = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
 
     private ChunkedEncoder() {
         /* nothing */
@@ -38,19 +40,20 @@ public final class ChunkedEncoder {
     private static void write(final HttpSession session,
                               final ByteBuffer key, final byte[] value) throws IOException {
         try (var byteStream = new ByteArrayOutputStream()) {
-            final byte[] newLine = new byte[]{'\r', '\n'};
             final int chunkLength = key.remaining() + 1 + value.length;
             final byte[] lenInfo = Integer.toHexString(chunkLength).toUpperCase()
                     .getBytes(StandardCharsets.UTF_8);
             byteStream.write(lenInfo, 0, lenInfo.length);
-            byteStream.write(newLine, 0, newLine.length);
-            final byte[] keyBytes = ByteBufferUtils.toArray(key);
-            byteStream.write(keyBytes, 0, keyBytes.length);
+            byteStream.write(NEW_LINE, 0, NEW_LINE.length);
+            while (key.hasRemaining()) {
+                byteStream.write(key.get());
+            }
             byteStream.write('\n');
             byteStream.write(value, 0, value.length);
-            byteStream.write(newLine, 0, newLine.length);
+            byteStream.write(NEW_LINE, 0, NEW_LINE.length);
             final byte[] res = byteStream.toByteArray();
-            logger.info("Chunked response item: " + new String(res, StandardCharsets.UTF_8));
+            logger.info(String.format("Chunked response item: %s",
+                    new String(res, StandardCharsets.UTF_8)));
             session.write(res, 0, res.length);
         }
     }
@@ -61,8 +64,8 @@ public final class ChunkedEncoder {
      * @throws IOException - raised when writing to session failed.
      */
     public static void writeLastChunk(final HttpSession session) throws IOException {
-        final byte[] res = "0\r\n\r\n".getBytes(StandardCharsets.UTF_8);
-        logger.info("Closed chunked response item: " + new String(res, StandardCharsets.UTF_8));
-        session.write(res, 0, res.length);
+        logger.info(String.format("Closed chunked response item: %s",
+                new String(LAST_CHUNK, StandardCharsets.UTF_8)));
+        session.write(LAST_CHUNK, 0, LAST_CHUNK.length);
     }
 }
