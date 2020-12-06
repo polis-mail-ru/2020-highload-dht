@@ -107,7 +107,7 @@ public class DAOImpl implements DAO {
         try {
             tableSet.memTable.upsert(key.duplicate(),
                     value.duplicate(),
-                    expire.getEpochSecond(), expire.getNano());
+                    expire);
             isToFlush = tableSet.memTable.sizeInBytes() >= flushThreshold;
         } finally {
             lock.readLock().unlock();

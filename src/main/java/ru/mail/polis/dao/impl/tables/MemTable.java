@@ -7,6 +7,7 @@ import ru.mail.polis.dao.impl.models.Value;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -35,13 +36,12 @@ public class MemTable implements Table {
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value,
-                       final long seconds,
-                       final int nanos) {
+                       @NotNull final Instant expire) {
         map.put(key.duplicate(),
                 new Value(System.currentTimeMillis(),
                         value.duplicate(),
-                        seconds, nanos));
-        sizeInBytes.addAndGet(key.remaining() + value.remaining() + 2 * Long.BYTES + Integer.BYTES);
+                        expire));
+        sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
     }
 
     @Override

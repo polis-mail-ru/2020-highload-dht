@@ -82,7 +82,12 @@ public final class SSTable implements Table {
             curOffset += data.remaining();
             fc.write(data);
             final Instant expire = value.getExpire();
-            if (!expire.equals(Instant.MAX)) {
+            if (Instant.MAX.equals(expire)) {
+                curOffset++;
+                fc.write(ByteUtils.fromByte((byte) 0));
+            } else {
+                curOffset++;
+                fc.write(ByteUtils.fromByte((byte) 1));
                 curOffset += (Long.BYTES + Integer.BYTES);
                 fc.write(ByteUtils.fromInstant(expire));
             }
@@ -125,18 +130,31 @@ public final class SSTable implements Table {
                 }
                 final ByteBuffer data = ByteBuffer.allocate(dataSize);
                 fileChannel.read(data.duplicate(), offset);
-                offset += Long.BYTES;
+                final ByteBuffer isExpiredBuffer = ByteBuffer.allocate(1);
+                fileChannel.read(isExpiredBuffer.duplicate(), offset);
+                final byte isExpired = isExpiredBuffer.duplicate().rewind().get();
+                if (isExpired == 0) {
+                    return new Cell(keyBuffer.duplicate().rewind(),
+                            new Value(timestamp,
+                                    data.duplicate().rewind()));
+                }
+                offset++;
                 final ByteBuffer expireSecondsBuffer = ByteBuffer.allocate(Long.BYTES);
                 fileChannel.read(expireSecondsBuffer.duplicate(), offset);
                 final long expireSeconds = expireSecondsBuffer.duplicate().rewind().getLong();
-                offset += Integer.BYTES;
+                if (expireSeconds < 0 || expireSeconds > Instant.MAX.getEpochSecond()) {
+                    return new Cell(keyBuffer.duplicate().rewind(),
+                            new Value(timestamp,
+                                    data.duplicate().rewind()));
+                }
+                offset += Long.BYTES;
                 final ByteBuffer expireNanosBuffer = ByteBuffer.allocate(Integer.BYTES);
                 fileChannel.read(expireNanosBuffer.duplicate(), offset);
                 final int expireNanos = expireSecondsBuffer.duplicate().rewind().getInt();
                 return new Cell(keyBuffer.duplicate().rewind(),
                         new Value(timestamp,
                                 data.duplicate().rewind(),
-                                expireSeconds, expireNanos));
+                                Instant.ofEpochSecond(expireSeconds, expireNanos)));
             }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
@@ -145,7 +163,7 @@ public final class SSTable implements Table {
 
     private int getOffset(final int num) throws IOException {
         final ByteBuffer offsetBB = ByteBuffer.allocate(Integer.BYTES);
-        fileChannel.read(offsetBB.duplicate(), rows + num * Integer.BYTES);
+        fileChannel.read(offsetBB.duplicate(), rows + (long) num * Integer.BYTES);
         return offsetBB.duplicate().rewind().getInt();
     }
 
@@ -168,7 +186,7 @@ public final class SSTable implements Table {
 
     @Override
     public long sizeInBytes() {
-        return (long) rows + (count + 1) * Integer.BYTES;
+        return (long) rows + (long) (count + 1) * Integer.BYTES;
     }
 
     @NotNull
@@ -204,8 +222,7 @@ public final class SSTable implements Table {
     @Override
     public void upsert(@NotNull final ByteBuffer key,
                        @NotNull final ByteBuffer value,
-                       final long seconds,
-                       final int nanos) {
+                       @NotNull final Instant expire) {
         throw new UnsupportedOperationException();
     }
 

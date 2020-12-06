@@ -87,7 +87,12 @@ public final class ConsistentHashingTopology<T> implements Topology<T> {
         for (var i = 0; i < virtualNodeCount; i++) {
             final VirtualNode<T> vnode = new VirtualNode<>(node, i);
             final byte[] vnodeBytes = vnode.getName().getBytes(Charsets.UTF_8);
-            final long hash = hashFunction.hashBytes(vnodeBytes).asLong();
+            long hash = hashFunction.hashBytes(vnodeBytes).asLong();
+            while (ring.containsKey(hash)) {
+                final VirtualNode<T> tmpNode = new VirtualNode<>(node, i);
+                final byte[] tmpNodeBytes = tmpNode.getName().getBytes(Charsets.UTF_8);
+                hash = hashFunction.hashBytes(tmpNodeBytes).asLong();
+            }
             ring.put(hash, vnode);
         }
     }

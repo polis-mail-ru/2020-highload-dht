@@ -19,18 +19,14 @@ public final class Value {
      *
      * @param timestamp that represents time of creation
      * @param data buffer to get data to value
-     * @param seconds - Instant seconds
-     * @param nanos  - Instant nanos offset
+     * @param expire - given Instant
      */
     public Value(final long timestamp,
                  @Nullable final ByteBuffer data,
-                 final long seconds,
-                 final int nanos) {
+                 @NotNull final Instant expire) {
         this.timestamp = timestamp;
         this.data = data;
-        this.expire = (seconds > Instant.MAX.getEpochSecond() || seconds < 0)
-                ? Instant.MAX
-                : Instant.ofEpochSecond(seconds, nanos);
+        this.expire = expire;
     }
 
     /**
@@ -41,6 +37,19 @@ public final class Value {
     public Value(final long timestamp) {
         this.timestamp = timestamp;
         this.data = null;
+        this.expire = Instant.MAX;
+    }
+
+    /**
+     * Creates value with no expire.
+     *
+     * @param timestamp that represents time of creation
+     * @param data buffer to get data to value
+     */
+    public Value(final long timestamp,
+                 @Nullable final ByteBuffer data) {
+        this.timestamp = timestamp;
+        this.data = data;
         this.expire = Instant.MAX;
     }
 
