@@ -9,14 +9,17 @@ import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
+import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -27,12 +30,14 @@ import java.util.concurrent.TimeUnit;
 
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
     static final String STATUS_PATH = "/v0/status";
+    static final String ENTITIES_PATH = "/v0/entities";
     static final String ENTITY_PATH = "/v0/entity";
     private final int clusterSize;
 
     private static final Logger log = LoggerFactory.getLogger(NettyRequests.class);
     private final ReplicasNettyRequests replicaHelper;
     private final ServiceUtils serviceUtils;
+    private final DAO dao;
     private ChannelHandlerContext context;
     private boolean isForwarded;
     private Replicas replicaFactor;
@@ -49,7 +54,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
                          final int queueSize, final int timeout) {
         this.clusterSize = nodes.getNodes().size();
-
+        this.dao = dao;
+        
         final ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
                 TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueSize),
                 new ThreadFactoryBuilder().setNameFormat("async_worker-%d").setUncaughtExceptionHandler((t, e) ->
@@ -83,11 +89,36 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
         if (uri.equals(STATUS_PATH)) {
             ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
+        } else if (uri.contains(ENTITIES_PATH)) {
+            entitiesHandler(ctx, msg, uri);
         } else if (uri.contains(ENTITY_PATH)) {
             entityHandler(ctx, msg.retain(), uri);
         } else {
             serviceUtils.respond(ctx, msg, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
                     HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
+        }
+    }
+
+    private void entitiesHandler(@NotNull final ChannelHandlerContext ctx,
+                                 @NotNull final FullHttpRequest request, @NotNull final String uri) {
+        try {
+            final QueryStringDecoder decoder = new QueryStringDecoder(uri);
+            final List<String> start = decoder.parameters().get("start");
+            final List<String> end = decoder.parameters().get("end");
+
+            if (start == null || ((end != null) && end.get(0).isEmpty())) {
+                throw new IllegalArgumentException();
+            }
+
+            final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
+            final ByteBuffer to = (end == null) ? null : ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
+
+            final Iterator<Record> iterator = dao.range(from, to);
+            final StreamNettySession session = new StreamNettySession(iterator, ctx, request);
+            session.startStream();
+        } catch (IllegalArgumentException | IOException error) {
+            log.error("IOexception error: ", error);
+            ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
         }
     }
 

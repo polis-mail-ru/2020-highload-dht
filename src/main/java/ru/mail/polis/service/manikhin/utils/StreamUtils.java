@@ -12,7 +12,7 @@ public final class StreamUtils {
     }
 
     /**
-     * Handler for create sending chunk in response by input record key and value.
+     * Handler to create sending chunk in response by input record key and value.
      *
      * @param key - input key
      * @param value - input value
@@ -30,6 +30,23 @@ public final class StreamUtils {
         data.put(LF);
         data.put(value);
         data.put(CRLF);
+
+        return data.array();
+    }
+
+    /**
+     * Handler for netty to create sending chunk in response by input record key and value.
+     *
+     * @param key - input key
+     * @param value - input value
+     */
+    public static byte[] formNettyChunk(final ByteBuffer key, final ByteBuffer value) {
+        final int dataLength = key.limit() + LF.length + value.limit();
+        final ByteBuffer data = ByteBuffer.wrap(new byte[dataLength]);
+
+        data.put(key);
+        data.put(LF);
+        data.put(value);
 
         return data.array();
     }
