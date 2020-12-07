@@ -73,8 +73,7 @@ class ConsistentTopologyTest extends ClusterTestBase {
 
             counters.values().forEach(i -> {
                 final int diff = Math.abs(expectedKeysPerNode - i);
-                final int maximumDeviation = expectedKeysPerNode * keysDelta;
-                assertTrue(diff < maximumDeviation);
+                assertTrue(diff < keysDelta);
             });
         }
     }
@@ -94,8 +93,7 @@ class ConsistentTopologyTest extends ClusterTestBase {
 
             counters.values().forEach(i -> {
                 final int diff = Math.abs(expectedKeysPerNode - i);
-                final int maximumDeviation = expectedKeysPerNode * keysDelta;
-                assertTrue(diff < maximumDeviation);
+                assertTrue(diff < keysDelta);
             });
         }
     }
