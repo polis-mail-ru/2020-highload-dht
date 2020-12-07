@@ -54,9 +54,6 @@ public class ExpireRecordsTest extends TestBase {
             dao.upsert(key, value, current);
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
         }
-        try (DAO dao = DAOFactory.create(data)) {
-            assertThrows(NoSuchElementException.class, () -> dao.get(key));
-        }
     }
 
     @Test
@@ -81,9 +78,6 @@ public class ExpireRecordsTest extends TestBase {
             dao.upsert(key, value, current);
             assertEquals(value, dao.get(key));
             Thread.sleep(10000);
-            assertThrows(NoSuchElementException.class, () -> dao.get(key));
-        }
-        try (DAO dao = DAOFactory.create(data)) {
             assertThrows(NoSuchElementException.class, () -> dao.get(key));
         }
     }

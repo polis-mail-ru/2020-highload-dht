@@ -47,7 +47,8 @@ public final class IteratorUtils {
         });
         final Iterator<Cell> fresh = freshCellIterators(snapshot, from, fileIterators);
         return Iterators.filter(
-                fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone());
+                fresh, cell -> !Objects.requireNonNull(cell).getValue().isTombstone()
+                        && !Objects.requireNonNull(cell).getValue().isExpired());
     }
 
     /**
