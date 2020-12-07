@@ -2,7 +2,6 @@ package ru.mail.polis.service.manikhin.utils;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -29,7 +28,6 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -43,8 +41,15 @@ public class ServiceUtils {
 
     private final DAO dao;
     private final ThreadPoolExecutor executor;
-    private static final String ENTITY_PATH = "/v0/entity?id=";
-    private static final String PROXY_HEADER = "X-OK-Proxy";
+    public static final String ENTITY_PATH = "/v0/entity?id=";
+    public static final String PROXY_HEADER = "X-OK-Proxy";
+    public static final String TIMESTAMP_HEADER = "Timestamp";
+    public static final HttpResponseStatus OK = HttpResponseStatus.OK;
+    public static final HttpResponseStatus CREATED = HttpResponseStatus.CREATED;
+    public static final HttpResponseStatus ACCEPTED = HttpResponseStatus.ACCEPTED;
+    public static final HttpResponseStatus GATEWAY_TIMEOUT = HttpResponseStatus.GATEWAY_TIMEOUT;
+    public static final HttpResponseStatus INTERNAL_ERROR = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+    public static final HttpResponseStatus NOT_FOUND = HttpResponseStatus.NOT_FOUND;
     public static final byte [] EMPTY_BODY = new byte[0];
 
     private static final Logger log = LoggerFactory.getLogger(ServiceUtils.class);
@@ -89,13 +94,13 @@ public class ServiceUtils {
                     final ByteBuffer value = dao.get(key).duplicate();
                     final byte[] valueArray = ByteConvertor.toArray(value);
 
-                    return responseBuilder(HttpResponseStatus.OK, valueArray);
+                    return responseBuilder(OK, valueArray);
                 } catch (final IOException error) {
                     log.error("IO get error: ", error);
-                    return responseBuilder(HttpResponseStatus.INTERNAL_SERVER_ERROR, EMPTY_BODY);
+                    return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
                 } catch (NoSuchElementException error) {
                     log.error("NoSuchElement get error: ", error);
-                    return responseBuilder(HttpResponseStatus.NOT_FOUND, EMPTY_BODY);
+                    return responseBuilder(NOT_FOUND, EMPTY_BODY);
                 }
             }, executor)
         );
@@ -113,10 +118,10 @@ public class ServiceUtils {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content())));
-                    return responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY);
+                    return responseBuilder(CREATED, EMPTY_BODY);
                 } catch (IOException | IllegalStateException error) {
                     log.error("IO put error: ", error);
-                    return responseBuilder(HttpResponseStatus.INTERNAL_SERVER_ERROR, EMPTY_BODY);
+                    return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
                 }
             }, executor)
         );
@@ -134,10 +139,10 @@ public class ServiceUtils {
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     dao.remove(key);
-                    return responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY);
+                    return responseBuilder(ACCEPTED, EMPTY_BODY);
                 } catch (IOException | IllegalStateException error) {
                     log.error("IO delete error: ", error);
-                    return responseBuilder(HttpResponseStatus.INTERNAL_SERVER_ERROR, EMPTY_BODY);
+                    return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
                 }
             }, executor)
         );
@@ -154,9 +159,9 @@ public class ServiceUtils {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 dao.upsertTimestampRecord(key, ByteBuffer.wrap(bytes));
-                return responseBuilder(HttpResponseStatus.CREATED, EMPTY_BODY);
+                return responseBuilder(CREATED, EMPTY_BODY);
             } catch (IOException | IllegalStateException error) {
-                return responseBuilder(HttpResponseStatus.INTERNAL_SERVER_ERROR, EMPTY_BODY);
+                return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
             }
         }, executor);
     }
@@ -170,7 +175,7 @@ public class ServiceUtils {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 dao.removeTimestampRecord(key);
-                return responseBuilder(HttpResponseStatus.ACCEPTED, EMPTY_BODY);
+                return responseBuilder(ACCEPTED, EMPTY_BODY);
             } catch (IOException error) {
                 throw new RuntimeException("Get future error", error);
             }
@@ -180,53 +185,54 @@ public class ServiceUtils {
     /**
      * Proxy Response handler for getting record with timestamp from storage.
      *
-     * @param clusterClients - input cluster clients
+     * @param client - input HTTP-client
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<TimestampRecord> getProxyResponse(@NotNull final Map<String, HttpClient> clusterClients,
-                                                               @NotNull final String node, @NotNull final String id) {
+    public CompletableFuture<TimestampRecord> getProxyResponse(@NotNull final HttpClient client,
+                                                               @NotNull final String node,
+                                                               @NotNull final String id) {
 
         final HttpRequest request = requestBuilder(node, id).GET().build();
 
-        return clusterClients.get(node).sendAsync(request, GetBodyHandler.INSTANCE)
-                .thenApplyAsync(HttpResponse::body, executor);
+        return client.sendAsync(request, GetBodyHandler.INSTANCE).thenApplyAsync(HttpResponse::body, executor);
     }
 
     /**
      * Proxy Response handler for delete record with timestamp from storage.
      *
-     * @param clients - input HTTP-clients
+     * @param client - input HTTP-client
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<FullHttpResponse> deleteProxyResponse(@NotNull final Map<String, HttpClient> clients,
+    public CompletableFuture<FullHttpResponse> deleteProxyResponse(@NotNull final HttpClient client,
                                                                    @NotNull final String node,
                                                                    @NotNull final String id) {
 
         final HttpRequest request = requestBuilder(node, id).DELETE().build();
 
-        return clients.get(node).sendAsync(request, DeleteBodyHandler.INSTANCE).thenApplyAsync(r -> responseBuilder(
-                HttpResponseStatus.ACCEPTED, EMPTY_BODY), executor);
+        return client.sendAsync(request, DeleteBodyHandler.INSTANCE).thenApplyAsync(r -> responseBuilder(
+                ACCEPTED, EMPTY_BODY), executor);
     }
 
     /**
      * Proxy Response handler for insert record with timestamp in storage.
      *
-     * @param clients - input HTTP-clients
+     * @param client - input HTTP-client
      * @param node - input node
      * @param id - input record id
      */
-    public CompletableFuture<FullHttpResponse> putProxyResponse(@NotNull final Map<String, HttpClient> clients,
-                                                                @NotNull final String node, @NotNull final String id,
+    public CompletableFuture<FullHttpResponse> putProxyResponse(@NotNull final HttpClient client,
+                                                                @NotNull final String node,
+                                                                @NotNull final String id,
                                                                 @NotNull final byte[] value) {
 
         final HttpRequest request = requestBuilder(node, id).PUT(
                 HttpRequest.BodyPublishers.ofByteArray(value)
         ).build();
 
-        return clients.get(node).sendAsync(request, PutBodyHandler.INSTANCE).thenApplyAsync(r -> responseBuilder(
-                HttpResponseStatus.CREATED, EMPTY_BODY), executor);
+        return client.sendAsync(request, PutBodyHandler.INSTANCE).thenApplyAsync(r -> responseBuilder(
+                CREATED, EMPTY_BODY), executor);
     }
 
     /**
@@ -328,7 +334,13 @@ public class ServiceUtils {
                         @NotNull final CompletableFuture<FullHttpResponse> response) {
         response.whenComplete((r, t) -> {
             if (t == null) {
-                ctx.writeAndFlush(r).addListener(ChannelFutureListener.CLOSE);
+                if (HttpUtil.isKeepAlive(r)) {
+                    r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                } else {
+                    r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+                }
+
+                ctx.writeAndFlush(r).isCancelled();
             } else {
                 final HttpResponseStatus code;
 
@@ -337,9 +349,9 @@ public class ServiceUtils {
                 }
 
                 if (t instanceof IllegalStateException) {
-                    code = HttpResponseStatus.GATEWAY_TIMEOUT;
+                    code = GATEWAY_TIMEOUT;
                 } else {
-                    code = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+                    code = INTERNAL_ERROR;
                 }
 
                 sendResponse(code, t.getMessage().getBytes(StandardCharsets.UTF_8), ctx, request);
@@ -370,6 +382,14 @@ public class ServiceUtils {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
         }
 
-        ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        ctx.writeAndFlush(response).isCancelled();
+    }
+
+    /** Forward checker.
+     *
+     * @param request - input HTTP request
+     * */
+    public boolean isForwarded(@NotNull final FullHttpRequest request) {
+        return request.headers().contains(ServiceUtils.PROXY_HEADER);
     }
 }

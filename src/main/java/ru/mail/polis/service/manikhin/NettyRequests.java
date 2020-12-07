@@ -18,10 +18,8 @@ import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
@@ -29,17 +27,20 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
-    static final String STATUS_PATH = "/v0/status";
-    static final String ENTITIES_PATH = "/v0/entities";
-    static final String ENTITY_PATH = "/v0/entity";
+    private static final HttpResponseStatus BAD_REQUEST = HttpResponseStatus.BAD_REQUEST;
+    private static final HttpResponseStatus METHOD_NOT_ALLOWED = HttpResponseStatus.METHOD_NOT_ALLOWED;
+    private static final HttpResponseStatus SERVICE_UNAVAILABLE = HttpResponseStatus.SERVICE_UNAVAILABLE;
+    private static final String STATUS_PATH = "/v0/status";
+    private static final String ENTITIES_PATH = "/v0/entities";
+    private static final String ENTITY_PATH = "/v0/entity";
     private final int clusterSize;
 
     private static final Logger log = LoggerFactory.getLogger(NettyRequests.class);
-    private final ReplicasNettyRequests replicaHelper;
+    private final HttpClient client;
+    private final Topology nodes;
     private final ServiceUtils serviceUtils;
     private final DAO dao;
-    private ChannelHandlerContext context;
-    private boolean isForwarded;
+    // private boolean isForwarded;
     private Replicas replicaFactor;
 
     /**
@@ -54,6 +55,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
                          final int queueSize, final int timeout) {
         this.clusterSize = nodes.getNodes().size();
+        this.nodes = nodes;
         this.dao = dao;
         
         final ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
@@ -63,17 +65,10 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 ).build(),
                 new ThreadPoolExecutor.AbortPolicy());
 
-        final Map<String, HttpClient> clusterClients = new HashMap<>();
-
-        for (final String node : nodes.getNodes()) {
-            if (!nodes.getId().equals(node) && !clusterClients.containsKey(node)) {
-                clusterClients.put(node, HttpClient.newBuilder().executor(executor)
-                        .connectTimeout(Duration.ofSeconds(timeout)).version(HttpClient.Version.HTTP_1_1).build());
-            }
-        }
+        this.client = HttpClient.newBuilder().executor(executor).connectTimeout(Duration.ofSeconds(timeout))
+                .version(HttpClient.Version.HTTP_1_1).build();
 
         this.serviceUtils = new ServiceUtils(dao, executor);
-        this.replicaHelper = new ReplicasNettyRequests(nodes, clusterClients, serviceUtils);
     }
 
     @Override
@@ -83,19 +78,18 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
-        isForwarded = msg.headers().contains("X-OK-Proxy");
+        // isForwarded = msg.headers().contains("X-OK-Proxy");
         final String uri = msg.uri();
-        context = ctx;
 
-        if (uri.equals(STATUS_PATH)) {
+        if (uri.startsWith(STATUS_PATH)) {
             ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
-        } else if (uri.contains(ENTITIES_PATH)) {
+        } else if (uri.startsWith(ENTITIES_PATH)) {
             entitiesHandler(ctx, msg, uri);
-        } else if (uri.contains(ENTITY_PATH)) {
+        } else if (uri.startsWith(ENTITY_PATH)) {
             entityHandler(ctx, msg, uri);
         } else {
             serviceUtils.respond(ctx, msg, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
-                    HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
+                    BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
         }
     }
 
@@ -117,8 +111,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final StreamNettySession session = new StreamNettySession(iterator, ctx, request);
             session.startStream();
         } catch (IllegalArgumentException | IOException error) {
-            log.error("IOexception error: ", error);
-            ServiceUtils.sendResponse(HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
+            log.error("IO exception error: ", error);
+            ServiceUtils.sendResponse(BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
         }
     }
 
@@ -130,57 +124,62 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                 serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
-                        HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
+                        BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
                 return;
             }
-
             final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
             final List<String> replicas = decoder.parameters().get("replicas");
-            replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize, isForwarded);
+            replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
 
             switch (request.method().toString()) {
                 case "GET":
-                    getRequest(request, key);
+                    getRequest(ctx, request, key);
                     break;
                 case "PUT":
-                    putRequest(request, key);
+                    putRequest(ctx, request, key);
                     break;
                 case "DELETE":
-                    deleteRequest(request, key);
+                    deleteRequest(ctx, request, key);
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
-                            ServiceUtils.responseBuilder(HttpResponseStatus.METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY)
+                            ServiceUtils.responseBuilder(METHOD_NOT_ALLOWED, ServiceUtils.EMPTY_BODY)
                     ));
                     break;
             }
         } catch (IllegalArgumentException error) {
             serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
-                    HttpResponseStatus.BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
+                    BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
         } catch (RejectedExecutionException error) {
             serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
-                    HttpResponseStatus.SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY)));
+                    SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY)));
         }
     }
 
-    private void getRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
+    private void getRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
+                            @NotNull final ByteBuffer key) {
         if (clusterSize > 1) {
+            final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
             replicaHelper.multiGet(context, replicaFactor, request);
         } else {
             serviceUtils.getResponse(key, context, request);
         }
     }
 
-    private void putRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
+    private void putRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
+                            @NotNull final ByteBuffer key) {
         if (clusterSize > 1) {
+            final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
             replicaHelper.multiPut(context, replicaFactor, request);
         } else {
             serviceUtils.putResponse(key, context, request.retain());
         }
     }
 
-    private void deleteRequest(@NotNull final FullHttpRequest request, @NotNull final ByteBuffer key) {
+    private void deleteRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
+                               @NotNull final ByteBuffer key) {
         if (clusterSize > 1) {
+            final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
             replicaHelper.multiDelete(context, replicaFactor, request);
         } else {
             serviceUtils.deleteResponse(key, context, request);

@@ -15,29 +15,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class ReplicasNettyRequests {
-    private final Map<String, HttpClient> clusterClients;
-    private static final String PROXY_HEADER = "X-OK-Proxy";
-    private static final String TIMESTAMP_HEADER = "Timestamp";
-    private static final HttpResponseStatus CREATED = HttpResponseStatus.CREATED;
-    private static final HttpResponseStatus ACCEPTED = HttpResponseStatus.ACCEPTED;
-    private static final HttpResponseStatus NOT_FOUND = HttpResponseStatus.NOT_FOUND;
-    private static final HttpResponseStatus GATEWAY_TIMEOUT = HttpResponseStatus.GATEWAY_TIMEOUT;
-    private static final HttpResponseStatus OK = HttpResponseStatus.OK;
-
+    private final HttpClient client;
     private Set<String> replicaClusters;
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
     private ChannelHandlerContext context;
-    private boolean isForwarded;
 
-    ReplicasNettyRequests(final Topology nodes, final Map<String, HttpClient> clusterClients,
-                          final ServiceUtils serviceUtils) {
-        this.clusterClients = clusterClients;
+    ReplicasNettyRequests(final Topology nodes, final HttpClient client, final ServiceUtils serviceUtils) {
+        this.client = client;
         this.nodes = nodes;
         this.serviceUtils = serviceUtils;
     }
@@ -51,15 +40,13 @@ public class ReplicasNettyRequests {
      */
     public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
                          @NotNull final FullHttpRequest request) {
-
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>(replicaFactor.getFrom());
-        isForwarded = request.headers().contains(PROXY_HEADER);
-        context = ctx;
+        final boolean isForwarded = serviceUtils.isForwarded(request);
 
         if (isForwarded) {
-            replicaClusters = Collections.singleton(nodes.getId());
+             replicaClusters = Collections.singleton(nodes.getId());
         } else {
             replicaClusters = nodes.getReplicas(key, replicaFactor);
         }
@@ -68,17 +55,16 @@ public class ReplicasNettyRequests {
             if (node.equals(nodes.getId())) {
                 responses.add(serviceUtils.getTimestampResponse(key));
             } else {
-                responses.add(serviceUtils.getProxyResponse(clusterClients, node, id));
+                responses.add(serviceUtils.getProxyResponse(client, node, id));
             }
         }
 
-        serviceUtils.respond(context, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(),
+        serviceUtils.respond(ctx, request, serviceUtils.atLeastAsync(responses, replicaFactor.getAck(),
                 isForwarded).handle((res, ex) -> {
                     if (ex == null) {
                         return processResponses(res);
                     }
-
-                    return ServiceUtils.responseBuilder(GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY);
+                    return ServiceUtils.responseBuilder(ServiceUtils.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY);
                 }));
     }
 
@@ -95,7 +81,7 @@ public class ReplicasNettyRequests {
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
-        isForwarded = request.headers().contains(PROXY_HEADER);
+        final boolean isForwarded = serviceUtils.isForwarded(request);
         context = ctx;
 
         if (isForwarded) {
@@ -110,11 +96,11 @@ public class ReplicasNettyRequests {
             if (node.equals(nodes.getId())) {
                 responses.add(serviceUtils.putTimestampResponse(key, body));
             } else {
-                responses.add(serviceUtils.putProxyResponse(clusterClients, node, id, body));
+                responses.add(serviceUtils.putProxyResponse(client, node, id, body));
             }
         }
 
-        respond(request, CREATED, responses, replicaFactor.getAck());
+        respond(request, ServiceUtils.CREATED, responses, replicaFactor.getAck());
     }
 
     /**
@@ -126,11 +112,10 @@ public class ReplicasNettyRequests {
      */
     public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
                             @NotNull final FullHttpRequest request) {
-
         final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
-        isForwarded = request.headers().contains(PROXY_HEADER);
+        final boolean isForwarded = serviceUtils.isForwarded(request);
         context = ctx;
 
         if (isForwarded) {
@@ -143,11 +128,11 @@ public class ReplicasNettyRequests {
             if (node.equals(nodes.getId())) {
                 responses.add(serviceUtils.deleteTimestampResponse(key));
             } else {
-                responses.add(serviceUtils.deleteProxyResponse(clusterClients, node, id));
+                responses.add(serviceUtils.deleteProxyResponse(client, node, id));
             }
         }
 
-        respond(request, ACCEPTED, responses, replicaFactor.getAck());
+        respond(request, ServiceUtils.ACCEPTED, responses, replicaFactor.getAck());
     }
 
     /**
@@ -160,12 +145,12 @@ public class ReplicasNettyRequests {
         final FullHttpResponse response;
 
         if (mergedResp.isValue()) {
-            response = ServiceUtils.responseBuilder(OK, mergedResp.getValueAsBytes());
+            response = ServiceUtils.responseBuilder(ServiceUtils.OK, mergedResp.getValueAsBytes());
         } else {
-            response = ServiceUtils.responseBuilder(NOT_FOUND, mergedResp.toBytes());
+            response = ServiceUtils.responseBuilder(ServiceUtils.NOT_FOUND, mergedResp.toBytes());
         }
 
-        response.headers().add(TIMESTAMP_HEADER, mergedResp.getTimestamp());
+        response.headers().add(ServiceUtils.TIMESTAMP_HEADER, mergedResp.getTimestamp());
         return response;
     }
 
@@ -178,14 +163,13 @@ public class ReplicasNettyRequests {
     private void respond(@NotNull final FullHttpRequest request, @NotNull final HttpResponseStatus successStatus,
                          @NotNull final Collection<CompletableFuture<FullHttpResponse>> responses, final int acks) {
 
-        serviceUtils.respond(context, request, serviceUtils.atLeastAsync(responses, acks, isForwarded)
-                .handle((res, ex) -> {
+        serviceUtils.respond(context, request, serviceUtils.atLeastAsync(responses, acks,
+                serviceUtils.isForwarded(request)).handle((res, ex) -> {
                     if (ex == null) {
                         return ServiceUtils.responseBuilder(successStatus, ServiceUtils.EMPTY_BODY);
 
                     }
-
-                    return ServiceUtils.responseBuilder(GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY);
+                    return ServiceUtils.responseBuilder(ServiceUtils.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY);
                 })
         );
     }

@@ -77,13 +77,11 @@ public class Replicas {
      *
      * @param replicas - input replicas
      * @param clusterSize - input nodes cluster size
-     * @param isForwarded - forwarded request or not
      * @return ReplicaFactor value
      */
-    public static Replicas replicaNettyFactor(final List<String> replicas, final int clusterSize,
-                                              final boolean isForwarded) {
+    public static Replicas replicaNettyFactor(final List<String> replicas, final int clusterSize) {
 
-        final Replicas replicaFactor = isForwarded || replicas == null ? quorum(clusterSize) : parser(replicas.get(0));
+        final Replicas replicaFactor = replicas == null ? quorum(clusterSize) : parser(replicas.get(0));
 
         if (replicaFactor.ack < 1 || replicaFactor.from < replicaFactor.ack) {
             throw new IllegalArgumentException("From is is very big");

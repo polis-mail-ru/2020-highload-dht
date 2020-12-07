@@ -34,7 +34,6 @@ public class NettyAsyncServiceImpl implements Service {
      */
     public NettyAsyncServiceImpl(final int port, @NotNull final DAO dao, @NotNull final Topology nodes,
                                  final int countOfWorkers, final int queueSize, final int timeout) {
-
         this.port = port;
         this.dao = dao;
         this.nodes = nodes;
@@ -48,8 +47,6 @@ public class NettyAsyncServiceImpl implements Service {
 
     @Override
     public void start() {
-        Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
-
         try {
             final ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup, workersGroup).channel(NioServerSocketChannel.class)
