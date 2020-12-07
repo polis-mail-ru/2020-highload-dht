@@ -81,14 +81,16 @@ public class ServiceUtils {
     }
 
     /**
-     * Response handler for getting record from storage by input key.
+     * Response handler for getting record from storage by input id.
      *
-     * @param key - input record key
+     * @param id - input id
      * @param ctx - channel handler context
      * @param request - input http request
      */
-    public void getResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
+    public void getResponse(@NotNull final String id, @NotNull final ChannelHandlerContext ctx,
                             @NotNull final FullHttpRequest request) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     final ByteBuffer value = dao.get(key).duplicate();
@@ -107,14 +109,16 @@ public class ServiceUtils {
     }
 
     /**
-     * Response handler for insert new record in storage with input key.
+     * Response handler for insert new record in storage with input id.
      *
-     * @param key - input record key
+     * @param id - input id
      * @param ctx - channel handler context
      * @param request - input http request
      */
-    public void putResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
+    public void putResponse(@NotNull final String id, @NotNull final ChannelHandlerContext ctx,
                             @NotNull final FullHttpRequest request) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content())));
@@ -130,12 +134,14 @@ public class ServiceUtils {
     /**
      * Response handler for delete record from storage by input key.
      *
-     * @param key - input record key
+     * @param id - input id
      * @param ctx - channel handler context
      * @param request - input http request
      */
-    public void deleteResponse(@NotNull final ByteBuffer key, @NotNull final ChannelHandlerContext ctx,
+    public void deleteResponse(@NotNull final String id, @NotNull final ChannelHandlerContext ctx,
                                @NotNull final FullHttpRequest request) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
         respond(ctx, request, CompletableFuture.supplyAsync(() -> {
                 try {
                     dao.remove(key);
@@ -334,7 +340,7 @@ public class ServiceUtils {
                         @NotNull final CompletableFuture<FullHttpResponse> response) {
         response.whenComplete((r, t) -> {
             if (t == null) {
-                if (HttpUtil.isKeepAlive(r)) {
+                if (HttpUtil.isKeepAlive(request)) {
                     r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
                 } else {
                     r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
@@ -368,7 +374,6 @@ public class ServiceUtils {
      * */
     public static void sendResponse(@NotNull final HttpResponseStatus status, @NotNull final byte[] bytes,
                                     @NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request) {
-        final boolean isKeepAlive = HttpUtil.isKeepAlive(request);
 
         final FullHttpResponse response = new DefaultFullHttpResponse(
                 HTTP_1_1, status, Unpooled.copiedBuffer(bytes)
@@ -376,7 +381,7 @@ public class ServiceUtils {
 
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
 
-        if (isKeepAlive) {
+        if (HttpUtil.isKeepAlive(request)) {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
         } else {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);

@@ -3,8 +3,8 @@ package ru.mail.polis.service.manikhin;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.QueryStringDecoder;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
 import ru.mail.polis.service.manikhin.utils.ServiceUtils;
@@ -23,7 +23,6 @@ public class ReplicasNettyRequests {
     private Set<String> replicaClusters;
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
-    private ChannelHandlerContext context;
 
     ReplicasNettyRequests(final Topology nodes, final HttpClient client, final ServiceUtils serviceUtils) {
         this.client = client;
@@ -39,8 +38,8 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      */
     public void multiGet(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
-                         @NotNull final FullHttpRequest request) {
-        final String id = queryParser(request.uri());
+                         @NotNull final FullHttpRequest request, @NotNull final String id) {
+
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>(replicaFactor.getFrom());
         final boolean isForwarded = serviceUtils.isForwarded(request);
@@ -65,7 +64,8 @@ public class ReplicasNettyRequests {
                         return processResponses(res);
                     }
                     return ServiceUtils.responseBuilder(ServiceUtils.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY);
-                }));
+                })
+        );
     }
 
     /**
@@ -76,13 +76,11 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      */
     public void multiPut(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
-                         @NotNull final FullHttpRequest request) {
+                         @NotNull final FullHttpRequest request, @NotNull final String id) {
 
-        final String id = queryParser(request.uri());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
         final boolean isForwarded = serviceUtils.isForwarded(request);
-        context = ctx;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
@@ -100,7 +98,7 @@ public class ReplicasNettyRequests {
             }
         }
 
-        respond(request, ServiceUtils.CREATED, responses, replicaFactor.getAck());
+        respond(ctx, request, responses, replicaFactor.getAck());
     }
 
     /**
@@ -111,12 +109,11 @@ public class ReplicasNettyRequests {
      * @param request - input http-request
      */
     public void multiDelete(@NotNull final ChannelHandlerContext ctx, @NotNull final Replicas replicaFactor,
-                            @NotNull final FullHttpRequest request) {
-        final String id = queryParser(request.uri());
+                            @NotNull final FullHttpRequest request, @NotNull final String id) {
+
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
         final boolean isForwarded = serviceUtils.isForwarded(request);
-        context = ctx;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
@@ -132,7 +129,7 @@ public class ReplicasNettyRequests {
             }
         }
 
-        respond(request, ServiceUtils.ACCEPTED, responses, replicaFactor.getAck());
+        respond(ctx, request, responses, replicaFactor.getAck());
     }
 
     /**
@@ -141,6 +138,7 @@ public class ReplicasNettyRequests {
      * @param responses - input set with responses
      */
     private FullHttpResponse processResponses(@NotNull final Collection<TimestampRecord> responses) {
+
         final TimestampRecord mergedResp = TimestampRecord.merge(responses);
         final FullHttpResponse response;
 
@@ -154,20 +152,21 @@ public class ReplicasNettyRequests {
         return response;
     }
 
-    private String queryParser(final String uri) {
-        final QueryStringDecoder decoder = new QueryStringDecoder(uri);
-
-        return decoder.parameters().get("id").get(0);
-    }
-
-    private void respond(@NotNull final FullHttpRequest request, @NotNull final HttpResponseStatus successStatus,
+    private void respond(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
                          @NotNull final Collection<CompletableFuture<FullHttpResponse>> responses, final int acks) {
+
+        final HttpResponseStatus successCode;
+
+        if (HttpMethod.PUT.equals(request.method())) {
+            successCode = ServiceUtils.CREATED;
+        } else {
+            successCode = ServiceUtils.ACCEPTED;
+        }
 
         serviceUtils.respond(context, request, serviceUtils.atLeastAsync(responses, acks,
                 serviceUtils.isForwarded(request)).handle((res, ex) -> {
                     if (ex == null) {
-                        return ServiceUtils.responseBuilder(successStatus, ServiceUtils.EMPTY_BODY);
-
+                        return ServiceUtils.responseBuilder(successCode, ServiceUtils.EMPTY_BODY);
                     }
                     return ServiceUtils.responseBuilder(ServiceUtils.GATEWAY_TIMEOUT, ServiceUtils.EMPTY_BODY);
                 })

@@ -91,8 +91,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         }
     }
 
-    private void entitiesHandler(@NotNull final ChannelHandlerContext ctx,
-                                 @NotNull final FullHttpRequest request, @NotNull final String uri) {
+    private void entitiesHandler(@NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request,
+                                 @NotNull final String uri) {
         try {
             final QueryStringDecoder decoder = new QueryStringDecoder(uri);
             final List<String> start = decoder.parameters().get("start");
@@ -106,38 +106,39 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final ByteBuffer to = (end == null) ? null : ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
 
             final Iterator<Record> iterator = dao.range(from, to);
-            final StreamNettySession session = new StreamNettySession(iterator, ctx, request);
-            session.startStream();
+            final StreamNettySession session = new StreamNettySession(iterator);
+            session.startStream(ctx, request);
         } catch (IllegalArgumentException | IOException error) {
             log.error("IO exception error: ", error);
             ServiceUtils.sendResponse(BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
         }
     }
 
-    private void entityHandler(@NotNull final ChannelHandlerContext ctx,
-                               @NotNull final FullHttpRequest request, @NotNull final String uri) {
+    private void entityHandler(@NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request,
+                               @NotNull final String uri) {
         try {
             final QueryStringDecoder decoder = new QueryStringDecoder(uri);
             final List<String> id = decoder.parameters().get("id");
+            final List<String> replicas = decoder.parameters().get("replicas");
+            replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                 serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
                         BAD_REQUEST, ServiceUtils.EMPTY_BODY)));
                 return;
             }
-            final ByteBuffer key = ByteBuffer.wrap(id.get(0).getBytes(StandardCharsets.UTF_8));
-            final List<String> replicas = decoder.parameters().get("replicas");
-            replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
+
+            final String idValue = id.get(0);
 
             switch (request.method().toString()) {
                 case "GET":
-                    getRequest(ctx, request, key);
+                    getRequest(ctx, request, idValue);
                     break;
                 case "PUT":
-                    putRequest(ctx, request, key);
+                    putRequest(ctx, request, idValue);
                     break;
                 case "DELETE":
-                    deleteRequest(ctx, request, key);
+                    deleteRequest(ctx, request, idValue);
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -155,32 +156,32 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     private void getRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
-                            @NotNull final ByteBuffer key) {
+                            @NotNull final String id) {
         if (clusterSize > 1) {
             final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
-            replicaHelper.multiGet(context, replicaFactor, request);
+            replicaHelper.multiGet(context, replicaFactor, request, id);
         } else {
-            serviceUtils.getResponse(key, context, request);
+            serviceUtils.getResponse(id, context, request);
         }
     }
 
     private void putRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
-                            @NotNull final ByteBuffer key) {
+                            @NotNull final String id) {
         if (clusterSize > 1) {
             final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
-            replicaHelper.multiPut(context, replicaFactor, request);
+            replicaHelper.multiPut(context, replicaFactor, request, id);
         } else {
-            serviceUtils.putResponse(key, context, request.retain());
+            serviceUtils.putResponse(id, context, request.retain());
         }
     }
 
     private void deleteRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
-                               @NotNull final ByteBuffer key) {
+                               @NotNull final String id) {
         if (clusterSize > 1) {
             final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
-            replicaHelper.multiDelete(context, replicaFactor, request);
+            replicaHelper.multiDelete(context, replicaFactor, request, id);
         } else {
-            serviceUtils.deleteResponse(key, context, request);
+            serviceUtils.deleteResponse(id, context, request);
         }
     }
 }
