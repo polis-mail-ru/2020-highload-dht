@@ -22,7 +22,6 @@ public final class RequestUtils {
     /** Calculate replicas factor from request.
      * */
     public static ReplicasFactor getReplicasFactor(@NotNull final HttpSession session,
-                                                   @NotNull final Topology<String> topology,
                                                    final boolean proxied,
                                                    final String replicas,
                                                    @NotNull final ReplicasFactor quorum) {
