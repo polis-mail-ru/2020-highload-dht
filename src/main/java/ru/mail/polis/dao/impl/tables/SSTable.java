@@ -81,10 +81,10 @@ public final class SSTable implements Table {
             final ByteBuffer data = Objects.requireNonNull(value.getData()).duplicate();
             curOffset += data.remaining();
             fc.write(data);
+            final Instant expire = value.getExpire();
+            curOffset += (Long.BYTES + Integer.BYTES);
+            fc.write(ByteUtils.fromInstant(expire));
         }
-        final Instant expire = value.getExpire();
-        curOffset += (Long.BYTES + Integer.BYTES);
-        fc.write(ByteUtils.fromInstant(expire));
         return curOffset;
     }
 

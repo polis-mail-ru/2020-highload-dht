@@ -17,6 +17,12 @@ public final class ReplicasFactor {
     }
 
     @NotNull
+    public static ReplicasFactor create(final int ack,
+                                         final int from) {
+        return new ReplicasFactor(ack, from);
+    }
+
+    @NotNull
     public static ReplicasFactor quorum(final int nodes) {
         return new ReplicasFactor(nodes / 2 + 1, nodes);
     }

@@ -35,8 +35,7 @@ public final class RequestUtils {
             return null;
         }
         if (replicasFactor.getAck() < 1
-                || replicasFactor.getFrom() < replicasFactor.getAck()
-                || replicasFactor.getFrom() > topology.all().size()) {
+                || replicasFactor.getFrom() < replicasFactor.getAck()) {
             ResponseUtils.sendEmptyResponse(session, Response.BAD_REQUEST);
             return null;
         }

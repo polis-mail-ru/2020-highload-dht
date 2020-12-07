@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -197,7 +198,13 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final Instant expire) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Entry>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : topology.replicasFor(key, replicasFactor)) {
+        Set<String> topologyReplicas;
+        try {
+            topologyReplicas = topology.replicasFor(key, replicasFactor);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.supplyAsync(() -> ResponseUtils.emptyResponse(Response.BAD_REQUEST), executor);
+        }
+        for (final String node : topologyReplicas) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.getEntry(key));
             } else {
@@ -216,7 +223,13 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                     @NotNull final Instant expire) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : topology.replicasFor(key, replicasFactor)) {
+        Set<String> topologyReplicas;
+        try {
+            topologyReplicas = topology.replicasFor(key, replicasFactor);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.supplyAsync(() -> ResponseUtils.emptyResponse(Response.BAD_REQUEST), executor);
+        }
+        for (final String node : topologyReplicas) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.put(key, value, expire));
             } else {
@@ -234,7 +247,13 @@ public final class ServiceImpl extends HttpServer implements Service {
                                                        @NotNull final Instant expire) {
         final ByteBuffer key = ByteUtils.getWrap(id);
         final Collection<CompletableFuture<Response>> result = new ArrayList<>(replicasFactor.getFrom());
-        for (final String node : topology.replicasFor(key, replicasFactor)) {
+        Set<String> topologyReplicas;
+        try {
+            topologyReplicas = topology.replicasFor(key, replicasFactor);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.supplyAsync(() -> ResponseUtils.emptyResponse(Response.BAD_REQUEST), executor);
+        }
+        for (final String node : topologyReplicas) {
             if (topology.isMe(node)) {
                 result.add(simpleRequests.delete(key));
             } else {
