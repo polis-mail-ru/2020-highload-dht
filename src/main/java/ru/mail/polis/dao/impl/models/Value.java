@@ -54,7 +54,7 @@ public final class Value {
     }
 
     public boolean isTombstone() {
-        return data == null || isExpired();
+        return data == null;
     }
 
     public boolean isExpired() {
