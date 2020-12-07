@@ -40,7 +40,6 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
     private final DAO dao;
-    // private boolean isForwarded;
     private Replicas replicaFactor;
 
     /**
@@ -78,7 +77,6 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
     @Override
     protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
-        // isForwarded = msg.headers().contains("X-OK-Proxy");
         final String uri = msg.uri();
 
         if (uri.startsWith(STATUS_PATH)) {
