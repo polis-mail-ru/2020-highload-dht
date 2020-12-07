@@ -31,7 +31,7 @@ public class StreamNettySession extends ChannelDuplexHandler {
     }
 
     @Override
-    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+    public void channelWritabilityChanged(@NotNull final ChannelHandlerContext ctx) throws Exception {
         super.channelWritabilityChanged(ctx);
 
         if (iterator != null) {
