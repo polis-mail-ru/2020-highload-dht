@@ -99,7 +99,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final List<String> end = decoder.parameters().get("end");
 
             if (start == null || ((end != null) && end.get(0).isEmpty())) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException("start or end null!");
             }
 
             final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
@@ -107,7 +107,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
             final Iterator<Record> iterator = dao.range(from, to);
             final StreamNettySession session = new StreamNettySession(iterator);
-            session.startStream(ctx, request);
+            session.startStream(ctx);
         } catch (IllegalArgumentException | IOException error) {
             log.error("IO exception error: ", error);
             ServiceUtils.sendResponse(BAD_REQUEST, ServiceUtils.EMPTY_BODY, ctx, request);
