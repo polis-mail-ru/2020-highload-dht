@@ -41,7 +41,11 @@ public class MemTable implements Table {
                 new Value(System.currentTimeMillis(),
                         value.duplicate(),
                         expire));
-        sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
+        if (Instant.MAX.equals(expire)) {
+            sizeInBytes.addAndGet(key.remaining() + value.remaining() + Long.BYTES);
+        } else {
+            sizeInBytes.addAndGet(key.remaining() + value.remaining() + 2 * Long.BYTES + Integer.BYTES);
+        }
     }
 
     @Override

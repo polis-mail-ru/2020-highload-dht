@@ -81,17 +81,10 @@ public final class SSTable implements Table {
             final ByteBuffer data = Objects.requireNonNull(value.getData()).duplicate();
             curOffset += data.remaining();
             fc.write(data);
-            final Instant expire = value.getExpire();
-            if (Instant.MAX.equals(expire)) {
-                curOffset++;
-                fc.write(ByteUtils.fromByte((byte) 0));
-            } else {
-                curOffset++;
-                fc.write(ByteUtils.fromByte((byte) 1));
-                curOffset += (Long.BYTES + Integer.BYTES);
-                fc.write(ByteUtils.fromInstant(expire));
-            }
         }
+        final Instant expire = value.getExpire();
+        curOffset += (Long.BYTES + Integer.BYTES);
+        fc.write(ByteUtils.fromInstant(expire));
         return curOffset;
     }
 
@@ -124,21 +117,12 @@ public final class SSTable implements Table {
                 offset += Long.BYTES;
                 final int dataSize;
                 if (i == count - 1) {
-                    dataSize = rows - offset;
+                    dataSize = rows - offset - (Long.BYTES + Integer.BYTES);
                 } else {
-                    dataSize = getOffset(i + 1) - offset;
+                    dataSize = getOffset(i + 1) - offset - (Long.BYTES + Integer.BYTES);
                 }
                 final ByteBuffer data = ByteBuffer.allocate(dataSize);
                 fileChannel.read(data.duplicate(), offset);
-                final ByteBuffer isExpiredBuffer = ByteBuffer.allocate(1);
-                fileChannel.read(isExpiredBuffer.duplicate(), offset);
-                final byte isExpired = isExpiredBuffer.duplicate().rewind().get();
-                if (isExpired == 0) {
-                    return new Cell(keyBuffer.duplicate().rewind(),
-                            new Value(timestamp,
-                                    data.duplicate().rewind()));
-                }
-                offset++;
                 final ByteBuffer expireSecondsBuffer = ByteBuffer.allocate(Long.BYTES);
                 fileChannel.read(expireSecondsBuffer.duplicate(), offset);
                 final long expireSeconds = expireSecondsBuffer.duplicate().rewind().getLong();

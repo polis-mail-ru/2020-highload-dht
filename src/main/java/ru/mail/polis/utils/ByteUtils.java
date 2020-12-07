@@ -20,13 +20,9 @@ public final class ByteUtils {
         return ByteBuffer.allocate(Long.BYTES).rewind().putLong(value).rewind();
     }
 
-    public static ByteBuffer fromByte(final byte value) {
-        return ByteBuffer.allocate(1).rewind().put(value).rewind();
-    }
-
     public static ByteBuffer fromInstant(@NotNull final Instant value) {
         return ByteBuffer.allocate(Long.BYTES + Integer.BYTES).rewind()
-                .putLong(value.getEpochSecond()).putInt(value.getNano()).rewind();
+                .putLong(value.getEpochSecond()).rewind().putInt(value.getNano()).rewind();
     }
 
     /** Transform ByteBuffer to byte array.
