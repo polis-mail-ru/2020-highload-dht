@@ -36,11 +36,9 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private final int clusterSize;
 
     private static final Logger log = LoggerFactory.getLogger(NettyRequests.class);
-    private final HttpClient client;
-    private final Topology nodes;
     private final ServiceUtils serviceUtils;
+    private final ReplicasNettyRequests replicaHelper;
     private final DAO dao;
-    private Replicas replicaFactor;
 
     /**
      * Request handlers for netty async service implementation.
@@ -54,7 +52,6 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
                          final int queueSize, final int timeout) {
         this.clusterSize = nodes.getNodes().size();
-        this.nodes = nodes;
         this.dao = dao;
         
         final ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
@@ -64,10 +61,11 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 ).build(),
                 new ThreadPoolExecutor.AbortPolicy());
 
-        this.client = HttpClient.newBuilder().executor(executor).connectTimeout(Duration.ofSeconds(timeout))
-                .version(HttpClient.Version.HTTP_1_1).build();
+        final HttpClient client = HttpClient.newBuilder().executor(executor)
+                .connectTimeout(Duration.ofSeconds(timeout)).version(HttpClient.Version.HTTP_1_1).build();
 
         this.serviceUtils = new ServiceUtils(dao, executor);
+        this.replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
     }
 
     @Override
@@ -120,7 +118,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final QueryStringDecoder decoder = new QueryStringDecoder(uri);
             final List<String> id = decoder.parameters().get("id");
             final List<String> replicas = decoder.parameters().get("replicas");
-            replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
+            final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                 serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
@@ -132,13 +130,13 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
             switch (request.method().toString()) {
                 case "GET":
-                    getRequest(ctx, request, idValue);
+                    getRequest(ctx, request, replicaFactor, idValue);
                     break;
                 case "PUT":
-                    putRequest(ctx, request, idValue);
+                    putRequest(ctx, request, replicaFactor, idValue);
                     break;
                 case "DELETE":
-                    deleteRequest(ctx, request, idValue);
+                    deleteRequest(ctx, request, replicaFactor, idValue);
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -156,9 +154,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     private void getRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
-                            @NotNull final String id) {
+                            @NotNull final Replicas replicaFactor, @NotNull final String id) {
         if (clusterSize > 1) {
-            final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
             replicaHelper.multiGet(context, replicaFactor, request, id);
         } else {
             serviceUtils.getResponse(id, context, request);
@@ -166,9 +163,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     private void putRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
-                            @NotNull final String id) {
+                            @NotNull final Replicas replicaFactor, @NotNull final String id) {
         if (clusterSize > 1) {
-            final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
             replicaHelper.multiPut(context, replicaFactor, request, id);
         } else {
             serviceUtils.putResponse(id, context, request.retain());
@@ -176,9 +172,8 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     private void deleteRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
-                               @NotNull final String id) {
+                               @NotNull final Replicas replicaFactor, @NotNull final String id) {
         if (clusterSize > 1) {
-            final ReplicasNettyRequests replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
             replicaHelper.multiDelete(context, replicaFactor, request, id);
         } else {
             serviceUtils.deleteResponse(id, context, request);

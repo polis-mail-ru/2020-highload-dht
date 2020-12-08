@@ -20,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 
 public class ReplicasNettyRequests {
     private final HttpClient client;
-    private Set<String> replicaClusters;
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
 
@@ -43,6 +42,7 @@ public class ReplicasNettyRequests {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<TimestampRecord>> responses = new ArrayList<>(replicaFactor.getFrom());
         final boolean isForwarded = serviceUtils.isForwarded(request);
+        final Set<String> replicaClusters;
 
         if (isForwarded) {
              replicaClusters = Collections.singleton(nodes.getId());
@@ -81,6 +81,7 @@ public class ReplicasNettyRequests {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
         final boolean isForwarded = serviceUtils.isForwarded(request);
+        final Set<String> replicaClusters;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
@@ -114,6 +115,7 @@ public class ReplicasNettyRequests {
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
         final Collection<CompletableFuture<FullHttpResponse>> responses = new ArrayList<>(replicaFactor.getFrom());
         final boolean isForwarded = serviceUtils.isForwarded(request);
+        final Set<String> replicaClusters;
 
         if (isForwarded) {
             replicaClusters = Collections.singleton(nodes.getId());
