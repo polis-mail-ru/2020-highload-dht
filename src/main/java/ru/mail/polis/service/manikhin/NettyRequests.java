@@ -118,7 +118,6 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final QueryStringDecoder decoder = new QueryStringDecoder(uri);
             final List<String> id = decoder.parameters().get("id");
             final List<String> replicas = decoder.parameters().get("replicas");
-            final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
 
             if (id == null || id.isEmpty() || id.get(0).length() == 0) {
                 serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
@@ -126,6 +125,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
                 return;
             }
 
+            final Replicas replicaFactor = Replicas.replicaNettyFactor(replicas, clusterSize);
             final String idValue = id.get(0);
 
             switch (request.method().toString()) {
