@@ -15,8 +15,15 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
     private final int clusterSize;
     private final ServiceUtils utils;
 
-    public NettyInit(@NotNull final ReplicasNettyRequests replicaHelper,
-                     @NotNull ServiceUtils utils, final int clusterSize) {
+    /**
+     * Netty pipeline initialization.
+     *
+     * @param replicaHelper - helper for replicas
+     * @param utils - service utils
+     * @param clusterSize - count nodes in cluster
+     */
+    public NettyInit(@NotNull final ReplicasNettyRequests replicaHelper, @NotNull final ServiceUtils utils,
+                     final int clusterSize) {
         this.replicaHelper = replicaHelper;
         this.utils = utils;
         this.clusterSize = clusterSize;

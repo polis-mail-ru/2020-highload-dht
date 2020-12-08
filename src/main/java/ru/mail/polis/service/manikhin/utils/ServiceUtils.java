@@ -116,7 +116,7 @@ public class ServiceUtils {
      * @param start - start position
      * @param end - end position
      */
-    public Iterator<Record> getRange(@NotNull ByteBuffer start, ByteBuffer end) throws IOException {
+    public Iterator<Record> getRange(@NotNull final ByteBuffer start, final ByteBuffer end) throws IOException {
         return dao.range(start, end);
     }
 

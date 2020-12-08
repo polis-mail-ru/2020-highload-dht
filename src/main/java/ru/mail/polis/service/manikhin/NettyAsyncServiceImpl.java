@@ -2,7 +2,6 @@ package ru.mail.polis.service.manikhin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.ServerBootstrap;
-
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -74,6 +73,7 @@ public class NettyAsyncServiceImpl implements Service {
             log.error("Can't stop server! Error: ", error);
             bossGroup.shutdownGracefully().isCancelled();
             workersGroup.shutdownGracefully().isCancelled();
+            Thread.currentThread().interrupt();
         }
     }
 

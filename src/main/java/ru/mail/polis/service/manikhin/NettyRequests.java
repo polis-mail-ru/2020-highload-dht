@@ -36,7 +36,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
      * Request handlers for netty async service implementation.
      *
      */
-    public NettyRequests(@NotNull final ReplicasNettyRequests replicaHelper, @NotNull ServiceUtils utils,
+    public NettyRequests(@NotNull final ReplicasNettyRequests replicaHelper, @NotNull final ServiceUtils utils,
                          final int clusterSize) {
         this.clusterSize = clusterSize;
         this.serviceUtils = utils;
