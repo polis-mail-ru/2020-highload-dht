@@ -23,7 +23,8 @@ public class ReplicasNettyRequests {
     private final Topology nodes;
     private final ServiceUtils serviceUtils;
 
-    ReplicasNettyRequests(final Topology nodes, final HttpClient client, final ServiceUtils serviceUtils) {
+    ReplicasNettyRequests(@NotNull final Topology nodes, @NotNull final HttpClient client,
+                          @NotNull final ServiceUtils serviceUtils) {
         this.client = client;
         this.nodes = nodes;
         this.serviceUtils = serviceUtils;

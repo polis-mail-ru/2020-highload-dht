@@ -8,23 +8,18 @@ import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
 public class NettyInit extends ChannelInitializer<SocketChannel> {
-    private final DAO dao;
-    private final Topology nodes;
-    private final int queueSize;
-    private final int countOfWorkers;
-    private final int timeout;
+    private final ReplicasNettyRequests replicaHelper;
+    private final int clusterSize;
+    private final ServiceUtils utils;
 
-    NettyInit(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
-              final int queueSize, final int timeout) {
-
-        this.nodes = nodes;
-        this.queueSize = queueSize;
-        this.timeout = timeout;
-        this.countOfWorkers = countOfWorkers;
-        this.dao = dao;
+    public NettyInit(@NotNull final ReplicasNettyRequests replicaHelper,
+                     @NotNull ServiceUtils utils, final int clusterSize) {
+        this.replicaHelper = replicaHelper;
+        this.utils = utils;
+        this.clusterSize = clusterSize;
     }
 
     @Override
@@ -35,6 +30,6 @@ public class NettyInit extends ChannelInitializer<SocketChannel> {
         pipeline.addLast(new HttpServerCodec());
         pipeline.addLast(new ChunkedWriteHandler());
         pipeline.addLast(new HttpObjectAggregator(1024 * 512));
-        pipeline.addLast(new NettyRequests(dao, nodes, countOfWorkers, queueSize, timeout));
+        pipeline.addLast(new NettyRequests(replicaHelper, utils, clusterSize));
     }
 }

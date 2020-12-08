@@ -1,6 +1,5 @@
 package ru.mail.polis.service.manikhin;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -10,21 +9,15 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
-import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.manikhin.utils.ServiceUtils;
 
 import java.io.IOException;
-import java.net.http.HttpClient;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> {
     private static final HttpResponseStatus BAD_REQUEST = HttpResponseStatus.BAD_REQUEST;
@@ -38,34 +31,16 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     private static final Logger log = LoggerFactory.getLogger(NettyRequests.class);
     private final ServiceUtils serviceUtils;
     private final ReplicasNettyRequests replicaHelper;
-    private final DAO dao;
 
     /**
      * Request handlers for netty async service implementation.
      *
-     * @param dao - storage interface
-     * @param nodes - nodes list
-     * @param countOfWorkers - count of workers
-     * @param queueSize - queue size
-     * @param timeout - init timeout for http clients
      */
-    public NettyRequests(@NotNull final DAO dao, @NotNull final Topology nodes, final int countOfWorkers,
-                         final int queueSize, final int timeout) {
-        this.clusterSize = nodes.getNodes().size();
-        this.dao = dao;
-        
-        final ThreadPoolExecutor executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
-                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueSize),
-                new ThreadFactoryBuilder().setNameFormat("async_worker-%d").setUncaughtExceptionHandler((t, e) ->
-                        log.error("Error in {} when processing request", t, e)
-                ).build(),
-                new ThreadPoolExecutor.AbortPolicy());
-
-        final HttpClient client = HttpClient.newBuilder().executor(executor)
-                .connectTimeout(Duration.ofSeconds(timeout)).version(HttpClient.Version.HTTP_1_1).build();
-
-        this.serviceUtils = new ServiceUtils(dao, executor);
-        this.replicaHelper = new ReplicasNettyRequests(nodes, client, serviceUtils);
+    public NettyRequests(@NotNull final ReplicasNettyRequests replicaHelper, @NotNull ServiceUtils utils,
+                         final int clusterSize) {
+        this.clusterSize = clusterSize;
+        this.serviceUtils = utils;
+        this.replicaHelper = replicaHelper;
     }
 
     @Override
@@ -77,7 +52,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
         final String uri = msg.uri();
 
-        if (uri.startsWith(STATUS_PATH)) {
+        if (uri.equals(STATUS_PATH)) {
             ServiceUtils.sendResponse(HttpResponseStatus.OK, ServiceUtils.EMPTY_BODY, ctx, msg);
         } else if (uri.startsWith(ENTITIES_PATH)) {
             entitiesHandler(ctx, msg, uri);
@@ -103,7 +78,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final ByteBuffer from = ByteBuffer.wrap(start.get(0).getBytes(StandardCharsets.UTF_8));
             final ByteBuffer to = (end == null) ? null : ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
 
-            final Iterator<Record> iterator = dao.range(from, to);
+            final Iterator<Record> iterator = serviceUtils.getRange(from, to);
             final StreamNettySession session = new StreamNettySession(iterator);
             session.startStream(ctx);
         } catch (IllegalArgumentException | IOException error) {

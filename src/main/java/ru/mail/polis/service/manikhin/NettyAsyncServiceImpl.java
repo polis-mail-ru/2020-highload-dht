@@ -1,6 +1,8 @@
 package ru.mail.polis.service.manikhin;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.ServerBootstrap;
+
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -10,17 +12,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.manikhin.utils.ServiceUtils;
+
+import java.net.http.HttpClient;
+import java.time.Duration;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class NettyAsyncServiceImpl implements Service {
-    private final DAO dao;
     private final int port;
-    private final Topology nodes;
-    private final int timeout;
-    private final int countOfWorkers;
-    private final int queueSize;
     private final EventLoopGroup bossGroup;
     private final EventLoopGroup workersGroup;
     private final Logger log = LoggerFactory.getLogger(NettyAsyncServiceImpl.class);
+    private final ThreadPoolExecutor executor;
+    private final ServiceUtils utils;
+    private final ReplicasNettyRequests replicaHelper;
+    private final int clusterSize;
 
     /**
      * Start endpoint for init netty service.
@@ -35,35 +43,51 @@ public class NettyAsyncServiceImpl implements Service {
     public NettyAsyncServiceImpl(final int port, @NotNull final DAO dao, @NotNull final Topology nodes,
                                  final int countOfWorkers, final int queueSize, final int timeout) {
         this.port = port;
-        this.dao = dao;
-        this.nodes = nodes;
-        this.queueSize = queueSize;
-        this.timeout = timeout;
-        this.countOfWorkers = countOfWorkers;
+        this.clusterSize = nodes.getNodes().size();
+        this.executor = new ThreadPoolExecutor(countOfWorkers, countOfWorkers, 0L,
+                TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueSize),
+                new ThreadFactoryBuilder().setNameFormat("async_worker-%d").setUncaughtExceptionHandler((t, e) ->
+                        log.error("Error in {} when processing request", t, e)
+                ).build(), new ThreadPoolExecutor.AbortPolicy());
 
-        bossGroup = new NioEventLoopGroup();
-        workersGroup = new NioEventLoopGroup();
+        final HttpClient client = HttpClient.newBuilder().executor(executor)
+                .connectTimeout(Duration.ofSeconds(timeout)).version(HttpClient.Version.HTTP_1_1).build();
+
+        this.utils = new ServiceUtils(dao, executor);
+        this.replicaHelper = new ReplicasNettyRequests(nodes, client, utils);
+
+        this.bossGroup = new NioEventLoopGroup();
+        this.workersGroup = new NioEventLoopGroup();
     }
 
     @Override
-    public void start() {
+    public void start() throws InterruptedException {
         try {
             final ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup, workersGroup).channel(NioServerSocketChannel.class)
-                    .childHandler(new NettyInit(dao, nodes, countOfWorkers, queueSize, timeout))
+                    .childHandler(new NettyInit(replicaHelper, utils, clusterSize))
                     .option(ChannelOption.SO_BACKLOG, 128)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            serverBootstrap.bind(port).sync().isSuccess();
+            serverBootstrap.bind(port).sync().isCancelled();
         } catch (InterruptedException error) {
-            log.error("Interrupted error: ", error);
-            Thread.currentThread().interrupt();
+            log.error("Can't stop server! Error: ", error);
+            bossGroup.shutdownGracefully().isCancelled();
+            workersGroup.shutdownGracefully().isCancelled();
         }
     }
 
     @Override
     public synchronized void stop() {
-        bossGroup.shutdownGracefully().isSuccess();
-        workersGroup.shutdownGracefully().isSuccess();
+        executor.shutdown();
+
+        try {
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+            bossGroup.shutdownGracefully().isCancelled();
+            workersGroup.shutdownGracefully().isCancelled();
+        } catch (InterruptedException error) {
+            log.error("Can't stop server! Error: ", error);
+            Thread.currentThread().interrupt();
+        }
     }
 }

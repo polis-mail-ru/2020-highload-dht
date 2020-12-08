@@ -13,6 +13,7 @@ import io.netty.handler.codec.http.HttpUtil;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.manikhin.ByteConvertor;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
@@ -28,6 +29,7 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -106,6 +108,16 @@ public class ServiceUtils {
                 }
             }, executor)
         );
+    }
+
+    /**
+     * Handler for getting record iterator by start and end positions.
+     *
+     * @param start - start position
+     * @param end - end position
+     */
+    public Iterator<Record> getRange(@NotNull ByteBuffer start, ByteBuffer end) throws IOException {
+        return dao.range(start, end);
     }
 
     /**
