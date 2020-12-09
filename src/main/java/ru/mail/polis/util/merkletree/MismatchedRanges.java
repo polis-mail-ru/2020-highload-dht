@@ -43,7 +43,13 @@ public class MismatchedRanges {
         }
     }
     
-    public MismatchedRanges(@NotNull final MerkleTree tree, long start, long end) {
+    /**
+     * Constructs a new {@link MismatchedRanges} with given tree and range.
+     * @param tree merkle tree for comparing
+     * @param start range's start
+     * @param end range's end
+     */
+    public MismatchedRanges(@NotNull final MerkleTree tree, final long start, final long end) {
         this.tree = tree;
         this.rangesCount = tree.root().maxValueIndex();
         assert end >= start;

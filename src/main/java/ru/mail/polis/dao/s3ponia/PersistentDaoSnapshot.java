@@ -14,8 +14,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-import static ru.mail.polis.util.Utility.fromByteArray;
-
 public class PersistentDaoSnapshot implements DaoSnapshot {
     private final TableSet tableSet;
     private final ConcatHash hash;
@@ -48,8 +46,8 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     
     private Iterator<CachedICellHash> hashCellRange(final long start, final long end) {
         return Iterators.filter(hashCellIterator(), c -> {
-            final var hash = longHash(c.hashBuffer());
-            return hash >= start && hash <= end;
+            final var longHashValue = longHash(c.hashBuffer());
+            return longHashValue >= start && longHashValue <= end;
         });
     }
     
