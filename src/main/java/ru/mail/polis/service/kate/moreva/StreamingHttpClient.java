@@ -83,10 +83,10 @@ public class StreamingHttpClient extends HttpClient {
             this.socket = socket;
             this.buf = new byte[bufferSize];
             this.length = socket.read(buf, 0, bufferSize, 0);
-            isAvailable = false;
-            needRead = true;
-            chunk = null;
-            doneWithChunks = false;
+            this.isAvailable = false;
+            this.needRead = true;
+            this.chunk = null;
+            this.doneWithChunks = false;
         }
 
         Response readResponse(final int method) throws IOException, HttpException {

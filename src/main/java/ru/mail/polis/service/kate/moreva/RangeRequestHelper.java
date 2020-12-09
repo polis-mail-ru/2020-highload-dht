@@ -50,10 +50,16 @@ public class RangeRequestHelper {
         final StreamingSession streamSession = (StreamingSession) context.getSession();
         try {
             if (context.isProxy()) {
-                runOnCurrentNode(start, end, streamSession);
+                context.setRangeStart(start);
+                context.setRangeEnd(end);
+                context.setStreamingSession(streamSession);
+                runOnCurrentNode(context);
             } else {
-                context.getRequest().addHeader(PROXY_HEADER);
-                runProxied(start, end, streamSession, context);
+                context.getRequest().addHeader(PROXY_HEADER + true);
+                context.setRangeStart(start);
+                context.setRangeEnd(end);
+                context.setStreamingSession(streamSession);
+                runProxied(context);
             }
         } catch (IOException e) {
             log.error("Error while working range request", e);
@@ -70,17 +76,12 @@ public class RangeRequestHelper {
         }
     }
 
-    private void runOnCurrentNode(final ByteBuffer start, final ByteBuffer end,
-                                  final StreamingSession streamSession) throws IOException {
-        final Iterator<Record> iterator = dao.range(start, end);
-        streamSession.setRecordIterator(iterator);
+    private void runOnCurrentNode(Context context) throws IOException {
+        final Iterator<Record> iterator = dao.range(context.getRangeStart(), context.getRangeEnd());
+        context.getStreamingSession().setRecordIterator(iterator);
     }
 
-    void runProxied(final ByteBuffer start, final ByteBuffer end,
-                    final StreamingSession streamSession, final Context context) throws IOException {
-        context.setRangeStart(start);
-        context.setRangeEnd(end);
-        context.setStreamingSession(streamSession);
+    void runProxied(final Context context) throws IOException {
         final Iterator<String> nodes = topology.all().iterator();
         final List<Iterator<Record>> iterators = new ArrayList<>();
         try {
