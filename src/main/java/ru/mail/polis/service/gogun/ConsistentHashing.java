@@ -30,8 +30,8 @@ public class ConsistentHashing implements Hashing<String> {
      * @param me    - current node
      */
     public ConsistentHashing(@NotNull final Collection<String> nodes,
-            @NotNull final String me,
-            final int vnodes) {
+                             @NotNull final String me,
+                             final int vnodes) {
         this.me = me;
 
         for (final String node : nodes) {
@@ -45,6 +45,13 @@ public class ConsistentHashing implements Hashing<String> {
         return node.equals(me);
     }
 
+    /**
+     * Method adds node to virtual ring.
+     *
+     * @param node   - node to add
+     * @param circle - virtual nodes ring
+     * @param vnodes - number of virtual nodes
+     */
     public static void add(final String node, final Map<Integer, String> circle, final int vnodes) {
         for (int i = 0; i < vnodes; ++i) {
             final StringBuilder stringToHash = new StringBuilder(node);
