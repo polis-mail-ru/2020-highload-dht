@@ -6,8 +6,10 @@ import ru.mail.polis.service.gogun.ConsistentHashing;
 import ru.mail.polis.service.gogun.Hashing;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,39 +55,12 @@ public class TopologyTests extends ClusterTestBase {
 
                 distr.put(nodeForKey, distr.get(nodeForKey) + 1);
             }
-            final int avg = distr
-                    .values()
-                    .stream()
-                    .mapToInt(Integer::intValue)
-                    .sum()
-                    / distr.size();
+            final int eachNodeNum = KEYS / nodes.length;
 
             for (int i : distr.values()) {
-                int diff = Math.abs(avg - i);
-                float maximumDeviation = avg * 0.4f;
+                int diff = Math.abs(eachNodeNum - i);
+                float maximumDeviation = eachNodeNum * 0.4f;
                 Assertions.assertTrue(diff < maximumDeviation);
-            }
-        }
-    }
-
-    //тест проверяет, что запросы идут на все ноды
-    @Test
-    void multipleNodesTest() {
-        for (final String node : nodes) {
-            final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
-            final Map<String, Integer> distr = new HashMap<>();
-            for (int i = 0; i < KEYS; i++) {
-                final ByteBuffer key = randomKeyBuffer();
-                final String nodeForKey = topology.primaryFor(key, 1).toArray(new String[0])[0];
-                if (!distr.containsKey(nodeForKey)) {
-                    distr.put(nodeForKey, 0);
-                }
-
-                distr.put(nodeForKey, distr.get(nodeForKey) + 1);
-            }
-
-            for (int i : distr.values()) {
-                Assertions.assertTrue(i != 0);
             }
         }
     }
@@ -93,12 +68,13 @@ public class TopologyTests extends ClusterTestBase {
     //тест проверяет распределение ключей по нодам при репликейшн факторе больше 1
     @Test
     void distributionTestMany() {
+        final int replicationFactor = 5;
         for (final String node : nodes) {
             final ConsistentHashing topology = new ConsistentHashing(Arrays.asList(nodes), node, VNODES);
             final Map<String, Integer> distr = new HashMap<>();
             for (int i = 0; i < KEYS; i++) {
                 final ByteBuffer key = randomKeyBuffer();
-                final Set<String> nodesForKey = topology.primaryFor(key, 5);
+                final Set<String> nodesForKey = topology.primaryFor(key, replicationFactor);
                 for (final String nodeForKey : nodesForKey) {
                     if (!distr.containsKey(nodeForKey)) {
                         distr.put(nodeForKey, 0);
@@ -107,18 +83,48 @@ public class TopologyTests extends ClusterTestBase {
                     distr.put(nodeForKey, distr.get(nodeForKey) + 1);
                 }
             }
-            final int avg = distr
-                    .values()
-                    .stream()
-                    .mapToInt(Integer::intValue)
-                    .sum()
-                    / distr.size();
+
+            final int eachNodeNum = KEYS / nodes.length * (replicationFactor);
 
             for (int i : distr.values()) {
-                int diff = Math.abs(avg - i);
-                float maximumDeviation = avg * 0.4f;
+                int diff = Math.abs(eachNodeNum - i);
+                float maximumDeviation = eachNodeNum * 0.4f;
                 Assertions.assertTrue(diff < maximumDeviation);
             }
+        }
+    }
+
+    //тест проверяет, что нода корректно добавляется в кластер и получает ключи в рамках распределения
+    @Test
+    void addNodeTest() {
+        for (int i = 0; i < nodes.length - 1; i++) {
+            final String node = nodes[i];
+            final String nodeToAdd = nodes[i + 1];
+            final List<String> mutableNodes = new ArrayList<>(Arrays.asList(nodes));
+            mutableNodes.remove(nodeToAdd);
+            final int replicationFactor = 5;
+            final ConsistentHashing topology = new ConsistentHashing(mutableNodes, node, VNODES);
+            final Map<String, Integer> distr = new HashMap<>();
+            for (int j = 0; j < KEYS; j++) {
+                final ByteBuffer key = randomKeyBuffer();
+                if (j == KEYS / 2) {
+                    ConsistentHashing.add(nodeToAdd, topology.getCircle(), VNODES);
+                }
+                final Set<String> nodesForKey = topology.primaryFor(key, replicationFactor);
+                for (final String nodeForKey : nodesForKey) {
+                    if (!distr.containsKey(nodeForKey)) {
+                        distr.put(nodeForKey, 0);
+                    }
+
+                    distr.put(nodeForKey, distr.get(nodeForKey) + 1);
+                }
+            }
+
+            final int addedNodeNum = KEYS / nodes.length * replicationFactor / 2;
+            final int addedNodeKeys = distr.get(nodeToAdd);
+            final int diff = Math.abs(addedNodeNum - addedNodeKeys);
+            final float delta = diff / (float) addedNodeNum;
+            Assertions.assertTrue(delta < 0.2f);
         }
     }
 }
