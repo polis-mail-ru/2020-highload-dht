@@ -27,7 +27,6 @@ public class ConsistentTopology implements Topology<String> {
      */
     public ConsistentTopology(final Set<String> nodes, final String me, final int nodesNumber) {
         this.me = me;
-        assert nodes.contains(me);
         this.nodes = nodes;
         nodes.forEach(node -> addNode(node, nodesNumber));
     }

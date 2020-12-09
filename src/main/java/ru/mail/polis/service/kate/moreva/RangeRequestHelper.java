@@ -76,13 +76,13 @@ public class RangeRequestHelper {
         }
     }
 
-    private void runOnCurrentNode(Context context) throws IOException {
+    private void runOnCurrentNode(final Context context) throws IOException {
         final Iterator<Record> iterator = dao.range(context.getRangeStart(), context.getRangeEnd());
         context.getStreamingSession().setRecordIterator(iterator);
     }
 
     void runProxied(final Context context) throws IOException {
-        final Iterator<String> nodes = topology.all().iterator();
+        final List<String> nodes = topology.all();
         final List<Iterator<Record>> iterators = new ArrayList<>();
         try {
             workProxied(context, nodes, iterators);
@@ -93,53 +93,46 @@ public class RangeRequestHelper {
     }
 
     private void workProxied(final Context context,
-                             final Iterator<String> nodes, final List<Iterator<Record>> iterators)
-            throws IOException {
-        if (!nodes.hasNext()) {
-            handleStreamEnd(context, iterators);
-            return;
-        }
-        final String node = nodes.next();
-        if (topology.isMe(node)) {
-            workOnTheNode(context, nodes, iterators);
-        } else {
-            final StreamingHttpClient streamingHttpClient = pool.get(node);
-            try {
-                streamingHttpClient.invokeStream(context.getRequest(), iterator -> {
-                    if (iterator.getResponse().getStatus() != 200 || iterator.isNotAvailable()) {
-                        log.error("Unexpected response from node {}", node);
-                        throw new IOException("Unexpected response from node");
-                    }
-                    final Iterator<Record> recordIterator = Iterators.transform(iterator, (bytes) -> {
-                        assert bytes != null;
-                        final int delimiterIdx = Bytes.indexOf(bytes, EOL[0]);
-                        final ByteBuffer keyBytes = ByteBuffer.wrap(Arrays.copyOfRange(bytes, 0, delimiterIdx));
-                        final ByteBuffer valueBytes = ByteBuffer.wrap(
-                                Arrays.copyOfRange(bytes, delimiterIdx + 1, bytes.length));
-                        return Record.of(keyBytes, valueBytes);
+                             final List<String> nodes, final List<Iterator<Record>> iterators) throws IOException {
+        for (String node: nodes) {
+            if (topology.isMe(node)) {
+                iterators.add(workOnTheNode(context));
+            } else {
+                final StreamingHttpClient streamingHttpClient = pool.get(node);
+                try {
+                    streamingHttpClient.invokeStream(context.getRequest(), iterator -> {
+                        if (iterator.getResponse().getStatus() != 200 || iterator.isNotAvailable()) {
+                            log.error("Unexpected response from node {}", node);
+                            throw new IOException("Unexpected response from node");
+                        }
+                        final Iterator<Record> recordIterator = Iterators.transform(iterator, (bytes) -> {
+                            assert bytes != null;
+                            final int delimiterIdx = Bytes.indexOf(bytes, EOL[0]);
+                            final ByteBuffer keyBytes = ByteBuffer.wrap(Arrays.copyOfRange(bytes,
+                                    0,
+                                    delimiterIdx));
+                            final ByteBuffer valueBytes = ByteBuffer.wrap(
+                                    Arrays.copyOfRange(bytes, delimiterIdx + 1, bytes.length));
+                            return Record.of(keyBytes, valueBytes);
+                        });
+                        iterators.add(recordIterator);
                     });
-                    iterators.add(recordIterator);
-                    workProxied(context, nodes, iterators);
-                });
-            } catch (InterruptedException | PoolException | IOException | HttpException e) {
-                log.error("Unexpected response from node {}", node);
-                throw new IOException("Unexpected response from node", e);
+                } catch (InterruptedException | PoolException | IOException | HttpException e) {
+                    log.error("Unexpected response from node {}", node);
+                    throw new IOException("Unexpected response from node", e);
+                }
             }
         }
+        handleStreamEnd(context, iterators);
     }
 
-    private void workOnTheNode(final Context context,
-                               final Iterator<String> nodes,
-                               final List<Iterator<Record>> iterators) throws IOException {
-        Iterator<Record> iterator;
+    private Iterator<Record> workOnTheNode(final Context context) throws IOException {
         try {
-            iterator = dao.range(context.getRangeStart(), context.getRangeEnd());
+            return dao.range(context.getRangeStart(), context.getRangeEnd());
         } catch (IOException e) {
             log.error("Error in getting dao range iterator", e);
             throw new IOException("Error in dao range iterator", e);
         }
-        iterators.add(iterator);
-        workProxied(context, nodes, iterators);
     }
 
     private void handleStreamEnd(final Context context, final List<Iterator<Record>> iterators) throws IOException {
