@@ -2,7 +2,6 @@ package ru.mail.polis.service.manikhin;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -55,26 +54,25 @@ public class NettyAsyncServiceImpl implements Service {
 
         this.utils = new ServiceUtils(dao, executor);
         this.replicaHelper = new ReplicasNettyRequests(nodes, client, utils);
+
         this.bossGroup = new NioEventLoopGroup();
         this.workersGroup = new NioEventLoopGroup();
     }
 
     @Override
     public void start() throws InterruptedException {
-        final ServerBootstrap serverBootstrap = new ServerBootstrap();
-        serverBootstrap.group(bossGroup, workersGroup).channel(NioServerSocketChannel.class)
-                .childHandler(new NettyInit(replicaHelper, utils, clusterSize))
-                .option(ChannelOption.SO_BACKLOG, 128)
-                .childOption(ChannelOption.SO_KEEPALIVE, true);
-        final ChannelFuture future = serverBootstrap.bind(port);
-
         try {
-           future.sync().isCancelled();
+            final ServerBootstrap serverBootstrap = new ServerBootstrap();
+            serverBootstrap.group(bossGroup, workersGroup).channel(NioServerSocketChannel.class)
+                    .childHandler(new NettyInit(replicaHelper, utils, clusterSize))
+                    .option(ChannelOption.SO_BACKLOG, 128)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+
+            serverBootstrap.bind(port).sync().isCancelled();
         } catch (InterruptedException error) {
             log.error("Can't stop server! Error: ", error);
             bossGroup.shutdownGracefully().isCancelled();
             workersGroup.shutdownGracefully().isCancelled();
-            future.channel().closeFuture().sync().isCancelled();
             Thread.currentThread().interrupt();
         }
     }

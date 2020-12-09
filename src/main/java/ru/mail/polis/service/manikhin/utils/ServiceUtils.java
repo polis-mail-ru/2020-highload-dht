@@ -11,8 +11,11 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.dao.manikhin.ByteConvertor;
 import ru.mail.polis.dao.manikhin.TimestampRecord;
 import ru.mail.polis.service.manikhin.handlers.DeleteBodyHandler;
 import ru.mail.polis.service.manikhin.handlers.GetBodyHandler;
@@ -51,6 +54,8 @@ public class ServiceUtils {
     public static final HttpResponseStatus NOT_FOUND = HttpResponseStatus.NOT_FOUND;
     public static final byte [] EMPTY_BODY = new byte[0];
 
+    private static final Logger log = LoggerFactory.getLogger(ServiceUtils.class);
+
     /**
      * Netty service utils.
      *
@@ -78,6 +83,34 @@ public class ServiceUtils {
     }
 
     /**
+     * Response handler for getting record from storage by input id.
+     *
+     * @param id - input id
+     * @param ctx - channel handler context
+     * @param request - input http request
+     */
+    public void getResponse(@NotNull final String id, @NotNull final ChannelHandlerContext ctx,
+                            @NotNull final FullHttpRequest request) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        respond(ctx, request, CompletableFuture.supplyAsync(() -> {
+                try {
+                    final ByteBuffer value = dao.get(key).duplicate();
+                    final byte[] valueArray = ByteConvertor.toArray(value);
+
+                    return responseBuilder(OK, valueArray);
+                } catch (final IOException error) {
+                    log.error("IO get error: ", error);
+                    return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
+                } catch (NoSuchElementException error) {
+                    log.error("NoSuchElement get error: ", error);
+                    return responseBuilder(NOT_FOUND, EMPTY_BODY);
+                }
+            }, executor)
+        );
+    }
+
+    /**
      * Handler for getting record iterator by start and end positions.
      *
      * @param start - start position
@@ -85,6 +118,52 @@ public class ServiceUtils {
      */
     public Iterator<Record> getRange(@NotNull final ByteBuffer start, final ByteBuffer end) throws IOException {
         return dao.range(start, end);
+    }
+
+    /**
+     * Response handler for insert new record in storage with input id.
+     *
+     * @param id - input id
+     * @param ctx - channel handler context
+     * @param request - input http request
+     */
+    public void putResponse(@NotNull final String id, @NotNull final ChannelHandlerContext ctx,
+                            @NotNull final FullHttpRequest request) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        respond(ctx, request, CompletableFuture.supplyAsync(() -> {
+                try {
+                    dao.upsert(key, ByteBuffer.wrap(getRequestBody(request.content())));
+                    return responseBuilder(CREATED, EMPTY_BODY);
+                } catch (IOException | IllegalStateException error) {
+                    log.error("IO put error: ", error);
+                    return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
+                }
+            }, executor)
+        );
+    }
+
+    /**
+     * Response handler for delete record from storage by input key.
+     *
+     * @param id - input id
+     * @param ctx - channel handler context
+     * @param request - input http request
+     */
+    public void deleteResponse(@NotNull final String id, @NotNull final ChannelHandlerContext ctx,
+                               @NotNull final FullHttpRequest request) {
+        final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+
+        respond(ctx, request, CompletableFuture.supplyAsync(() -> {
+                try {
+                    dao.remove(key);
+                    return responseBuilder(ACCEPTED, EMPTY_BODY);
+                } catch (IOException | IllegalStateException error) {
+                    log.error("IO delete error: ", error);
+                    return responseBuilder(INTERNAL_ERROR, EMPTY_BODY);
+                }
+            }, executor)
+        );
     }
 
     /**

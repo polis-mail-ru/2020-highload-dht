@@ -105,13 +105,13 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
 
             switch (request.method().toString()) {
                 case "GET":
-                    replicaHelper.multiGet(ctx, replicaFactor, request, idValue);
+                    getRequest(ctx, request, replicaFactor, idValue);
                     break;
                 case "PUT":
-                    replicaHelper.multiPut(ctx, replicaFactor, request, idValue);
+                    putRequest(ctx, request, replicaFactor, idValue);
                     break;
                 case "DELETE":
-                    replicaHelper.multiDelete(ctx, replicaFactor, request, idValue);
+                    deleteRequest(ctx, request, replicaFactor, idValue);
                     break;
                 default:
                     serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() ->
@@ -125,6 +125,33 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
         } catch (RejectedExecutionException error) {
             serviceUtils.respond(ctx, request, CompletableFuture.supplyAsync(() -> ServiceUtils.responseBuilder(
                     SERVICE_UNAVAILABLE, ServiceUtils.EMPTY_BODY)));
+        }
+    }
+
+    private void getRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
+                            @NotNull final Replicas replicaFactor, @NotNull final String id) {
+        if (clusterSize > 1) {
+            replicaHelper.multiGet(context, replicaFactor, request, id);
+        } else {
+            serviceUtils.getResponse(id, context, request);
+        }
+    }
+
+    private void putRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
+                            @NotNull final Replicas replicaFactor, @NotNull final String id) {
+        if (clusterSize > 1) {
+            replicaHelper.multiPut(context, replicaFactor, request, id);
+        } else {
+            serviceUtils.putResponse(id, context, request.retain());
+        }
+    }
+
+    private void deleteRequest(@NotNull final ChannelHandlerContext context, @NotNull final FullHttpRequest request,
+                               @NotNull final Replicas replicaFactor, @NotNull final String id) {
+        if (clusterSize > 1) {
+            replicaHelper.multiDelete(context, replicaFactor, request, id);
+        } else {
+            serviceUtils.deleteResponse(id, context, request);
         }
     }
 }
