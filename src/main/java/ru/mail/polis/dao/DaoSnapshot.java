@@ -25,15 +25,7 @@ public interface DaoSnapshot {
      * @return a {@code Iterator<Record>}
      */
     Iterator<ICell> range(final long start, final long end);
-
-    /**
-     * Calculates hash over range from start to end.
-     * @param start minimum hash to fit in range
-     * @param end maximum hash to fit in range
-     * @return a {@code byte[]}
-     */
-    byte[] hashCode(final long start, final long end);
-
+    
     /**
      * Saves snapshot to given path.
      * @param path path where will be saved all data as in DiskTable.

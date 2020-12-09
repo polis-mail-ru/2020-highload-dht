@@ -88,7 +88,7 @@ public class NodeRepairTest extends ClusterTestBase {
     void noRepair() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             // Reference key
-            final int records = 5_000;
+            final int records = 50_000;
             final var value = randomValue();
             final Collection<String> ids = new ArrayList<>(records);
             
@@ -137,8 +137,7 @@ public class NodeRepairTest extends ClusterTestBase {
                 stop(node);
             }
             
-            for (final var idElement :
-                    ids) {
+            for (final var idElement : ids) {
                 checkResponse(200, value, get(0, idElement, 1, getClusterSize()));
             }
         });
