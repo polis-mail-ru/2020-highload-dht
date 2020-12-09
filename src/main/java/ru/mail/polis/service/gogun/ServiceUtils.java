@@ -35,6 +35,12 @@ public final class ServiceUtils {
         return ByteBuffer.wrap(bytes);
     }
 
+    /**
+     * Method make byte array from ByteBuffer.
+     *
+     * @param buffer - ByteBuffer
+     * @return - byte array
+     */
     public static byte[] getArray(final ByteBuffer buffer) {
         byte[] body;
         if (buffer.hasRemaining()) {
