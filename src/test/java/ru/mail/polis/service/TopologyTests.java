@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.service.gogun.ConsistentHashing;
 import ru.mail.polis.service.gogun.Hashing;
+import ru.mail.polis.service.gogun.ServiceUtils;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public class TopologyTests extends ClusterTestBase {
 
     @Override
     int getClusterSize() {
-        return 15;
+        return 9;
     }
 
     //тест проверяет детерминированность нод для репликации
@@ -94,37 +95,38 @@ public class TopologyTests extends ClusterTestBase {
         }
     }
 
-    //тест проверяет, что нода корректно добавляется в кластер и получает ключи в рамках распределения
+    //тест проверяет, что при добавлении ноды в кластер не происходит полной миграции ключей
     @Test
     void addNodeTest() {
-        for (int i = 0; i < nodes.length - 1; i++) {
-            final String node = nodes[i];
-            final String nodeToAdd = nodes[i + 1];
-            final List<String> mutableNodes = new ArrayList<>(Arrays.asList(nodes));
-            mutableNodes.remove(nodeToAdd);
-            final int replicationFactor = 5;
-            final ConsistentHashing topology = new ConsistentHashing(mutableNodes, node, VNODES);
-            final Map<String, Integer> distr = new HashMap<>();
-            for (int j = 0; j < KEYS; j++) {
-                final ByteBuffer key = randomKeyBuffer();
-                if (j == KEYS / 2) {
-                    ConsistentHashing.add(nodeToAdd, topology.getCircle(), VNODES);
-                }
-                final Set<String> nodesForKey = topology.primaryFor(key, replicationFactor);
-                for (final String nodeForKey : nodesForKey) {
-                    if (!distr.containsKey(nodeForKey)) {
-                        distr.put(nodeForKey, 0);
-                    }
-
-                    distr.put(nodeForKey, distr.get(nodeForKey) + 1);
-                }
-            }
-
-            final int addedNodeNum = KEYS / nodes.length * replicationFactor / 2;
-            final int addedNodeKeys = distr.get(nodeToAdd);
-            final int diff = Math.abs(addedNodeNum - addedNodeKeys);
-            final float delta = diff / (float) addedNodeNum;
-            Assertions.assertTrue(delta < 0.2f);
+        final String nodeToAdd = nodes[nodes.length - 1];
+        final List<String> mutableNodes = new ArrayList<>(Arrays.asList(nodes));
+        mutableNodes.remove(nodeToAdd);
+        final String node = nodes[0];
+        final ConsistentHashing topologyNotfull = new ConsistentHashing(mutableNodes, node, VNODES);
+        final Map<ByteBuffer, String> keyNodeNotFull = new HashMap<>();
+        for (int i = 0; i < KEYS; i++) {
+            final ByteBuffer key = ServiceUtils.getBuffer(new byte[]{(byte) i});
+            final String nodeForKey = topologyNotfull.primaryFor(key, 1).toArray(new String[0])[0];
+            keyNodeNotFull.put(key, nodeForKey);
         }
+
+        mutableNodes.add(nodeToAdd);
+        final ConsistentHashing topologyFull = new ConsistentHashing(mutableNodes, node, VNODES);
+        final Map<ByteBuffer, String> keyNodeFull = new HashMap<>();
+        for (int i = 0; i < KEYS; i++) {
+            final ByteBuffer key = ServiceUtils.getBuffer(new byte[]{(byte) i});
+            final String nodeForKey = topologyFull.primaryFor(key, 1).toArray(new String[0])[0];
+            keyNodeFull.put(key, nodeForKey);
+        }
+        int migrationCounter = 0;
+        for (int i = 0; i < KEYS; i++) {
+            final String notFullNode = keyNodeNotFull.get(ServiceUtils.getBuffer(new byte[]{(byte) i}));
+            final String fullNode = keyNodeFull.get(ServiceUtils.getBuffer(new byte[]{(byte) i}));
+            if (!fullNode.equals(notFullNode)) {
+                migrationCounter++;
+            }
+        }
+
+        Assertions.assertTrue(migrationCounter < KEYS / 2);
     }
 }

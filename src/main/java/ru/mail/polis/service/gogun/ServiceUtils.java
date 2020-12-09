@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutorService;
 import static ru.mail.polis.service.gogun.AsyncServiceImpl.log;
 import static ru.mail.polis.service.gogun.Entry.toProxyResponse;
 
-final class ServiceUtils {
+public final class ServiceUtils {
 
     /**
      * Util class.

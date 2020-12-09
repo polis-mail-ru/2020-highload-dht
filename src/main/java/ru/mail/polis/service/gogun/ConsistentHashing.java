@@ -10,7 +10,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
@@ -18,6 +17,7 @@ import java.util.TreeSet;
 
 public class ConsistentHashing implements Hashing<String> {
 
+    private final int vnodes;
     @NotNull
     private final String me;
     @NotNull
@@ -33,9 +33,10 @@ public class ConsistentHashing implements Hashing<String> {
                              @NotNull final String me,
                              final int vnodes) {
         this.me = me;
+        this.vnodes = vnodes;
 
         for (final String node : nodes) {
-            add(node, circle, vnodes);
+            add(node);
         }
 
     }
@@ -45,14 +46,7 @@ public class ConsistentHashing implements Hashing<String> {
         return node.equals(me);
     }
 
-    /**
-     * Method adds node to virtual ring.
-     *
-     * @param node   - node to add
-     * @param circle - virtual nodes ring
-     * @param vnodes - number of virtual nodes
-     */
-    public static void add(final String node, final Map<Integer, String> circle, final int vnodes) {
+    private void add(final String node) {
         for (int i = 0; i < vnodes; ++i) {
             final StringBuilder stringToHash = new StringBuilder(node);
             stringToHash.append(i);
@@ -91,11 +85,6 @@ public class ConsistentHashing implements Hashing<String> {
     @Override
     public int size() {
         return circle.size();
-    }
-
-    @NotNull
-    public NavigableMap<Integer, String> getCircle() {
-        return circle;
     }
 
     @NotNull
