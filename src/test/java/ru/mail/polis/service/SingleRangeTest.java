@@ -136,8 +136,7 @@ class SingleRangeTest extends TestBase {
             // Check
             final Response response = range(key, prefix + 2);
             assertEquals(200, response.getStatus());
-            final var temp = chunkOf(key, value);
-            assertArrayEquals(temp, response.getBody());
+            assertArrayEquals(chunkOf(key, value), response.getBody());
         });
 
         // Excluding the key

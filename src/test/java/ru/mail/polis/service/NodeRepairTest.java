@@ -88,18 +88,16 @@ public class NodeRepairTest extends ClusterTestBase {
     void noRepair() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             // Reference key
-            final int records = 512;
+            final int records = 5_000;
             final var value = randomValue();
             final Collection<String> ids = new ArrayList<>(records);
             
-            stop(0);
             for (int i = 0; i < records; i++) {
                 final var id = randomId();
                 ids.add(id);
                 assertEquals(201, upsert(1, id, value).getStatus());
             }
             
-            createAndStart(0);
             assertEquals(200, repair(0).getStatus());
             
             for (int node = 1; node < getClusterSize(); node++) {
