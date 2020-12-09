@@ -12,7 +12,7 @@ public class Value implements Comparable<Value> {
     public static final String DEADFLAG_TIMESTAMP_HEADER = Utility.DEADFLAG_TIMESTAMP_HEADER;
     public static final Value ABSENT = Value.dead(-1, 0);
     private final ByteBuffer byteBuffer;
-    private static final long DEAD_FLAG = 1L << 63;
+    public static final long DEAD_FLAG = 1L << 63;
     private final long deadFlagTimeStamp;
     private final int generation;
 

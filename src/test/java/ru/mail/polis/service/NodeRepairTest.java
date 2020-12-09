@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import ru.mail.polis.Record;
+import ru.mail.polis.dao.s3ponia.Value;
 import ru.mail.polis.util.hash.ConcatHash;
 import ru.mail.polis.util.hash.TigerHash;
 
@@ -88,7 +89,7 @@ public class NodeRepairTest extends ClusterTestBase {
     void noRepair() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             // Reference key
-            final int records = 50_000;
+            final int records = 12_000;
             final var value = randomValue();
             final Collection<String> ids = new ArrayList<>(records);
             
@@ -155,6 +156,21 @@ public class NodeRepairTest extends ClusterTestBase {
                         );
         byteBuffer.put(record.getKey());
         byteBuffer.put(record.getValue());
+        byteBuffer.asLongBuffer().put(0L);
+        return hash.hash(byteBuffer.array());
+    }
+    
+    private static byte[] deadHash(@NotNull final Record record) {
+        final var byteBuffer =
+                ByteBuffer
+                        .allocate(
+                                record.getKey().capacity()
+                                        + record.getValue().capacity()
+                                        + Long.BYTES /* TIMESTAMP */
+                        );
+        byteBuffer.put(record.getKey());
+        byteBuffer.put(record.getValue());
+        byteBuffer.asLongBuffer().put(Value.DEAD_FLAG);
         return hash.hash(byteBuffer.array());
     }
     
@@ -234,7 +250,7 @@ public class NodeRepairTest extends ClusterTestBase {
                 ids.add(id);
                 assertEquals(201, upsert(1, id, value).getStatus());
             }
-    
+            
             final var id = randomId();
             assertEquals(201, upsert(1, id, value).getStatus());
             
@@ -273,7 +289,7 @@ public class NodeRepairTest extends ClusterTestBase {
                 ids.add(id);
                 assertEquals(201, upsert(1, id, value).getStatus());
             }
-    
+            
             for (int i = 0; i < records; i++) {
                 final var id = randomId();
                 missedIds.add(id);
@@ -284,8 +300,12 @@ public class NodeRepairTest extends ClusterTestBase {
             for (int i = 0; i < records; i++) {
                 final var id = missedIds.get(i);
                 final var longHash =
-                        longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
-                                ByteBuffer.wrap(value))));
+                        longHash(
+                                deadHash(
+                                        Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
+                                                ByteBuffer.allocate(0))
+                                )
+                        );
                 if (longHash < startMissedRange) {
                     startMissedRange = longHash;
                 }
@@ -324,16 +344,18 @@ public class NodeRepairTest extends ClusterTestBase {
     @Test
     void missedValueRange() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
-            final int records = 512;
             final var value = randomValue();
             
             stop(0);
+            
             final var id = randomId();
             final var longHash =
                     longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
                             ByteBuffer.wrap(value))));
-            assertEquals(201, upsert(1, id, value).getStatus());
+            assertEquals(201, upsert(1, id, value, 2, 3).getStatus());
+            
+            waitForVersionAdvancement();
+            
             createAndStart(0);
             
             assertEquals(200, repair(0, longHash, longHash).getStatus());
@@ -342,7 +364,7 @@ public class NodeRepairTest extends ClusterTestBase {
                 stop(node);
             }
             
-            assertEquals(404, get(0, id, 1, getClusterSize()).getStatus());
+            assertEquals(200, get(0, id, 1, getClusterSize()).getStatus());
         });
     }
 }

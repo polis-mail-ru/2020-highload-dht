@@ -20,8 +20,12 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     private final TableSet tableSet;
     private final ConcatHash hash;
     
+    private long longHash(@NotNull final ByteBuffer hashArray) {
+        return hashArray.getLong() & Long.MAX_VALUE;
+    }
+    
     private long longHash(@NotNull final byte[] hashArray) {
-        return fromByteArray(hashArray, 0, Long.BYTES) & Long.MAX_VALUE;
+        return longHash(ByteBuffer.wrap(hashArray));
     }
     
     private Iterator<ICell> iterator() {
@@ -30,22 +34,29 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     
     private static class CachedICellHash {
         final ICell cell;
-        final byte[] hash;
+        final ByteBuffer hash;
         
-        CachedICellHash(final ICell cell, final byte[] hash) {
+        CachedICellHash(final ICell cell, final ByteBuffer hash) {
             this.cell = cell;
             this.hash = hash;
+        }
+        
+        ByteBuffer hashBuffer() {
+            return hash.asReadOnlyBuffer();
         }
     }
     
     private Iterator<CachedICellHash> hashCellRange(final long start, final long end) {
-        return Iterators.filter(hashCellIterator(), c -> longHash(c.hash) >= start && longHash(c.hash) <= end);
+        return Iterators.filter(hashCellIterator(), c -> {
+            final var hash = longHash(c.hashBuffer());
+            return hash >= start && hash <= end;
+        });
     }
     
     private Iterator<CachedICellHash> hashCellIterator() {
         return new MapIterator<>(
                 tableSet.cellsIterator(ByteBuffer.allocate(0)),
-                c -> new CachedICellHash(c, hashCode(c))
+                c -> new CachedICellHash(c, ByteBuffer.wrap(hashCode(c)))
         );
     }
     
@@ -65,14 +76,12 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
         assert blocksCount > 3;
         assert end >= start;
         final var blocks = new ArrayList<ArrayList<CachedICellHash>>();
-        final var step = (end - start) / blocksCount;
         for (int i = 0; i < blocksCount; i++) {
             blocks.add(new ArrayList<>());
         }
-    
+        
         hashCellRange(start, end).forEachRemaining(c -> {
-            final var hashValue = longHash(c.hash) - start;
-            blocks.get((int) (hashValue / step)).add(c);
+            blocks.get((int) (longHash(c.hashBuffer()) & (blocksCount - 1))).add(c);
         });
         
         final var leaves = new ArrayList<byte[]>();
@@ -89,11 +98,17 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
         });
     }
     
+    private byte[] fromByteBuffer(final ByteBuffer byteBuffer) {
+        final byte[] result = new byte[byteBuffer.limit()];
+        byteBuffer.get(result);
+        return result;
+    }
+    
     private byte[] hashCellHashCode(final Iterator<CachedICellHash> iterator) {
         var accumulateValue = new byte[hash.hashSize()];
         
         while (iterator.hasNext()) {
-            accumulateValue = hash.combine(accumulateValue, iterator.next().hash);
+            accumulateValue = hash.combine(accumulateValue, fromByteBuffer(iterator.next().hashBuffer()));
         }
         
         return accumulateValue;
@@ -105,9 +120,11 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
                         .allocate(
                                 cell.getKey().capacity()
                                         + cell.getValue().getValue().capacity()
+                                        + Long.BYTES
                         );
         byteBuffer.put(cell.getKey());
         byteBuffer.put(cell.getValue().getValue());
+        byteBuffer.asLongBuffer().put(cell.getValue().getDeadFlagTimeStamp() & Value.DEAD_FLAG);
         return hash.hash(byteBuffer.array());
     }
     

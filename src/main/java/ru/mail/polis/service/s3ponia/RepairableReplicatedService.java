@@ -82,7 +82,7 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
         final var snapshot = daoService.snapshot();
         
         final var tree = snapshot.merkleTree(RANGES_COUNT, start, end);
-        final var mismatchedNodes = new MismatchedRanges(tree);
+        final var mismatchedNodes = new MismatchedRanges(tree, start, end);
         
         for (final var node : policy.all()) {
             if (node.equals(policy.homeNode())) {

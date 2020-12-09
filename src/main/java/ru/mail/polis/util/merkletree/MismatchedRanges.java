@@ -11,14 +11,16 @@ import java.util.Queue;
 public class MismatchedRanges {
     private final MerkleTree tree;
     private final long rangesCount;
+    private final long start;
+    private final long end;
     
     public class Range {
-        private final long start;
-        private final long end;
+        private final long rangeStart;
+        private final long rangeEnd;
         
-        private Range(final long start, final long end) {
-            this.start = start;
-            this.end = end < 0 ? Long.MAX_VALUE : end;
+        private Range(final long rangeStart, final long rangeEnd) {
+            this.rangeStart = rangeStart;
+            this.rangeEnd = rangeEnd < 0 ? Long.MAX_VALUE : rangeEnd;
         }
     
         /**
@@ -27,23 +29,26 @@ public class MismatchedRanges {
          */
         public Range(@NotNull final MerkleTree.Node node) {
             this(
-                    node.minValueIndex() * (Long.MAX_VALUE / rangesCount),
-                    (node.maxValueIndex() + 1) * (Long.MAX_VALUE / rangesCount)
+                    node.minValueIndex() / rangesCount * (end - start) + start,
+                    (node.maxValueIndex() + 1) / rangesCount * (end - start) + start
             );
         }
         
         public long start() {
-            return start;
+            return rangeStart;
         }
         
         public long end() {
-            return end;
+            return rangeEnd;
         }
     }
     
-    public MismatchedRanges(@NotNull final MerkleTree tree) {
+    public MismatchedRanges(@NotNull final MerkleTree tree, long start, long end) {
         this.tree = tree;
         this.rangesCount = tree.root().maxValueIndex();
+        assert end >= start;
+        this.start = start;
+        this.end = end;
     }
     
     private List<Range> compact(@NotNull final List<Range> misMatches) {
@@ -101,6 +106,6 @@ public class MismatchedRanges {
             }
         }
         
-        return compact(compact(result));
+        return compact(result);
     }
 }
