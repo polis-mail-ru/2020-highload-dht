@@ -94,7 +94,7 @@ public class RangeRequestHelper {
 
     private void workProxied(final Context context,
                              final List<String> nodes, final List<Iterator<Record>> iterators) throws IOException {
-        for (String node: nodes) {
+        for (final String node: nodes) {
             if (topology.isMe(node)) {
                 iterators.add(workOnTheNode(context));
             } else {

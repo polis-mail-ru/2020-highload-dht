@@ -1,6 +1,9 @@
 package ru.mail.polis.service;
+
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -12,11 +15,8 @@ import ru.mail.polis.service.kate.moreva.Topology;
 
 public class ConsistentTopologyTest extends ClusterTestBase {
     private static final String ME = "http://localhost:8080";
-    private static final Set<String> NODES = Set.of(ME, "http://localhost:8081", "http://localhost:8082");
-    private static final int VNODE_COUNT = 200;
-    private static final int KEYS_COUNT = 10_000_000;
-    private static final int EXPECTED_KEYS_PER_NODE = KEYS_COUNT / NODES.size();
-    private static final int KEYS_DELTA = (int) (EXPECTED_KEYS_PER_NODE * 0.1);
+    private final int VNODE_COUNT = 400;
+    private final int KEYS_COUNT = 1_000_000;
 
     @Test
     void nodesDeterminismTest() {
@@ -39,7 +39,9 @@ public class ConsistentTopologyTest extends ClusterTestBase {
     @Test
     void distributionTest() {
         final Replicas replicas = new Replicas(3, 3);
-        final Topology<String> topology = createTopology();
+        Set<String> set = new HashSet<>();
+        Collections.addAll(set, nodes);
+        final Topology<String> topology = new ConsistentTopology(set, ME, VNODE_COUNT);
         final Map<String, Integer> counters = new HashMap<>();
         for (long i = 0; i < KEYS_COUNT; i++) {
             final ByteBuffer key = randomKeyBuffer();
@@ -61,15 +63,17 @@ public class ConsistentTopologyTest extends ClusterTestBase {
                     Assertions.assertAll(() ->
                             {
                                 Assertions.assertTrue(e != 0);
-                                Assertions.assertTrue(delta < KEYS_DELTA,
+                                Assertions.assertTrue(delta < (KEYS_COUNT / nodes.length) * 0.1,
                                         "Node keys counter is out of range");
                             }
                     );
                 });
     }
 
-    private static Topology<String> createTopology() {
-        return new ConsistentTopology(NODES, ME, VNODE_COUNT);
+    private Topology<String> createTopology() {
+        Set<String> set = new HashSet<>();
+        Collections.addAll(set, nodes);
+        return new ConsistentTopology(set, ME, VNODE_COUNT);
     }
 
     @Override
