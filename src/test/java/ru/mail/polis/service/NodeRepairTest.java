@@ -367,4 +367,61 @@ public class NodeRepairTest extends ClusterTestBase {
             assertEquals(200, get(0, id, 1, getClusterSize()).getStatus());
         });
     }
+    
+    @Test
+    void rewriteValue() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+        
+            stop(0);
+        
+            final var id = randomId();
+            final var value1 = randomValue();
+            final var longHash =
+                    longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
+                            ByteBuffer.wrap(value1))));
+            assertEquals(201, upsert(1, id, value1).getStatus());
+        
+            createAndStart(0);
+    
+            final var value2 = randomValue();
+            assertEquals(201, upsert(1, id, value2).getStatus());
+        
+            assertEquals(200, repair(0, longHash, longHash).getStatus());
+        
+            for (int node = 1; node < getClusterSize(); node++) {
+                stop(node);
+            }
+        
+            checkResponse(200, value2, get(0, id, 1, getClusterSize()));
+        });
+    }
+    
+    @Test
+    void resurrectValue() {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+        
+            final var id = randomId();
+            final var value1 = randomValue();
+            final var longHash =
+                    longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
+                            ByteBuffer.wrap(value1))));
+            assertEquals(201, upsert(1, id, value1).getStatus());
+            
+            stop(0);
+            assertEquals(202, delete(1, id).getStatus());
+        
+            createAndStart(0);
+        
+            final var value2 = randomValue();
+            assertEquals(201, upsert(1, id, value2).getStatus());
+        
+            assertEquals(200, repair(0, longHash, longHash).getStatus());
+        
+            for (int node = 1; node < getClusterSize(); node++) {
+                stop(node);
+            }
+        
+            checkResponse(200, value2, get(0, id, 1, getClusterSize()));
+        });
+    }
 }
