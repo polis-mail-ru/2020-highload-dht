@@ -17,6 +17,7 @@ public class ConsistentTopologyTest extends ClusterTestBase {
     private static final String ME = "http://localhost:8080";
     private final int VNODE_COUNT = 400;
     private final int KEYS_COUNT = 1_000_000;
+    private final double POSSIBLE_ERROR = 0.1;
 
     @Test
     void nodesDeterminismTest() {
@@ -63,11 +64,29 @@ public class ConsistentTopologyTest extends ClusterTestBase {
                     Assertions.assertAll(() ->
                             {
                                 Assertions.assertTrue(e != 0);
-                                Assertions.assertTrue(delta < (KEYS_COUNT / nodes.length) * 0.1,
+                                Assertions.assertTrue(delta < (KEYS_COUNT / nodes.length) * POSSIBLE_ERROR,
                                         "Node keys counter is out of range");
                             }
                     );
                 });
+    }
+
+    @Test
+    void afterAdditionTest() {
+        final Replicas replicas = new Replicas(3, 3);
+        Set<String> set = new HashSet<>();
+        Collections.addAll(set, nodes);
+        final Topology<String> topology = new ConsistentTopology(set, ME, VNODE_COUNT);
+        final Topology<String> topology1 = new ConsistentTopology(set, ME, 800);
+
+         double mistakesCount = 0;
+        for (int i = 0; i < KEYS_COUNT; i++) {
+            final ByteBuffer key = randomKeyBuffer();
+            final var original = topology.primaryFor(key.duplicate(), replicas, replicas.getAck());
+            final var extended = topology1.primaryFor(key.duplicate(), replicas, replicas.getAck());
+            mistakesCount += extended.stream().filter(it -> !original.contains(it)).count();
+        }
+        Assertions.assertTrue(mistakesCount / KEYS_COUNT < POSSIBLE_ERROR);
     }
 
     private Topology<String> createTopology() {

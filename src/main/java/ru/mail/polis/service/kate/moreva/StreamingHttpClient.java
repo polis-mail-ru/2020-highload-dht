@@ -30,12 +30,17 @@ public class StreamingHttpClient extends HttpClient {
     public synchronized void invokeStream(
             final Request request,
             final StreamConsumer streamConsumer)
-            throws InterruptedException, PoolException, IOException, HttpException {
+            throws StreamingException {
         final int method = request.getMethod();
         final byte[] rawRequest = request.toBytes();
         StreamReader responseReader;
 
-        Socket socket = borrowObject();
+        Socket socket = null;
+        try {
+            socket = borrowObject();
+        } catch (PoolException | InterruptedException e) {
+            throw new StreamingException(e.getMessage());
+        }
         boolean keepAlive = false;
         try {
             try {
@@ -51,6 +56,8 @@ public class StreamingHttpClient extends HttpClient {
             final Response response = responseReader.readResponse(method);
             keepAlive = !"close".equalsIgnoreCase(response.getHeader(CONNECTION_HEADER));
             streamConsumer.consume(responseReader);
+        } catch (IOException | HttpException | PoolException e) {
+            throw new StreamingException(e.getMessage());
         } finally {
             if (keepAlive) {
                 returnObject(socket);
@@ -62,7 +69,7 @@ public class StreamingHttpClient extends HttpClient {
 
     interface StreamConsumer {
         void consume(final StreamReader stream)
-                throws IOException, InterruptedException, PoolException, HttpException;
+                throws StreamingException;
     }
 
     static class StreamReader implements Iterator<byte[]> {
