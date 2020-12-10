@@ -30,43 +30,32 @@ public class StreamingHttpClient extends HttpClient {
     public synchronized void invokeStream(
             final Request request,
             final StreamConsumer streamConsumer)
-            throws StreamingException {
-        Socket socket;
-        try {
-            socket = borrowObject();
-        } catch (PoolException | InterruptedException e) {
-            throw new StreamingException(e);
-        }
-        boolean keepAlive = false;
+            throws IOException, InterruptedException, PoolException, HttpException {
         final int method = request.getMethod();
         final byte[] rawRequest = request.toBytes();
         StreamReader responseReader;
+        Socket socket = borrowObject();
+        boolean keepAlive = false;
         try {
-            responseReader = workOverSocket(socket, rawRequest);
+            try {
+                socket.setTimeout(timeout == 0 ? readTimeout : timeout);
+                socket.writeFully(rawRequest, 0, rawRequest.length);
+                responseReader = new StreamReader(socket, BUFFER_SIZE);
+            } catch (SocketTimeoutException e) {
+                destroyObject(socket);
+                socket = createObject();
+                socket.writeFully(rawRequest, 0, rawRequest.length);
+                responseReader = new StreamReader(socket, BUFFER_SIZE);
+            }
             final Response response = responseReader.readResponse(method);
             keepAlive = !"close".equalsIgnoreCase(response.getHeader(CONNECTION_HEADER));
             streamConsumer.consume(responseReader);
-        } catch (IOException | HttpException | PoolException e) {
-            throw new StreamingException(e);
         } finally {
             if (keepAlive) {
                 returnObject(socket);
             } else {
                 invalidateObject(socket);
             }
-        }
-    }
-
-    private StreamReader workOverSocket(Socket socket, final byte[] rawRequest) throws IOException, PoolException {
-        try {
-            socket.setTimeout(timeout == 0 ? readTimeout : timeout);
-            socket.writeFully(rawRequest, 0, rawRequest.length);
-            return new StreamReader(socket, BUFFER_SIZE);
-        } catch (SocketTimeoutException e) {
-            destroyObject(socket);
-            socket = createObject();
-            socket.writeFully(rawRequest, 0, rawRequest.length);
-            return new StreamReader(socket, BUFFER_SIZE);
         }
     }
 

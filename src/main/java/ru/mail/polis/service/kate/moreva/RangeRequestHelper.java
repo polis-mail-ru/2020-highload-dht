@@ -2,8 +2,10 @@ package ru.mail.polis.service.kate.moreva;
 
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Bytes;
+import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
 import one.nio.http.Response;
+import one.nio.pool.PoolException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
@@ -118,6 +120,8 @@ public class RangeRequestHelper {
                 } catch (StreamingException e) {
                     log.error("Unexpected response from node {}", node);
                     throw new IOException("Unexpected response from node", e);
+                } catch (InterruptedException | HttpException | PoolException e) {
+                    throw new StreamingException(e);
                 }
             }
         }
