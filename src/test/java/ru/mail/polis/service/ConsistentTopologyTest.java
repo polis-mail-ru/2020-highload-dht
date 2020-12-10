@@ -76,9 +76,9 @@ public class ConsistentTopologyTest extends ClusterTestBase {
         final Replicas replicas = new Replicas(3, 3);
         Set<String> set = new HashSet<>();
         Collections.addAll(set, nodes);
+        final Topology<String> topology = new ConsistentTopology(set, ME, VNODE_COUNT);
         final String extraNode =  "http://localhost:8085";
         set.add(extraNode);
-        final Topology<String> topology = new ConsistentTopology(set, ME, VNODE_COUNT);
         final Topology<String> topology1 = new ConsistentTopology(set, ME, 800);
 
         int mistakesCount = 0;
