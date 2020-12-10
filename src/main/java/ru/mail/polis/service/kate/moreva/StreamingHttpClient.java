@@ -31,11 +31,11 @@ public class StreamingHttpClient extends HttpClient {
             final Request request,
             final StreamConsumer streamConsumer)
             throws StreamingException {
-        Socket socket = null;
+        Socket socket;
         try {
             socket = borrowObject();
         } catch (PoolException | InterruptedException e) {
-            throw new StreamingException("Streaming exception" + e);
+            throw new StreamingException(e);
         }
         boolean keepAlive = false;
         final int method = request.getMethod();
@@ -47,7 +47,7 @@ public class StreamingHttpClient extends HttpClient {
             keepAlive = !"close".equalsIgnoreCase(response.getHeader(CONNECTION_HEADER));
             streamConsumer.consume(responseReader);
         } catch (IOException | HttpException | PoolException e) {
-            throw new StreamingException("Streaming exception" + e);
+            throw new StreamingException(e);
         } finally {
             if (keepAlive) {
                 returnObject(socket);
@@ -57,7 +57,7 @@ public class StreamingHttpClient extends HttpClient {
         }
     }
 
-    private StreamReader workOverSocket(Socket socket, byte[] rawRequest) throws IOException, PoolException {
+    private StreamReader workOverSocket(Socket socket, final byte[] rawRequest) throws IOException, PoolException {
         try {
             socket.setTimeout(timeout == 0 ? readTimeout : timeout);
             socket.writeFully(rawRequest, 0, rawRequest.length);
