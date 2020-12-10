@@ -31,39 +31,42 @@ public class StreamingHttpClient extends HttpClient {
             final Request request,
             final StreamConsumer streamConsumer)
             throws StreamingException {
-        final int method = request.getMethod();
-        final byte[] rawRequest = request.toBytes();
-        StreamReader responseReader;
-
         Socket socket = null;
         try {
             socket = borrowObject();
         } catch (PoolException | InterruptedException e) {
-            throw new StreamingException(e.getMessage());
+            throw new StreamingException("Streaming exception" + e);
         }
         boolean keepAlive = false;
+        final int method = request.getMethod();
+        final byte[] rawRequest = request.toBytes();
+        StreamReader responseReader;
         try {
-            try {
-                socket.setTimeout(timeout == 0 ? readTimeout : timeout);
-                socket.writeFully(rawRequest, 0, rawRequest.length);
-                responseReader = new StreamReader(socket, BUFFER_SIZE);
-            } catch (SocketTimeoutException e) {
-                destroyObject(socket);
-                socket = createObject();
-                socket.writeFully(rawRequest, 0, rawRequest.length);
-                responseReader = new StreamReader(socket, BUFFER_SIZE);
-            }
+            responseReader = workOverSocket(socket, rawRequest);
             final Response response = responseReader.readResponse(method);
             keepAlive = !"close".equalsIgnoreCase(response.getHeader(CONNECTION_HEADER));
             streamConsumer.consume(responseReader);
         } catch (IOException | HttpException | PoolException e) {
-            throw new StreamingException(e.getMessage());
+            throw new StreamingException("Streaming exception" + e);
         } finally {
             if (keepAlive) {
                 returnObject(socket);
             } else {
                 invalidateObject(socket);
             }
+        }
+    }
+
+    private StreamReader workOverSocket(Socket socket, byte[] rawRequest) throws IOException, PoolException {
+        try {
+            socket.setTimeout(timeout == 0 ? readTimeout : timeout);
+            socket.writeFully(rawRequest, 0, rawRequest.length);
+            return new StreamReader(socket, BUFFER_SIZE);
+        } catch (SocketTimeoutException e) {
+            destroyObject(socket);
+            socket = createObject();
+            socket.writeFully(rawRequest, 0, rawRequest.length);
+            return new StreamReader(socket, BUFFER_SIZE);
         }
     }
 
