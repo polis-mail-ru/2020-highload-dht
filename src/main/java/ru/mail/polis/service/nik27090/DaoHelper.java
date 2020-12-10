@@ -24,7 +24,7 @@ public class DaoHelper {
     @NotNull
     private final ExecutorService executorService;
 
-    public DaoHelper(@NotNull final DAO dao, ExecutorService executorService) {
+    public DaoHelper(@NotNull final DAO dao, @NotNull final ExecutorService executorService) {
         this.dao = dao;
         this.executorService = executorService;
     }

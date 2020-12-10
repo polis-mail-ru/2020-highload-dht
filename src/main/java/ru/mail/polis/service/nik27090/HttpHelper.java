@@ -27,7 +27,7 @@ public class HttpHelper {
 
     private final ExecutorService executorService;
 
-    public HttpHelper(ExecutorService executorService) {
+    public HttpHelper(@NotNull final ExecutorService executorService) {
         this.executorService = executorService;
     }
 
