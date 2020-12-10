@@ -76,10 +76,12 @@ public class ConsistentTopologyTest extends ClusterTestBase {
         final Replicas replicas = new Replicas(3, 3);
         Set<String> set = new HashSet<>();
         Collections.addAll(set, nodes);
+        final String extraNode =  "http://localhost:8085";
+        set.add(extraNode);
         final Topology<String> topology = new ConsistentTopology(set, ME, VNODE_COUNT);
         final Topology<String> topology1 = new ConsistentTopology(set, ME, 800);
 
-         double mistakesCount = 0;
+        int mistakesCount = 0;
         for (int i = 0; i < KEYS_COUNT; i++) {
             final ByteBuffer key = randomKeyBuffer();
             final var original = topology.primaryFor(key.duplicate(), replicas, replicas.getAck());
