@@ -26,6 +26,9 @@ public class ConsistentTopology implements Topology<String> {
      * @param nodesNumber - number of virtual nodes.
      */
     public ConsistentTopology(final Set<String> nodes, final String me, final int nodesNumber) {
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Error in topology. Topology is empty.");
+        }
         this.me = me;
         this.nodes = nodes;
         nodes.forEach(node -> addNode(node, nodesNumber));
