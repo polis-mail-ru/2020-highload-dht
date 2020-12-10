@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 public class DaoHelper {
     private static final Logger log = LoggerFactory.getLogger(DaoHelper.class);
@@ -20,9 +21,12 @@ public class DaoHelper {
 
     @NotNull
     private final DAO dao;
+    @NotNull
+    private final ExecutorService executorService;
 
-    public DaoHelper(@NotNull final DAO dao) {
+    public DaoHelper(@NotNull final DAO dao, ExecutorService executorService) {
         this.dao = dao;
+        this.executorService = executorService;
     }
 
     /**
@@ -77,7 +81,7 @@ public class DaoHelper {
                 log.error("GET method failed on /v0/entity for id {}", key.get(), e);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        });
+        }, executorService);
     }
 
     /**
@@ -95,7 +99,7 @@ public class DaoHelper {
                 log.error("DELETE Internal error with key = {}", key, e);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        });
+        }, executorService);
     }
 
     /**
@@ -114,6 +118,6 @@ public class DaoHelper {
                 log.error("PUT Internal error.", e);
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
-        });
+        }, executorService);
     }
 }

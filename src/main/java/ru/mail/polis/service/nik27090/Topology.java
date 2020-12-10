@@ -11,17 +11,15 @@ import java.util.concurrent.CompletableFuture;
 
 public interface Topology<N> {
     List<Response> getResponseFromNodes(final List<String> nodes,
-                                        final Request request,
-                                        final CompletableFuture<Response> localResponse,
-                                        final HttpClient nodeToClient);
+                                                                 final Request request,
+                                                                 final CompletableFuture<Response> localResponse,
+                                                                 final HttpClient httpClient,
+                                                                 final AckFrom ackFrom);
 
     @NotNull
     N[] getReplicas(@NotNull final ByteBuffer key, final int countReplicas);
 
     boolean isCurrentNode(@NotNull final N node);
-
-    @NotNull
-    N[] all();
 
     AckFrom parseAckFrom(final String askFrom);
 

@@ -1,7 +1,6 @@
 package ru.mail.polis.service.nik27090;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import one.nio.http.HttpClient;
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
@@ -10,7 +9,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -23,9 +21,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -45,8 +42,6 @@ public class ServiceImpl extends HttpServer implements Service {
     @NotNull
     private final Topology<String> topology;
     @NotNull
-    private final Map<String, HttpClient> nodeToClient;
-    @NotNull
     private final DaoHelper daoHelper;
     @NotNull
     private final HttpHelper httpHelper;
@@ -64,27 +59,13 @@ public class ServiceImpl extends HttpServer implements Service {
      */
     public ServiceImpl(
             final int port,
-            final @NotNull DAO dao,
+            final DAO dao,
             final int workers,
             final int queueCapacity,
             final Duration timeout,
-            @NotNull final Topology<String> topology) throws IOException {
+            final Set<String> topology) throws IOException {
         super(createConfig(port));
-        this.topology = topology;
-        this.nodeToClient = new HashMap<>();
-        this.httpHelper = new HttpHelper();
-        this.daoHelper = new DaoHelper(dao);
 
-        for (final String node : topology.all()) {
-            if (topology.isCurrentNode(node)) {
-                continue;
-            }
-
-            final HttpClient client = new HttpClient(new ConnectionString(node + "?timeout=" + timeout.toMillis()));
-            if (nodeToClient.put(node, client) != null) {
-                throw new IllegalStateException("Duplicate node");
-            }
-        }
         this.executorService = new ThreadPoolExecutor(
                 workers, queueCapacity,
                 60_000L, TimeUnit.MILLISECONDS,
@@ -95,6 +76,11 @@ public class ServiceImpl extends HttpServer implements Service {
                         .build(),
                 new ThreadPoolExecutor.DiscardOldestPolicy()
         );
+
+        this.httpHelper = new HttpHelper(executorService);
+        this.daoHelper = new DaoHelper(dao, executorService);
+        this.topology = new RendezvousTopology(topology,"http://localhost:" + port, httpHelper);
+
         this.httpClient =
                 java.net.http.HttpClient.newBuilder()
                         .executor(executorService)
@@ -142,32 +128,32 @@ public class ServiceImpl extends HttpServer implements Service {
             final HttpSession session,
             final Request request) {
         CompletableFuture.runAsync(() -> {
-        final AckFrom ackFrom = topology.parseAckFrom(af);
-        if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
-            httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return;
-        }
+            final AckFrom ackFrom = topology.parseAckFrom(af);
+            if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
+                httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
 
-        if (id.isEmpty()) {
-            httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return;
-        }
-        switch (request.getMethod()) {
-            case METHOD_GET:
-                log.debug("GET request: id = {}", id);
-                getEntityExecutor(id, session, request, ackFrom);
-                break;
-            case METHOD_PUT:
-                log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-                putEntityExecutor(id, session, request, ackFrom);
-                break;
-            case METHOD_DELETE:
-                log.debug("DELETE request: id = {}", id);
-                deleteEntityExecutor(id, session, request, ackFrom);
-                break;
-            default:
-                break;
-        }
+            if (id.isEmpty()) {
+                httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+                return;
+            }
+            switch (request.getMethod()) {
+                case METHOD_GET:
+                    log.debug("GET request: id = {}", id);
+                    getEntityExecutor(id, session, request, ackFrom);
+                    break;
+                case METHOD_PUT:
+                    log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
+                    putEntityExecutor(id, session, request, ackFrom);
+                    break;
+                case METHOD_DELETE:
+                    log.debug("DELETE request: id = {}", id);
+                    deleteEntityExecutor(id, session, request, ackFrom);
+                    break;
+                default:
+                    break;
+            }
         }, executorService);
     }
 
@@ -186,7 +172,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
 
         final List<Response> notFailedResponses = topology
-                .getResponseFromNodes(nodes, request, daoHelper.getEntity(key), httpClient)
+                .getResponseFromNodes(nodes, request, daoHelper.getEntity(key), httpClient, ackFrom)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.OK
                         || response.getStatus() == ResponseCode.NOT_FOUND)
@@ -214,7 +200,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
 
         final List<Response> notFailedResponses = topology
-                .getResponseFromNodes(nodes, request, daoHelper.delEntity(key), httpClient)
+                .getResponseFromNodes(nodes, request, daoHelper.delEntity(key), httpClient, ackFrom)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.ACCEPTED)
                 .collect(Collectors.toList());
@@ -242,7 +228,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
 
         final List<Response> notFailedResponses = topology
-                .getResponseFromNodes(nodes, request, daoHelper.putEntity(key, value), httpClient)
+                .getResponseFromNodes(nodes, request, daoHelper.putEntity(key, value), httpClient, ackFrom)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.CREATED)
                 .collect(Collectors.toList());
@@ -270,10 +256,6 @@ public class ServiceImpl extends HttpServer implements Service {
         } catch (InterruptedException e) {
             log.error("ERROR. Cant shutdown executor.", e);
             Thread.currentThread().interrupt();
-        }
-
-        for (final HttpClient client : nodeToClient.values()) {
-            client.clear();
         }
     }
 }
