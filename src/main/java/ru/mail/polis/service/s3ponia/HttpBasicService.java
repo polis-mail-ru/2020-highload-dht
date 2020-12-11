@@ -6,7 +6,6 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.Response;
 import one.nio.net.Socket;
-import org.apache.log4j.BasicConfigurator;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +28,6 @@ public class HttpBasicService extends HttpServer implements Service {
      */
     public HttpBasicService(final int port) throws IOException {
         super(Utility.configFrom(port));
-        BasicConfigurator.configure();
     }
 
     /**
