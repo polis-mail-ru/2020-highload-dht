@@ -1,5 +1,6 @@
 package ru.mail.polis.service;
 
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -43,11 +44,7 @@ public class NodeRepairTest extends NodeRepairTestBase {
             final Collection<RecordRequest> ids = new ArrayList<>(getClusterSize() * records);
             
             try (final var ignored = new StoppedNode(0)) {
-                for (int node = (ignored.node + 1) % getClusterSize();
-                     node != ignored.node;
-                     node = (node + 1) % getClusterSize()) {
-                    ids.addAll(fillRandomValues(node, records));
-                }
+                ids.addAll(fillRandomValues(ignored.node + 1, records));
             }
             
             assertEquals(200, repair(0).getStatus());
@@ -124,7 +121,7 @@ public class NodeRepairTest extends NodeRepairTestBase {
             
             ids.addAll(fillRandomValues(1, records));
             
-            assertEquals(200, repair(0, startMissedRange, endMissedRange).getStatus());
+            assertEquals(200, repair(0, startMissedRange, endMissedRange + 1).getStatus());
             
             checkGetExist(0, ids);
             
@@ -181,7 +178,7 @@ public class NodeRepairTest extends NodeRepairTestBase {
 
             records.addAll(fillRandomValues(1, recordsCount));
 
-            assertEquals(200, repair(0, startMissedRange, endMissedRange).getStatus());
+            assertEquals(200, repair(0, startMissedRange, endMissedRange + 1).getStatus());
 
             checkGetExist(0, records);
 
@@ -202,7 +199,7 @@ public class NodeRepairTest extends NodeRepairTestBase {
                 longHash = longHash(hash(rec.toRecord()));
             }
             
-            assertEquals(200, repair(0, longHash, longHash).getStatus());
+            assertEquals(200, repair(0, longHash, longHash + 1).getStatus());
             
             stopExceptOne(0);
             

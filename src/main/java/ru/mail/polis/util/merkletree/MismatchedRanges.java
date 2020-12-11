@@ -18,19 +18,21 @@ public class MismatchedRanges {
         private final long rangeStart;
         private final long rangeEnd;
         
-        private Range(final long rangeStart, final long rangeEnd) {
+        public Range(final long rangeStart, final long rangeEnd) {
             this.rangeStart = rangeStart;
             this.rangeEnd = rangeEnd < 0 ? Long.MAX_VALUE : rangeEnd;
         }
-    
+        
         /**
          * Creates a new {@link Range} that fits all values in {@link MerkleTree.Node}'s subtree.
+         *
          * @param node {@link MerkleTree.Node}
          */
         public Range(@NotNull final MerkleTree.Node node) {
             this(
-                    node.minValueIndex() / rangesCount * (end - start) + start,
-                    (node.maxValueIndex() + 1) / rangesCount * (end - start) + start
+                    Math.max(node.minValueIndex() - 1, 0) * ((end - start) / rangesCount) + start,
+                    node.maxValueIndex() >= rangesCount - 1 ? end :
+                            (node.maxValueIndex() + 1) * ((end - start) / rangesCount) + start
             );
         }
         
@@ -43,11 +45,16 @@ public class MismatchedRanges {
         }
     }
     
+    public Range range(final long start, final long end) {
+        return new Range(start, end);
+    }
+    
     /**
      * Constructs a new {@link MismatchedRanges} with given tree and range.
-     * @param tree merkle tree for comparing
+     *
+     * @param tree  merkle tree for comparing
      * @param start range's start
-     * @param end range's end
+     * @param end   range's end
      */
     public MismatchedRanges(@NotNull final MerkleTree tree, final long start, final long end) {
         this.tree = tree;
@@ -65,7 +72,7 @@ public class MismatchedRanges {
         final List<Range> result = new ArrayList<>();
         result.add(misMatches.get(0));
         for (int i = 1; i < misMatches.size(); i++) {
-            if (misMatches.get(i).start() == result.get(result.size() - 1).end()) {
+            if (misMatches.get(i).start() <= result.get(result.size() - 1).end()) {
                 final var previousRange = result.get(result.size() - 1);
                 result.remove(result.size() - 1);
                 result.add(new Range(previousRange.start(), misMatches.get(i).end()));
@@ -79,6 +86,7 @@ public class MismatchedRanges {
     
     /**
      * Compares with given {@link MerkleTree} and constructs a {@link List} of mismatched {@link Range}s.
+     *
      * @param tree {@link MerkleTree}
      * @return a {@code List<Range>}
      */
@@ -98,17 +106,17 @@ public class MismatchedRanges {
             final var hash2 = node2.hash();
             
             final boolean isEqual = Arrays.equals(hash1, hash2);
-    
-            if (isEqual) {
+            
+            if (!isEqual) {
                 if (!node1.isLeaf() && !node2.isLeaf()) {
                     nodeQueue1.add(node1.left());
                     nodeQueue1.add(node1.right());
                     
                     nodeQueue2.add(node2.left());
                     nodeQueue2.add(node2.right());
+                } else {
+                    result.add(new Range(node1));
                 }
-            } else {
-                result.add(new Range(node1));
             }
         }
         

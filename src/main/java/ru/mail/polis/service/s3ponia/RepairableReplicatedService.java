@@ -22,7 +22,7 @@ import java.util.concurrent.ExecutionException;
 
 public class RepairableReplicatedService extends ReplicatedService implements RepairableService {
     private static final Logger logger = LoggerFactory.getLogger(RepairableReplicatedService.class);
-    private static final int RANGES_COUNT = 32_768;
+    private static final int RANGES_COUNT = 16_384;
     
     /**
      * Creates a new {@link ReplicatedService} with given {@link AsyncService} and {@link ShardingPolicy}.
@@ -59,7 +59,7 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
             return HttpRequest.newBuilder()
                            .header(Proxy.PROXY_HEADER, policy.homeNode())
                            .uri(new URI(node + "/v0/syncRange?syncStart=" + start + "&syncEnd=" + end))
-                           .timeout(Duration.ofSeconds(1))
+                           .timeout(Duration.ofSeconds(3))
                            .GET()
                            .build();
         } catch (URISyntaxException e) {
@@ -74,7 +74,7 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
         final var request = syncRangeRequest(node, range.start(), range.end());
         
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofFile(pathSave))
-                       .thenApply(HttpResponse::body);
+                       .thenApply(r -> r.body());
     }
     
     @Override
@@ -96,16 +96,21 @@ public class RepairableReplicatedService extends ReplicatedService implements Re
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
             final var nodeRangesMismatch = mismatchedNodes.mismatchedNodes(merkleTree);
+            long min = Long.MAX_VALUE;
+            long max = 0;
             for (final var r :
                     nodeRangesMismatch) {
-                try {
-                    final var pathSave = daoService.tempFile();
-                    final var path = repair(node, r, pathSave).get();
-                    daoService.merge(DiskTable.of(path));
-                } catch (ExecutionException | InterruptedException | DaoOperationException | IOException e) {
-                    logger.error("Error in repairing", e);
-                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
-                }
+                min = Math.min(r.start(), min);
+                max = Math.max(r.end(), max);
+            }
+            
+            try {
+                final var pathSave = daoService.tempFile();
+                final var path = repair(node, mismatchedNodes.range(min, max), pathSave).get();
+                daoService.merge(DiskTable.of(path));
+            } catch (ExecutionException | InterruptedException | DaoOperationException | IOException e) {
+                logger.error("Error in repairing", e);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         }
         return Response.ok(Response.EMPTY);

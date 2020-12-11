@@ -47,7 +47,7 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     private Iterator<CachedICellHash> hashCellRange(final long start, final long end) {
         return Iterators.filter(hashCellIterator(), c -> {
             final var longHashValue = longHash(c.hashBuffer());
-            return longHashValue >= start && longHashValue <= end;
+            return longHashValue >= start && longHashValue < end;
         });
     }
     
@@ -73,14 +73,19 @@ public class PersistentDaoSnapshot implements DaoSnapshot {
     public MerkleTree merkleTree(final long blocksCount, final long start, final long end) {
         assert blocksCount > 3;
         assert end >= start;
+        final var step = (end - start) / blocksCount;
         final var blocks = new ArrayList<ArrayList<CachedICellHash>>();
         for (int i = 0; i < blocksCount; i++) {
             blocks.add(new ArrayList<>());
         }
         
-        hashCellRange(start, end).forEachRemaining(c -> {
-            blocks.get((int) (longHash(c.hashBuffer()) & (blocksCount - 1))).add(c);
-        });
+        hashCellRange(start, end)
+                .forEachRemaining(c -> {
+                    blocks
+                            .get((int) Math.min(((longHash(c.hashBuffer()) - start) / Math.max(step, 1)),
+                                    blocksCount - 1))
+                            .add(c);
+                });
         
         final var leaves = new ArrayList<byte[]>();
         blocks.forEach(a -> leaves.add(hashCellHashCode(a.iterator())));

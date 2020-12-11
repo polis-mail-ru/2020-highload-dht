@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public final class PersistenceDAO implements DAO {
@@ -33,6 +34,7 @@ public final class PersistenceDAO implements DAO {
 
     private final ReentrantReadWriteLock readWriteLock =
             new ReentrantReadWriteLock();
+    private final AtomicInteger tempCounter = new AtomicInteger();
 
     @GuardedBy("readWriteLock")
     private TableSet tableSet;
@@ -245,6 +247,6 @@ public final class PersistenceDAO implements DAO {
     
     @Override
     public Path tempFile() throws IOException {
-        return manager.uniqueFile(tableSet.generation + 1);
+        return manager.uniqueFile(tempCounter.incrementAndGet());
     }
 }
