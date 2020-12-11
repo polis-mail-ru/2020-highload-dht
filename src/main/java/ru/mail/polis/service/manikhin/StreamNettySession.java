@@ -29,7 +29,7 @@ public class StreamNettySession extends ChannelDuplexHandler {
      *
      * @param iterator - record iterator from DAO storage
      * */
-    public StreamNettySession(final Iterator<Record> iterator, @NotNull FullHttpRequest request) {
+    public StreamNettySession(final Iterator<Record> iterator, @NotNull final FullHttpRequest request) {
         this.iterator = iterator;
         this.currentRequest = request;
     }

@@ -399,8 +399,8 @@ public class ServiceUtils {
         return request.headers().contains(ServiceUtils.PROXY_HEADER);
     }
 
-    private static void writeResponse(@NotNull ChannelHandlerContext ctx, @NotNull FullHttpRequest request,
-                                      @NotNull FullHttpResponse response) {
+    private static void writeResponse(@NotNull final ChannelHandlerContext ctx, @NotNull final FullHttpRequest request,
+                                      @NotNull final FullHttpResponse response) {
         if (HttpUtil.isKeepAlive(request)) {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
             ctx.writeAndFlush(response).isCancelled();
