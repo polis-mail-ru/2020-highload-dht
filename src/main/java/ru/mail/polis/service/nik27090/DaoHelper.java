@@ -4,12 +4,15 @@ import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.dao.nik27090.Cell;
 import ru.mail.polis.dao.nik27090.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -119,5 +122,21 @@ public class DaoHelper {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         }, executorService);
+    }
+
+    /**
+     * Try get range.
+     *
+     * @param start - first key of storage.
+     * @param end   - last key of storage.
+     * @return - iterator of range
+     */
+    public Iterator<Record> getRange(final String start, final String end) throws IOException {
+        final ByteBuffer startBB = ByteBuffer.wrap(start.getBytes(StandardCharsets.UTF_8));
+        ByteBuffer endBB = null;
+        if (end != null) {
+            endBB = ByteBuffer.wrap(end.getBytes(StandardCharsets.UTF_8));
+        }
+        return dao.range(startBB, endBB);
     }
 }

@@ -122,11 +122,11 @@ public class ServiceImpl extends HttpServer implements Service {
     @Path("/v0/entity")
     @RequestMethod({METHOD_GET, METHOD_DELETE, METHOD_PUT})
     @SuppressWarnings("FutureReturnValueIgnored")
-    public void requestHandler(
+    public void entityHandler(
             @NotNull final @Param(value = "id", required = true) String id,
-            final @Param(value = "replicas") String af,
-            final HttpSession session,
-            final Request request) {
+            @NotNull final @Param(value = "replicas") String af,
+            @NotNull final HttpSession session,
+            @NotNull final Request request) {
         CompletableFuture.runAsync(() -> {
             final AckFrom ackFrom = topology.parseAckFrom(af);
             if (ackFrom.getAck() > ackFrom.getFrom() || ackFrom.getAck() <= 0) {
@@ -245,6 +245,11 @@ public class ServiceImpl extends HttpServer implements Service {
         log.debug("Can't understand request: {}", request);
 
         httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
+
+    @Override
+    public HttpSession createSession(@NotNull final Socket socket) {
+        return new RecordStreamingSession(socket, this, httpHelper);
     }
 
     @Override
