@@ -18,7 +18,6 @@ package ru.mail.polis.service;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.nik27090.RendezvousTopology;
 import ru.mail.polis.service.nik27090.ServiceImpl;
 
 import java.io.IOException;
@@ -64,6 +63,7 @@ public final class ServiceFactory {
                 Runtime.getRuntime().availableProcessors(),
                 1024,
                 TIMEOUT,
-                new RendezvousTopology(topology, "http://localhost:" + port));
+                topology
+        );
     }
 }

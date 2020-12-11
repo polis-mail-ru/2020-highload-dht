@@ -34,11 +34,12 @@ public class RendezvousTopology implements Topology<String> {
      * @param currentNode - currentNode.
      */
     public RendezvousTopology(@NotNull final Set<String> nodes,
-                              @NotNull final String currentNode) {
+                              @NotNull final String currentNode,
+                              @NotNull final HttpHelper httpHelper) {
         this.currentNode = currentNode;
         assert nodes.contains(currentNode);
 
-        this.httpHelper = new HttpHelper();
+        this.httpHelper = httpHelper;
         this.nodes = new String[nodes.size()];
         nodes.toArray(this.nodes);
     }
@@ -48,7 +49,8 @@ public class RendezvousTopology implements Topology<String> {
     public List<Response> getResponseFromNodes(final List<String> nodes,
                                                final Request request,
                                                final CompletableFuture<Response> localResponse,
-                                               final HttpClient httpClient) {
+                                               final HttpClient httpClient,
+                                               final AckFrom ackFrom) {
         final List<CompletableFuture<Response>> responses = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (isCurrentNode(node)) {
@@ -59,13 +61,7 @@ public class RendezvousTopology implements Topology<String> {
         }
 
         try {
-            return CompletableFuture.allOf(responses.toArray(new CompletableFuture<?>[0])).thenApply(
-                    v -> {
-                        return responses.stream()
-                                .map(CompletableFuture::join)
-                                .collect(Collectors.toList());
-                    }
-            ).get();
+            return (List<Response>) Futures.atLeastAsync(ackFrom.getAck(), responses).get();
         } catch (InterruptedException | ExecutionException e) {
             throw new IllegalStateException(e);
         }
@@ -102,12 +98,6 @@ public class RendezvousTopology implements Topology<String> {
     @Override
     public boolean isCurrentNode(@NotNull final String node) {
         return node.equals(currentNode);
-    }
-
-    @NotNull
-    @Override
-    public String[] all() {
-        return nodes.clone();
     }
 
     @Override

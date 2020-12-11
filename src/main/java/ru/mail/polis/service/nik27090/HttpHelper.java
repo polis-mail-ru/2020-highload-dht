@@ -14,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -23,6 +24,12 @@ public class HttpHelper {
     private static final String TIMESTAMP2 = "Timestamp:";
 
     private static final String NOT_ENOUGH_REPLICAS = "Not enough replicas error with ack: {}, from: {}";
+
+    private final ExecutorService executorService;
+
+    public HttpHelper(@NotNull final ExecutorService executorService) {
+        this.executorService = executorService;
+    }
 
     /**
      * Calculate result response.
@@ -69,13 +76,13 @@ public class HttpHelper {
     public void respond(
             @NotNull final HttpSession session,
             @NotNull final CompletableFuture<Response> response) {
-        response.whenComplete((r, t) -> {
+        response.whenCompleteAsync((r, t) -> {
             if (t == null) {
                 sendResponse(session, r);
             } else {
                 sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
             }
-        });
+        }, executorService);
     }
 
     /**
@@ -96,7 +103,7 @@ public class HttpHelper {
                 .sendAsync(
                         proxyRequest,
                         HttpResponse.BodyHandlers.ofByteArray())
-                .thenApply(this::convertHttpResponse)
+                .thenApplyAsync(this::convertHttpResponse, executorService)
                 .exceptionally(ex -> new Response(Response.INTERNAL_ERROR, Response.EMPTY));
     }
 
