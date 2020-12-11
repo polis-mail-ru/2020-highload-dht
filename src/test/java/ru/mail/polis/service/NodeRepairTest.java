@@ -1,30 +1,16 @@
 package ru.mail.polis.service;
 
-import com.google.common.base.Charsets;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
-import ru.mail.polis.Record;
-import ru.mail.polis.dao.s3ponia.Value;
-import ru.mail.polis.util.hash.ConcatHash;
-import ru.mail.polis.util.hash.TigerHash;
 
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
-import static ru.mail.polis.util.Utility.fromByteArray;
 
-public class NodeRepairTest extends ClusterTestBase {
+public class NodeRepairTest extends NodeRepairTestBase {
     private static final Duration TIMEOUT = Duration.ofMinutes(1);
-    
-    @Override
-    int getClusterSize() {
-        return 3;
-    }
     
     @Test
     void singleRepair() {
@@ -32,24 +18,20 @@ public class NodeRepairTest extends ClusterTestBase {
             for (int node = 0; node < getClusterSize(); node++) {
                 final String key = "key" + node;
                 final byte[] value = randomValue();
-                stop(node);
-                for (int i = (node + 1) % getClusterSize(); i != node; i = (i + 1) % getClusterSize()) {
-                    assertEquals(201, upsert(i, key, value, 2, 3).getStatus());
+                
+                try (final var ignored = new StoppedNode(node)) {
+                    upsertExceptOne(ignored.node, key, value);
                 }
-                createAndStart(node);
+                
                 assertEquals(200, repair(node).getStatus());
                 
-                waitForVersionAdvancement();
-                
-                for (int i = (node + 1) % getClusterSize(); i != node; i = (i + 1) % getClusterSize()) {
-                    stop(i);
-                }
+                stopExceptOne(node);
                 
                 checkResponse(200, value, get(node, key, 1, 3));
                 
-                for (int i = (node + 1) % getClusterSize(); i != node; i = (i + 1) % getClusterSize()) {
-                    createAndStart(i);
-                }
+                stop(node);
+                
+                runAll();
             }
         });
     }
@@ -57,30 +39,23 @@ public class NodeRepairTest extends ClusterTestBase {
     @Test
     void allRepair() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
             final int records = 1024;
-            final var value = randomValue();
-            final Collection<String> ids = new ArrayList<>(records);
+            final Collection<RecordRequest> ids = new ArrayList<>(getClusterSize() * records);
             
-            stop(0);
-            for (int node = 1; node < getClusterSize(); node++) {
-                for (int i = 0; i < records; i++) {
-                    final var id = randomId();
-                    ids.add(id);
-                    assertEquals(201, upsert(node, id, value).getStatus());
+            try (final var ignored = new StoppedNode(0)) {
+                for (int node = (ignored.node + 1) % getClusterSize();
+                     node != ignored.node;
+                     node = (node + 1) % getClusterSize()) {
+                    ids.addAll(fillRandomValues(node, records));
                 }
             }
-            createAndStart(0);
             
             assertEquals(200, repair(0).getStatus());
             
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
+            stopExceptOne(0);
             
-            for (final var id :
-                    ids) {
-                checkResponse(200, value, get(0, id, 1, getClusterSize()));
+            for (final var id : ids) {
+                checkResponse(200, id.value, get(0, id.id, 1, getClusterSize()));
             }
         });
     }
@@ -88,26 +63,17 @@ public class NodeRepairTest extends ClusterTestBase {
     @Test
     void noRepair() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
             final int records = 12_000;
-            final var value = randomValue();
-            final Collection<String> ids = new ArrayList<>(records);
             
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
+            final var ids = fillRandomValues(1, records);
             
             assertEquals(200, repair(0).getStatus());
             
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
+            stopExceptOne(0);
             
             for (final var id :
                     ids) {
-                checkResponse(200, value, get(0, id, 1, getClusterSize()));
+                checkResponse(200, id.value, get(0, id.id, 1, getClusterSize()));
             }
         });
     }
@@ -115,159 +81,79 @@ public class NodeRepairTest extends ClusterTestBase {
     @Test
     void missedValue() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
             final int records = 512;
-            final var value = randomValue();
-            final Collection<String> ids = new ArrayList<>(records);
             
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
+            final var ids = fillRandomValues(1, records);
+            
+            try (final var ignored = new StoppedNode(0)) {
+                final var recordReq = fillRandomValue(ignored.node + 1);
+                ids.add(recordReq);
+                assertEquals(201, upsert(1, recordReq.id, recordReq.value).getStatus());
             }
-            
-            stop(0);
-            final var id = randomId();
-            ids.add(id);
-            assertEquals(201, upsert(1, id, value).getStatus());
-            createAndStart(0);
             
             assertEquals(200, repair(0).getStatus());
             
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
+            stopExceptOne(0);
             
             for (final var idElement : ids) {
-                checkResponse(200, value, get(0, idElement, 1, getClusterSize()));
+                checkResponse(200, idElement.value, get(0, idElement.id, 1, getClusterSize()));
             }
         });
-    }
-    
-    private static final ConcatHash hash = new TigerHash();
-    
-    private static byte[] hash(@NotNull final Record record) {
-        final var byteBuffer =
-                ByteBuffer
-                        .allocate(
-                                record.getKey().capacity()
-                                        + record.getValue().capacity()
-                                        + Long.BYTES /* TIMESTAMP */
-                        );
-        byteBuffer.put(record.getKey());
-        byteBuffer.put(record.getValue());
-        byteBuffer.asLongBuffer().put(0L);
-        return hash.hash(byteBuffer.array());
-    }
-    
-    private static byte[] deadHash(@NotNull final Record record) {
-        final var byteBuffer =
-                ByteBuffer
-                        .allocate(
-                                record.getKey().capacity()
-                                        + record.getValue().capacity()
-                                        + Long.BYTES /* TIMESTAMP */
-                        );
-        byteBuffer.put(record.getKey());
-        byteBuffer.put(record.getValue());
-        byteBuffer.asLongBuffer().put(Value.DEAD_FLAG);
-        return hash.hash(byteBuffer.array());
-    }
-    
-    private static long longHash(@NotNull final byte[] hashArray) {
-        return fromByteArray(hashArray, 0, Long.BYTES) & Long.MAX_VALUE;
     }
     
     @Test
     void missedRange() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
             final int records = 512;
-            final var value = randomValue();
-            final Collection<String> ids = new ArrayList<>(records * 2);
-            final Collection<String> missedIds = new ArrayList<>(records);
             long startMissedRange = Long.MAX_VALUE;
             long endMissedRange = 0;
             
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
+            final Collection<RecordRequest> ids = fillRandomValues(1, records);
+            final Collection<RecordRequest> missedRecs;
+            
+            try (final var ignored = new StoppedNode(0)) {
+                missedRecs = fillRandomValues(ignored.node + 1, records);
+                
+                for (final var rec :
+                        missedRecs) {
+                    final var longHash = longHash(hash(rec.toRecord()));
+                    startMissedRange = Math.min(startMissedRange, longHash);
+                    endMissedRange = Math.max(endMissedRange, longHash);
+                }
             }
             
-            stop(0);
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                missedIds.add(id);
-                final var longHash =
-                        longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
-                                ByteBuffer.wrap(value))));
-                if (longHash < startMissedRange) {
-                    startMissedRange = longHash;
-                }
-                if (longHash > endMissedRange) {
-                    endMissedRange = longHash;
-                }
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
-            
-            createAndStart(0);
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
+            ids.addAll(fillRandomValues(1, records));
             
             assertEquals(200, repair(0, startMissedRange, endMissedRange).getStatus());
             
-            for (final var idElement :
-                    ids) {
-                checkResponse(200, value, get(0, idElement, 1, getClusterSize()));
-            }
+            checkGetExist(0, ids);
             
+            stopExceptOne(0);
             
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
-            
-            for (final var idElement :
-                    missedIds) {
-                checkResponse(200, value, get(0, idElement, 1, getClusterSize()));
-            }
+            checkGetExist(0, missedRecs);
         });
     }
     
     @Test
     void missedDelete() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
             final int records = 512;
             final var value = randomValue();
-            final Collection<String> ids = new ArrayList<>(records);
             
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
+            final var ids = fillRandomValues(1, records);
             
             final var id = randomId();
             assertEquals(201, upsert(1, id, value).getStatus());
             
-            stop(0);
-            assertEquals(202, delete(1, id).getStatus());
-            createAndStart(0);
+            try (final var ignored = new StoppedNode(0)) {
+                assertEquals(202, delete(ignored.node + 1, id).getStatus());
+            }
             
             assertEquals(200, repair(0).getStatus());
             
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
+            stopExceptOne(0);
             
-            for (final var idElement :
-                    ids) {
-                checkResponse(200, value, get(0, idElement, 1, getClusterSize()));
-            }
+            checkGetExist(0, ids);
             
             assertEquals(404, get(0, id, 1, getClusterSize()).getStatus());
         });
@@ -276,152 +162,96 @@ public class NodeRepairTest extends ClusterTestBase {
     @Test
     void missedRangeDelete() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            // Reference key
-            final int records = 512;
-            final var value = randomValue();
-            final List<String> ids = new ArrayList<>(records * 2);
-            final List<String> missedIds = new ArrayList<>(records);
+            final int recordsCount = 512;
             long startMissedRange = Long.MAX_VALUE;
             long endMissedRange = 0;
-            
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
-            
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                missedIds.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
-            
-            stop(0);
-            for (int i = 0; i < records; i++) {
-                final var id = missedIds.get(i);
-                final var longHash =
-                        longHash(
-                                deadHash(
-                                        Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
-                                                ByteBuffer.allocate(0))
-                                )
-                        );
-                if (longHash < startMissedRange) {
-                    startMissedRange = longHash;
+
+            final var records = fillRandomValues(1, recordsCount);
+            final var missedRecords = fillRandomValues(1, recordsCount);
+
+            try (final var ignored = new StoppedNode(0)) {
+                deleteRange(ignored.node + 1, missedRecords);
+                for (final var rec : missedRecords) {
+                    final var longHash =
+                            longHash(deadHash(rec.toRecord()));
+                    startMissedRange = Math.min(startMissedRange, longHash);
+                    endMissedRange = Math.max(endMissedRange, longHash);
                 }
-                if (longHash > endMissedRange) {
-                    endMissedRange = longHash;
-                }
-                assertEquals(202, delete(1, id).getStatus());
             }
-            
-            createAndStart(0);
-            for (int i = 0; i < records; i++) {
-                final var id = randomId();
-                ids.add(id);
-                assertEquals(201, upsert(1, id, value).getStatus());
-            }
-            
+
+            records.addAll(fillRandomValues(1, recordsCount));
+
             assertEquals(200, repair(0, startMissedRange, endMissedRange).getStatus());
-            
-            for (final var idElement :
-                    ids) {
-                checkResponse(200, value, get(0, idElement, 1, getClusterSize()));
-            }
-            
-            
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
-            
-            for (final var idElement :
-                    missedIds) {
-                assertEquals(404, get(0, idElement, 1, getClusterSize()).getStatus());
-            }
+
+            checkGetExist(0, records);
+
+            stopExceptOne(0);
+
+            checkGetDeleted(0, missedRecords);
         });
     }
     
     @Test
     void missedValueRange() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            final var value = randomValue();
-            
-            stop(0);
-            
-            final var id = randomId();
-            final var longHash =
-                    longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
-                            ByteBuffer.wrap(value))));
-            assertEquals(201, upsert(1, id, value, 2, 3).getStatus());
-            
-            waitForVersionAdvancement();
-            
-            createAndStart(0);
+            final long longHash;
+            final RecordRequest rec;
+    
+            try (final var ignored = new StoppedNode(0)) {
+                rec = fillRandomValue(ignored.node + 1);
+                longHash = longHash(hash(rec.toRecord()));
+            }
             
             assertEquals(200, repair(0, longHash, longHash).getStatus());
             
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
-            }
+            stopExceptOne(0);
             
-            assertEquals(200, get(0, id, 1, getClusterSize()).getStatus());
+            checkResponse(200, rec.value, get(0, rec.id, 1, getClusterSize()));
         });
     }
     
     @Test
     void rewriteValue() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-        
-            stop(0);
-        
-            final var id = randomId();
-            final var value1 = randomValue();
-            final var longHash =
-                    longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
-                            ByteBuffer.wrap(value1))));
-            assertEquals(201, upsert(1, id, value1).getStatus());
-        
-            createAndStart(0);
-    
-            final var value2 = randomValue();
-            assertEquals(201, upsert(1, id, value2).getStatus());
-        
-            assertEquals(200, repair(0, longHash, longHash).getStatus());
-        
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
+            final long longHash;
+            final RecordRequest record;
+            
+            try (final var ignored = new StoppedNode(0)) {
+                record = fillRandomValue(ignored.node + 1);
+                longHash =
+                        longHash(hash(record.toRecord()));
             }
-        
-            checkResponse(200, value2, get(0, id, 1, getClusterSize()));
+            
+            final var value2 = randomValue();
+            assertEquals(201, upsert(1, record.id, value2).getStatus());
+            
+            assertEquals(200, repair(0, longHash, longHash).getStatus());
+            
+            stopExceptOne(0);
+            
+            checkResponse(200, value2, get(0, record.id, 1, getClusterSize()));
         });
     }
     
     @Test
     void resurrectValue() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-        
-            final var id = randomId();
-            final var value1 = randomValue();
-            final var longHash =
-                    longHash(hash(Record.of(ByteBuffer.wrap(id.getBytes(Charsets.UTF_8)),
-                            ByteBuffer.wrap(value1))));
-            assertEquals(201, upsert(1, id, value1).getStatus());
             
-            stop(0);
-            assertEquals(202, delete(1, id).getStatus());
-        
-            createAndStart(0);
-        
-            final var value2 = randomValue();
-            assertEquals(201, upsert(1, id, value2).getStatus());
-        
-            assertEquals(200, repair(0, longHash, longHash).getStatus());
-        
-            for (int node = 1; node < getClusterSize(); node++) {
-                stop(node);
+            final var record = fillRandomValue(1);
+            final var longHash = longHash(hash(record.toRecord()));
+    
+            try (final var ignored = new StoppedNode(0)) {
+                assertEquals(202, delete(ignored.node + 1, record.id).getStatus());
             }
-        
-            checkResponse(200, value2, get(0, id, 1, getClusterSize()));
+            
+            final var value2 = randomValue();
+            assertEquals(201, upsert(1, record.id, value2).getStatus());
+            
+            assertEquals(200, repair(0, longHash, longHash).getStatus());
+            
+            stopExceptOne(0);
+            
+            checkResponse(200, value2, get(0, record.id, 1, getClusterSize()));
         });
     }
 }
