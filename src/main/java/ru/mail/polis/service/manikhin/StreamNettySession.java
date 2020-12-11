@@ -4,14 +4,13 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
-
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
-import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedStream;
 import org.jetbrains.annotations.NotNull;
@@ -45,7 +44,7 @@ public class StreamNettySession extends ChannelDuplexHandler {
     }
 
     @Override
-    public void channelInactive(@NotNull final ChannelHandlerContext ctx){
+    public void channelInactive(@NotNull final ChannelHandlerContext ctx) {
         ctx.flush();
     }
 
@@ -75,6 +74,6 @@ public class StreamNettySession extends ChannelDuplexHandler {
 
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).isCancelled();
 
-        if(!HttpUtil.isKeepAlive(currentRequest)) ctx.channel().close().isCancelled();
+        if (!HttpUtil.isKeepAlive(currentRequest)) ctx.channel().close().isCancelled();
     }
 }

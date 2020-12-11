@@ -354,15 +354,7 @@ public class ServiceUtils {
                         @NotNull final CompletableFuture<FullHttpResponse> response) {
         response.whenComplete((r, t) -> {
             if (t == null) {
-                if (HttpUtil.isKeepAlive(request)) {
-                    r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-                    ctx.writeAndFlush(r).isCancelled();
-                } else {
-                    r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-                    ctx.writeAndFlush(r).addListener(ChannelFutureListener.CLOSE);
-                }
-
-                request.retain().release();
+                writeResponse(ctx, request, r);
             } else {
                 final HttpResponseStatus code;
 
@@ -396,7 +388,19 @@ public class ServiceUtils {
         );
 
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
+        writeResponse(ctx, request, response);
+    }
 
+    /** Forward checker.
+     *
+     * @param request - input HTTP request
+     * */
+    public boolean isForwarded(@NotNull final FullHttpRequest request) {
+        return request.headers().contains(ServiceUtils.PROXY_HEADER);
+    }
+
+    private static void writeResponse(@NotNull ChannelHandlerContext ctx, @NotNull FullHttpRequest request,
+                                      @NotNull FullHttpResponse response) {
         if (HttpUtil.isKeepAlive(request)) {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
             ctx.writeAndFlush(response).isCancelled();
@@ -406,13 +410,5 @@ public class ServiceUtils {
         }
 
         request.retain().release();
-    }
-
-    /** Forward checker.
-     *
-     * @param request - input HTTP request
-     * */
-    public boolean isForwarded(@NotNull final FullHttpRequest request) {
-        return request.headers().contains(ServiceUtils.PROXY_HEADER);
     }
 }
