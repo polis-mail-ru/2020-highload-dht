@@ -49,7 +49,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
     }
 
     @Override
-    protected void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
+    public void channelRead0(final ChannelHandlerContext ctx, final FullHttpRequest msg) {
         final String uri = msg.uri();
 
         if (uri.equals(STATUS_PATH)) {
@@ -79,7 +79,7 @@ public class NettyRequests extends SimpleChannelInboundHandler<FullHttpRequest> 
             final ByteBuffer to = (end == null) ? null : ByteBuffer.wrap(end.get(0).getBytes(StandardCharsets.UTF_8));
 
             final Iterator<Record> iterator = serviceUtils.getRange(from, to);
-            final StreamNettySession session = new StreamNettySession(iterator);
+            final StreamNettySession session = new StreamNettySession(iterator, request);
             session.startStream(ctx);
         } catch (IllegalArgumentException | IOException error) {
             log.error("IO exception error: ", error);

@@ -3,10 +3,11 @@ package ru.mail.polis.service.manikhin;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollServerSocketChannel;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,37 +57,30 @@ public class NettyAsyncServiceImpl implements Service {
         this.utils = new ServiceUtils(dao, executor);
         this.replicaHelper = new ReplicasNettyRequests(nodes, client, utils);
 
-        this.bossGroup = new NioEventLoopGroup();
-        this.workersGroup = new NioEventLoopGroup();
+        this.bossGroup = new EpollEventLoopGroup(1);
+        this.workersGroup = new EpollEventLoopGroup(countOfWorkers);
     }
 
     @Override
     public void start() throws InterruptedException {
         final ServerBootstrap serverBootstrap = new ServerBootstrap();
-        serverBootstrap.group(bossGroup, workersGroup).channel(NioServerSocketChannel.class)
+        serverBootstrap.group(bossGroup, workersGroup).channel(EpollServerSocketChannel.class)
                 .childHandler(new NettyInit(replicaHelper, utils, clusterSize))
                 .option(ChannelOption.SO_BACKLOG, 128)
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
-        final ChannelFuture future = serverBootstrap.bind(port);
 
-        try {
-            future.sync().isCancelled();
-        } catch (InterruptedException error) {
-            log.error("Can't stop server! Error: ", error);
-            bossGroup.shutdownGracefully().isCancelled();
-            workersGroup.shutdownGracefully().isCancelled();
-            Thread.currentThread().interrupt();
-        }
+        final ChannelFuture future = serverBootstrap.bind(port).sync();
+        future.channel().closeFuture().addListener(ChannelFutureListener.CLOSE);
     }
 
     @Override
     public synchronized void stop() {
         executor.shutdown();
+        bossGroup.shutdownGracefully().isCancelled();
+        workersGroup.shutdownGracefully().isCancelled();
 
         try {
             executor.awaitTermination(10, TimeUnit.SECONDS);
-            bossGroup.shutdownGracefully().isCancelled();
-            workersGroup.shutdownGracefully().isCancelled();
         } catch (InterruptedException error) {
             log.error("Can't stop server! Error: ", error);
             Thread.currentThread().interrupt();

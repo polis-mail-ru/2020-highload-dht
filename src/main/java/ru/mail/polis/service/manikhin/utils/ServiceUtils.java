@@ -2,6 +2,7 @@ package ru.mail.polis.service.manikhin.utils;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -289,6 +290,7 @@ public class ServiceUtils {
         final ByteBuf bufferCopy = buffer.retainedDuplicate();
         final byte[] array = new byte[bufferCopy.readableBytes()];
         bufferCopy.readBytes(array);
+        buffer.release();
 
         return array;
     }
@@ -354,11 +356,13 @@ public class ServiceUtils {
             if (t == null) {
                 if (HttpUtil.isKeepAlive(request)) {
                     r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                    ctx.writeAndFlush(r).isCancelled();
                 } else {
                     r.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+                    ctx.writeAndFlush(r).addListener(ChannelFutureListener.CLOSE);
                 }
 
-                ctx.writeAndFlush(r).isCancelled();
+                request.retain().release();
             } else {
                 final HttpResponseStatus code;
 
@@ -395,11 +399,13 @@ public class ServiceUtils {
 
         if (HttpUtil.isKeepAlive(request)) {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+            ctx.writeAndFlush(response).isCancelled();
         } else {
             response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+            ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
         }
 
-        ctx.writeAndFlush(response).isCancelled();
+        request.retain().release();
     }
 
     /** Forward checker.

@@ -4,9 +4,12 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
+
 import io.netty.handler.codec.http.DefaultHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.LastHttpContent;
@@ -20,23 +23,30 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class StreamNettySession extends ChannelDuplexHandler {
     private final Iterator<Record> iterator;
+    private final FullHttpRequest currentRequest;
 
     /**
      * Stream netty service session.
      *
      * @param iterator - record iterator from DAO storage
      * */
-    public StreamNettySession(final Iterator<Record> iterator) {
+    public StreamNettySession(final Iterator<Record> iterator, @NotNull FullHttpRequest request) {
         this.iterator = iterator;
+        this.currentRequest = request;
     }
 
     @Override
-    public void channelWritabilityChanged(@NotNull final ChannelHandlerContext ctx) throws Exception {
-        super.channelWritabilityChanged(ctx);
+    public void channelActive(@NotNull final ChannelHandlerContext ctx) throws Exception {
+        super.channelActive(ctx);
 
-        if (iterator != null) {
+        if (iterator != null && ctx.channel().isWritable()) {
             stream(ctx);
         }
+    }
+
+    @Override
+    public void channelInactive(@NotNull final ChannelHandlerContext ctx){
+        ctx.flush();
     }
 
     /**
@@ -55,7 +65,7 @@ public class StreamNettySession extends ChannelDuplexHandler {
     }
 
     private void stream(@NotNull final ChannelHandlerContext ctx) {
-        while (iterator.hasNext()) {
+        while (iterator.hasNext() && ctx.channel().isWritable()) {
             final Record record = iterator.next();
             final byte [] data = StreamUtils.formNettyChunk(record.getKey(), record.getValue());
             final ChunkedStream chunk = new ChunkedStream(new ByteBufInputStream(Unpooled.copiedBuffer(data)));
@@ -64,5 +74,7 @@ public class StreamNettySession extends ChannelDuplexHandler {
         }
 
         ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).isCancelled();
+
+        if(!HttpUtil.isKeepAlive(currentRequest)) ctx.channel().close().isCancelled();
     }
 }
