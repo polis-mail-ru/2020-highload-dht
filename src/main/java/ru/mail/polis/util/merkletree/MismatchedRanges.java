@@ -108,14 +108,14 @@ public class MismatchedRanges {
             final boolean isEqual = Arrays.equals(hash1, hash2);
             
             if (!isEqual) {
-                if (!node1.isLeaf() && !node2.isLeaf()) {
+                if (node1.isLeaf() || node2.isLeaf()) {
+                    result.add(new Range(node1));
+                } else {
                     nodeQueue1.add(node1.left());
                     nodeQueue1.add(node1.right());
                     
                     nodeQueue2.add(node2.left());
                     nodeQueue2.add(node2.right());
-                } else {
-                    result.add(new Range(node1));
                 }
             }
         }
