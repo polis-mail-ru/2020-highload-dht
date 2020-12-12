@@ -14,8 +14,7 @@ public interface Topology<N> {
                                         final Request request,
                                         final CompletableFuture<Response> localResponse,
                                         final HttpClient httpClient,
-                                        final AckFrom ackFrom,
-                                        final HttpHelper httpHelper);
+                                        final AckFrom ackFrom);
 
     @NotNull
     N[] getReplicas(@NotNull final ByteBuffer key, final int countReplicas);

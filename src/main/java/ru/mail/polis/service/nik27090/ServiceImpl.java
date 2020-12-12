@@ -80,7 +80,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
         this.httpHelper = new HttpHelper(executorService);
         this.daoHelper = new DaoHelper(dao, executorService);
-        this.topology = new RendezvousTopology(topology,"http://localhost:" + port);
+        this.topology = new RendezvousTopology(topology, "http://localhost:" + port, httpHelper);
 
         this.httpClient =
                 java.net.http.HttpClient.newBuilder()
@@ -205,8 +205,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         request,
                         daoHelper.getEntity(key),
                         httpClient,
-                        ackFrom,
-                        httpHelper)
+                        ackFrom)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.OK
                         || response.getStatus() == ResponseCode.NOT_FOUND)
@@ -239,8 +238,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         request,
                         daoHelper.delEntity(key),
                         httpClient,
-                        ackFrom,
-                        httpHelper)
+                        ackFrom)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.ACCEPTED)
                 .collect(Collectors.toList());
@@ -273,8 +271,7 @@ public class ServiceImpl extends HttpServer implements Service {
                         request,
                         daoHelper.putEntity(key, value),
                         httpClient,
-                        ackFrom,
-                        httpHelper)
+                        ackFrom)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.CREATED)
                 .collect(Collectors.toList());

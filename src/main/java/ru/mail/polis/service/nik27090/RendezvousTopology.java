@@ -2,7 +2,6 @@ package ru.mail.polis.service.nik27090;
 
 import one.nio.http.Request;
 import one.nio.http.Response;
-import org.apache.commons.codec.digest.MurmurHash3;
 import org.jetbrains.annotations.NotNull;
 
 import java.net.http.HttpClient;
@@ -26,6 +25,7 @@ public class RendezvousTopology implements Topology<String> {
     private final String[] nodes;
     @NotNull
     private final String currentNode;
+    private final HttpHelper httpHelper;
 
     /**
      * Rendezvous topology.
@@ -34,9 +34,11 @@ public class RendezvousTopology implements Topology<String> {
      * @param currentNode - currentNode.
      */
     public RendezvousTopology(@NotNull final Set<String> nodes,
-                              @NotNull final String currentNode) {
+                              @NotNull final String currentNode,
+                              final HttpHelper httpHelper) {
         this.currentNode = currentNode;
         assert nodes.contains(currentNode);
+        this.httpHelper = httpHelper;
 
         this.nodes = new String[nodes.size()];
         nodes.toArray(this.nodes);
@@ -48,8 +50,7 @@ public class RendezvousTopology implements Topology<String> {
                                                final Request request,
                                                final CompletableFuture<Response> localResponse,
                                                final HttpClient httpClient,
-                                               final AckFrom ackFrom,
-                                               final HttpHelper httpHelper) {
+                                               final AckFrom ackFrom) {
         final List<CompletableFuture<Response>> responses = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (isCurrentNode(node)) {
@@ -77,7 +78,7 @@ public class RendezvousTopology implements Topology<String> {
         final String[] currentReplicas = new String[countReplicas];
 
         for (final String node : nodes) {
-            final int hashCode =  murmur3_32().newHasher()
+            final int hashCode = murmur3_32().newHasher()
                     .putString(node, StandardCharsets.UTF_8).putInt(key.hashCode()).hash().hashCode();
             replicasHash.put(hashCode, node);
         }

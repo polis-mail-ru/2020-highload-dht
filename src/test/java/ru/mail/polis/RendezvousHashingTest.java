@@ -32,11 +32,11 @@ public class RendezvousHashingTest {
     }
 
     @Test
-    void changeResistant() {
+    void changeResistantTest() {
         final Set<String> nodes = randomNodes(5);
-        final Topology<String> oldCluster = new RendezvousTopology(nodes, CURRENT_NODE);
+        final Topology<String> oldCluster = new RendezvousTopology(nodes, CURRENT_NODE, null);
         nodes.add(randomNode());
-        final Topology<String> newCluster = new RendezvousTopology(nodes, CURRENT_NODE);
+        final Topology<String> newCluster = new RendezvousTopology(nodes, CURRENT_NODE, null);
         int countKeysForNewNode = 0;
         for (int i = 0; i < KEYS_COUNT; i++) {
             final ByteBuffer key = randomKey();
@@ -95,6 +95,6 @@ public class RendezvousHashingTest {
     }
 
     private Topology<String> createTopology(Set<String> nodes) {
-        return new RendezvousTopology(nodes, CURRENT_NODE);
+        return new RendezvousTopology(nodes, CURRENT_NODE, null);
     }
 }
