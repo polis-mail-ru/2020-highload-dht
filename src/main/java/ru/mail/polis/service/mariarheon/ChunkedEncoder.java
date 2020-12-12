@@ -24,13 +24,12 @@ public class ChunkedEncoder {
      */
     public ChunkedEncoder(final HttpSession session) throws IOException {
         this.session = session;
-        final var builder = new StringBuilder();
-        builder.append("HTTP/1.1 200 OK\r\n");
-        builder.append("Connection: Keep-Alive\r\n");
-        builder.append("Content-Type: text/plain\r\n");
-        builder.append("Transfer-Encoding: chunked\r\n");
-        builder.append("\r\n");
-        final var head = builder.toString().getBytes(StandardCharsets.UTF_8);
+        final var head = ("HTTP/1.1 200 OK\r\n" +
+                "Connection: Keep-Alive\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "Transfer-Encoding: chunked\r\n" +
+                "\r\n")
+                .getBytes(StandardCharsets.UTF_8);
         session.write(head, 0, head.length);
     }
 

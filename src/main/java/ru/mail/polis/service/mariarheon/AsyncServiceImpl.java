@@ -16,7 +16,6 @@ import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -114,20 +113,17 @@ public class AsyncServiceImpl extends HttpServer implements Service {
     @RequestMethod({METHOD_GET, METHOD_PUT, METHOD_DELETE})
     public void handleEntityRequest(final @Param(value = "id", required = true) String key,
                     final @Param(value = "replicas") String replicasParameter,
-                    final @Param(value = Util.MYSELF_PARAMETER) String myself,
                     @NotNull final HttpSession session,
                     final @Param("request") Request request) {
-        final String timestampStr = request.getParameter("timestamp");
-        final long timestamp = Util.parseTimestamp(timestampStr);
+        final long timestamp = Util.parseTimestamp(request.getHeader(Util.TIMESTAMP_HEADER));
         logger.info("\n" + sharding.getMe() + ": Start " + request.getMethodName()
                 + (replicasParameter == null ? "" : " " + replicasParameter)
-                + (myself == null ? "" : " myself")
                 + TIMESTAMP_STR + timestamp);
         if (key.isEmpty()) {
             trySendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
-        if (myself != null) {
+        if (timestamp != 0) {
             final var resp = processLocalRequest(key, request, timestamp);
             try {
                 trySendResponse(session, resp.get());
@@ -153,7 +149,7 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                                 final @Param("request") Request request) {
         final var responsibleNodes = sharding.getResponsibleNodes(key, replicas);
         final var composer = new ReplicasResponseComposer(replicas);
-        final var timestamp = new Date().getTime();
+        final var timestamp = System.currentTimeMillis();
         for (final var node : responsibleNodes) {
             CompletableFuture<Response> answer;
             final int id = rnd.nextInt(100);
@@ -162,8 +158,8 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                 answer = processLocalRequest(key, request, timestamp);
             } else {
                 logger.info("\n" + sharding.getMe() + ": pass on to " + node + " (id=" + id + ")");
-                final var changedRequest = Util.prepareRequestForPassingOn(request, timestamp);
-                answer = sharding.passOn(node, changedRequest);
+                final var changedRequest = Util.prepareRequestForPassingOn(request, node, timestamp);
+                answer = sharding.passOn(changedRequest);
             }
             answer.exceptionally(ex -> {
                 logger.error(SERV_UN, ex);
@@ -179,9 +175,11 @@ public class AsyncServiceImpl extends HttpServer implements Service {
                     if (composer.answerIsReady()) {
                         logger.info("\n" + sharding.getMe() + ": answer is ready");
                         final var readRepairInfo = composer.getReadRepairInfo(key);
-                        final var repairer = new ReadRepairer(sharding,
-                                dao, readRepairInfo);
-                        repairer.repair();
+                        if (readRepairInfo != null) {
+                            final var repairer = new ReadRepairer(sharding,
+                                    dao, readRepairInfo);
+                            repairer.repair();
+                        }
                         final var requiredResponse = composer.getComposedResponse();
                         trySendResponse(session, requiredResponse);
                     }

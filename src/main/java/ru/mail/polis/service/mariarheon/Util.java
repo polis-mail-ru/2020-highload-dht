@@ -2,6 +2,8 @@ package ru.mail.polis.service.mariarheon;
 
 import one.nio.http.Request;
 
+import java.net.URI;
+import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -9,7 +11,7 @@ import java.util.Date;
 import java.util.List;
 
 public final class Util {
-    public static final String MYSELF_PARAMETER = "myself";
+    public static final String TIMESTAMP_HEADER = "X-Proxy-Timestamp";
 
     private Util() {
         /* nothing */
@@ -74,9 +76,9 @@ public final class Util {
      */
     public static long parseTimestamp(final String timestampAsStr) {
         if (timestampAsStr == null) {
-            return -1;
+            return 0;
         }
-        return Long.parseLong(timestampAsStr.substring(1));
+        return Long.parseLong(timestampAsStr.substring(2));
     }
 
     /**
@@ -97,20 +99,15 @@ public final class Util {
      * and timestamp parameter.
      *
      * @param request - request which should be used for creating the new one.
+     * @param node - destination host.
      * @param timestamp - required timestamp parameter value.
      * @return - cloned request (prepared for passing on).
      */
-    public static Request prepareRequestForPassingOn(final Request request,
-                                                      final long timestamp) {
-        if (request.getParameter(MYSELF_PARAMETER) != null) {
-            return request;
-        }
-        final var newURI = request.getURI() + "&" + MYSELF_PARAMETER + "=&timestamp=" + timestamp;
-        final var res = new Request(request.getMethod(), newURI, request.isHttp11());
-        for (int i = 0; i < request.getHeaderCount(); i++) {
-            res.addHeader(request.getHeaders()[i]);
-        }
-        res.setBody(request.getBody());
-        return res;
+    public static HttpRequest prepareRequestForPassingOn(final Request request,
+                                                         final String node,
+                                                         final long timestamp) {
+        final var uri = URI.create(node + request.getURI());
+        return RequestFactory.create(uri, request.getMethod(), request.getBody(),
+                timestamp);
     }
 }

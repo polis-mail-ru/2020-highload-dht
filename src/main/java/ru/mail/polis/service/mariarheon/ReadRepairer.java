@@ -1,6 +1,7 @@
 package ru.mail.polis.service.mariarheon;
 
 import one.nio.http.Request;
+import one.nio.http.Response;
 import one.nio.util.URLEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,15 +9,21 @@ import ru.mail.polis.dao.DAO;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Class for repairing nodes.
+ */
 public class ReadRepairer {
     private static final Logger logger = LoggerFactory.getLogger(AsyncServiceImpl.class);
 
     private final ReadRepairInfo repairInfo;
     private final RendezvousSharding sharding;
     private final DAO dao;
+    private List<CompletableFuture<Void>> responses;
 
     /**
      * Create repairer for read-repair functionality.
@@ -34,50 +41,42 @@ public class ReadRepairer {
     }
 
     private void passOn(final String node, final Record record) {
-        final var uri = "/v0/entity?" + Util.MYSELF_PARAMETER + "="
-                + "&id=" + URLEncoder.encode(record.getKey())
-                + "&timestamp=" + record.getTimestamp().getTime();
-
+        final var uri = URI.create(node + "/v0/entity?id=" +
+                URLEncoder.encode(record.getKey()));
         int method;
         if (record.isRemoved()) {
             method = Request.METHOD_DELETE;
         } else {
             method = Request.METHOD_PUT;
         }
-        final var request = new Request(method, uri, true);
-        try {
-            request.addHeader("Host: " + new URI(uri).getHost());
-        } catch (URISyntaxException e) {
-            logger.error("Failed to parse uri", e);
-            return;
+        byte[] body = null;
+        if (!record.isRemoved()) {
+            body = record.getValue();
         }
-        request.addHeader("Connection: Keep-Alive");
-        if (record.isRemoved()) {
-            request.addHeader("Content-Length: 0");
-            request.setBody(new byte[]{});
-        } else {
-            final var val = record.getValue();
-            request.addHeader("Content-Length: " + val.length);
-            request.setBody(val);
-        }
-        try {
-            final var res = sharding.passOn(node, request)
-                .get();
-            logger.info("\n" + sharding.getMe() + ": Repair response status = "
-                    + res.getStatus() + " from " + node);
-        } catch (InterruptedException | ExecutionException e) {
-            logger.error("Failed to read-repair", e);
-        }
+        final var request = RequestFactory.create(uri, method, body,
+                record.getTimestamp().getTime());
+        final var res = sharding.passOn(request)
+                .exceptionally(ex -> {
+                    logger.error("Read repair failed for " + node, ex);
+                    return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+                })
+                .thenAccept(resp -> {
+                    logger.info("\n" + sharding.getMe() + ": Repair response status = "
+                            + resp.getStatus() + " from " + node);
+                })
+                .exceptionally(ex -> {
+                    logger.error("Read repair: logging failed", ex);
+                    return null;
+                });
+        responses.add(res);
     }
 
     /**
      * Repair nodes with old value.
      */
     public void repair() {
-        if (repairInfo == null) {
-            return;
-        }
         logger.info("\n#start repairing");
+        responses = new ArrayList<CompletableFuture<Void>>();
         final var rightRecord = repairInfo.getRightRecord();
         final var nodes = repairInfo.getNodes();
         for (final var node : nodes) {
@@ -95,6 +94,13 @@ public class ReadRepairer {
                         + Util.loggingValue(rightRecord.getValue()) + " timestamp=("
                         + rightRecord.getTimestamp().getTime() + ")");
                 passOn(node, rightRecord);
+            }
+        }
+        for (final var resp : responses) {
+            try {
+                resp.get();
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Read-repair: failed to wait the task \"repair the node\"", e);
             }
         }
     }

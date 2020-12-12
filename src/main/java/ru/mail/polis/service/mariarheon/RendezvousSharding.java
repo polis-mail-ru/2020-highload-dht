@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -98,15 +99,14 @@ public class RendezvousSharding {
 
     /**
      * Pass request to another node.
-     * @param to node where request should be sent.
      * @param request the request.
      * @return response from node.
      */
-    public CompletableFuture<Response> passOn(final String to, final Request request) {
-        final var javaHttpRequest = RequestConverter.convert(request, to);
-        final var httpClient = clients.get(to);
+    public CompletableFuture<Response> passOn(final HttpRequest request) {
+        final var httpClient = clients.get(request.uri().getScheme() + "://" +
+                request.uri().getHost() + ":" + request.uri().getPort());
         final var bodyHandler = HttpResponse.BodyHandlers.ofByteArray();
-        return httpClient.sendAsync(javaHttpRequest, bodyHandler)
+        return httpClient.sendAsync(request, bodyHandler)
                 .thenApply(ResponseConverter::convert)
                 .exceptionally(ex -> {
                     logger.error("Exception occured when passing on", ex);
