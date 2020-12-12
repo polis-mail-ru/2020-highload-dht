@@ -18,14 +18,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static com.google.common.hash.Hashing.murmur3_32;
+
 public class RendezvousTopology implements Topology<String> {
 
     @NotNull
     private final String[] nodes;
     @NotNull
     private final String currentNode;
-    @NotNull
-    private final HttpHelper httpHelper;
 
     /**
      * Rendezvous topology.
@@ -34,12 +34,10 @@ public class RendezvousTopology implements Topology<String> {
      * @param currentNode - currentNode.
      */
     public RendezvousTopology(@NotNull final Set<String> nodes,
-                              @NotNull final String currentNode,
-                              @NotNull final HttpHelper httpHelper) {
+                              @NotNull final String currentNode) {
         this.currentNode = currentNode;
         assert nodes.contains(currentNode);
 
-        this.httpHelper = httpHelper;
         this.nodes = new String[nodes.size()];
         nodes.toArray(this.nodes);
     }
@@ -50,7 +48,8 @@ public class RendezvousTopology implements Topology<String> {
                                                final Request request,
                                                final CompletableFuture<Response> localResponse,
                                                final HttpClient httpClient,
-                                               final AckFrom ackFrom) {
+                                               final AckFrom ackFrom,
+                                               final HttpHelper httpHelper) {
         final List<CompletableFuture<Response>> responses = new ArrayList<>(nodes.size());
         for (final String node : nodes) {
             if (isCurrentNode(node)) {
@@ -78,8 +77,8 @@ public class RendezvousTopology implements Topology<String> {
         final String[] currentReplicas = new String[countReplicas];
 
         for (final String node : nodes) {
-            final int hashCode = MurmurHash3.hash32x86(getBytes(key))
-                    + MurmurHash3.hash32x86(node.getBytes(StandardCharsets.UTF_8));
+            final int hashCode =  murmur3_32().newHasher()
+                    .putString(node, StandardCharsets.UTF_8).putInt(key.hashCode()).hash().hashCode();
             replicasHash.put(hashCode, node);
         }
         final List<Integer> sortedHash = replicasHash
@@ -119,12 +118,6 @@ public class RendezvousTopology implements Topology<String> {
     @Override
     public boolean isProxyReq(final Request request) {
         return request.getHeader("X-Proxy-For") != null;
-    }
-
-    private byte[] getBytes(final ByteBuffer byteBuffer) {
-        final byte[] bytes = new byte[byteBuffer.remaining()];
-        byteBuffer.duplicate().get(bytes);
-        return bytes;
     }
 
     @Override

@@ -9,6 +9,7 @@ import one.nio.http.Path;
 import one.nio.http.Request;
 import one.nio.http.RequestMethod;
 import one.nio.http.Response;
+import one.nio.net.Socket;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -79,7 +80,7 @@ public class ServiceImpl extends HttpServer implements Service {
 
         this.httpHelper = new HttpHelper(executorService);
         this.daoHelper = new DaoHelper(dao, executorService);
-        this.topology = new RendezvousTopology(topology,"http://localhost:" + port, httpHelper);
+        this.topology = new RendezvousTopology(topology,"http://localhost:" + port);
 
         this.httpClient =
                 java.net.http.HttpClient.newBuilder()
@@ -157,6 +158,33 @@ public class ServiceImpl extends HttpServer implements Service {
         }, executorService);
     }
 
+    /**
+     * Get range data.
+     *
+     * @param session - session
+     * @param start   - first key of storage
+     * @param end     - last key of storage
+     */
+    @Path("/v0/entities")
+    public void entitiesHandler(
+            @NotNull final HttpSession session,
+            @NotNull final @Param(value = "start", required = true) String start,
+            @NotNull final @Param(value = "end") String end) {
+        if (start.isEmpty()) {
+            httpHelper.sendResponse(session, new Response(Response.BAD_REQUEST, Response.EMPTY));
+            return;
+        }
+        try {
+            ((RecordStreamingSession) session).setIterator(
+                    session,
+                    new ChunkIterator(daoHelper.getRange(start, end))
+            );
+        } catch (IOException e) {
+            log.error("Can't get range from dao", e);
+            httpHelper.sendResponse(session, new Response(Response.INTERNAL_ERROR, Response.EMPTY));
+        }
+    }
+
     private void getEntityExecutor(final String id,
                                    final HttpSession session,
                                    final Request request,
@@ -172,7 +200,13 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
 
         final List<Response> notFailedResponses = topology
-                .getResponseFromNodes(nodes, request, daoHelper.getEntity(key), httpClient, ackFrom)
+                .getResponseFromNodes(
+                        nodes,
+                        request,
+                        daoHelper.getEntity(key),
+                        httpClient,
+                        ackFrom,
+                        httpHelper)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.OK
                         || response.getStatus() == ResponseCode.NOT_FOUND)
@@ -200,7 +234,13 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
 
         final List<Response> notFailedResponses = topology
-                .getResponseFromNodes(nodes, request, daoHelper.delEntity(key), httpClient, ackFrom)
+                .getResponseFromNodes(
+                        nodes,
+                        request,
+                        daoHelper.delEntity(key),
+                        httpClient,
+                        ackFrom,
+                        httpHelper)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.ACCEPTED)
                 .collect(Collectors.toList());
@@ -228,7 +268,13 @@ public class ServiceImpl extends HttpServer implements Service {
                 .collect(Collectors.toList());
 
         final List<Response> notFailedResponses = topology
-                .getResponseFromNodes(nodes, request, daoHelper.putEntity(key, value), httpClient, ackFrom)
+                .getResponseFromNodes(
+                        nodes,
+                        request,
+                        daoHelper.putEntity(key, value),
+                        httpClient,
+                        ackFrom,
+                        httpHelper)
                 .stream()
                 .filter(response -> response.getStatus() == ResponseCode.CREATED)
                 .collect(Collectors.toList());
