@@ -1,6 +1,5 @@
 package ru.mail.polis.service.mariarheon;
 
-import one.nio.http.Request;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -103,8 +102,8 @@ public class RendezvousSharding {
      * @return response from node.
      */
     public CompletableFuture<Response> passOn(final HttpRequest request) {
-        final var httpClient = clients.get(request.uri().getScheme() + "://" +
-                request.uri().getHost() + ":" + request.uri().getPort());
+        final var httpClient = clients.get(request.uri().getScheme() + "://"
+                + request.uri().getHost() + ":" + request.uri().getPort());
         final var bodyHandler = HttpResponse.BodyHandlers.ofByteArray();
         return httpClient.sendAsync(request, bodyHandler)
                 .thenApply(ResponseConverter::convert)

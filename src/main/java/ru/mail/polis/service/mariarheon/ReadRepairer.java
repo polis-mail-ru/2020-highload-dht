@@ -41,8 +41,8 @@ public class ReadRepairer {
     }
 
     private void passOn(final String node, final Record record) {
-        final var uri = URI.create(node + "/v0/entity?id=" +
-                URLEncoder.encode(record.getKey()));
+        final var uri = URI.create(node + "/v0/entity?id="
+                + URLEncoder.encode(record.getKey()));
         int method;
         if (record.isRemoved()) {
             method = Request.METHOD_DELETE;
