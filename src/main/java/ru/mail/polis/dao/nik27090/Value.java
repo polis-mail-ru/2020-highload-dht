@@ -9,12 +9,24 @@ public final class Value implements Comparable<Value> {
     private final ByteBuffer content;
     private final long expires;
 
+    /**
+     * Constructor for alive Cell.
+     *
+     * @param timestamp - initialization time
+     * @param content - value
+     * @param expires - time to live
+     */
     public Value(final long timestamp, @NotNull final ByteBuffer content, final long expires) {
         this.timestamp = timestamp;
         this.content = content;
         this.expires = expires;
     }
 
+    /**
+     * Constructor for dead Cell.
+     *
+     * @param timestamp - negative value, means tombstone
+     */
     public Value(final long timestamp) {
         this.timestamp = timestamp;
         this.content = null;
