@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
  * @author Vadim Tsesko
  */
 class TwoNodeTest extends ClusterTestBase {
-    private static final Duration TIMEOUT = Duration.ofMinutes(1);
+    private static final Duration TIMEOUT = Duration.ofMinutes(100);
 
     @Override
     int getClusterSize() {

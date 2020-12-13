@@ -15,7 +15,8 @@ public interface Table {
      */
     void upsert(
             @NotNull ByteBuffer key,
-            @NotNull ByteBuffer value) throws IOException;
+            @NotNull ByteBuffer value,
+            long expires) throws IOException;
 
     /**
      * Removes value by given key.

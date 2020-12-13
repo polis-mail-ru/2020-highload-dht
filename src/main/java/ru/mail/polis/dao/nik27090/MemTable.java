@@ -32,8 +32,8 @@ public class MemTable implements Table {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
-        final Value valueOfElement = new Value(System.currentTimeMillis(), value.duplicate());
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, final long expires) {
+        final Value valueOfElement = new Value(System.currentTimeMillis(), value.duplicate(), expires);
         final Value prevValue = sortedMap.put(key.duplicate(), valueOfElement);
         if (prevValue == null) {
             sizeInBytes.addAndGet(sizeOfElement(key, valueOfElement));
@@ -74,9 +74,9 @@ public class MemTable implements Table {
     private static long sizeOfElement(final ByteBuffer key, final Value value) {
         final ByteBuffer contentSize = value.getContent();
         if (contentSize != null) {
-            return 118L + key.remaining() + value.getContent().remaining();
+            return 118L + 64L + key.remaining() + value.getContent().remaining();
         }
-        return 118L + key.remaining();
+        return 118L + 64L + key.remaining();
     }
 
     public int size() {

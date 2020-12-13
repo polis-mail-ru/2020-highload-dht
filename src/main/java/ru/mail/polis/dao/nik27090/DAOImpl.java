@@ -152,7 +152,8 @@ public class DAOImpl implements DAO {
             }
             final Iterator<Cell> merged = Iterators.mergeSorted(iterators, Cell.COMPARATOR);
             final Iterator<Cell> fresh = Iters.collapseEquals(merged, Cell::getKey);
-            return Iterators.filter(fresh, el -> el.getValue().getContent() != null);
+            return Iterators.filter(fresh, el -> (el.getValue().getContent() != null)
+                    && (el.getValue().getExpires() > System.currentTimeMillis()));
         } finally {
             lock.writeLock().unlock();
         }
@@ -160,10 +161,20 @@ public class DAOImpl implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
+        final long expires = Long.MAX_VALUE;
+        doUpsert(key, value, expires);
+    }
+
+    @Override
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, final long expires) throws IOException {
+        doUpsert(key, value, System.currentTimeMillis() + expires);
+    }
+
+    private void doUpsert(final ByteBuffer key, final ByteBuffer value, final long expires) {
         final boolean doFlush;
         lock.readLock().lock();
         try {
-            tableSet.mem.upsert(key.rewind().duplicate(), value.rewind().duplicate());
+            tableSet.mem.upsert(key.rewind().duplicate(), value.rewind().duplicate(), expires);
             doFlush = tableSet.mem.getSizeInBytes() > flushSize;
         } finally {
             lock.readLock().unlock();

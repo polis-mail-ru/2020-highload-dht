@@ -7,15 +7,18 @@ import java.nio.ByteBuffer;
 public final class Value implements Comparable<Value> {
     private final long timestamp;
     private final ByteBuffer content;
+    private final long expires;
 
-    public Value(final long timestamp, @NotNull final ByteBuffer content) {
+    public Value(final long timestamp, @NotNull final ByteBuffer content, final long expires) {
         this.timestamp = timestamp;
         this.content = content;
+        this.expires = expires;
     }
 
     public Value(final long timestamp) {
         this.timestamp = timestamp;
         this.content = null;
+        this.expires = 0;
     }
 
     public long getTimestamp() {
@@ -24,6 +27,10 @@ public final class Value implements Comparable<Value> {
 
     public ByteBuffer getContent() {
         return content;
+    }
+
+    public long getExpires() {
+        return expires;
     }
 
     @Override

@@ -61,6 +61,12 @@ abstract class ClusterTestBase extends TestBase {
     }
 
     @NotNull
+    private static String path(@NotNull final String id,
+                               final long expire) {
+        return "/v0/entity?id=" + id + "&expires=" + expire;
+    }
+
+    @NotNull
     private static String path(
             @NotNull final String id,
             final int ack,
@@ -226,5 +232,13 @@ abstract class ClusterTestBase extends TestBase {
             final int ack,
             final int from) throws Exception {
         return client(node).put(path(key, ack, from), data);
+    }
+
+    Response upsert(
+            final int node,
+            @NotNull final String key,
+            @NotNull final byte[] data,
+            final long expire) throws Exception {
+        return client(node).put(path(key, expire), data);
     }
 }

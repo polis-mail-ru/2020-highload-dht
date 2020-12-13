@@ -34,12 +34,12 @@ public class SSTable implements Table, Closeable {
         final ByteBuffer byteBuffer = ByteBuffer.allocate(Integer.BYTES);
         channel.read(byteBuffer);
         this.amountElement = byteBuffer.rewind().getInt();
-        this.indexStart = size - (amountElement + 1) * Integer.BYTES;
+        this.indexStart = size - (long) (amountElement + 1) * Integer.BYTES;
     }
 
     private int getOffset(final int numRow) throws IOException {
         final ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
-        channel.read(buf, indexStart + numRow * Integer.BYTES);
+        channel.read(buf, indexStart + (long) numRow * Integer.BYTES);
         return buf.rewind().getInt();
     }
 
@@ -58,6 +58,7 @@ public class SSTable implements Table, Closeable {
                 final Cell buf = iterator.next();
                 final ByteBuffer key = buf.getKey();
                 final Value value = buf.getValue();
+                final long ttl = value.getExpires();
                 final int keySize = key.remaining();
                 offset += Integer.BYTES + keySize + Long.BYTES;
                 fileChannel.write(ByteBuffer.allocate(Integer.BYTES)
@@ -74,11 +75,14 @@ public class SSTable implements Table, Closeable {
                             .rewind());
                     final ByteBuffer data = value.getContent();
                     final int valueSize = data.remaining();
-                    offset += Integer.BYTES + valueSize;
+                    offset += Integer.BYTES + valueSize + Long.BYTES;
                     fileChannel.write(ByteBuffer.allocate(Integer.BYTES)
                             .putInt(valueSize)
                             .rewind());
                     fileChannel.write(data);
+                    fileChannel.write(ByteBuffer.allocate(Long.BYTES)
+                            .putLong(ttl)
+                            .rewind());
                 }
             }
             final int offsetSize = offsets.size();
@@ -158,7 +162,10 @@ public class SSTable implements Table, Closeable {
             final ByteBuffer value = ByteBuffer.allocate(valueSize.rewind().getInt());
             offset += Integer.BYTES;
             channel.read(value, offset);
-            return new Cell(key, new Value(timestamp.rewind().getLong(), value.rewind()));
+            final ByteBuffer ttl = ByteBuffer.allocate(Long.BYTES);
+            offset += value.rewind().remaining();
+            channel.read(ttl, offset);
+            return new Cell(key, new Value(timestamp.rewind().getLong(), value.rewind(), ttl.rewind().getLong()));
         }
     }
 
@@ -175,7 +182,7 @@ public class SSTable implements Table, Closeable {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) {
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, final long expires) {
         throw new UnsupportedOperationException("Unsupported method!");
     }
 

@@ -126,6 +126,7 @@ public class ServiceImpl extends HttpServer implements Service {
     public void entityHandler(
             @NotNull final @Param(value = "id", required = true) String id,
             @NotNull final @Param(value = "replicas") String af,
+            @NotNull final @Param(value = "expires") Long expires,
             @NotNull final HttpSession session,
             @NotNull final Request request) {
         CompletableFuture.runAsync(() -> {
@@ -146,7 +147,7 @@ public class ServiceImpl extends HttpServer implements Service {
                     break;
                 case METHOD_PUT:
                     log.debug("PUT request: id = {}, value length = {}", id, request.getBody().length);
-                    putEntityExecutor(id, session, request, ackFrom);
+                    putEntityExecutor(id, session, request, ackFrom, expires);
                     break;
                 case METHOD_DELETE:
                     log.debug("DELETE request: id = {}", id);
@@ -253,12 +254,13 @@ public class ServiceImpl extends HttpServer implements Service {
     private void putEntityExecutor(final String id,
                                    final HttpSession session,
                                    final Request request,
-                                   final @NotNull AckFrom ackFrom) {
+                                   final AckFrom ackFrom,
+                                   final Long expires) {
         final ByteBuffer value = ByteBuffer.wrap(request.getBody());
         final ByteBuffer key = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
 
         if (topology.isProxyReq(request)) {
-            httpHelper.respond(session, daoHelper.putEntity(key, value));
+            httpHelper.respond(session, daoHelper.putEntity(key, value, expires));
             return;
         }
 
@@ -269,7 +271,7 @@ public class ServiceImpl extends HttpServer implements Service {
                 .getResponseFromNodes(
                         nodes,
                         request,
-                        daoHelper.putEntity(key, value),
+                        daoHelper.putEntity(key, value, expires),
                         httpClient,
                         ackFrom)
                 .stream()

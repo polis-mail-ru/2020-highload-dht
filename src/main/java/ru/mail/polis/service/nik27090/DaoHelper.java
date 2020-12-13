@@ -112,10 +112,14 @@ public class DaoHelper {
      * @param value - value
      * @return - response of request
      */
-    public CompletableFuture<Response> putEntity(final ByteBuffer key, final ByteBuffer value) {
+    public CompletableFuture<Response> putEntity(final ByteBuffer key, final ByteBuffer value, final Long expires) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                dao.upsert(key, value);
+                if (expires == null) {
+                    dao.upsert(key, value);
+                } else {
+                    dao.upsert(key, value, expires);
+                }
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException e) {
                 log.error("PUT Internal error.", e);
