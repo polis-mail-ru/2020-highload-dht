@@ -35,7 +35,7 @@ public class RendezvousTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public String getNodeForKey(@NotNull ByteBuffer key) {
+    public String getNodeForKey(@NotNull final ByteBuffer key) {
         int[] nodesHashes = new int[this.nodes.size()];
         for (int i = 0; i < nodes.size(); i++) {
             nodesHashes[i] = goodFastHash(32).newHasher()
@@ -43,12 +43,12 @@ public class RendezvousTopology implements Topology<String> {
                     .putInt(key.hashCode()).hash().hashCode();
         }
 
-        int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
+        final int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
         Arrays.sort(nodesSort);
 
         String neededNode = null;
         int i = 0;
-        for (final int node : nodesHashes)
+        for (final int node : nodesHashes) {
             if (node == nodesSort[0]) {
                 neededNode = nodes.get(i);
 
@@ -56,6 +56,7 @@ public class RendezvousTopology implements Topology<String> {
             } else {
                 i++;
             }
+        }
         return neededNode;
     }
 
@@ -77,13 +78,14 @@ public class RendezvousTopology implements Topology<String> {
 
         for (int j = 0; j < numOfReplicas; j++) {
             int i = 0;
-            for (final int node : nodesHashes)
+            for (final int node : nodesHashes) {
                 if (node == nodesSort[j]) {
                     repNodes[j] = nodes.get(i);
                     break;
                 } else {
                     i++;
                 }
+            }
         }
         return Arrays.asList(repNodes);
     }
@@ -95,7 +97,7 @@ public class RendezvousTopology implements Topology<String> {
     }
 
     @Override
-    public boolean isLocal(String nodeId) {
+    public boolean isLocal(final String nodeId) {
         return nodeId.equals(localNode);
     }
 

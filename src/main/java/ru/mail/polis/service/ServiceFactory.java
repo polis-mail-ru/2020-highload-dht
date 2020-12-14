@@ -46,7 +46,7 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final Topology<String> modularTopology = new RendezvousTopology(  topology, "http://localhost:" + port);
+        final Topology<String> modularTopology = new RendezvousTopology(topology, "http://localhost:" + port);
         final HttpServerConfig httpServerConfig = getHttpServerConfig(port);
         return new ReplicHttpServerImpl(
                 httpServerConfig,
