@@ -61,7 +61,7 @@ public class RendezvousTopology implements Topology<String> {
 
     @NotNull
     @Override
-    public List<String> getNodesForKey(@NotNull final ByteBuffer id, int replicas) {
+    public List<String> getNodesForKey(@NotNull final ByteBuffer id, final int numOfReplicas) {
         int[] nodesHashes = new int[this.nodes.size()];
         for (int i = 0; i < nodes.size(); i++) {
             nodesHashes[i] = goodFastHash(32).newHasher()
@@ -73,9 +73,9 @@ public class RendezvousTopology implements Topology<String> {
         int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
         Arrays.sort(nodesSort);
 
-        String[] repNodes = new String[replicas];
+        String[] repNodes = new String[numOfReplicas];
 
-        for (int j = 0; j < replicas; j++) {
+        for (int j = 0; j < numOfReplicas; j++) {
             int i = 0;
             for (final int node : nodesHashes)
                 if (node == nodesSort[j]) {

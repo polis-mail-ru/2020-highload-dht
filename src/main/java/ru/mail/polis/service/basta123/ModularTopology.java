@@ -31,7 +31,6 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     @Override
     public String getNodeForKey(@NotNull final ByteBuffer id) {
-        System.out.println(id);
         return this.nodes.get((id.hashCode() & Integer.MAX_VALUE) % this.nodes.size());
     }
 

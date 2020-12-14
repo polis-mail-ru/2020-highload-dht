@@ -84,7 +84,6 @@ public class HelperReplicHttpServerImpl {
                 } else {
                     response = clientAndNode.get(node)
                             .get(REQUEST_HEADER + id, ReplicHttpServerImpl.FORWARD_REQ);
-                    System.out.println("node = " + node);
                 }
                 if (response.getStatus() == 404 && response.getBody().length == 0) {
                     timestampValues.add(TimestampValue.getTimestampValue());
