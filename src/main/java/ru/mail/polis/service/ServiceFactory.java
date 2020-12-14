@@ -3,7 +3,7 @@ package ru.mail.polis.service;
 import one.nio.http.HttpServerConfig;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.basta123.ModularTopology;
+import ru.mail.polis.service.basta123.RendezvousTopology;
 import ru.mail.polis.service.basta123.ReplicHttpServerImpl;
 import ru.mail.polis.service.basta123.Topology;
 
@@ -46,7 +46,7 @@ public final class ServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        final Topology<String> modularTopology = new ModularTopology(topology, "http://localhost:" + port);
+        final Topology<String> modularTopology = new RendezvousTopology(  topology, "http://localhost:" + port);
         final HttpServerConfig httpServerConfig = getHttpServerConfig(port);
         return new ReplicHttpServerImpl(
                 httpServerConfig,

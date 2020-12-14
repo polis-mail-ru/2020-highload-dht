@@ -31,6 +31,7 @@ public class ModularTopology implements Topology<String> {
     @NotNull
     @Override
     public String getNodeForKey(@NotNull final ByteBuffer id) {
+        System.out.println(id);
         return this.nodes.get((id.hashCode() & Integer.MAX_VALUE) % this.nodes.size());
     }
 
@@ -59,10 +60,8 @@ public class ModularTopology implements Topology<String> {
 
     @NotNull
     @Override
-    @SuppressWarnings("unchecked")
     public List<String> getAllNodes() {
-        final ArrayList<String> arrayNodes = (ArrayList<String>) this.nodes;
-        return (ArrayList<String>) arrayNodes.clone();
+        return new ArrayList<>(this.nodes);
     }
 
 }

@@ -41,7 +41,7 @@ public interface Topology<T> {
     boolean isLocal(final String node);
 
     @NotNull
-    List<String> getNodesForKey(@NotNull final ByteBuffer id, final int numOfReplicas);
+    List<String> getNodesForKey(final ByteBuffer id, int replicas);
 
     int getSize();
 }
