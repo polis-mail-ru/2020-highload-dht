@@ -71,7 +71,7 @@ public class RendezvousTopology implements Topology<String> {
 
         }
 
-        int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
+        final int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
         Arrays.sort(nodesSort);
 
         String[] repNodes = new String[numOfReplicas];
