@@ -40,7 +40,7 @@ public class RendezvousTopology implements Topology<String> {
         for (int i = 0; i < nodes.size(); i++) {
             nodesHashes[i] = goodFastHash(32).newHasher()
                     .putString(nodes.get(i), StandardCharsets.UTF_8)
-                    .putInt(key.hashCode()).hash().hashCode();
+                    .putBytes(key).hash().hashCode();
         }
 
         final int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
@@ -51,13 +51,12 @@ public class RendezvousTopology implements Topology<String> {
         for (final int node : nodesHashes) {
             if (node == nodesSort[0]) {
                 neededNode = nodes.get(i);
-
-                break;
+                return neededNode;
             } else {
                 i++;
             }
         }
-        return neededNode;
+
     }
 
     @NotNull
@@ -67,7 +66,7 @@ public class RendezvousTopology implements Topology<String> {
         for (int i = 0; i < nodes.size(); i++) {
             nodesHashes[i] = goodFastHash(32).newHasher()
                     .putString(this.nodes.get(i), StandardCharsets.UTF_8)
-                    .putInt(id.hashCode()).hash().hashCode();
+                    .putBytes(id).hash().hashCode();
 
         }
 

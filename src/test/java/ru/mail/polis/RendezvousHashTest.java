@@ -27,7 +27,7 @@ public class RendezvousHashTest {
     public void evenDistribution() {
         final int[] numberOfNodes = {5, 10, 25, 50, 100};
         for (int i = 0; i < numberOfNodes.length; i++) {
-            Set<String> randomNodes = getRandomNodes(numberOfNodes[i]);
+            Set<String> randomNodes = getRandomNodes(numberOfNodes).iterator().next();
             final Topology<String> topology = new RendezvousTopology(randomNodes,
                     (String) randomNodes.toArray()[0]);
             Map<String, Integer> numberOfEachNode = new HashMap<>();
