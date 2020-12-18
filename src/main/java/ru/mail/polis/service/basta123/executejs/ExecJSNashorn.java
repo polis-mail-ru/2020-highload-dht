@@ -49,50 +49,23 @@ public class ExecJSNashorn {
     }
 
     /**
-     * Method execute function execOnCoordinator.
+     * Method execute function cCoordinatorrrrrr.
      *
      * @param js        - js code
      * @param responses - responses from nodes
      */
     @NotNull
-    public Response execOnCoordinator(@NotNull final String js,
+    public Response cCoordinatorrrrrr(@NotNull final String js,
                                       @NotNull final List<String> responses) {
         execJSCode(js);
         final Invocable invocable = (Invocable) engine;
         Object result = new Object();
         try {
-            result = invocable.invokeFunction("execOnCoordinator", responses);
+            result = invocable.invokeFunction("cCoordinatorrrrrr", responses);
         } catch (ScriptException | NoSuchMethodException e) {
             LOGGER.error("can't invoke function: ", e);
         }
         return Response.ok(String.valueOf(result));
     }
-
-    /*@NotNull
-    public Response func(@NotNull final String js) {
-        try {
-            engine.eval(js);
-        } catch (ScriptException e) {
-            LOGGER.error("error with eval:  ", e);
-        }
-        final Invocable invocable = (Invocable) engine;
-        Object result = new Object();
-        try {
-            result = invocable.invokeFunction("execOnNodes", dao);
-        } catch (ScriptException | NoSuchMethodException e) {
-            LOGGER.error("can't invoke function: ", e);
-        }
-
-        try {
-            engine.eval(js);
-        } catch (ScriptException ex) {
-            LOGGER.error("error eval: ", ex);
-        }
-        try {
-            result = invocable.invokeFunction("execOnCoordinator", responses);
-        } catch (ScriptException | NoSuchMethodException e) {
-            LOGGER.error("can't invoke function: ", e);
-        }
-    }*/
 
 }

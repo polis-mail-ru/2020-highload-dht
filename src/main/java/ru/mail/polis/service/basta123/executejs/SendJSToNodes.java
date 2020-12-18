@@ -88,6 +88,6 @@ public class SendJSToNodes {
             arrayArrays.addAll(Splitter.on(',').splitToList(string));
         }
 
-        return execJSNashorn.execOnCoordinator(js, arrayArrays);
+        return execJSNashorn.cCoordinatorrrrrr(js, arrayArrays);
     }
 }
