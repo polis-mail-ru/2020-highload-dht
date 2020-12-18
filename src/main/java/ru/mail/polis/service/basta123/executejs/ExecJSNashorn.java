@@ -55,8 +55,8 @@ public class ExecJSNashorn {
                                       @NotNull final List<String> responses) {
             try {
                 engine.eval(js);
-            } catch (ScriptException e) {
-                LOGGER.error("error with eval: ", e);
+            } catch (ScriptException ex) {
+                LOGGER.error("error eval: ", ex);
             }
             final Invocable invocable = (Invocable) engine;
             Object result = new Object();
