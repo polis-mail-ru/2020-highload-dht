@@ -27,12 +27,18 @@ public class SendJSToNodes {
     private final ExecJSNashorn execJSNashorn;
     private final Map<String, HttpClient> clientAndNode;
 
-    public SendJSToNodes(Map<String, HttpClient> clientAndNode, DAO dao) {
+    public SendJSToNodes(final Map<String, HttpClient> clientAndNode, final DAO dao) {
         this.clientAndNode = clientAndNode;
         execJSNashorn = new ExecJSNashorn(dao);
     }
 
-
+    /**
+     * send js code to nodes.
+     *
+     * @param request        - request
+     * @param requestForward - is request forwarded
+     * @param topology       - topology
+     */
     public Response sendJSToNodes(final Request request,
                                   final boolean requestForward, final Topology<String> topology) {
         final String js = new String(request.getBody(), UTF_8);
@@ -71,7 +77,7 @@ public class SendJSToNodes {
 
     }
 
-    Response onCoordinator(final String js, List<Response> responses) {
+    Response onCoordinator(final String js, final List<Response> responses) {
         final List<String> stringArray = new ArrayList<>();
         for (final Response response : responses) {
             stringArray.add(response.getBodyUtf8());

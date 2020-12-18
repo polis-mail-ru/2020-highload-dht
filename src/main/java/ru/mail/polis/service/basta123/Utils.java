@@ -1,28 +1,18 @@
 package ru.mail.polis.service.basta123;
 
-import com.google.common.base.Splitter;
-import one.nio.http.HttpException;
 import one.nio.http.HttpServerConfig;
 import one.nio.http.HttpSession;
-import one.nio.http.Request;
 import one.nio.http.Response;
-import one.nio.pool.PoolException;
 import one.nio.server.AcceptorConfig;
 import org.javatuples.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.script.ScriptException;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.NoSuchElementException;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class Utils {
 
@@ -30,7 +20,6 @@ public final class Utils {
 
     private Utils() {
     }
-
 
     /**
      * selects one from all nodes depending on the timestamp.

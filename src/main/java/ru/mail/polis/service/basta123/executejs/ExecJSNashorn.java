@@ -30,8 +30,6 @@ public class ExecJSNashorn {
      */
     @NotNull
     public Response execOnNodes(@NotNull final String js) throws ScriptException {
-        synchronized (OBJECT) {
-
             try {
                 engine.eval(js);
             } catch (ScriptException e) {
@@ -46,7 +44,6 @@ public class ExecJSNashorn {
             }
             return Response.ok(String.valueOf(result));
         }
-    }
 
     /**
      * Method execute function execOnCoordinator.
@@ -57,7 +54,6 @@ public class ExecJSNashorn {
     @NotNull
     public Response execOnCoordinator(@NotNull final String js,
                                       @NotNull final List<String> responses) {
-        synchronized (OBJECT) {
             try {
                 engine.eval(js);
             } catch (ScriptException e) {
@@ -72,5 +68,5 @@ public class ExecJSNashorn {
             }
             return Response.ok(String.valueOf(result));
         }
-    }
+
 }

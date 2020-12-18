@@ -1,6 +1,5 @@
 package ru.mail.polis.service.basta123;
 
-import com.google.common.base.Splitter;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
@@ -11,9 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
-import ru.mail.polis.service.basta123.executejs.ExecJSNashorn;
 
-import javax.script.ScriptException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -202,7 +199,6 @@ public class HelperReplicHttpServerImpl {
         } else {
             return proxying(endNode, request);
         }
-
     }
 
     Response deleteFromReplicas(
@@ -285,5 +281,4 @@ public class HelperReplicHttpServerImpl {
             LOGGER.error(CANT_SEND_RESPONSE, e);
         }
     }
-
 }
