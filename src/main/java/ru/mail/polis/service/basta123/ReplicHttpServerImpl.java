@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import ru.mail.polis.Record;
 import ru.mail.polis.dao.DAO;
 import ru.mail.polis.service.Service;
+import ru.mail.polis.service.basta123.executejs.SendJSToNodes;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -50,6 +51,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     boolean requestForward;
     AckFrom ackFromNew;
     int nodesSize;
+    private final SendJSToNodes sendJSToNodes;
 
     /**
      * class const.
@@ -69,6 +71,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         this.topology = topology;
         this.dao = dao;
         this.clientAndNode = new HashMap<>();
+        sendJSToNodes = new SendJSToNodes(clientAndNode, dao);
         this.ackFrom = new AckFrom(topology);
         this.helper = new HelperReplicHttpServerImpl(dao, topology, clientAndNode);
         for (final String node : topology.getAllNodes()) {
@@ -297,7 +300,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         } else {
             requestForward = true;
         }
-        executeAsync(httpSession, () -> helper.sendJSToNodes(request, requestForward, topology));
+        executeAsync(httpSession, () -> sendJSToNodes.sendJSToNodes(request, requestForward, topology));
     }
 
 }

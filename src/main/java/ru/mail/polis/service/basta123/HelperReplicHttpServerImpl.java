@@ -35,7 +35,6 @@ public class HelperReplicHttpServerImpl {
     private final DAO dao;
     private final Topology<String> topology;
     private final Map<String, HttpClient> clientAndNode;
-    private final ExecJSNashorn execJSNashorn;
 
     /**
      * class const.
@@ -50,7 +49,6 @@ public class HelperReplicHttpServerImpl {
         this.dao = dao;
         this.topology = topology;
         this.clientAndNode = clientAndNode;
-        execJSNashorn = new ExecJSNashorn(dao);
     }
 
     Response getTimestampValue(final String id) throws IOException {
@@ -286,54 +284,6 @@ public class HelperReplicHttpServerImpl {
         } catch (IOException e) {
             LOGGER.error(CANT_SEND_RESPONSE, e);
         }
-    }
-
-    Response sendJSToNodes(final Request request,
-                           final boolean requestForward, final Topology<String> topology) {
-        final String js = new String(request.getBody(), UTF_8);
-        if (requestForward) {
-            try {
-                return execJSNashorn.execOnNodes(js);
-            } catch (NoSuchElementException | ScriptException exc) {
-                LOGGER.error("can't exec JS: ");
-                return new Response(Response.NOT_FOUND, Response.EMPTY);
-            }
-        }
-        final List<Response> responses = new ArrayList<>();
-        final List<String> nodes = topology.getAllNodes();
-
-        for (final String node : nodes) {
-            try {
-                Response response;
-                if (topology.isLocal(node)) {
-                    response = execJSNashorn.execOnNodes(js);
-                } else {
-                    request.addHeader(ReplicHttpServerImpl.FORWARD_REQ);
-                    response = clientAndNode.get(node).invoke(request);
-                }
-                if ((response.getStatus() == 404 && response.getBody().length == 0) || response.getStatus() == 500) {
-                    continue;
-                } else {
-                    responses.add(response);
-                }
-
-            } catch (HttpException | PoolException | InterruptedException | IOException | ScriptException e) {
-                LOGGER.error("can't get response: ", e);
-            }
-        }
-
-        final List<String> stringArray = new ArrayList<>();
-        for (final Response response : responses) {
-            stringArray.add(response.getBodyUtf8());
-        }
-
-        final List<String> arrayArrays = new ArrayList<>();
-        for (final String string : stringArray) {
-            arrayArrays.addAll(Splitter.on(',').splitToList(string));
-        }
-
-        return execJSNashorn.execOnCoordinator(js, arrayArrays);
-
     }
 
 }

@@ -16,9 +16,11 @@ public class ExecJSNashorn {
     public static final Object OBJECT = new Object();
     private final DAO dao;
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecJSNashorn.class);
+    final ScriptEngine engine;
 
     public ExecJSNashorn(final DAO dao) {
         this.dao = dao;
+        engine = new ScriptEngineManager().getEngineByName("nashorn");
     }
 
     /**
@@ -29,7 +31,7 @@ public class ExecJSNashorn {
     @NotNull
     public Response execOnNodes(@NotNull final String js) throws ScriptException {
         synchronized (OBJECT) {
-            final ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
+
             try {
                 engine.eval(js);
             } catch (ScriptException e) {
@@ -56,7 +58,6 @@ public class ExecJSNashorn {
     public Response execOnCoordinator(@NotNull final String js,
                                       @NotNull final List<String> responses) {
         synchronized (OBJECT) {
-            final ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
             try {
                 engine.eval(js);
             } catch (ScriptException e) {
