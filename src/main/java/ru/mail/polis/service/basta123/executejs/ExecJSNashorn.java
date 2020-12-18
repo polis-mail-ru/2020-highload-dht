@@ -49,19 +49,21 @@ public class ExecJSNashorn {
     }
 
     /**
-     * Method execute function cCoordinatorrrrrr.
+     * Method execute function execOnCoordinator.
      *
      * @param js        - js code
      * @param responses - responses from nodes
      */
     @NotNull
-    public Response cCoordinatorrrrrr(@NotNull final String js,
+    public Response execOnCoordinator(@NotNull final String js,
                                       @NotNull final List<String> responses) {
         execJSCode(js);
+        LOGGER.info("execute js code");
         final Invocable invocable = (Invocable) engine;
+        LOGGER.info("type cast to Invocable");
         Object result = new Object();
         try {
-            result = invocable.invokeFunction("cCoordinatorrrrrr", responses);
+            result = invocable.invokeFunction("execOnCoordinator", responses);
         } catch (ScriptException | NoSuchMethodException e) {
             LOGGER.error("can't invoke function: ", e);
         }
