@@ -29,7 +29,11 @@ public class ExecJSNashorn {
      */
     @NotNull
     public Response execOnNodes(@NotNull final String js) throws ScriptException {
-        execJSCode(js);
+        try {
+            engine.eval(js);
+        } catch (ScriptException e) {
+            LOGGER.error("error with eval: ", e);
+        }
         final Invocable invocable = (Invocable) engine;
         Object result = new Object();
         try {
@@ -38,14 +42,6 @@ public class ExecJSNashorn {
             LOGGER.error("can't invoke function: ", e);
         }
         return Response.ok(String.valueOf(result));
-    }
-
-    private void execJSCode(@NotNull String js) {
-        try {
-            engine.eval(js);
-        } catch (ScriptException e) {
-            LOGGER.error("error with eval: ", e);
-        }
     }
 
     /**
@@ -57,7 +53,11 @@ public class ExecJSNashorn {
     @NotNull
     public Response execOnCoordinator(@NotNull final String js,
                                       @NotNull final List<String> responses) {
-        execJSCode(js);
+        try {
+            engine.eval(js);
+        } catch (ScriptException e) {
+            LOGGER.error("error with eval: ", e);
+        }
         LOGGER.info("execute js code");
         final Invocable invocable = (Invocable) engine;
         LOGGER.info("type cast to Invocable");
