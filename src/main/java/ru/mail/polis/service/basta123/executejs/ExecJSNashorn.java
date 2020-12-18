@@ -13,7 +13,6 @@ import javax.script.ScriptException;
 import java.util.List;
 
 public class ExecJSNashorn {
-    public static final Object OBJECT = new Object();
     private final DAO dao;
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecJSNashorn.class);
     final ScriptEngine engine;
@@ -26,14 +25,14 @@ public class ExecJSNashorn {
     /**
      * Method execute function execOnNodes.
      *
-     * @param js - js code
+     * @param jsCode - js code
      */
     @NotNull
-    public Response execOnNodes(@NotNull final String js) throws ScriptException {
+    public Response execOnNodes(@NotNull final String jsCode) throws ScriptException {
             try {
-                engine.eval(js);
+                engine.eval(jsCode);
             } catch (ScriptException e) {
-                LOGGER.error("error with eval: ", e);
+                LOGGER.error("error with eval:  ", e);
             }
             final Invocable invocable = (Invocable) engine;
             Object result = new Object();
