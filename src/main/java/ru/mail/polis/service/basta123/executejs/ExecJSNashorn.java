@@ -25,47 +25,74 @@ public class ExecJSNashorn {
     /**
      * Method execute function execOnNodes.
      *
-     * @param jsCode - js code
+     * @param js - js code
      */
     @NotNull
-    public Response execOnNodes(@NotNull final String jsCode) throws ScriptException {
-            try {
-                engine.eval(jsCode);
-            } catch (ScriptException e) {
-                LOGGER.error("error with eval:  ", e);
-            }
-            final Invocable invocable = (Invocable) engine;
-            Object result = new Object();
-            try {
-                result = invocable.invokeFunction("execOnNodes", dao);
-            } catch (ScriptException | NoSuchMethodException e) {
-                LOGGER.error("can't invoke function: ", e);
-            }
-            return Response.ok(String.valueOf(result));
+    public Response execOnNodes(@NotNull final String js) throws ScriptException {
+        execJSCode(js);
+        final Invocable invocable = (Invocable) engine;
+        Object result = new Object();
+        try {
+            result = invocable.invokeFunction("execOnNodes", dao);
+        } catch (ScriptException | NoSuchMethodException e) {
+            LOGGER.error("can't invoke function: ", e);
         }
+        return Response.ok(String.valueOf(result));
+    }
+
+    private void execJSCode(@NotNull String js) {
+        try {
+            engine.eval(js);
+        } catch (ScriptException e) {
+            LOGGER.error("error with eval: ", e);
+        }
+    }
 
     /**
      * Method execute function execOnCoordinator.
      *
-     * @param js - js code
+     * @param js        - js code
      * @param responses - responses from nodes
      */
     @NotNull
     public Response execOnCoordinator(@NotNull final String js,
                                       @NotNull final List<String> responses) {
-            try {
-                engine.eval(js);
-            } catch (ScriptException ex) {
-                LOGGER.error("error eval: ", ex);
-            }
-            final Invocable invocable = (Invocable) engine;
-            Object result = new Object();
-            try {
-                result = invocable.invokeFunction("execOnCoordinator", responses);
-            } catch (ScriptException | NoSuchMethodException e) {
-                LOGGER.error("can't invoke function: ", e);
-            }
-            return Response.ok(String.valueOf(result));
+        execJSCode(js);
+        final Invocable invocable = (Invocable) engine;
+        Object result = new Object();
+        try {
+            result = invocable.invokeFunction("execOnCoordinator", responses);
+        } catch (ScriptException | NoSuchMethodException e) {
+            LOGGER.error("can't invoke function: ", e);
         }
+        return Response.ok(String.valueOf(result));
+    }
+
+    /*@NotNull
+    public Response func(@NotNull final String js) {
+        try {
+            engine.eval(js);
+        } catch (ScriptException e) {
+            LOGGER.error("error with eval:  ", e);
+        }
+        final Invocable invocable = (Invocable) engine;
+        Object result = new Object();
+        try {
+            result = invocable.invokeFunction("execOnNodes", dao);
+        } catch (ScriptException | NoSuchMethodException e) {
+            LOGGER.error("can't invoke function: ", e);
+        }
+
+        try {
+            engine.eval(js);
+        } catch (ScriptException ex) {
+            LOGGER.error("error eval: ", ex);
+        }
+        try {
+            result = invocable.invokeFunction("execOnCoordinator", responses);
+        } catch (ScriptException | NoSuchMethodException e) {
+            LOGGER.error("can't invoke function: ", e);
+        }
+    }*/
 
 }
