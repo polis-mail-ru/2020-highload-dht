@@ -18,8 +18,10 @@ package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.basta123.Utils;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Objects;
 
 /**
@@ -31,7 +33,7 @@ public final class Record implements Comparable<Record> {
     private final ByteBuffer key;
     private final ByteBuffer value;
 
-    private Record(
+    public Record(
             @NotNull final ByteBuffer key,
             @NotNull final ByteBuffer value) {
         this.key = key;
@@ -46,6 +48,13 @@ public final class Record implements Comparable<Record> {
 
     public ByteBuffer getKey() {
         return key.asReadOnlyBuffer();
+    }
+
+    public int getKeyAsNumber() {
+        byte[] byteArrayFromByteBuffer = Utils.getByteArrayFromByteBuffer(key);
+        ByteBuffer byteBuffer = ByteBuffer.wrap(byteArrayFromByteBuffer);
+        String keyString = new String(byteBuffer.duplicate().array(),Charset.defaultCharset());
+        return Integer.parseInt(keyString);
     }
 
     public ByteBuffer getValue() {

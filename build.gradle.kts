@@ -39,6 +39,7 @@ dependencies {
     // JUnit Jupiter test framework
     testCompile("org.junit.jupiter:junit-jupiter-api:5.4.0")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.4.0")
+
 }
 
 val run by tasks.getting(JavaExec::class) {

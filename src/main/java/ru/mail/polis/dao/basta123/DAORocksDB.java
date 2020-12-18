@@ -42,8 +42,17 @@ public class DAORocksDB implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) {
+
         final RocksIterator rocksIterator = rocksDBInstance.newIterator();
         rocksIterator.seek(Utils.bufToArray(from));
+        return new RecordIter2(rocksIterator);
+    }
+
+    @NotNull
+    @Override
+    public Iterator<Record> startFromBeginningIterator() {
+        final var rocksIterator = rocksDBInstance.newIterator();
+        rocksIterator.seekToFirst();
         return new RecordIter2(rocksIterator);
     }
 

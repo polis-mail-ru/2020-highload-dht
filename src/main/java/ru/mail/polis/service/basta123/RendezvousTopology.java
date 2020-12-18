@@ -105,4 +105,9 @@ public class RendezvousTopology implements Topology<String> {
     public int getSize() {
         return this.nodes.size();
     }
+
+    @Override
+    public String getLocalNode() {
+        return localNode;
+    }
 }

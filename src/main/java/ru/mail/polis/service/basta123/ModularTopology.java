@@ -63,4 +63,8 @@ public class ModularTopology implements Topology<String> {
         return new ArrayList<>(this.nodes);
     }
 
+    @Override
+    public String getLocalNode() {
+        return this.localNode;
+    }
 }

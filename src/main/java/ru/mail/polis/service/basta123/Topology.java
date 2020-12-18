@@ -44,4 +44,6 @@ public interface Topology<T> {
     List<String> getNodesForKey(@NotNull final ByteBuffer id, final int numOfReplicas);
 
     int getSize();
+
+    String getLocalNode();
 }

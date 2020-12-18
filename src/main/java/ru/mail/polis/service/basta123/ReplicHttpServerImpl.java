@@ -290,4 +290,39 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     public HttpSession createSession(@NotNull final Socket socket) {
         return new StreamingSessionChunks(socket, this);
     }
+
+
+    @Path(value = "/v0/entity")
+    @RequestMethod(Request.METHOD_POST)
+    public void applyJSCode(final Request request,
+                            @NotNull final HttpSession httpSession) {
+
+        if (request.getHeader(FORWARD_REQ) == null) {
+            requestForward = false;
+        } else {
+            requestForward = true;
+        }
+
+        try {
+            execService.execute(() -> {
+                try {
+                    Response response = helper.sendJSToNodes(request, requestForward, topology);
+                    httpSession.sendResponse(response);
+
+                } catch (IOException e) {
+                    log.error("sendJSToNodes throws ex:", e);
+                    try {
+                        httpSession.sendError(Response.INTERNAL_ERROR, ERROR_LOG);
+                    } catch (IOException ex) {
+                        log.error(IO_ERROR);
+                    }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            log.error("array is full", e);
+            HelperReplicHttpServerImpl.sendResponse(httpSession, Response.SERVICE_UNAVAILABLE);
+        }
+
+    }
+
 }

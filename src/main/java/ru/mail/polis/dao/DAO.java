@@ -28,6 +28,9 @@ public interface DAO extends Closeable {
     @NotNull
     Iterator<Record> iterator(@NotNull ByteBuffer from) throws IOException;
 
+    @NotNull
+    Iterator<Record> startFromBeginningIterator();
+
     /**
      * Provides iterator (possibly empty) over {@link Record}s starting at "from" key (inclusive)
      * until given "to" key (exclusive) in <b>ascending</b> order according to {@link Record#compareTo(Record)}.

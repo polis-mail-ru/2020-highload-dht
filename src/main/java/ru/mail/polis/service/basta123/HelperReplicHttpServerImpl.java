@@ -1,5 +1,6 @@
 package ru.mail.polis.service.basta123;
 
+import com.google.common.base.Splitter;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.HttpSession;
@@ -10,7 +11,9 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.mail.polis.dao.DAO;
+import ru.mail.polis.service.basta123.executeJS.ExecJSNashorn;
 
+import javax.script.ScriptException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -19,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * class to feature topology-bound implementations of project-required DAO methods (get, put, delete).
@@ -31,6 +36,7 @@ public class HelperReplicHttpServerImpl {
     private final DAO dao;
     private final Topology<String> topology;
     private final Map<String, HttpClient> clientAndNode;
+    private final ExecJSNashorn execJSNashorn;
 
     /**
      * class const.
@@ -45,6 +51,7 @@ public class HelperReplicHttpServerImpl {
         this.dao = dao;
         this.topology = topology;
         this.clientAndNode = clientAndNode;
+        execJSNashorn = new ExecJSNashorn(dao);
     }
 
     Response getTimestampValue(final String id) throws IOException {
@@ -144,7 +151,7 @@ public class HelperReplicHttpServerImpl {
     }
 
     Response upsertToReplicas(final String id, final byte[] value, final AckFrom ackFrom,
-            final boolean requestForward) throws IOException {
+                              final boolean requestForward) {
         if (requestForward) {
             try {
                 dao.upsertTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())),
@@ -204,7 +211,7 @@ public class HelperReplicHttpServerImpl {
     Response deleteFromReplicas(
             final String id,
             final boolean requestForward,
-            final AckFrom ackFrom) throws IOException {
+            final AckFrom ackFrom) {
         if (requestForward) {
             try {
                 dao.removeTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
@@ -223,8 +230,7 @@ public class HelperReplicHttpServerImpl {
                     dao.removeTimestampValue(ByteBuffer.wrap(id.getBytes(Charset.defaultCharset())));
                     ack++;
                 } else {
-                    final Response response = clientAndNode
-                            .get(node)
+                    final Response response = clientAndNode.get(node)
                             .delete(REQUEST_HEADER + id, ReplicHttpServerImpl.FORWARD_REQ);
                     if (response.getStatus() == 202) {
                         ack++;
@@ -259,7 +265,7 @@ public class HelperReplicHttpServerImpl {
     }
 
     private Response proxying(@NotNull final String node,
-                              final Request request) throws IOException {
+                              final Request request) {
         try {
             return clientAndNode.get(node).invoke(request);
         } catch (IOException | HttpException | InterruptedException | PoolException e) {
@@ -282,4 +288,55 @@ public class HelperReplicHttpServerImpl {
             LOGGER.error(CANT_SEND_RESPONSE, e);
         }
     }
+
+    Response sendJSToNodes(final Request request,
+                           final boolean requestForward, Topology<String> topology) {
+        final String js = new String(request.getBody(), UTF_8);
+        if (requestForward) {
+            try {
+                return execJSNashorn.execOnNodes(js);
+            } catch (NoSuchElementException | ScriptException exc) {
+                LOGGER.error("can't exec JS: ");
+                return new Response(Response.NOT_FOUND, Response.EMPTY);
+            }
+        }
+        List<Response> responses = new ArrayList<>();
+        final List<String> nodes = topology.getAllNodes();
+
+        for (final String node : nodes) {
+            try {
+                Response response;
+                if (topology.isLocal(node)) {
+                    response = execJSNashorn.execOnNodes(js);
+                } else {
+                    request.addHeader(ReplicHttpServerImpl.FORWARD_REQ);
+                    response = clientAndNode.get(node).invoke(request);
+                }
+                if ((response.getStatus() == 404 && response.getBody().length == 0) || response.getStatus() == 500) {
+                    continue;
+                } else {
+                    responses.add(response);
+                }
+
+            } catch (HttpException | PoolException | InterruptedException | IOException | ScriptException e) {
+                LOGGER.error("can't get response: ", e);
+            }
+        }
+
+        List<String> stringArray = new ArrayList<>();
+        for (final Response response : responses) {
+            stringArray.add(response.getBodyUtf8());
+        }
+
+        final List<String> arrayArrays = new ArrayList<>();
+        for (final String string : stringArray) {
+            arrayArrays.addAll(Splitter.on(',').splitToList(string));
+        }
+
+        Response response = execJSNashorn.execOnCoordinator(js, arrayArrays);
+
+        return response;
+
+    }
+
 }
