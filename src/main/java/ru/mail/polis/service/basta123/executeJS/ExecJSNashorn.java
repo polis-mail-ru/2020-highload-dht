@@ -14,45 +14,55 @@ import java.util.List;
 
 public class ExecJSNashorn {
     public static final Object OBJECT = new Object();
-    private DAO dao;
+    private final DAO dao;
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecJSNashorn.class);
 
-    public ExecJSNashorn(DAO dao) {
+    public ExecJSNashorn(final DAO dao) {
         this.dao = dao;
     }
 
+    /**
+     * Method execute function execOnNodes.
+     *
+     * @param js - js code
+     */
     @NotNull
     public Response execOnNodes(@NotNull final String js) throws ScriptException {
         synchronized (OBJECT) {
-            ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
+            final ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
             try {
                 engine.eval(js);
             } catch (ScriptException e) {
                 LOGGER.error("error with eval: ", e);
             }
-            Invocable invocable = (Invocable) engine;
+            final Invocable invocable = (Invocable) engine;
             Object result = new Object();
             try {
                 result = invocable.invokeFunction("execOnNodes", dao);
             } catch (ScriptException | NoSuchMethodException e) {
                 LOGGER.error("can't invoke function: ", e);
             }
-            System.out.println("result = " + result);
             return Response.ok(String.valueOf(result));
         }
     }
 
+    /**
+     * Method execute function execOnCoordinator.
+     *
+     * @param js - js code
+     * @param responses - responses from nodes
+     */
     @NotNull
     public Response execOnCoordinator(@NotNull final String js,
                                       @NotNull final List<String> responses) {
         synchronized (OBJECT) {
-            ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
+            final ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
             try {
                 engine.eval(js);
             } catch (ScriptException e) {
                 LOGGER.error("error with eval: ", e);
             }
-            Invocable invocable = (Invocable) engine;
+            final Invocable invocable = (Invocable) engine;
             Object result = new Object();
             try {
                 result = invocable.invokeFunction("execOnCoordinator", responses);

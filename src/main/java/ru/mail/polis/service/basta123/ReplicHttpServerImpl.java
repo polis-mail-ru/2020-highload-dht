@@ -291,7 +291,12 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         return new StreamingSessionChunks(socket, this);
     }
 
-
+    /**
+     * Method execute js code.
+     *
+     * @param request     - start key
+     * @param httpSession - http session
+     */
     @Path(value = "/v0/entity")
     @RequestMethod(Request.METHOD_POST)
     public void applyJSCode(final Request request,
@@ -306,7 +311,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         try {
             execService.execute(() -> {
                 try {
-                    Response response = helper.sendJSToNodes(request, requestForward, topology);
+                    final Response response = helper.sendJSToNodes(request, requestForward, topology);
                     httpSession.sendResponse(response);
 
                 } catch (IOException e) {

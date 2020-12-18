@@ -57,7 +57,7 @@ public class HelperReplicHttpServerImpl {
     Response getTimestampValue(final String id) throws IOException {
         try {
             final TimestampValue timestampValue = dao.getTimestampValue(
-                    ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8)));
+                    ByteBuffer.wrap(id.getBytes(UTF_8)));
             return new Response(Response.OK,
                     TimestampValue.getBytesFromTimestampValue(timestampValue.isValueDeleted(),
                             timestampValue.getTimeStamp(), timestampValue.getBuffer()));
@@ -129,7 +129,7 @@ public class HelperReplicHttpServerImpl {
 
     Response get(@NotNull final String id,
                  final Request request) throws IOException {
-        final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(UTF_8));
         ByteBuffer valueByteBuffer;
         final byte[] valueBytes;
 
@@ -191,7 +191,7 @@ public class HelperReplicHttpServerImpl {
 
     Response put(@NotNull final String id, @NotNull final Request request) throws IOException {
 
-        final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(UTF_8));
         final byte[] valueByte = request.getBody();
         final ByteBuffer valueByteBuffer = ByteBuffer.wrap(valueByte);
         final String endNode = topology.getNodeForKey(keyByteBuffer);
@@ -249,7 +249,7 @@ public class HelperReplicHttpServerImpl {
 
     Response delete(@NotNull final String id,
                     final Request request) throws IOException {
-        final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(StandardCharsets.UTF_8));
+        final ByteBuffer keyByteBuffer = ByteBuffer.wrap(id.getBytes(UTF_8));
         final String endNode = topology.getNodeForKey(keyByteBuffer);
         if (topology.isLocal(endNode)) {
             try {
@@ -290,7 +290,7 @@ public class HelperReplicHttpServerImpl {
     }
 
     Response sendJSToNodes(final Request request,
-                           final boolean requestForward, Topology<String> topology) {
+                           final boolean requestForward, final Topology<String> topology) {
         final String js = new String(request.getBody(), UTF_8);
         if (requestForward) {
             try {
@@ -300,7 +300,7 @@ public class HelperReplicHttpServerImpl {
                 return new Response(Response.NOT_FOUND, Response.EMPTY);
             }
         }
-        List<Response> responses = new ArrayList<>();
+        final List<Response> responses = new ArrayList<>();
         final List<String> nodes = topology.getAllNodes();
 
         for (final String node : nodes) {
@@ -323,7 +323,7 @@ public class HelperReplicHttpServerImpl {
             }
         }
 
-        List<String> stringArray = new ArrayList<>();
+        final List<String> stringArray = new ArrayList<>();
         for (final Response response : responses) {
             stringArray.add(response.getBodyUtf8());
         }
@@ -333,9 +333,7 @@ public class HelperReplicHttpServerImpl {
             arrayArrays.addAll(Splitter.on(',').splitToList(string));
         }
 
-        Response response = execJSNashorn.execOnCoordinator(js, arrayArrays);
-
-        return response;
+        return execJSNashorn.execOnCoordinator(js, arrayArrays);
 
     }
 

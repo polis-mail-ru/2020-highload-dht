@@ -50,10 +50,13 @@ public final class Record implements Comparable<Record> {
         return key.asReadOnlyBuffer();
     }
 
+    /**
+     * Method return key.
+     */
     public int getKeyAsNumber() {
-        byte[] byteArrayFromByteBuffer = Utils.getByteArrayFromByteBuffer(key);
-        ByteBuffer byteBuffer = ByteBuffer.wrap(byteArrayFromByteBuffer);
-        String keyString = new String(byteBuffer.duplicate().array(),Charset.defaultCharset());
+        final byte[] byteArrayFromByteBuffer = Utils.getByteArrayFromByteBuffer(key);
+        final ByteBuffer byteBuffer = ByteBuffer.wrap(byteArrayFromByteBuffer);
+        final String keyString = new String(byteBuffer.duplicate().array(), Charset.defaultCharset());
         return Integer.parseInt(keyString);
     }
 
