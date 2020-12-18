@@ -1,10 +1,15 @@
 package ru.mail.polis.service.basta123;
 
 import one.nio.http.HttpServerConfig;
+import one.nio.http.HttpSession;
+import one.nio.http.Response;
 import one.nio.server.AcceptorConfig;
 import org.javatuples.Pair;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -129,5 +134,19 @@ public final class Utils {
 
         return new Pair<>(ack, from);
     }
+
+    static boolean isIdValid(final String id,
+                             @NotNull final HttpSession httpSession) {
+        if (id.isEmpty()) {
+            HelperReplicHttpServerImpl.sendResponse(httpSession, Response.BAD_REQUEST);
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+
+
+
 
 }

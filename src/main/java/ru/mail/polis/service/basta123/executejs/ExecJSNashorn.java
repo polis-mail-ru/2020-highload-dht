@@ -1,4 +1,4 @@
-package ru.mail.polis.service.basta123.executeJS;
+package ru.mail.polis.service.basta123.executejs;
 
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;

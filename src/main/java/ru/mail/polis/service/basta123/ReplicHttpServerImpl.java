@@ -36,7 +36,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     private static final Logger log = LoggerFactory.getLogger(ReplicHttpServerImpl.class);
     private static final String HTTP_CLIENT_TIMEOUT = "?timeout=1000";
     private static final int QUEUE_SIZE = 1024;
-    private static final String ERROR_LOG = "Error sending";
+    public static final String ERROR_LOG = "Error sending";
     public static final String IO_ERROR = "IOexception";
     public static final String FORWARD_REQ = "forward request";
     public static final String TIMEOUT_ERROR = "response time out";
@@ -142,7 +142,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     public void getValueByKey(@Param(value = "id", required = true) final String id,
                               final Request request,
                               @NotNull final HttpSession httpSession) throws IOException {
-        if (!isIdValid(id, httpSession)) {
+        if (!Utils.isIdValid(id, httpSession)) {
             return;
         }
         exec(request, httpSession);
@@ -169,7 +169,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     public void putValue(@Param(value = "id", required = true) final String id,
                          final Request request,
                          @NotNull final HttpSession httpSession) throws IOException {
-        if (!isIdValid(id, httpSession)) {
+        if (!Utils.isIdValid(id, httpSession)) {
             log.error("error id: ");
             return;
         }
@@ -197,7 +197,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     public void deleteValue(@Param(value = "id", required = true) final String id,
                             final Request request,
                             @NotNull final HttpSession httpSession) throws IOException {
-        if (!isIdValid(id, httpSession)) {
+        if (!Utils.isIdValid(id, httpSession)) {
             log.error("error id");
             return;
         }
@@ -244,16 +244,6 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         Response act() throws IOException;
     }
 
-    private boolean isIdValid(final String id,
-                              @NotNull final HttpSession httpSession) {
-        if (id.isEmpty()) {
-            HelperReplicHttpServerImpl.sendResponse(httpSession, Response.BAD_REQUEST);
-            return false;
-        } else {
-            return true;
-        }
-    }
-
     /**
      * Method provides range request.
      *
@@ -297,7 +287,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
      * @param request     - start key
      * @param httpSession - http session
      */
-    @Path(value = "/v0/entity")
+    @Path(value = "/v0/jscode")
     @RequestMethod(Request.METHOD_POST)
     public void applyJSCode(final Request request,
                             @NotNull final HttpSession httpSession) {
@@ -307,27 +297,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
         } else {
             requestForward = true;
         }
-
-        try {
-            execService.execute(() -> {
-                try {
-                    final Response response = helper.sendJSToNodes(request, requestForward, topology);
-                    httpSession.sendResponse(response);
-
-                } catch (IOException e) {
-                    log.error("sendJSToNodes throws ex:", e);
-                    try {
-                        httpSession.sendError(Response.INTERNAL_ERROR, ERROR_LOG);
-                    } catch (IOException ex) {
-                        log.error(IO_ERROR);
-                    }
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            log.error("array is full", e);
-            HelperReplicHttpServerImpl.sendResponse(httpSession, Response.SERVICE_UNAVAILABLE);
-        }
-
+        executeAsync(httpSession, () -> helper.sendJSToNodes(request, requestForward, topology));
     }
 
 }
