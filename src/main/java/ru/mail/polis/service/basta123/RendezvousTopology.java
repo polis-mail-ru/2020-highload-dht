@@ -37,16 +37,16 @@ public class RendezvousTopology implements Topology<String> {
     @NotNull
     @Override
     public String getNodeForKey(@NotNull final ByteBuffer key) {
-        List<String> nodes = getNodesForKey(key, 1);
-        return nodes.get(0);
+        final List<String> node = getNodesForKey(key, 1);
+        return node.get(0);
     }
 
     @NotNull
     @Override
     public List<String> getNodesForKey(@NotNull final ByteBuffer id, final int numOfReplicas) {
-        byte[] key = Utils.getByteArrayFromByteBuffer(id);
+        final byte[] key = Utils.getByteArrayFromByteBuffer(id);
 
-        Queue<NodeHash> queue = new PriorityQueue<>();
+        final Queue<NodeHash> queue = new PriorityQueue<>();
         for (int i = 0; i < nodes.size(); i++) {
             final String node = this.nodes.get(i);
             queue.add(new NodeHash(node,
@@ -55,9 +55,9 @@ public class RendezvousTopology implements Topology<String> {
                             .putBytes(key).hash().hashCode()
             ));
         }
-        List<String> repNodes=new ArrayList<>();
-        int i=0;
-        while (!queue.isEmpty() && i<numOfReplicas) {
+        final List<String> repNodes = new ArrayList<>();
+        int i = 0;
+        while (!queue.isEmpty() && i < numOfReplicas) {
             i++;
             repNodes.add(queue.poll().getNode());
         }

@@ -70,7 +70,7 @@ public class RendezvousHashTest {
 
     @Test
     public void checkKeysMigration() {
-        final int[] numberOfNodes = {5,10,20};
+        final int[] numberOfNodes = {5, 10, 20};
         for (int i = 0; i < numberOfNodes.length; i++) {
             int numberOfMigratedKeys = 0;
             Set<String> randomNodes = getRandomNodes(numberOfNodes[i]);
