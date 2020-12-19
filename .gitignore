@@ -4,6 +4,7 @@
 # But not Java files...
 !.gitignore
 !*.java
+!*.js
 !README.md
 !LICENSE
 !gradlew.bat
