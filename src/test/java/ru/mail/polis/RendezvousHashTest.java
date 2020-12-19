@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class RendezvousHashTest {
 
@@ -27,19 +27,22 @@ public class RendezvousHashTest {
     public void evenDistribution() {
         final int[] numberOfNodes = {5, 10, 25, 50, 100};
         for (int i = 0; i < numberOfNodes.length; i++) {
-            Set<String> randomNodes = getRandomNodes(numberOfNodes).iterator().next();
+            Set<String> randomNodes = getRandomNodes(numberOfNodes[i]);
             final Topology<String> topology = new RendezvousTopology(randomNodes,
-                    (String) randomNodes.toArray()[0]);
+                    randomNodes.iterator().next());
             Map<String, Integer> numberOfEachNode = new HashMap<>();
             for (int j = 0; j < COUNT_OF_KEYS; j++) {
                 final List<String> repNodes = topology.getNodesForKey(ByteBuffer.wrap(getKey()), randomNodes.size() / 2);
                 for (final String node : repNodes) {
-                    if (numberOfEachNode.get(node) == null) {
+                    /*if (numberOfEachNode.get(node) == null) {
                         numberOfEachNode.put(node, 1);
                     } else {
                         numberOfEachNode.put(node, (numberOfEachNode.get(node) + 1));
-                    }
-
+                    }*/
+                    int count = 0;
+                    count = numberOfEachNode.getOrDefault(node, 0);
+                    count++;
+                    numberOfEachNode.put(node, count);
                 }
 
             }
@@ -63,6 +66,43 @@ public class RendezvousHashTest {
         }
         return true;
 
+    }
+
+    @Test
+    public void checkKeysMigration() {
+        final int[] numberOfNodes = {5,10,20};
+        for (int i = 0; i < numberOfNodes.length; i++) {
+            int numberOfMigratedKeys = 0;
+            Set<String> randomNodes = getRandomNodes(numberOfNodes[i]);
+            int migrationSize = COUNT_OF_KEYS / randomNodes.size();
+            final Topology<String> topologyBefore = new RendezvousTopology(randomNodes,
+                    randomNodes.iterator().next());
+            randomNodes.add(getRandomNode());
+            final Topology<String> topologyAfterChanges = new RendezvousTopology(randomNodes,
+                    randomNodes.iterator().next());
+
+            for (int j = 0; j < COUNT_OF_KEYS; j++) {
+                final byte[] key = getKey();
+                final String nodeBefore = topologyBefore.getNodeForKey(ByteBuffer.wrap(key));
+                final String nodeAfterChanges = topologyAfterChanges.getNodeForKey(ByteBuffer.wrap(key));
+                if (!nodeBefore.equals(nodeAfterChanges)) {
+                    numberOfMigratedKeys++;
+                }
+
+            }
+
+            if (!(numberOfMigratedKeys <= migrationSize)) {
+
+                fail();
+            }
+        }
+        assertTrue(true);
+
+    }
+
+    private static String getRandomNode() {
+        int randomPort = random.nextInt(MAX_PORT - 1);
+        return URL + randomPort;
     }
 
     @NotNull

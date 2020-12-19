@@ -5,8 +5,9 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.Set;
 
 import static com.google.common.hash.Hashing.goodFastHash;
@@ -36,57 +37,32 @@ public class RendezvousTopology implements Topology<String> {
     @NotNull
     @Override
     public String getNodeForKey(@NotNull final ByteBuffer key) {
-        int[] nodesHashes = new int[this.nodes.size()];
-        for (int i = 0; i < nodes.size(); i++) {
-            nodesHashes[i] = goodFastHash(32).newHasher()
-                    .putString(nodes.get(i), StandardCharsets.UTF_8)
-                    .putBytes(key).hash().hashCode();
-        }
-
-        final int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
-        Arrays.sort(nodesSort);
-
-        String neededNode = null;
-        int i = 0;
-        for (final int node : nodesHashes) {
-            if (node == nodesSort[0]) {
-                neededNode = nodes.get(i);
-                return neededNode;
-            } else {
-                i++;
-            }
-        }
-
+        List<String> nodes = getNodesForKey(key, 1);
+        return nodes.get(0);
     }
 
     @NotNull
     @Override
     public List<String> getNodesForKey(@NotNull final ByteBuffer id, final int numOfReplicas) {
-        int[] nodesHashes = new int[this.nodes.size()];
+        byte[] key = Utils.getByteArrayFromByteBuffer(id);
+
+        Queue<NodeHash> queue = new PriorityQueue<>();
         for (int i = 0; i < nodes.size(); i++) {
-            nodesHashes[i] = goodFastHash(32).newHasher()
-                    .putString(this.nodes.get(i), StandardCharsets.UTF_8)
-                    .putBytes(id).hash().hashCode();
-
+            final String node = this.nodes.get(i);
+            queue.add(new NodeHash(node,
+                    goodFastHash(32).newHasher()
+                            .putString(node, StandardCharsets.UTF_8)
+                            .putBytes(key).hash().hashCode()
+            ));
+        }
+        List<String> repNodes=new ArrayList<>();
+        int i=0;
+        while (!queue.isEmpty() && i<numOfReplicas) {
+            i++;
+            repNodes.add(queue.poll().getNode());
         }
 
-        final int[] nodesSort = Arrays.copyOf(nodesHashes, nodesHashes.length);
-        Arrays.sort(nodesSort);
-
-        String[] repNodes = new String[numOfReplicas];
-
-        for (int j = 0; j < numOfReplicas; j++) {
-            int i = 0;
-            for (final int node : nodesHashes) {
-                if (node == nodesSort[j]) {
-                    repNodes[j] = nodes.get(i);
-                    break;
-                } else {
-                    i++;
-                }
-            }
-        }
-        return Arrays.asList(repNodes);
+        return repNodes;
     }
 
     @NotNull
