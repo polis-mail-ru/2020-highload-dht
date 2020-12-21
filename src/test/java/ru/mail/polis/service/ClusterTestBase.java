@@ -48,12 +48,12 @@ abstract class ClusterTestBase extends TestBase {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
     private final Map<String, HttpClient> hostToClient = new HashMap<>();
 
-    private String[] nodes;
+    String[] nodes;
     private int[] ports;
     private File[] datas;
     private DAO[] daos;
-    private Service[] services;
-    private Set<String> endpoints;
+    Service[] services;
+    Set<String> endpoints;
 
     @NotNull
     private static String path(@NotNull final String id) {
@@ -61,7 +61,7 @@ abstract class ClusterTestBase extends TestBase {
     }
 
     @NotNull
-    private static String path(
+    static String path(
             @NotNull final String id,
             final int ack,
             final int from) {
@@ -71,7 +71,6 @@ abstract class ClusterTestBase extends TestBase {
     @BeforeEach
     void beforeEach() throws Exception {
         final int size = getClusterSize();
-
         // Allocate structures
         nodes = new String[size];
         ports = new int[size];
@@ -122,7 +121,7 @@ abstract class ClusterTestBase extends TestBase {
     }
 
     @NotNull
-    private HttpClient client(final int node) {
+    HttpClient client(final int node) {
         final String endpoint = nodes[node];
         return hostToClient.computeIfAbsent(
                 endpoint,

@@ -176,6 +176,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
             log.error("error id: ");
             return;
         }
+
         exec(request, httpSession);
         if (nodesSize > 1) {
             final AckFrom finalAckFrom = ackFromNew;
@@ -294,6 +295,7 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     @RequestMethod(Request.METHOD_POST)
     public void applyJSCode(final Request request,
                             @NotNull final HttpSession httpSession) {
+
 
         if (request.getHeader(FORWARD_REQ) == null) {
             requestForward = false;
