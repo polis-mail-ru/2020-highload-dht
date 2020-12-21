@@ -296,7 +296,6 @@ public class ReplicHttpServerImpl extends HttpServer implements Service {
     public void applyJSCode(final Request request,
                             @NotNull final HttpSession httpSession) {
 
-
         if (request.getHeader(FORWARD_REQ) == null) {
             requestForward = false;
         } else {
